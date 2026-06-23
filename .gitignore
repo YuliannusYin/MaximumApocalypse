@@ -1,0 +1,69 @@
+# ============================================
+# Apocrypha - Git 忽略文件配置
+# ============================================
+
+# ---------- Godot 引擎缓存 ----------
+.godot/
+/android/
+/builds/
+/export/
+*.tmp
+*.temp
+
+# ---------- Godot 导入缓存（可选：如需协作共享可取消注释） ----------
+# *.import
+
+# ---------- 操作系统文件 ----------
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+desktop.ini
+$RECYCLE.BIN/
+*.lnk
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+# Linux
+*~
+.directory
+.Trash-*
+
+# ---------- 编辑器 / IDE 文件 ----------
+# 注意：保留 .vscode/settings.json 纳入版本管理，仅忽略其他 IDE 配置
+.idea/
+*.swp
+*.swo
+*.swn
+*.bak
+*.orig
+
+# ---------- 构建 / 导出产物 ----------
+build/
+dist/
+bin/
+*.exe
+*.apk
+*.aab
+*.app
+*.x86_64
+*.pck
+*.zip
+*.tar.gz
+
+# ---------- 日志与临时文件 ----------
+*.log
+logs/
+tmp/
+temp/
+
+# ---------- 依赖与第三方库 ----------
+addons/*/node_modules/
+
+# ---------- 敏感信息（切勿提交） ----------
+.env
+.env.local
+*.secret
+credentials.json
