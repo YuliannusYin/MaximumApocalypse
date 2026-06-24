@@ -1,3 +1,4 @@
 {
-    "godotTools.editorPath.godot4": "d:\\GameEngineLibraries\\Godot_v4.7-stable_win64.exe"
+    "godotTools.editorPath.godot4": "d:\\GameEngineLibraries\\Godot_v4.7-stable_win64.exe",
+    "markdown.validate.enabled": false
 }
