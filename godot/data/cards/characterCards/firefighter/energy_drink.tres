@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="CharacterCardData" format=3 uid="uid://energy_drink"]
+
+[ext_resource type="Script" uid="uid://cw2m7xg7nf4d5" path="res://godot/CharacterCardData.gd" id="1_energy_drink"]
+
+[resource]
+script = ExtResource("1_energy_drink")
+id = "energy_drink"
+card_name = "能量饮料"
+owner_character_id = "firefighter"
+description = "直到你的下个回合开始，你免疫饥饿伤害。你抓一张牌"
+effect_script_id = "immune_hunger_draw_1_card"
+card_type = 0
+equipment_cost = 0
+range_type = 0
+action_condition = "无"
+metadata/_custom_type_script = "uid://cw2m7xg7nf4d5"

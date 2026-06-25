@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="CharacterCardData" format=3 uid="uid://taser"]
+
+[ext_resource type="Script" uid="uid://cw2m7xg7nf4d5" path="res://godot/CharacterCardData.gd" id="1_taser"]
+
+[resource]
+script = ExtResource("1_taser")
+id = "taser"
+card_name = "泰瑟枪"
+owner_character_id = "surgeon"
+description = "击晕一个敌人直到你的下回合开始"
+effect_script_id = "stun_enemy_until_next_turn"
+card_type = 1
+equipment_cost = 2
+range_type = 2
+action_condition = "无"
+metadata/_custom_type_script = "uid://cw2m7xg7nf4d5"

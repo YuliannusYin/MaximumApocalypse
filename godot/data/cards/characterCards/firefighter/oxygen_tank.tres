@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="CharacterCardData" format=3 uid="uid://oxygen_tank"]
+
+[ext_resource type="Script" uid="uid://cw2m7xg7nf4d5" path="res://godot/CharacterCardData.gd" id="1_oxygen_tank"]
+
+[resource]
+script = ExtResource("1_oxygen_tank")
+id = "oxygen_tank"
+card_name = "氧气罐"
+owner_character_id = "firefighter"
+description = "消耗一点打火机的弹药，然后对射程内的所有目标造成3点伤害"
+effect_script_id = "consume_lighter_ammo_deal_3_damage_all"
+card_type = 0
+equipment_cost = 0
+range_type = 2
+action_condition = "打火机在场上且有弹药"
+metadata/_custom_type_script = "uid://cw2m7xg7nf4d5"
