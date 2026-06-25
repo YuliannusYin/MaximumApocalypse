@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="CharacterCardData" format=3 uid="uid://motorcycle"]
+
+[ext_resource type="Script" uid="uid://cw2m7xg7nf4d5" path="res://godot/CharacterCardData.gd" id="1_motorcycle"]
+
+[resource]
+script = ExtResource("1_motorcycle")
+id = "motorcycle"
+card_name = "摩托车"
+owner_character_id = "hunter"
+description = "消耗1点燃料，最多移动3格"
+effect_script_id = "consume_fuel_move_3_tiles"
+card_type = 1
+equipment_cost = 2
+range_type = 0
+action_condition = "燃料大于0"
+metadata/_custom_type_script = "uid://cw2m7xg7nf4d5"

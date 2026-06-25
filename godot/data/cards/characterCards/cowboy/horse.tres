@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="CharacterCardData" format=3 uid="uid://horse"]
+
+[ext_resource type="Script" uid="uid://cw2m7xg7nf4d5" path="res://godot/CharacterCardData.gd" id="1_horse"]
+
+[resource]
+script = ExtResource("1_horse")
+id = "horse"
+card_name = "马"
+owner_character_id = "cowboy"
+description = "移动最多两格。弃置此牌将场上所有玩家的饥饿等级降低一点（此行为不消耗每回合的行动点数）。"
+effect_script_id = "move_2_tiles_discard_reduce_hunger"
+card_type = 1
+equipment_cost = 2
+range_type = 0
+action_condition = "无"
+metadata/_custom_type_script = "uid://cw2m7xg7nf4d5"

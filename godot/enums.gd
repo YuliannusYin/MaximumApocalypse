@@ -13,7 +13,7 @@ enum ScavengeCardColor { RED, GREEN, BLUE, GRAY, NONE }
 enum TriggerTime { ON_REVEAL, ON_ENTER, ON_END, ON_ACTION }
 
 # [新增] 2026-06-24: 卡牌类型枚举（即时行动、装备、拾荒）
-enum CardType { INSTANT, EQUIPMENT, SCAVENGE }
+enum CardType { MAPBLOCK, SCAVENGE , CHARACTER ,CHARACTER_CARD}
 
 # [新增] 2026-06-24: 游戏阶段枚举（怪物出生、抽牌、行动、饥饿、怪物攻击）
 enum GamePhase { SPAWN, DRAW, ACTION, HUNGER, MONSTER_ATTACK }
@@ -22,3 +22,5 @@ enum GamePhase { SPAWN, DRAW, ACTION, HUNGER, MONSTER_ATTACK }
 enum GameStatus { PLAYING, VICTORY, DEFEAT }
 
 enum ScavengeCardType { ACTION, EQUIPMENT }
+
+enum CharacterCard { ACTION, EQUIPMENT }

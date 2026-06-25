@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="CharacterCardData" format=3 uid="uid://nail_bomb"]
+
+[ext_resource type="Script" uid="uid://cw2m7xg7nf4d5" path="res://godot/CharacterCardData.gd" id="1_nail_bomb"]
+
+[resource]
+script = ExtResource("1_nail_bomb")
+id = "nail_bomb"
+card_name = "钉子炸弹"
+owner_character_id = "mechanic"
+description = "对射程内的最多3个敌人各造成5点伤害，或者移除一个相邻地图块上的所有怪物标记"
+effect_script_id = "deal_5_damage_3_targets_or_remove_monsters"
+card_type = 0
+equipment_cost = 0
+range_type = 2
+action_condition = "无"
+metadata/_custom_type_script = "uid://cw2m7xg7nf4d5"

@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="CharacterCardData" format=3 uid="uid://read_manual"]
+
+[ext_resource type="Script" uid="uid://cw2m7xg7nf4d5" path="res://godot/CharacterCardData.gd" id="1_read_manual"]
+
+[resource]
+script = ExtResource("1_read_manual")
+id = "read_manual"
+card_name = "阅读使用说明"
+owner_character_id = "mechanic"
+description = "把你的一张装备卡装备给另一名玩家，然后你抓取一张牌"
+effect_script_id = "give_equipment_to_player_draw_1"
+card_type = 0
+equipment_cost = 0
+range_type = 2
+action_condition = "无"
+metadata/_custom_type_script = "uid://cw2m7xg7nf4d5"

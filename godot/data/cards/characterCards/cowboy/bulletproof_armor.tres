@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="CharacterCardData" format=3 uid="uid://bulletproof_armor"]
+
+[ext_resource type="Script" uid="uid://cw2m7xg7nf4d5" path="res://godot/CharacterCardData.gd" id="1_bulletproof_armor"]
+
+[resource]
+script = ExtResource("1_bulletproof_armor")
+id = "bulletproof_armor"
+card_name = "防弹衣"
+owner_character_id = "cowboy"
+description = "受到的伤害减一"
+effect_script_id = "reduce_damage_by_1"
+card_type = 1
+equipment_cost = 1
+range_type = 0
+action_condition = "无"
+metadata/_custom_type_script = "uid://cw2m7xg7nf4d5"

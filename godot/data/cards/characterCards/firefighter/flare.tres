@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="CharacterCardData" format=3 uid="uid://flare"]
+
+[ext_resource type="Script" uid="uid://cw2m7xg7nf4d5" path="res://godot/CharacterCardData.gd" id="1_flare"]
+
+[resource]
+script = ExtResource("1_flare")
+id = "flare"
+card_name = "闪光棒"
+owner_character_id = "firefighter"
+description = "将射程内的所有怪物吸引到你的面前"
+effect_script_id = "attract_all_monsters_to_front"
+card_type = 0
+equipment_cost = 0
+range_type = 3
+action_condition = "无"
+metadata/_custom_type_script = "uid://cw2m7xg7nf4d5"
