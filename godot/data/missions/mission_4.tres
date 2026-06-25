@@ -1,0 +1,64 @@
+[gd_resource type="Resource" script_class="MissionData" format=3 uid="uid://mission_nuclear_winter_4"]
+
+[ext_resource type="Script" path="res://godot/MissionData.gd" id="1_mission"]
+
+[resource]
+script = ExtResource("1_mission")
+id = "mission_4"
+mission_name = "核冬天"
+difficulty = "普通"
+required_van_fuel = 0
+description = "炸弹毫无预兆地爆炸了。所有大城市顷刻间化为灰尘。冬季马上就要到来，如果我们不储存足够的食物并找到一处安全地点的话，我们就没法过冬。"
+objective_text = "目标：收集3个燃料、2个脏毯子、2张老报纸，且食物增加到5。带这些物品返回到避难所并摧毁所有尾随求生者的怪物。当所有玩家都在避难所里且所有怪物被摧毁，你们获得胜利。"
+starting_tile_id = "shelter"
+initial_setup_rule = "首领设置：从怪物牌库中抓9张牌，把首领卡加入其中并正面朝下洗混。把这10张牌放到怪物牌库底。"
+tile_manifest = {
+"gas_station": 2,
+"shelter": 1,
+"hospital": 1,
+"city_street": 1,
+"farm": 1,
+"power_plant": 1,
+"bandit_camp": 2,
+"department_store": 1,
+"desert": 1,
+"wilderness": 2,
+"police_station": 1,
+"tunnel": 2,
+"shopping_center": 1
+}
+red_scavenge_pool = {
+"food_small": 3,
+"fuel": 4,
+"medical_small": 3,
+"antidote": 2,
+"ammo_red": 1,
+"pistol": 1,
+"backpack": 1,
+"dirty_blanket": 1,
+"nothing": 2,
+"ambush": 1
+}
+green_scavenge_pool = {
+"food_small": 9,
+"fuel": 1,
+"antidote": 2,
+"ammo_green": 2,
+"binoculars": 1,
+"spare_parts": 1,
+"old Newspaper": 1,
+"dirty_blanket": 2
+}
+blue_scavenge_pool = {
+"food_small": 3,
+"fuel": 2,
+"antidote": 1,
+"ammo_blue": 4,
+"flashlight": 2,
+"pistol": 1,
+"walkie_talkie": 1,
+"binoculars": 1,
+"ambush": 1,
+"old Newspaper": 2
+}
+special_map_requirements = ""

@@ -1,0 +1,64 @@
+[gd_resource type="Resource" script_class="MissionData" format=3 uid="uid://mission_recon_alien_7"]
+
+[ext_resource type="Script" path="res://godot/MissionData.gd" id="1_mission"]
+
+[resource]
+script = ExtResource("1_mission")
+id = "mission_7"
+mission_name = "侦查外星人地区"
+difficulty = "困难"
+required_van_fuel = 4
+description = "我们的军事实力不及外星人。但是，如果他们认为我们会在他们摧毁我们的文明之后坐以待毙，那么他们就大错特错了。我们要侦察一下这个地区，这样我们就知道发起攻击的最佳地点。"
+objective_text = "目标：展示所有地图块，然后带着足够多的燃料返回面包车上逃跑。"
+starting_tile_id = "van"
+initial_setup_rule = "首领设置：选择一个地图块，在上面放置1个目标标记。展示该地图块的玩家抓取首领牌。"
+tile_manifest = {
+"gas_station": 2,
+"tunnel": 2,
+"city_street": 1,
+"river": 1,
+"police_station": 1,
+"bandit_camp": 1,
+"airport": 1,
+"crash_site": 1,
+"farm": 2,
+"mountain": 2,
+"shelter": 2,
+"desert": 1,
+"department_store": 1,
+"hospital": 1,
+"power_plant": 1,
+"amusement_park": 1
+}
+red_scavenge_pool = {
+"food_small": 2,
+"fuel": 4,
+"medical_small": 2,
+"ammo_red": 4,
+"ammo_red_large": 2,
+"backpack": 1,
+"binoculars": 1,
+"spare_parts": 1,
+"nothing": 1,
+"ambush": 1
+}
+green_scavenge_pool = {
+"food_small": 6,
+"fuel": 2,
+"ammo_green": 2,
+"flashlight": 1,
+"walkie_talkie": 1,
+"spare_parts": 1,
+"nothing": 1,
+"dusty_journal": 1,
+"ambush": 1
+}
+blue_scavenge_pool = {
+"food_small": 2,
+"fuel": 2,
+"pistol": 1,
+"spare_parts": 2,
+"nothing": 1,
+"ambush": 1
+}
+special_map_requirements = ""
