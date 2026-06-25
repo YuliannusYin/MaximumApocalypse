@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ScavengeCardData" format=3 uid="uid://food_large"]
+
+[ext_resource type="Script" uid="uid://25vl3dgcqrwf" path="res://godot/ScavengeCardData.gd" id="1_food_large"]
+
+[resource]
+script = ExtResource("1_food_large")
+id = "food_large"
+card_name = "大量食粮"
+category = "食物"
+color = 1
+card_type = "行动牌"
+value = 5
+effect = "玩家饥饿值减少5点"
+effect_script_id = "reduce_hunger_5"
+metadata/_custom_type_script = "uid://25vl3dgcqrwf"

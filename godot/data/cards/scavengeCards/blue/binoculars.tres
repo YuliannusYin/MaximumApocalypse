@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ScavengeCardData" format=3 uid="uid://binoculars"]
+
+[ext_resource type="Script" uid="uid://25vl3dgcqrwf" path="res://godot/ScavengeCardData.gd" id="1_binoculars"]
+
+[resource]
+script = ExtResource("1_binoculars")
+id = "binoculars"
+card_name = "双筒望远镜"
+category = "战备"
+color = 2
+card_type = "装备牌"
+equipment_slot = 1
+effect = "展示一张地图块，且不触发它的展示效果（长距离）"
+effect_script_id = "reveal_tile_no_trigger"
+metadata/_custom_type_script = "uid://25vl3dgcqrwf"
