@@ -1,0 +1,66 @@
+[gd_resource type="Resource" script_class="MissionData" format=3 uid="uid://mission_radiation_6"]
+
+[ext_resource type="Script" path="res://godot/MissionData.gd" id="1_mission"]
+
+[resource]
+script = ExtResource("1_mission")
+id = "mission_6"
+mission_name = "核辐射"
+difficulty = "普通"
+required_van_fuel = 3
+description = "我们开车离开时，看见了远处的蘑菇云。我们心烦意乱，撞上了一辆侧翻的废弃汽车，我们的面包车嘎吱嘎吱地停了下来。我们要在核辐射杀死我们之前离开这。"
+objective_text = "目标：收集3个多余配件并修理面包车来逃离。作为1个行动，你可以打出1张多余配件来修理面包车。面包车需要被修理3次。当怪物出生阶段投出7时，展示地图最外围的一个地图块。当所有的外围地图块被展示后，再次投出7时，移除一个外围地图块。"
+starting_tile_id = "van"
+initial_setup_rule = "地图初始设置：把面包车放在地图的最中间。确保你们的地图是从面包车向外构建的。首领设置：从怪物牌库中抓5张牌，把首领卡加入其中并正面朝下洗混。把这6张牌放到怪物牌库底。"
+tile_manifest = {
+"gas_station": 3,
+"desert": 2,
+"bandit_camp": 2,
+"oasis": 1,
+"shopping_center": 1,
+"shelter": 2,
+"police_station": 1,
+"tunnel": 2,
+"hospital": 1,
+"power_plant": 1,
+"prison": 1,
+"wilderness": 2,
+"airport": 1,
+"city_street": 2,
+"farm": 2
+}
+red_scavenge_pool = {
+"food_small": 3,
+"fuel": 4,
+"medical_small": 3,
+"antidote": 2,
+"ammo_red": 1,
+"pistol": 1,
+"backpack": 1,
+"spare_parts": 2,
+"nothing": 1,
+"ambush": 1
+}
+green_scavenge_pool = {
+"food_small": 9,
+"fuel": 1,
+"antidote": 2,
+"ammo_green": 2,
+"binoculars": 1,
+"spare_parts": 1,
+"ambush": 1,
+"nothing": 2
+}
+blue_scavenge_pool = {
+"food_small": 3,
+"fuel": 2,
+"antidote": 1,
+"ammo_blue": 4,
+"flashlight": 2,
+"pistol": 1,
+"walkie_talkie": 1,
+"binoculars": 1,
+"ambush": 1,
+"spare_parts": 3
+}
+special_map_requirements = ""
