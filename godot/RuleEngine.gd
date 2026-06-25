@@ -1,9 +1,12 @@
+# [新增] 2026-06-24: 规则引擎类，负责执行游戏规则和逻辑判定
 extends Node
+
+# [新增] 2026-06-24: 引用其他管理器
 @onready var map_board = $MapBoard
 @onready var ui_manager = $UIManager
 
 
-# RuleEngine.gd 中
+# [新增] 2026-06-24: 执行怪物出生逻辑
 func execute_monster_spawn(dice_1: int, dice_2: int):
 	var X = dice_1 + dice_2
 	var state = GameState # 引入全局状态
@@ -29,7 +32,7 @@ func execute_monster_spawn(dice_1: int, dice_2: int):
 				for player in players_on_tile:
 					draw_monster_card_to_player(player.id)
 
-# RuleEngine.gd 中
+# [新增] 2026-06-24: 移动玩家到目标位置
 func move_player(player_id: String, target_pos: Vector2i):
 	var state = GameState
 	var player: PlayerState = state.players[player_id]
@@ -66,6 +69,7 @@ func move_player(player_id: String, target_pos: Vector2i):
 				draw_monster_card_to_player(player_id)
 
 
+# [新增] 2026-06-24: 处理怪物出生阶段
 func _process_spawn_phase():
 	# 1. 摇两个六面骰
 	var d1 = randi_range(1, 6)
@@ -82,6 +86,7 @@ func _process_spawn_phase():
 	await get_tree().create_timer(0.5).timeout
 	
 
+# [新增] 2026-06-24: 处理抽牌阶段
 func _process_draw_phase(player_id: String):
 	var player = GameState.players[player_id]
 	
@@ -99,9 +104,10 @@ func _process_draw_phase(player_id: String):
 	await ui_manager.draw_card_anim_finished
 	
 	
-# 一个类内部的异步信号催化剂
+# [新增] 2026-06-24: 一个类内部的异步信号催化剂
 signal action_phase_finished
 
+# [新增] 2026-06-24: 处理行动阶段
 func _process_action_phase(player_id: String):
 	var player = GameState.players[player_id]
 	player.action_points = 4 # 重置行动点
@@ -116,10 +122,11 @@ func _process_action_phase(player_id: String):
 	# 禁用 UI 响应，防止玩家在非行动阶段乱点
 	ui_manager.disable_player_controls()
 
-# 这个函数由 UI 界面上的“结束回合”按钮点击时调用
+# [新增] 2026-06-24: 这个函数由 UI 界面上的"结束回合"按钮点击时调用
 func _on_ui_end_turn_button_pressed():
 	action_phase_finished.emit()
 	
+# [新增] 2026-06-24: 处理饥饿阶段
 func _process_hunger_phase(player_id: String):
 	var player = GameState.players[player_id]
 	
@@ -146,6 +153,7 @@ func _process_hunger_phase(player_id: String):
 		await get_tree().create_timer(0.8).timeout
 
 
+# [新增] 2026-06-24: 处理怪物攻击阶段
 func _process_monster_attack_phase(player_id: String):
 	# 获取所有正在纠缠该玩家的运行时怪物
 	var monsters = rule_engine.get_monsters_engaged_with(player_id)
@@ -161,7 +169,7 @@ func _process_monster_attack_phase(player_id: String):
 		# 每次怪物咬完，检查一下玩家有没有暴毙，死了就不用被后面的怪咬了
 		if _is_game_over(): return
 		
-# 顺时针轮转玩家
+# [新增] 2026-06-24: 顺时针轮转玩家
 func _switch_to_next_player():
 	var keys = GameState.players.keys()
 	var current_index = keys.find(GameState.active_player_id)
@@ -172,14 +180,14 @@ func _switch_to_next_player():
 	if next_index == 0:
 		GameState.current_turn += 1
 
-# 判定游戏是否结束
+# [新增] 2026-06-24: 判定游戏是否结束
 func _is_game_over() -> bool:
 	# 每次关键伤害或事件后调用
 	if GameState.game_status != Enums.GameStatus.PLAYING:
 		return true
 	return false
 
-# 处理输赢结局
+# [新增] 2026-06-24: 处理输赢结局
 func _handle_game_over():
 	if GameState.game_status == Enums.GameStatus.VICTORY:
 		ui_manager.show_victory_screen()
