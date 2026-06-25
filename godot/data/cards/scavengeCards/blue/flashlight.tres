@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ScavengeCardData" format=3 uid="uid://flashlight"]
+
+[ext_resource type="Script" uid="uid://25vl3dgcqrwf" path="res://godot/ScavengeCardData.gd" id="1_flashlight"]
+
+[resource]
+script = ExtResource("1_flashlight")
+id = "flashlight"
+card_name = "手电筒"
+category = "战备"
+color = 2
+card_type = "装备牌"
+equipment_slot = 1
+effect = "当你执行拾荒行动时，改为观看牌堆顶两张牌，然后你保留其中一张，将另一张置于牌堆底"
+effect_script_id = "scavenge_peek_top_2"
+metadata/_custom_type_script = "uid://25vl3dgcqrwf"
