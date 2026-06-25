@@ -28,7 +28,7 @@ var map_grid: Dictionary = {} # Dictionary[Vector2i, Dictionary]
 var players: Dictionary = {} # Dictionary[String, PlayerState]
 
 # 任务目标进度
-var required_fuel: int = 3
+var required_fuel: int = 4
 var current_fuel_in_van: int = 0
 
 # 信号（用于解耦数据与 UI 表现层）
