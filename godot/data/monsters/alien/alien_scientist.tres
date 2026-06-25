@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="MonsterData" format=3 uid="uid://alien_scientist"]
+
+[ext_resource type="Script" uid="uid://dpimxl1hcwwcu" path="res://godot/MonsterData.gd" id="1_alien_scientist"]
+
+[resource]
+script = ExtResource("1_alien_scientist")
+id = "alien_scientist"
+monster_name = "外星科学家"
+pack = 0
+rank = 1
+max_hp = 9
+current_hp = 9
+damage = 1
+range_type = 0
+description = "精英怪物。被抓取时抓取玩家弃掉一张装备区内的装备，否则受到六点伤害。所有外星人类怪物攻击时伤害加一。"
+Grab_trigger_id = "discard_equipment_or_damage_6_on_draw"
+Passive_id = "increase_alien_damage_1"
+Destroy_id = "none"
+metadata/_custom_type_script = "uid://dpimxl1hcwwcu"

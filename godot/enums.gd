@@ -24,3 +24,9 @@ enum GameStatus { PLAYING, VICTORY, DEFEAT }
 enum ScavengeCardType { ACTION, EQUIPMENT }
 
 enum CharacterCard { ACTION, EQUIPMENT }
+
+enum MonsterRank { NORMAL, ELITE, BOSS }
+
+enum MonsterPack { ALIEN, MUTANT, ROBOT, ZOMBIE }
+
+enum MonsterLevel { NORMAL, ELITE, BOSS }
