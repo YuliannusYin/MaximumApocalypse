@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="MonsterData" format=3 uid="uid://mutant_rat"]
+
+[ext_resource type="Script" uid="uid://dpimxl1hcwwcu" path="res://godot/MonsterData.gd" id="1_mutant_rat"]
+
+[resource]
+script = ExtResource("1_mutant_rat")
+id = "mutant_rat"
+monster_name = "突变体老鼠"
+pack = 1
+rank = 1
+max_hp = 5
+current_hp = 5
+damage = 2
+range_type = 0
+description = "精英怪物。造成伤害时对受到伤害的玩家添加一层中毒效果。"
+Grab_trigger_id = "none"
+Passive_id = "add_poison_on_damage"
+Destroy_id = "none"
+metadata/_custom_type_script = "uid://dpimxl1hcwwcu"

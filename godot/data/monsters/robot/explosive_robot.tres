@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="MonsterData" format=3 uid="uid://explosive_robot"]
+
+[ext_resource type="Script" uid="uid://dpimxl1hcwwcu" path="res://godot/MonsterData.gd" id="1_explosive_robot"]
+
+[resource]
+script = ExtResource("1_explosive_robot")
+id = "explosive_robot"
+monster_name = "爆破机器人"
+pack = 2
+rank = 1
+max_hp = 15
+current_hp = 15
+damage = 4
+range_type = 0
+description = "精英怪物。被消灭/摧毁时对该怪物卡所纠缠的玩家造成2点伤害。造成伤害时，若受到伤害的玩家本回合没有移动过，伤害翻倍。"
+Grab_trigger_id = "none"
+Passive_id = "double_damage_if_no_move"
+Destroy_id = "damage_2_on_destroy"
+metadata/_custom_type_script = "uid://dpimxl1hcwwcu"

@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="MonsterData" format=3 uid="uid://mutant"]
+
+[ext_resource type="Script" uid="uid://dpimxl1hcwwcu" path="res://godot/MonsterData.gd" id="1_mutant"]
+
+[resource]
+script = ExtResource("1_mutant")
+id = "mutant"
+monster_name = "突变体"
+pack = 1
+rank = 1
+max_hp = 8
+current_hp = 8
+damage = 5
+range_type = 0
+description = "精英怪物。无特殊能力。"
+Grab_trigger_id = "none"
+Passive_id = "none"
+Destroy_id = "none"
+metadata/_custom_type_script = "uid://dpimxl1hcwwcu"

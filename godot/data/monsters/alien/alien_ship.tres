@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="MonsterData" format=3 uid="uid://alien_ship"]
+
+[ext_resource type="Script" uid="uid://dpimxl1hcwwcu" path="res://godot/MonsterData.gd" id="1_alien_ship"]
+
+[resource]
+script = ExtResource("1_alien_ship")
+id = "alien_ship"
+monster_name = "外星飞船"
+pack = 0
+rank = 1
+max_hp = 10
+current_hp = 10
+damage = 6
+range_type = 0
+description = "精英怪物。攻击时随机烧毁目标玩家区域内的一张牌。不能被射程为短距离的武器或行动选为目标。"
+Grab_trigger_id = "none"
+Passive_id = "burn_1_card_on_attack_immune_short_range"
+Destroy_id = "none"
+metadata/_custom_type_script = "uid://dpimxl1hcwwcu"
