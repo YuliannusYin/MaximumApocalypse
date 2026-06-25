@@ -1,12 +1,13 @@
+# [新增] 2026-06-24: 游戏循环管理类，负责控制游戏的主循环流程
 # GameLoopManager.gd
 extends Node
 
-# 引用其他的管理器（根据你项目的实际节点路径调整）
+# [新增] 2026-06-24: 引用其他的管理器（根据项目实际节点路径调整）
 @onready var rule_engine = $RuleEngine
 @onready var map_board = $MapBoard
 @onready var ui_manager = $UIManager
 
-# 启动游戏循环
+# [新增] 2026-06-24: 启动游戏循环
 func start_game():
 	print("游戏开始，初始化数据...")
 	# 1. 铺设地图、洗牌、初始化玩家等（调用之前的 MapGenerator）
@@ -25,7 +26,7 @@ func start_game():
 	# 循环跳出，说明游戏结束
 	rule_engine._handle_game_over()
 
-# 处理单个玩家的完整回合
+# [新增] 2026-06-24: 处理单个玩家的完整回合
 func run_player_turn(player_id: String):
 	print("--- 玩家 " + player_id + " 的回合开始 ---")
 	
