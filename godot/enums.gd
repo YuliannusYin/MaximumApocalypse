@@ -1,4 +1,5 @@
-extends RefCounted
+extends Node
+#extends RefCounted
 
 # [新增] 2026-06-24: 射程类型枚举（无、短距离、中距离、长距离）
 enum RangeType { NONE, SHORT, MEDIUM, LONG }
