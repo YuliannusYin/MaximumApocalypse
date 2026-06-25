@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="PlayerData" format=3 uid="uid://bqn2crgptt6qw"]
+
+[ext_resource type="Script" uid="uid://ccb2t3cg5x7kw" path="res://godot/PlayerData.gd" id="1_0ypb3"]
+
+[resource]
+script = ExtResource("1_0ypb3")
+id = "firefighter"
+character_name = "消防员"
+max_hp = 32
+current_hp = 32
+hunger_level = 1
+base_stealth = 6
+starving_stealth = 5
+action_points = 4
+metadata/_custom_type_script = "uid://ccb2t3cg5x7kw"
