@@ -7,6 +7,8 @@ enum RangeType { NONE, SHORT, MEDIUM, LONG }
 # [新增] 2026-06-24: 拾荒颜色枚举（红、绿、蓝、无）
 enum ScavengeColor { RED, GREEN, BLUE, NONE }
 
+enum ScavengeCardColor { RED, GREEN, BLUE, GRAY, NONE }
+
 # [新增] 2026-06-24: 触发时机枚举（展示、进入、结束、行动）
 enum TriggerTime { ON_REVEAL, ON_ENTER, ON_END, ON_ACTION }
 
@@ -18,3 +20,5 @@ enum GamePhase { SPAWN, DRAW, ACTION, HUNGER, MONSTER_ATTACK }
 
 # [新增] 2026-06-24: 游戏状态枚举（进行中、胜利、失败）
 enum GameStatus { PLAYING, VICTORY, DEFEAT }
+
+enum ScavengeCardType { ACTION, EQUIPMENT }
