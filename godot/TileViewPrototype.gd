@@ -7,16 +7,19 @@ var border_rect: ColorRect
 var fog_rect: ColorRect
 var name_label: Label
 var info_label: Label
-var click_area: Area2D
+var click_button: Button
+var player_markers_container: VBoxContainer  # 玩家标记容器
 
 # --- 数据缓存 ---
 var grid_coordinate: Vector2i
 var tile_runtime_data: Dictionary
+var tile_size: Vector2
 
 ## 初始化入口：由 MapBoard 在动态生成节点后直接调用
 func setup(pos: Vector2i, runtime_data: Dictionary, size: Vector2) -> void:
 	grid_coordinate = pos
 	tile_runtime_data = runtime_data
+	tile_size = size
 	var static_template: MapBlockData = runtime_data["data"]
 	
 	# --- 1. 动态生成底色方框 ---
@@ -67,9 +70,12 @@ func setup(pos: Vector2i, runtime_data: Dictionary, size: Vector2) -> void:
 	
 	# 根据数据的初始状态控制迷雾显隐
 	#update_fog_state()
-	
-	# --- 6. 动态创建点击检测区域（为了方便你单独测试翻牌） ---
-	#_create_click_trigger(size)
+
+	# --- 6. 动态创建点击按钮（用于玩家移动） ---
+	_create_click_button(size)
+
+	# --- 7. 动态创建玩家标记容器（显示在该地块上的玩家） ---
+	_create_player_markers_container(size)
 
 ## 刷新迷雾层的展示
 func update_fog_state() -> void:
@@ -104,36 +110,51 @@ func update_monster_display(new_count: int) -> void:
 	tile_runtime_data["monster_tokens"] = new_count
 	_refresh_info_text()
 
-## 🛠️ 原型测试黑科技：纯代码动态生成点击检测区
-func _create_click_trigger(size: Vector2) -> void:
-	click_area = Area2D.new()
-	var collision = CollisionShape2D.new()
-	var box = RectangleShape2D.new()
-	
-	box.size = size
-	collision.shape = box
-	# 将碰撞体中心对齐到方框中心（Godot默认Area2D中心在0,0，而方框左上角在0,0）
-	collision.position = size / 2
-	
-	click_area.add_child(collision)
-	add_child(click_area)
-	
-	# 开启鼠标拾取支持
-	click_area.input_pickable = true
-	# 绑定点击事件信号到本文件内的处理函数
-	click_area.input_event.connect(_on_input_event)
+## 创建透明点击按钮覆盖整个地块
+func _create_click_button(size: Vector2) -> void:
+	click_button = Button.new()
+	click_button.size = size
+	click_button.position = Vector2(0, 0)
 
-## 鼠标点击响应：点击未翻开的地块，直接翻面
-func _on_input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> void:
-	if event is InputEventMouseButton and event.pressed:
-		if event.button_index == MOUSE_BUTTON_LEFT:
-			if not tile_runtime_data["is_revealed"]:
-				print("[测试交互] 点击了坐标 %s，翻开地块：%s" % [str(grid_coordinate), name_label.text])
-				
-				# 1. 修改全局账本和运行时数据
-				tile_runtime_data["is_revealed"] = true
-				if GameState.map_grid.has(grid_coordinate):
-					GameState.map_grid[grid_coordinate]["is_revealed"] = true
-					
-				# 2. 刷新迷雾遮罩
-				update_fog_state()
+	# 设置为完全透明（不显示按钮样式）
+	click_button.modulate = Color(1, 1, 1, 0.01)  # 最小可见度，确保可点击
+
+	# 接收鼠标点击
+	click_button.mouse_filter = Control.MOUSE_FILTER_STOP
+
+	# 将按钮添加到最后，确保在其他元素之上
+	add_child(click_button)
+
+	# 连接点击信号
+	click_button.pressed.connect(_on_tile_clicked)
+
+## 点击地块响应
+func _on_tile_clicked() -> void:
+	print("[TileView] 点击了坐标 %s，地块：%s" % [str(grid_coordinate), name_label.text])
+
+	# 通知父节点 MapBoard 触发移动
+	var map_board = get_parent()
+	if map_board and map_board.has_method("on_tile_clicked"):
+		map_board.on_tile_clicked(grid_coordinate)
+
+## 创建玩家标记容器
+func _create_player_markers_container(size: Vector2) -> void:
+	player_markers_container = VBoxContainer.new()
+	player_markers_container.position = Vector2(8, size.y - 30)
+	player_markers_container.size = Vector2(size.x - 16, 20)
+	add_child(player_markers_container)
+
+## 添加玩家标记
+func add_player_marker(player_id: String, character_name: String) -> void:
+	var marker_label = Label.new()
+	marker_label.text = "👤 " + character_name
+	marker_label.add_theme_color_override("font_color", Color(0.2, 0.8, 0.3))  # 绿色
+	marker_label.add_theme_font_size_override("font_size", 12)
+	marker_label.name = "player_marker_" + player_id
+	player_markers_container.add_child(marker_label)
+	print("[TileView] 在地块 " + str(grid_coordinate) + " 显示玩家: " + character_name)
+
+## 清除所有玩家标记
+func clear_player_markers() -> void:
+	for child in player_markers_container.get_children():
+		child.queue_free()

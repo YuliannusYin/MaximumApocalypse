@@ -28,4 +28,3 @@ extends Resource
 
 ## 效果脚本ID，用于供局内 RuleEngine/EffectManager 匹配执行具体的代码逻辑
 @export var effect_script_id: String 
-

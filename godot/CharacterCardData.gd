@@ -30,5 +30,3 @@ extends Resource
 @export var range_type: Enums.RangeType
 
 @export var action_condition: String
-
-

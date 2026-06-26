@@ -1,0 +1,13 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://godot/MissionSelect.gd" id="1_missionselect"]
+
+[node name="MissionSelect" type="Node2D"]
+script = ExtResource("1_missionselect")
+
+[node name="TitleLabel" type="Label" parent="."]
+offset_left = 400.0
+offset_top = 20.0
+offset_right = 600.0
+offset_bottom = 50.0
+text = "选择任务"

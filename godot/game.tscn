@@ -1,10 +1,32 @@
-[gd_scene format=3 uid="uid://dvdxxycuhepd4"]
+[gd_scene load_steps=6 format=3 uid="uid://dvdxxycuhepd4"]
 
-[node name="game" type="Node2D" unique_id=1611663693]
+[ext_resource type="Script" path="res://godot/game.gd" id="1_game"]
+[ext_resource type="Script" path="res://godot/RuleEngine.gd" id="3_ruleengine"]
+[ext_resource type="Script" path="res://godot/GameLoopManager.gd" id="4_gameloop"]
+[ext_resource type="Script" path="res://godot/UIManager.gd" id="5_uimanager"]
+[ext_resource type="Script" path="res://godot/MapBoard.gd" id="6_mapboard"]
 
-[node name="RichTextLabel" type="RichTextLabel" parent="." unique_id=931371078]
-offset_left = 137.0
-offset_top = 57.0
-offset_right = 236.0
-offset_bottom = 103.0
-text = "游戏界面"
+[node name="Game" type="Node2D" unique_id=1611663693]
+script = ExtResource("1_game")
+
+[node name="RuleEngine" type="Node" parent="."]
+script = ExtResource("3_ruleengine")
+
+[node name="GameLoopManager" type="Node" parent="."]
+script = ExtResource("4_gameloop")
+
+[node name="UIManager" type="CanvasLayer" parent="."]
+script = ExtResource("5_uimanager")
+
+[node name="MapBoard" type="Node2D" parent="."]
+script = ExtResource("6_mapboard")
+tile_size = Vector2(140, 140)
+grid_spacing = 12.0
+total_tiles_needed = 13
+
+[node name="TitleLabel" type="Label" parent="."]
+offset_left = 550.0
+offset_top = 20.0
+offset_right = 750.0
+offset_bottom = 50.0
+text = "游戏场景"
