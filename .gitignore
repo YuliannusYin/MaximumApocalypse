@@ -28,7 +28,7 @@ $RECYCLE.BIN/
 *.swn
 *.bak
 *.orig
-
+.godot
 # ---------- 构建 / 导出产物 ----------
 build/
 dist/
