@@ -28,7 +28,9 @@ $RECYCLE.BIN/
 *.swn
 *.bak
 *.orig
+.vscode/settings.json
 .trae/
+.godot/
 
 # ---------- 通用构建 / 导出产物 ----------
 build/

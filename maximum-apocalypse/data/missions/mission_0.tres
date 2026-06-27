@@ -1,0 +1,55 @@
+[gd_resource type="Resource" script_class="MissionData" format=3 uid="uid://mission_tutorial_0"]
+
+[ext_resource type="Script" path="res://godot/MissionData.gd" id="1_mission"]
+
+[resource]
+script = ExtResource("1_mission")
+id = "mission_0"
+mission_name = "教程"
+difficulty = "特别简单"
+required_van_fuel = 4
+description = "当一切陷入地狱之前，我们只听到了警报的声音。我们很幸运，离一家购物中心很近，但是现在，我们已经没有食物了并且援助还没到。我们要知道外面到底发生了什么。"
+objective_text = "目标：找到 4 桶燃料并逃到你们从屋顶上看到的一辆远处的面包车里。当所有人都成功上车并且你们有足够的燃料，你们就能开车逃离这里了。"
+starting_tile_id = "shopping_center"
+initial_setup_rule = "所有玩家在购物中心地图块。该地图块初始时是展示的。"
+tile_manifest = {
+"bandit_camp": 1,
+"city_street": 1,
+"farm": 2,
+"forest": 1,
+"gas_station": 2,
+"hospital": 1,
+"police_station": 1,
+"river": 1,
+"shelter": 1,
+"shopping_center": 1,
+"wilderness": 1
+}
+red_scavenge_pool = {
+"ammo": 1,
+"binoculars": 1,
+"food": 2,
+"fuel": 4,
+"medical_supplies": 2,
+"nothing": 1,
+"spare_parts": 1
+}
+green_scavenge_pool = {
+"ammo": 1,
+"flashlight": 1,
+"food": 6,
+"fuel": 2,
+"nothing": 1,
+"spare_parts": 1
+}
+blue_scavenge_pool = {
+"ammo": 3,
+"binoculars": 1,
+"food": 2,
+"fuel": 2,
+"nothing": 1,
+"pistol": 1,
+"spare_parts": 1,
+"walkie_talkie": 1
+}
+special_map_requirements = ""

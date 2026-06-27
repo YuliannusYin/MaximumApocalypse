@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="MapBlockData" format=3 uid="uid://city_street_block"]
 
-[ext_resource type="Script" uid="uid://dplbo52je2iiy" path="res://godot/MapTileData.gd" id="1_street"]
+[ext_resource type="Script" uid="uid://dplbo52je2iiy" path="res://godot/MapBlockData.gd" id="1_street"]
 
 [resource]
 script = ExtResource("1_street")

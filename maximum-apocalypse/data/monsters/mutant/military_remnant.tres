@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="MonsterData" format=3 uid="uid://military_remnant"]
+
+[ext_resource type="Script" uid="uid://dpimxl1hcwwcu" path="res://godot/MonsterData.gd" id="1_military_remnant"]
+
+[resource]
+script = ExtResource("1_military_remnant")
+id = "military_remnant"
+monster_name = "军部残余武装"
+pack = 1
+rank = 1
+max_hp = 10
+current_hp = 10
+damage = 4
+range_type = 0
+description = "精英怪物。被抓取时抓取玩家弃掉一张装备区内的装备，否则受到四点伤害。"
+Grab_trigger_id = "discard_equipment_or_damage_4_on_draw"
+Passive_id = "none"
+Destroy_id = "none"
+metadata/_custom_type_script = "uid://dpimxl1hcwwcu"

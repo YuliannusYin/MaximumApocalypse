@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="PlayerData" format=3 uid="uid://cvkl0cppgbc5u"]
+
+[ext_resource type="Script" uid="uid://ccb2t3cg5x7kw" path="res://godot/PlayerData.gd" id="1_hky8c"]
+
+[resource]
+script = ExtResource("1_hky8c")
+id = "cowboy"
+character_name = "枪手"
+max_hp = 28
+current_hp = 28
+metadata/_custom_type_script = "uid://ccb2t3cg5x7kw"

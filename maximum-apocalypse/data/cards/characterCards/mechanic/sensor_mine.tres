@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="CharacterCardData" format=3 uid="uid://sensor_mine"]
+
+[ext_resource type="Script" uid="uid://cw2m7xg7nf4d5" path="res://godot/CharacterCardData.gd" id="1_sensor_mine"]
+
+[resource]
+script = ExtResource("1_sensor_mine")
+id = "sensor_mine"
+card_name = "感应地雷"
+owner_character_id = "mechanic"
+description = "当玩家抓取一张怪物卡后，弃掉此装备并对该怪物造成7点伤害"
+effect_script_id = "discard_on_monster_draw_deal_7_damage"
+card_type = 1
+equipment_cost = 1
+range_type = 0
+action_condition = "无"
+metadata/_custom_type_script = "uid://cw2m7xg7nf4d5"

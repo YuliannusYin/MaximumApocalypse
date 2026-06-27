@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="MapBlockData" format=3 uid="uid://police_station_block"]
 
-[ext_resource type="Script" uid="uid://dplbo52je2iiy" path="res://godot/MapTileData.gd" id="1_police"]
-
+[ext_resource type="Script" uid="uid://dplbo52je2iiy" path="res://godot/MapBlockData.gd" id="1_police"]
+        
 [resource]
 script = ExtResource("1_police")
 id = "police_station"

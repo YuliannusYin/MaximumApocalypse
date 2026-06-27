@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="MonsterData" format=3 uid="uid://laser_drone"]
+
+[ext_resource type="Script" uid="uid://dpimxl1hcwwcu" path="res://godot/MonsterData.gd" id="1_laser_drone"]
+
+[resource]
+script = ExtResource("1_laser_drone")
+id = "laser_drone"
+monster_name = "激光无人机"
+pack = 2
+rank = 1
+max_hp = 10
+current_hp = 10
+damage = 2
+range_type = 0
+description = "精英怪物。被动：被该怪物卡纠缠的玩家进行潜行判定前，跳过该玩家的潜行判定，直接抓取怪物卡。"
+Grab_trigger_id = "none"
+Passive_id = "skip_sneak_check_draw_monster"
+Destroy_id = "none"
+metadata/_custom_type_script = "uid://dpimxl1hcwwcu"
