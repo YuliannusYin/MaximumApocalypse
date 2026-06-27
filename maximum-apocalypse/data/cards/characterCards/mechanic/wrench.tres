@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="CharacterCardData" format=3 uid="uid://wrench"]
+﻿[gd_resource type="Resource" script_class="CharacterCardData" format=3 uid="uid://wrench"]
 
-[ext_resource type="Script" uid="uid://cw2m7xg7nf4d5" path="res://godot/CharacterCardData.gd" id="1_wrench"]
+[ext_resource type="Script" uid="uid://cw2m7xg7nf4d5" path="res://CharacterCardData.gd" id="1_wrench"]
 
 [resource]
 script = ExtResource("1_wrench")

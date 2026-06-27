@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="ScavengeCardData" format=3 uid="uid://bulletproof_vest"]
+﻿[gd_resource type="Resource" script_class="ScavengeCardData" format=3 uid="uid://bulletproof_vest"]
 
-[ext_resource type="Script" uid="uid://25vl3dgcqrwf" path="res://godot/ScavengeCardData.gd" id="1_bulletproof_vest"]
+[ext_resource type="Script" uid="uid://25vl3dgcqrwf" path="res://ScavengeCardData.gd" id="1_bulletproof_vest"]
 
 [resource]
 script = ExtResource("1_bulletproof_vest")

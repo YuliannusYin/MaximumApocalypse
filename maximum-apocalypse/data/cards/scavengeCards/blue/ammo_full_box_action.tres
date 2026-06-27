@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="ScavengeCardData" format=3 uid="uid://ammo_full_box_action"]
+﻿[gd_resource type="Resource" script_class="ScavengeCardData" format=3 uid="uid://ammo_full_box_action"]
 
-[ext_resource type="Script" uid="uid://25vl3dgcqrwf" path="res://godot/ScavengeCardData.gd" id="1_ammo_full_box"]
+[ext_resource type="Script" uid="uid://25vl3dgcqrwf" path="res://ScavengeCardData.gd" id="1_ammo_full_box"]
 
 [resource]
 script = ExtResource("1_ammo_full_box")
