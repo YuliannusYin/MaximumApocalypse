@@ -1,0 +1,22 @@
+[gd_scene load_steps=3 format=3 uid="uid://b8x7k3m5n2p9q"]
+
+[ext_resource type="Script" path="res://godot/ui/menu_button.gd" id="1_abc123"]
+[ext_resource type="Shader" path="res://godot/shaders/button_effect.gdshader" id="2_def456"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_button"]
+shader = ExtResource("2_def456")
+shader_parameter/hover_intensity = 0.0
+shader_parameter/click_intensity = 0.0
+shader_parameter/base_color = Color(0.29, 0.23, 0.17, 1)
+shader_parameter/highlight_color = Color(0.77, 0.65, 0.45, 1)
+
+[node name="MenuButton" type="Button"]
+material = SubResource("ShaderMaterial_button")
+offset_right = 200.0
+offset_bottom = 50.0
+custom_minimum_size = Vector2(200, 50)
+theme_override_colors/font_color = Color(0.831, 0.706, 0.518, 1)
+theme_override_font_sizes/font_size = 16
+text = "按钮"
+script = ExtResource("1_abc123")
+button_text = "按钮"
