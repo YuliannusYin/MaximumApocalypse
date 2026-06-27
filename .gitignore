@@ -21,13 +21,13 @@ $RECYCLE.BIN/
 .Trash-*
 
 # ---------- 编辑器 / IDE 文件 ----------
-# 注意：保留 .vscode/settings.json 纳入版本管理，仅忽略其他 IDE 配置
 .idea/
 *.swp
 *.swo
 *.swn
 *.bak
 *.orig
+.vscode/settings.json
 .godot
 # ---------- 构建 / 导出产物 ----------
 build/
