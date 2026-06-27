@@ -11,7 +11,7 @@ func _ready() -> void:
 	display_mission_list()
 
 func load_all_missions() -> void:
-	var missions_folder = "res://godot/data/missions/"
+	var missions_folder = "res://data/missions/"
 	var dir = DirAccess.open(missions_folder)
 	
 	if dir:
@@ -53,5 +53,5 @@ func _on_mission_button_pressed(mission: MissionData) -> void:
 	GameState.selected_mission = mission
 
 	# 切换到角色选择场景
-	var character_select_scene = load("res://godot/CharacterSelect.tscn")
+	var character_select_scene = load("res://CharacterSelect.tscn")
 	get_tree().change_scene_to_packed(character_select_scene)

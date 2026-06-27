@@ -128,7 +128,7 @@ func setup_players_from_selection() -> void:
 		GameState.active_player_id = GameState.players.keys()[0]
 
 func load_character_data(character_id: String) -> PlayerData:
-	var character_path = "res://godot/data/characters/" + character_id + ".tres"
+	var character_path = "res://data/characters/" + character_id + ".tres"
 
 	if ResourceLoader.exists(character_path):
 		var res = load(character_path)
@@ -148,7 +148,7 @@ func find_tile_by_id(tile_id: String) -> Vector2i:
 
 func load_character_cards_to_deck(player_id: String, character_id: String) -> void:
 	# 加载角色专属卡牌到玩家牌库（正确路径）
-	var cards_folder = "res://godot/data/cards/characterCards/" + character_id + "/"
+	var cards_folder = "res://data/cards/characterCards/" + character_id + "/"
 	var player = GameState.players[player_id]
 
 	print("[Game] 正在加载角色卡牌: " + character_id)

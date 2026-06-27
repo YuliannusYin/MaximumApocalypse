@@ -17,7 +17,7 @@ func _ready() -> void:
 	create_ui_elements()
 
 func load_all_characters() -> void:
-	var characters_folder = "res://godot/data/characters/"
+	var characters_folder = "res://data/characters/"
 	var dir = DirAccess.open(characters_folder)
 
 	if dir:
@@ -122,5 +122,5 @@ func _on_confirm_pressed() -> void:
 	GameState.selected_character_ids = selected_characters
 
 	# 切换到游戏场景
-	var game_scene = load("res://godot/game.tscn")
+	var game_scene = load("res://game.tscn")
 	get_tree().change_scene_to_packed(game_scene)

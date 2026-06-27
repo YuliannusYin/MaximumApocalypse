@@ -2,8 +2,8 @@
 extends Node2D
 
 # --- 配置常量：指定你的资源存放路径 ---
-const TILES_FOLDER_PATH = "res://godot/data/blocks/"
-const VAN_TILE_PATH = "res://godot/data/blocks/van.tres"
+const TILES_FOLDER_PATH = "res://data/blocks/"
+const VAN_TILE_PATH = "res://data/blocks/van.tres"
 
 # --- 渲染配置 ---
 @export var tile_size: Vector2 = Vector2(140, 140)  # 方框的长宽
@@ -140,7 +140,7 @@ func _create_prototyping_tile(grid_pos: Vector2i, runtime_data: Dictionary) -> v
 	tile_node.position = Vector2(pixel_x, pixel_y)
 
 	# 绑定渲染脚本
-	tile_node.set_script(load("res://godot/TileViewPrototype.gd"))
+	tile_node.set_script(load("res://TileViewPrototype.gd"))
 	tile_node.setup(grid_pos, runtime_data, tile_size)
 
 	# 存入视图缓存

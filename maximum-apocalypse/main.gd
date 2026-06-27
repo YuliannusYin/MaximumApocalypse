@@ -12,5 +12,5 @@ func _on_quit_button_button_down() -> void:
 
 func _on_start_button_button_down() -> void:
 	print("[Main] 开始游戏按钮按下，跳转到选关场景")
-	var mission_select_scene = load("res://godot/MissionSelect.tscn")
+	var mission_select_scene = load("res://MissionSelect.tscn")
 	get_tree().change_scene_to_packed(mission_select_scene)

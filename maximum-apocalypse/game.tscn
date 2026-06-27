@@ -1,10 +1,10 @@
 [gd_scene load_steps=6 format=3 uid="uid://dvdxxycuhepd4"]
 
-[ext_resource type="Script" path="res://godot/game.gd" id="1_game"]
-[ext_resource type="Script" path="res://godot/RuleEngine.gd" id="3_ruleengine"]
-[ext_resource type="Script" path="res://godot/GameLoopManager.gd" id="4_gameloop"]
-[ext_resource type="Script" path="res://godot/UIManager.gd" id="5_uimanager"]
-[ext_resource type="Script" path="res://godot/MapBoard.gd" id="6_mapboard"]
+[ext_resource type="Script" path="res://game.gd" id="1_game"]
+[ext_resource type="Script" path="res://RuleEngine.gd" id="3_ruleengine"]
+[ext_resource type="Script" path="res://GameLoopManager.gd" id="4_gameloop"]
+[ext_resource type="Script" path="res://UIManager.gd" id="5_uimanager"]
+[ext_resource type="Script" path="res://MapBoard.gd" id="6_mapboard"]
 
 [node name="Game" type="Node2D" unique_id=1611663693]
 script = ExtResource("1_game")

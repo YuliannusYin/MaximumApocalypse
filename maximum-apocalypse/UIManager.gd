@@ -316,7 +316,7 @@ func show_defeat_screen() -> void:
 	vbox.add_child(restart_btn)
 
 func _restart_game() -> void:
-	get_tree().change_scene_to_file("res://godot/main.tscn")
+	get_tree().change_scene_to_file("res://main.tscn")
 
 func update_phase_display(phase: Enums.GamePhase) -> void:
 	var phase_names = {
