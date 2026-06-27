@@ -39,7 +39,7 @@ $RECYCLE.BIN/
 *.bak
 *.orig
 .vscode/settings.json
-
+.trae/
 # ---------- 构建 / 导出产物 ----------
 build/
 dist/
