@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="MonsterData" format=3 uid="uid://ai_core_leader"]
+﻿[gd_resource type="Resource" script_class="MonsterData" format=3 uid="uid://ai_core_leader"]
 
-[ext_resource type="Script" uid="uid://dpimxl1hcwwcu" path="res://godot/MonsterData.gd" id="1_ai_core_leader"]
+[ext_resource type="Script" uid="uid://dpimxl1hcwwcu" path="res://MonsterData.gd" id="1_ai_core_leader"]
 
 [resource]
 script = ExtResource("1_ai_core_leader")
