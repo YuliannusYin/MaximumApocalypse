@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="MapBlockData" format=3 uid="uid://police_station_block"]
+
+[ext_resource type="Script" uid="uid://dplbo52je2iiy" path="res://godot/MapTileData.gd" id="1_police"]
+
+[resource]
+script = ExtResource("1_police")
+id = "police_station"
+tile_name = "警察局"
+spawn_values = 6
+scavenge_type = 2
+effect_trigger = Array[int]([0])
+effect_script_id = Array[String](["free_scavenge"])
+monster_mark = 0
+description = "蓝色拾荒
+展示：执行一次免费的拾荒行动"
+metadata/_custom_type_script = "uid://dplbo52je2iiy"

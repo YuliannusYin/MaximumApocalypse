@@ -1,0 +1,30 @@
+[gd_scene format=3 uid="uid://bjhs6ltlnvt"]
+
+[ext_resource type="Script" uid="uid://7mr6bnwc4c51" path="res://godot/main.gd" id="1_5s166"]
+
+[node name="Main" type="Node2D" unique_id=645631924]
+script = ExtResource("1_5s166")
+
+[node name="StartButton" type="Button" parent="." unique_id=210653201]
+offset_left = 474.0
+offset_top = 259.0
+offset_right = 694.0
+offset_bottom = 331.0
+text = "开始游戏"
+
+[node name="QuitButton" type="Button" parent="." unique_id=706857316]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = 476.0
+offset_top = 406.0
+offset_right = 696.0
+offset_bottom = 478.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "退出游戏"
+
+[connection signal="button_down" from="StartButton" to="." method="_on_start_button_button_down"]
+[connection signal="button_down" from="QuitButton" to="." method="_on_quit_button_button_down"]

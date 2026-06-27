@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="MapBlockData" format=3 uid="uid://desert_block"]
+
+[ext_resource type="Script" uid="uid://dplbo52je2iiy" path="res://godot/MapTileData.gd" id="1_desert"]
+
+[resource]
+script = ExtResource("1_desert")
+id = "desert"
+tile_name = "沙漠"
+spawn_values = 10
+scavenge_type = 3
+effect_trigger = Array[int]([1])
+effect_script_id = Array[String](["increase_hunger_1"])
+monster_mark = 0
+description = "进入：饥饿等级增加1"
+metadata/_custom_type_script = "uid://dplbo52je2iiy"

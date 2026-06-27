@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="MapBlockData" format=3 uid="uid://department_store_block"]
+
+[ext_resource type="Script" uid="uid://dplbo52je2iiy" path="res://godot/MapTileData.gd" id="1_store"]
+
+[resource]
+script = ExtResource("1_store")
+id = "department_store"
+tile_name = "百货商店"
+spawn_values = 9
+scavenge_type = 1
+effect_trigger = Array[int]([0])
+effect_script_id = Array[String](["free_scavenge"])
+monster_mark = 0
+description = "绿色拾荒
+展示：执行一次免费的拾荒行动"
+metadata/_custom_type_script = "uid://dplbo52je2iiy"
