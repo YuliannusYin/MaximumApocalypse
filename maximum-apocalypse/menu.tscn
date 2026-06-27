@@ -26,6 +26,7 @@ grow_vertical = 2
 script = ExtResource("1_menu")
 
 [node name="Background" type="ColorRect" parent="." unique_id=891742260]
+visible = false
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -35,10 +36,13 @@ grow_vertical = 2
 color = Color(0.165, 0.122, 0.09, 1)
 
 [node name="DustParticles" parent="." unique_id=2067775917 instance=ExtResource("3_particles")]
+visible = false
 
 [node name="SmokeParticles" parent="." unique_id=126043348 instance=ExtResource("8_smoke")]
+visible = false
 
 [node name="Decorations" type="Control" parent="." unique_id=28901691]
+visible = false
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -85,6 +89,7 @@ grow_vertical = 0
 texture = ExtResource("6_survivor")
 
 [node name="Lights" type="Control" parent="." unique_id=1185521032]
+visible = false
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -93,6 +98,7 @@ grow_horizontal = 2
 grow_vertical = 2
 
 [node name="WarningLight1" type="PointLight2D" parent="Lights" unique_id=578439048]
+visible = false
 color = Color(1, 0.5, 0.2, 1)
 energy = 1.5
 shadow_enabled = true
@@ -103,6 +109,7 @@ flicker_max = 2.0
 color_variation = 0.15
 
 [node name="WarningLight2" type="PointLight2D" parent="Lights" unique_id=1222842957]
+visible = false
 color = Color(0.8, 0.4, 0.1, 1)
 energy = 1.2
 shadow_enabled = true
@@ -152,6 +159,7 @@ layout_mode = 2
 alignment = 1
 
 [node name="StartIcon" type="TextureRect" parent="MainContainer/ButtonContainer/StartButtonContainer" unique_id=2122069000]
+visible = false
 modulate = Color(1, 1, 1, 0.8)
 custom_minimum_size = Vector2(30, 30)
 layout_mode = 2
@@ -171,6 +179,7 @@ layout_mode = 2
 alignment = 1
 
 [node name="ExitIcon" type="TextureRect" parent="MainContainer/ButtonContainer/ExitButtonContainer" unique_id=2080467601]
+visible = false
 modulate = Color(1, 1, 1, 0.8)
 custom_minimum_size = Vector2(30, 30)
 layout_mode = 2

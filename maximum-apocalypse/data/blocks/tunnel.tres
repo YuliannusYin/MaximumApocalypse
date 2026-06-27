@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="MapBlockData" format=3 uid="uid://tunnel_block"]
+
+[ext_resource type="Script" uid="uid://dplbo52je2iiy" path="res://godot/MapTileData.gd" id="1_tunnel"]
+
+[resource]
+script = ExtResource("1_tunnel")
+id = "tunnel"
+tile_name = "隧道"
+spawn_values = 10
+scavenge_type = 3
+effect_trigger = Array[int]([3])
+effect_script_id = Array[String](["move_to_another_tunnel"])
+monster_mark = 0
+description = "行动：移动到另一个已展示的隧道地图块"
+metadata/_custom_type_script = "uid://dplbo52je2iiy"
