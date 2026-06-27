@@ -1,5 +1,5 @@
 # ============================================
-# Apocrypha - Git 忽略文件配置
+# Maximum Apocalypse - Git 忽略文件配置（根目录通用规则）
 # ============================================
 
 # ---------- 操作系统文件 ----------
@@ -22,25 +22,23 @@ $RECYCLE.BIN/
 
 # ---------- 编辑器 / IDE 文件 ----------
 .idea/
+.vscode/
 *.swp
 *.swo
 *.swn
 *.bak
 *.orig
-.vscode/settings.json
-.godot
-# ---------- 构建 / 导出产物 ----------
+.trae/
+
+# ---------- 通用构建 / 导出产物 ----------
 build/
 dist/
 bin/
-*.exe
-*.apk
-*.aab
-*.app
-*.x86_64
-*.pck
 *.zip
 *.tar.gz
+*.tar.bz2
+*.7z
+*.rar
 
 # ---------- 日志与临时文件 ----------
 *.log
@@ -49,11 +47,15 @@ tmp/
 temp/
 RecycleBin/
 
-## ---------- 依赖与第三方库 ----------
+# ---------- 依赖与第三方库 ----------
+node_modules/
 addons/*/node_modules/
 
 # ---------- 敏感信息（切勿提交） ----------
 .env
 .env.local
+.env.*.local
 *.secret
 credentials.json
+*.pem
+*.key
