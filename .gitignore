@@ -2,17 +2,6 @@
 # Apocrypha - Git 忽略文件配置
 # ============================================
 
-# ---------- Godot 引擎缓存 ----------
-.godot/
-/android/
-/builds/
-/export/
-*.tmp
-*.temp
-
-# ---------- Godot 导入缓存（可选：如需协作共享可取消注释） ----------
-# *.import
-
 # ---------- 操作系统文件 ----------
 # Windows
 Thumbs.db
@@ -39,7 +28,7 @@ $RECYCLE.BIN/
 *.bak
 *.orig
 .vscode/settings.json
-
+.godot
 # ---------- 构建 / 导出产物 ----------
 build/
 dist/
@@ -58,8 +47,9 @@ bin/
 logs/
 tmp/
 temp/
+RecycleBin/
 
-# ---------- 依赖与第三方库 ----------
+## ---------- 依赖与第三方库 ----------
 addons/*/node_modules/
 
 # ---------- 敏感信息（切勿提交） ----------
