@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="MapBlockData" format=3 uid="uid://city_street_block"]
+
+[ext_resource type="Script" uid="uid://dplbo52je2iiy" path="res://godot/MapBlockData.gd" id="1_street"]
+
+[resource]
+script = ExtResource("1_street")
+id = "city_street"
+tile_name = "城市街道"
+spawn_values = 8
+scavenge_type = 3
+effect_trigger = Array[int]([1])
+effect_script_id = Array[String](["draw_monster_card_1"])
+monster_mark = 0
+description = "拾荒标记：蓝5、红6、绿8（需骰子值匹配）
+进入：抓一张怪物卡"
+metadata/_custom_type_script = "uid://dplbo52je2iiy"

@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ScavengeCardData" format=3 uid="uid://dirty_blanket"]
+
+[ext_resource type="Script" uid="uid://25vl3dgcqrwf" path="res://godot/ScavengeCardData.gd" id="1_dirty_blanket"]
+
+[resource]
+script = ExtResource("1_dirty_blanket")
+id = "dirty_blanket"
+card_name = "脏毯子"
+category = "其他"
+color = 3
+card_type = "物品"
+equipment_slot = 0
+effect = "作为游戏结算时的物品"
+effect_script_id = "game_end_item"
+metadata/_custom_type_script = "uid://25vl3dgcqrwf"

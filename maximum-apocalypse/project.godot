@@ -11,8 +11,13 @@ config_version=5
 [application]
 
 config/name="MaximumApocalypse"
+run/main_scene="uid://bjhs6ltlnvt"
 config/features=PackedStringArray("4.7", "Forward Plus")
 config/icon="res://icon.svg"
+
+[autoload]
+
+Enums="*uid://buvwmjhq41w3f"
 
 [display]
 

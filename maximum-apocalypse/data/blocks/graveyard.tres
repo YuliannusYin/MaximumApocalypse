@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="MapBlockData" format=3 uid="uid://graveyard_block"]
+
+[ext_resource type="Script" uid="uid://dplbo52je2iiy" path="res://godot/MapBlockData.gd" id="1_grave"]
+
+[resource]
+script = ExtResource("1_grave")
+id = "graveyard"
+tile_name = "墓地"
+spawn_values = 4
+scavenge_type = 3
+effect_trigger = Array[int]([0])
+effect_script_id = Array[String](["draw_monster_card_all_players"])
+monster_mark = 0
+description = "展示：每名玩家抓一张怪物卡"
+metadata/_custom_type_script = "uid://dplbo52je2iiy"

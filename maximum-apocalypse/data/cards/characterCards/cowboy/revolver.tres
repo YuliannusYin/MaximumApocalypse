@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="CharacterCardData" format=3 uid="uid://revolver"]
+
+[ext_resource type="Script" uid="uid://cw2m7xg7nf4d5" path="res://godot/CharacterCardData.gd" id="1_revolver"]
+
+[resource]
+script = ExtResource("1_revolver")
+id = "revolver"
+card_name = "左轮手枪"
+owner_character_id = "cowboy"
+description = "对一个目标造成3点伤害，然后你可以再花费一个弹药来攻击另一个目标。"
+effect_script_id = "deal_3_damage_chain_attack"
+card_type = 1
+equipment_cost = 1
+range_type = 0
+action_condition = "武器射程内有两个及以上的目标"
+metadata/_custom_type_script = "uid://cw2m7xg7nf4d5"

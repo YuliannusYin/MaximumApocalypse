@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="MapBlockData" format=3 uid="uid://castle_block"]
+
+[ext_resource type="Script" uid="uid://dplbo52je2iiy" path="res://godot/MapBlockData.gd" id="1_castle"]
+
+[resource]
+script = ExtResource("1_castle")
+id = "castle"
+tile_name = "城堡"
+spawn_values = 9
+scavenge_type = 3
+effect_trigger = Array[int]([1])
+effect_script_id = Array[String](["all_monsters_heal_full"])
+monster_mark = 0
+description = "进入：游戏中所有怪物生命值回复至满血（负面效果）"
+metadata/_custom_type_script = "uid://dplbo52je2iiy"

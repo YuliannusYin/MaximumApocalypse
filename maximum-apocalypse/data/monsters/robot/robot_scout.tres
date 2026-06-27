@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="MonsterData" format=3 uid="uid://robot_scout"]
+
+[ext_resource type="Script" uid="uid://dpimxl1hcwwcu" path="res://godot/MonsterData.gd" id="1_robot_scout"]
+
+[resource]
+script = ExtResource("1_robot_scout")
+id = "robot_scout"
+monster_name = "机器人侦察兵"
+pack = 2
+rank = 1
+max_hp = 12
+current_hp = 12
+damage = 3
+range_type = 0
+description = "精英怪物。被抓取时在抓取玩家的所有相邻地块上各放置一个怪物标记。"
+Grab_trigger_id = "place_monster_tokens_adjacent_tiles_on_draw"
+Passive_id = "none"
+Destroy_id = "none"
+metadata/_custom_type_script = "uid://dpimxl1hcwwcu"

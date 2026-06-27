@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="MapBlockData" format=3 uid="uid://river_block"]
+
+[ext_resource type="Script" uid="uid://dplbo52je2iiy" path="res://godot/MapBlockData.gd" id="1_river"]
+        
+[resource]
+script = ExtResource("1_river")
+id = "river"
+tile_name = "河流"
+spawn_values = 11
+scavenge_type = 3
+effect_trigger = Array[int]([1])
+effect_script_id = Array[String](["stealth_check_river"])
+monster_mark = 0
+description = "检定：成功：移动到本地图块；失败：返回之前的地图块"
+metadata/_custom_type_script = "uid://dplbo52je2iiy"

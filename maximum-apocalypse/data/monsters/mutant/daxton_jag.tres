@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="MonsterData" format=3 uid="uid://daxton_jag"]
+
+[ext_resource type="Script" uid="uid://dpimxl1hcwwcu" path="res://godot/MonsterData.gd" id="1_daxton_jag"]
+
+[resource]
+script = ExtResource("1_daxton_jag")
+id = "daxton_jag"
+monster_name = "达克斯顿·贾格"
+pack = 1
+rank = 2
+max_hp = 24
+current_hp = 24
+damage = 4
+range_type = 2
+description = "首领怪物。被抓取时所有玩家弃掉一张装备区内的装备，否则受到四点伤害。"
+Grab_trigger_id = "all_players_discard_equipment_or_damage_4_on_draw"
+Passive_id = "none"
+Destroy_id = "none"
+metadata/_custom_type_script = "uid://dpimxl1hcwwcu"
