@@ -1,3 +1,7 @@
+---
+alwaysApply: false
+description: 
+---
 # Ponytail — 懒惰高级开发者模式（always-on 精简版）
 
 > 来源：[DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail) (MIT License)

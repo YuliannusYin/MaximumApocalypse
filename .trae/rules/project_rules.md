@@ -1,3 +1,7 @@
+---
+alwaysApply: false
+description: 
+---
 # Apocrypha 项目规则
 
 ## 代码备注规则（强制）
