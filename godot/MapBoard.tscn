@@ -1,6 +1,0 @@
-[gd_scene format=3 uid="uid://b6rnleoasvain"]
-
-[ext_resource type="Script" uid="uid://fkja1qyjpuqy" path="res://godot/MapBoard.gd" id="1_qv3bq"]
-
-[node name="Node2D" type="Node2D" unique_id=773676909]
-script = ExtResource("1_qv3bq")

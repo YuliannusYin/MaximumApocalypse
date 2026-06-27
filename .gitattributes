@@ -1,2 +1,102 @@
-# Normalize EOL for all files that Git considers text files.
+# ============================================
+# Maximum Apocalypse - Git 属性配置
+# ============================================
+
+# ---------- 行尾符规范化 ----------
+# 所有文本文件自动检测，统一使用 LF 换行符
 * text=auto eol=lf
+
+# ---------- 文本文件显式声明 ----------
+*.md        text
+*.txt       text
+*.json      text
+*.yaml      text
+*.yml       text
+*.xml       text
+*.csv       text
+*.cfg       text
+*.ini       text
+*.gd        text
+*.gdshader  text
+*.tscn      text
+*.tres      text
+*.godot     text
+*.cs        text
+*.shader    text
+*.glsl      text
+*.hlsl      text
+*.cginc     text
+
+# ---------- 二进制文件 ----------
+# 图片
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.bmp   binary
+*.webp  binary
+*.tga   binary
+*.svg   text
+*.ico   binary
+
+# 字体
+*.ttf   binary
+*.otf   binary
+*.woff  binary
+*.woff2 binary
+
+# 音频
+*.mp3   binary
+*.wav   binary
+*.ogg   binary
+*.flac  binary
+*.aac   binary
+*.m4a   binary
+
+# 3D模型与资源
+*.fbx   binary
+*.gltf  binary
+*.glb   binary
+*.blend binary
+*.obj   binary
+*.dae   binary
+*.exr   binary
+*.hdr   binary
+
+# Godot 导入文件（文本格式）
+*.import     text
+*.uid        text
+*.translation text
+
+# 视频
+*.mp4   binary
+*.mov   binary
+*.avi   binary
+*.webm  binary
+*.mkv   binary
+
+# 文档
+*.pdf   binary
+*.doc   binary
+*.docx  binary
+*.xls   binary
+*.xlsx  binary
+*.ppt   binary
+*.pptx  binary
+
+# 归档
+*.zip   binary
+*.tar   binary
+*.gz    binary
+*.7z    binary
+*.rar   binary
+
+# 可执行与库
+*.exe   binary
+*.dll   binary
+*.so    binary
+*.dylib binary
+*.apk   binary
+*.aab   binary
+*.app   binary
+*.pck   binary
