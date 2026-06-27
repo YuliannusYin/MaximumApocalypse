@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="MapBlockData" format=3 uid="uid://tunnel_block"]
+﻿[gd_resource type="Resource" script_class="MapBlockData" format=3 uid="uid://tunnel_block"]
 
 [ext_resource type="Script" uid="uid://dplbo52je2iiy" path="res://MapBlockData.gd" id="1_tunnel"]
         

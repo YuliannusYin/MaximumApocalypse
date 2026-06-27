@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="PlayerData" format=3 uid="uid://veteran_character"]
+﻿[gd_resource type="Resource" script_class="PlayerData" format=3 uid="uid://veteran_character"]
 
 [ext_resource type="Script" uid="uid://ccb2t3cg5x7kw" path="res://PlayerData.gd" id="1_veteran"]
 

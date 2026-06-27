@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="ScavengeCardData" format=3 uid="uid://spare_parts"]
+﻿[gd_resource type="Resource" script_class="ScavengeCardData" format=3 uid="uid://spare_parts"]
 
 [ext_resource type="Script" uid="uid://25vl3dgcqrwf" path="res://ScavengeCardData.gd" id="1_spare_parts"]
 

@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="CharacterCardData" format=3 uid="uid://kill_them_all"]
+﻿[gd_resource type="Resource" script_class="CharacterCardData" format=3 uid="uid://kill_them_all"]
 
 [ext_resource type="Script" uid="uid://cw2m7xg7nf4d5" path="res://CharacterCardData.gd" id="1_kill_them_all"]
 
