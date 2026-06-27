@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="MonsterData" format=3 uid="uid://explosive_robot"]
 
-[ext_resource type="Script" uid="uid://dpimxl1hcwwcu" path="res://godot/MonsterData.gd" id="1_explosive_robot"]
+[ext_resource type="Script" uid="uid://dpimxl1hcwwcu" path="res://MonsterData.gd" id="1_explosive_robot"]
 
 [resource]
 script = ExtResource("1_explosive_robot")

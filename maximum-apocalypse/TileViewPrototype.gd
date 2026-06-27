@@ -55,21 +55,21 @@ func setup(pos: Vector2i, runtime_data: Dictionary, size: Vector2) -> void:
 	_refresh_info_text() # 填充具体文字内容
 	
 	# --- 5. 动态生成迷雾遮罩层 (覆盖在最上方) ---
-	#fog_rect = ColorRect.new()
-	#fog_rect.size = size
-	#fog_rect.color = Color(0.08, 0.08, 0.1, 0.98) # 接近全黑的深色方框代表迷雾
-	#add_child(fog_rect)
+	fog_rect = ColorRect.new()
+	fog_rect.size = size
+	fog_rect.color = Color(0.08, 0.08, 0.1, 0.98) # 接近全黑的深色方框代表迷雾
+	add_child(fog_rect)
 	
 	# 动态在迷雾上加一行细字提示未探索
-	#var fog_label = Label.new()
-	#fog_label.text = "未探索 (%d,%d)" % [pos.x, pos.y]
-	#fog_label.position = Vector2(8, size.y - 24)
-	#fog_label.add_theme_color_override("font_color", Color(0.4, 0.4, 0.4))
-	#fog_label.add_theme_font_size_override("font_size", 10)
-	#fog_rect.add_child(fog_label)
+	var fog_label = Label.new()
+	fog_label.text = "未探索 (%d,%d)" % [pos.x, pos.y]
+	fog_label.position = Vector2(8, size.y - 24)
+	fog_label.add_theme_color_override("font_color", Color(0.4, 0.4, 0.4))
+	fog_label.add_theme_font_size_override("font_size", 10)
+	fog_rect.add_child(fog_label)
 	
 	# 根据数据的初始状态控制迷雾显隐
-	#update_fog_state()
+	update_fog_state()
 
 	# --- 6. 动态创建点击按钮（用于玩家移动） ---
 	_create_click_button(size)
