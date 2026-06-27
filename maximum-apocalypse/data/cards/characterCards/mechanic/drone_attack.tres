@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="CharacterCardData" format=3 uid="uid://drone_attack"]
+
+[ext_resource type="Script" uid="uid://cw2m7xg7nf4d5" path="res://godot/CharacterCardData.gd" id="1_drone_attack"]
+
+[resource]
+script = ExtResource("1_drone_attack")
+id = "drone_attack"
+card_name = "无人机攻击"
+owner_character_id = "mechanic"
+description = "从1个地图块上移除所有怪物标记"
+effect_script_id = "remove_all_monsters_from_tile"
+card_type = 0
+equipment_cost = 0
+range_type = 0
+action_condition = "无"
+metadata/_custom_type_script = "uid://cw2m7xg7nf4d5"

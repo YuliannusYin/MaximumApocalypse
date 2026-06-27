@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="CharacterCardData" format=3 uid="uid://check_weapon"]
+
+[ext_resource type="Script" uid="uid://cw2m7xg7nf4d5" path="res://godot/CharacterCardData.gd" id="1_check_weapon"]
+
+[resource]
+script = ExtResource("1_check_weapon")
+id = "check_weapon"
+card_name = "检查武器"
+owner_character_id = "mechanic"
+description = "直到你的下回合开始，所有玩家造成的伤害增加1"
+effect_script_id = "increase_all_damage_1_until_next_turn"
+card_type = 0
+equipment_cost = 0
+range_type = 0
+action_condition = "无"
+metadata/_custom_type_script = "uid://cw2m7xg7nf4d5"

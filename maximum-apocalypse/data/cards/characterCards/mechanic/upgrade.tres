@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="CharacterCardData" format=3 uid="uid://upgrade"]
+
+[ext_resource type="Script" uid="uid://cw2m7xg7nf4d5" path="res://godot/CharacterCardData.gd" id="1_upgrade"]
+
+[resource]
+script = ExtResource("1_upgrade")
+id = "upgrade"
+card_name = "升级"
+owner_character_id = "mechanic"
+description = "放置在射程内的任一武器上，那张武器额外造成1点伤害"
+effect_script_id = "attach_upgrade_increase_damage_1"
+card_type = 0
+equipment_cost = 0
+range_type = 2
+action_condition = "无"
+metadata/_custom_type_script = "uid://cw2m7xg7nf4d5"

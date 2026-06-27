@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="CharacterCardData" format=3 uid="uid://focused_shot"]
+
+[ext_resource type="Script" uid="uid://cw2m7xg7nf4d5" path="res://godot/CharacterCardData.gd" id="1_focused_shot"]
+
+[resource]
+script = ExtResource("1_focused_shot")
+id = "focused_shot"
+card_name = "集中射击"
+owner_character_id = "cowboy"
+description = "消耗一枚弹药，对一个选定目标造成5点伤害"
+effect_script_id = "consume_ammo_deal_5_damage"
+card_type = 0
+equipment_cost = 0
+range_type = 3
+action_condition = "装备区有装备消耗弹药的武器，且弹药量大于零"
+metadata/_custom_type_script = "uid://cw2m7xg7nf4d5"

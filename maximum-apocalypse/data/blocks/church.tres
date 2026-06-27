@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="MapBlockData" format=3 uid="uid://church_block"]
+
+[ext_resource type="Script" uid="uid://dplbo52je2iiy" path="res://godot/MapBlockData.gd" id="1_church"]
+
+[resource]
+script = ExtResource("1_church")
+id = "church"
+tile_name = "教堂"
+spawn_values = 10
+scavenge_type = 0
+effect_trigger = Array[int]([1, 2])
+effect_script_id = Array[String](["stun_monster_1", "repeat_monster_spawn"])
+monster_mark = 0
+description = "红色拾荒
+进入：击晕1个此处的怪物
+结束：再次执行怪物出生"
+metadata/_custom_type_script = "uid://dplbo52je2iiy"

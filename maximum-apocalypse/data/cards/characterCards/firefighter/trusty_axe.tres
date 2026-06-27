@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="CharacterCardData" format=3 uid="uid://trusty_axe"]
+
+[ext_resource type="Script" uid="uid://cw2m7xg7nf4d5" path="res://godot/CharacterCardData.gd" id="1_trusty_axe"]
+
+[resource]
+script = ExtResource("1_trusty_axe")
+id = "trusty_axe"
+card_name = "值得信赖的斧子"
+owner_character_id = "firefighter"
+description = "对一个目标造成4点伤害"
+effect_script_id = "deal_4_damage_short_range"
+card_type = 1
+equipment_cost = 2
+range_type = 1
+action_condition = "无"
+metadata/_custom_type_script = "uid://cw2m7xg7nf4d5"

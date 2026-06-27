@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="MapBlockData" format=3 uid="uid://c3ylmyu6psk5b"]
+
+[ext_resource type="Script" uid="uid://dplbo52je2iiy" path="res://godot/MapBlockData.gd" id="1_q0bo7"]
+        
+[resource]
+script = ExtResource("1_q0bo7")
+id = "wilderness"
+tile_name = "旷野"
+spawn_values = 8
+effect_trigger = Array[int]([0, 2])
+effect_script_id = Array[String](["draw_monster_card_1", "draw_monster_card_1"])
+description = "展示：抓一张怪物牌
+结束：抓一张怪物牌"
+metadata/_custom_type_script = "uid://dplbo52je2iiy"

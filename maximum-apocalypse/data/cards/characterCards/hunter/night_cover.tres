@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="CharacterCardData" format=3 uid="uid://night_cover"]
+
+[ext_resource type="Script" uid="uid://cw2m7xg7nf4d5" path="res://godot/CharacterCardData.gd" id="1_night_cover"]
+
+[resource]
+script = ExtResource("1_night_cover")
+id = "night_cover"
+card_name = "夜色掩护"
+owner_character_id = "hunter"
+description = "从任一拾荒牌库中抓最多3张牌，然后弃置掉其中一张"
+effect_script_id = "draw_3_scavenge_discard_1"
+card_type = 0
+equipment_cost = 0
+range_type = 0
+action_condition = "无"
+metadata/_custom_type_script = "uid://cw2m7xg7nf4d5"

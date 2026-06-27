@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="CharacterCardData" format=3 uid="uid://lasso"]
+
+[ext_resource type="Script" uid="uid://cw2m7xg7nf4d5" path="res://godot/CharacterCardData.gd" id="1_lasso"]
+
+[resource]
+script = ExtResource("1_lasso")
+id = "lasso"
+card_name = "套索"
+owner_character_id = "cowboy"
+description = "击晕一个怪物并将其移动至你的面前"
+effect_script_id = "stun_and_pull_monster"
+card_type = 0
+equipment_cost = 0
+range_type = 2
+action_condition = "射程范围内有可以被击晕的怪物"
+metadata/_custom_type_script = "uid://cw2m7xg7nf4d5"

@@ -74,7 +74,7 @@ func _on_start_button_pressed() -> void:
 	print("开始游戏按钮被点击")
 
 	# 示例：切换到游戏场景（需要先创建游戏场景）
-	# get_tree().change_scene_to_file("res://godot/game.tscn")
+	# get_tree().change_scene_to_file("res://game.tscn")
 
 
 # [新增] 2026-06-24: 退出按钮点击事件
