@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="MonsterData" format=3 uid="uid://zombie_soldier"]
+
+[ext_resource type="Script" uid="uid://dpimxl1hcwwcu" path="res://godot/MonsterData.gd" id="1_zombie_soldier"]
+
+[resource]
+script = ExtResource("1_zombie_soldier")
+id = "zombie_soldier"
+monster_name = "僵尸士兵"
+pack = 3
+rank = 0
+max_hp = 8
+current_hp = 8
+damage = 4
+range_type = 0
+description = "普通怪物。无特殊能力。"
+Grab_trigger_id = "none"
+Passive_id = "none"
+Destroy_id = "none"
+metadata/_custom_type_script = "uid://dpimxl1hcwwcu"

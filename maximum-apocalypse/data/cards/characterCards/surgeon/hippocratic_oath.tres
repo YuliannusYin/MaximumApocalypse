@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="CharacterCardData" format=3 uid="uid://hippocratic_oath"]
+
+[ext_resource type="Script" uid="uid://cw2m7xg7nf4d5" path="res://godot/CharacterCardData.gd" id="1_hippocratic_oath"]
+
+[resource]
+script = ExtResource("1_hippocratic_oath")
+id = "hippocratic_oath"
+card_name = "希波克拉底誓言"
+owner_character_id = "surgeon"
+description = "使任一玩家回复6点生命"
+effect_script_id = "heal_6_hp_to_player"
+card_type = 0
+equipment_cost = 0
+range_type = 0
+action_condition = "无"
+metadata/_custom_type_script = "uid://cw2m7xg7nf4d5"

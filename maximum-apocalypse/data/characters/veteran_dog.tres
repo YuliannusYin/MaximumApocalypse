@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="PlayerData" format=3 uid="uid://veteran_dog"]
+
+[ext_resource type="Script" uid="uid://ccb2t3cg5x7kw" path="res://godot/PlayerData.gd" id="1_dog"]
+
+[resource]
+script = ExtResource("1_dog")
+id = "veteran_dog"
+character_name = "狗"
+max_hp = 12
+current_hp = 12
+hunger_level = 1
+base_stealth = 9
+starving_stealth = 8
+metadata/_custom_type_script = "uid://ccb2t3cg5x7kw"

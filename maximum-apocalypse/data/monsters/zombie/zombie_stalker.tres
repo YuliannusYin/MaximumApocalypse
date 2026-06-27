@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="MonsterData" format=3 uid="uid://zombie_stalker"]
+
+[ext_resource type="Script" uid="uid://dpimxl1hcwwcu" path="res://godot/MonsterData.gd" id="1_zombie_stalker"]
+
+[resource]
+script = ExtResource("1_zombie_stalker")
+id = "zombie_stalker"
+monster_name = "僵尸潜行者（精英）"
+pack = 3
+rank = 1
+max_hp = 12
+current_hp = 12
+damage = 5
+range_type = 2
+description = "精英怪物。造成伤害后，该怪物卡移动到并纠缠场上血量最低的玩家面前。"
+Grab_trigger_id = "none"
+Passive_id = "move_to_lowest_hp_player_on_damage"
+Destroy_id = "none"
+metadata/_custom_type_script = "uid://dpimxl1hcwwcu"

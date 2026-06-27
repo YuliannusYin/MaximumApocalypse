@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="CharacterCardData" format=3 uid="uid://drill"]
+
+[ext_resource type="Script" uid="uid://cw2m7xg7nf4d5" path="res://godot/CharacterCardData.gd" id="1_drill"]
+
+[resource]
+script = ExtResource("1_drill")
+id = "drill"
+card_name = "钻头"
+owner_character_id = "surgeon"
+description = "对1个目标造成3点伤害"
+effect_script_id = "deal_3_damage_short_range"
+card_type = 1
+equipment_cost = 1
+range_type = 1
+action_condition = "无"
+metadata/_custom_type_script = "uid://cw2m7xg7nf4d5"
