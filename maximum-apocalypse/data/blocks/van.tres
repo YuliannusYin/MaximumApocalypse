@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="MapBlockData" format=3 uid="uid://van_block"]
+
+[ext_resource type="Script" uid="uid://dplbo52je2iiy" path="res://godot/MapTileData.gd" id="1_van"]
+
+[resource]
+script = ExtResource("1_van")
+id = "van"
+tile_name = "面包车"
+spawn_values = 6
+scavenge_type = 3
+effect_trigger = Array[int]([])
+effect_script_id = Array[String]([])
+monster_mark = 0
+description = "游戏起始点，玩家从这里开始游戏"
+metadata/_custom_type_script = "uid://dplbo52je2iiy"

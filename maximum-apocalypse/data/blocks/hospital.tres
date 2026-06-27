@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="MapBlockData" format=3 uid="uid://hospital_block"]
+
+[ext_resource type="Script" uid="uid://dplbo52je2iiy" path="res://godot/MapTileData.gd" id="1_hospital"]
+
+[resource]
+script = ExtResource("1_hospital")
+id = "hospital"
+tile_name = "医院"
+spawn_values = 3
+scavenge_type = 0
+effect_trigger = Array[int]([1, 2])
+effect_script_id = Array[String](["heal_1", "heal_2"])
+monster_mark = 0
+description = "提供医疗服务的场所
+进入：恢复1点生命
+结束：恢复2点生命"
+metadata/_custom_type_script = "uid://dplbo52je2iiy"

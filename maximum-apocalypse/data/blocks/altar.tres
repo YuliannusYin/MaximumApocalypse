@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="MapBlockData" format=3 uid="uid://altar_block"]
+
+[ext_resource type="Script" uid="uid://dplbo52je2iiy" path="res://godot/MapTileData.gd" id="1_altar"]
+
+[resource]
+script = ExtResource("1_altar")
+id = "altar"
+tile_name = "祭坛"
+spawn_values = 6
+scavenge_type = 3
+effect_trigger = Array[int]([0])
+effect_script_id = Array[String](["add_3_monster_markers"])
+monster_mark = 0
+description = "展示：放置3个怪物标记"
+metadata/_custom_type_script = "uid://dplbo52je2iiy"
