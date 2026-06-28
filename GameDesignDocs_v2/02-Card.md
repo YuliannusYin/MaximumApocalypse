@@ -3,7 +3,7 @@
 > MA 的卡牌大类抽象：所有"卡牌"形态的对象（拾荒卡 / 求生者卡 / 怪物卡 / 任务卡 / 角色卡 / 任务物品卡）统一用 Card 类表达。
 > 数据 = Resource / 状态 = RefCounted（不可变 `CardData` + 可变 `CardInstance` 分离）。
 > 本文档只定义基类与方法签名，不含具体卡牌实现。
-> 应用 v1 决策：D5（燃料三选一）、D7（remove/discard）、D8（死亡后卡牌按来源处理）、D9（装备卡抓取先进手牌）、D22（装备栏 size）、D24（Skill 统一技能）。
+> 应用 v1 决策：D5（燃料三选一）、D7（remove/discard）、D8（死亡后卡牌按来源处理）、D9（装备卡抓取先进手牌）、D22（装备栏 size）、D24（Skill 统一技能）、D80（行动中生成并装备的卡牌 source = SURVIVOR_DECK）、D88（"摧毁装备牌" = remove()）。
 
 ---
 
@@ -81,8 +81,9 @@ func remove() -> void:
     pass
 
 # 置入弃牌堆：location = DISCARD_PILE，触发 ON_DISCARD
-# pile 由调用方指定（拾荒弃牌堆 / 角色弃牌堆 / 怪物弃牌堆，见 D7 弃牌堆分类）
-func discard(pile: DiscardPile) -> void:
+# pile 由调用方指定：ScavengerDiscardPile / MonsterDiscardPile / Survivor.discard_pile（Array[CardInstance]）
+# 不抽象 DiscardPile 基类（D48），参数类型用 Variant
+func discard(pile: Variant) -> void:
     pass
 
 # === 装备生命周期（仅 EquipmentCard 用） ===
@@ -330,6 +331,7 @@ remove()      → 若在装备区先 ON_UNEQUIP，再 REMOVED，触发 ON_REMOVE
 > 关键约束（与 01-Skill.md 6.1 节对接）：
 > - **remove 隐含 ON_UNEQUIP**：装备被 `remove()` 移出游戏时必须先触发 ON_UNEQUIP，保证持续型被动（背包"+1 装备栏"）的对称回退
 > - **discard 也隐含 ON_UNEQUIP**：装备被 `discard()` 时同理
+> - **"摧毁装备牌" = remove()**（D88）：怪物效果中的"摧毁"直接移出本局游戏，不进弃牌堆
 
 ---
 

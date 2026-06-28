@@ -117,7 +117,7 @@ enum DeckColor {
 
 ### 4.3 牌堆与地块关联
 
-地块通过 `scavenger_piles: Array[DeckColor]` 字段关联可拾荒的牌堆（详见 08-MapBlock.md，待编写）。
+地块通过 `scavenger_piles: Array[DeckColor]` 字段关联可拾荒的牌堆（详见 09-MapBlock.md）。
 
 - 地块无拾荒标记 → 不能拾荒
 - 地块有 1 个拾荒标记 → 可从该色牌堆抓 1 张
@@ -277,11 +277,11 @@ func execute(event, owner) -> void:
 | `scientist` | 科学家 | TOOL | 被动：装备后不可潜行穿过怪物标记；作为任务结算物品 | `scientist_no_stealth` |
 
 ```text
-# 科学家（任务专属装备卡，由任务系统直接发出或拾荒牌堆配置）
+# 科学家（任务专属装备卡，由任务系统直接发出）
 {
     card_id: &"scientist",
     card_type: CardType.EQUIPMENT,
-    source: CardSource.SCAVENGER_DECK,   # 或 CardSource.MISSION（由任务系统发出时）
+    source: CardSource.MISSION,           # D111：由任务系统直接发放，不进拾荒牌堆
     scavenger_color: ScavengerColor.GRAY,
     size: 1,
     range: Range.NONE,
@@ -289,7 +289,7 @@ func execute(event, owner) -> void:
 }
 ```
 
-> 科学家卡的 `source` 可能是 `SCAVENGER_DECK`（任务卡配置进入拾荒牌堆）或 `MISSION`（任务事件直接发给玩家），取决于任务设计。
+> D111：科学家卡 `source = MISSION`，由任务系统直接发放并装备到第一个进行回合的玩家装备区（D102），**不进任何拾荒牌堆**。
 
 ---
 
@@ -428,3 +428,4 @@ MVP 阶段仅实现**任务 0（教程）**配置的三色牌堆子集：
 - 用户决策：事件卡归入 ActionCardData（不单设 EventCardData）
 - 用户决策：ScavengerColor 字段放在 PlayableCardData（默认 NONE）
 - 用户决策：拾荒弃牌堆 1 个全局（所有色合并）
+- D111 科学家任务专属装备由任务系统直接发放（source = MISSION），不进拾荒牌堆

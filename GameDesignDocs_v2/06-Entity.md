@@ -168,7 +168,7 @@ TurnManager 在阶段切换时调用所有相关 Entity 的钩子：
 on_turn_start(owner):
   - owner 是当前回合玩家
   - Survivor override:
-    - 重置 actions_remaining = 4（标准行动点）
+    - 重置 action_points = 4（标准行动点，由 TurnManager 在抓牌阶段设置）
     - 结算中毒（poison_stacks > 0 时扣血，待 Q4 决定结算时机）
     - 检查饥饿状态（若仍 is_hungry，按 hunger_damage_sequence 扣血）
   - Monster override:

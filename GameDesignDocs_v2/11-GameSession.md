@@ -71,11 +71,12 @@ func _init_subsystems(selected_characters: Array[CharacterCardData]) -> void:
     _init_scavenger_decks()        # 2. 拾荒牌堆（10-Deck.md 第 9 节步骤 3-4）
     _init_monster_deck()           # 3. 怪物牌库（10-Deck.md 第 9 节步骤 5）
     _init_survivors(selected_characters)  # 4. 求生者（10-Deck.md 第 9 节步骤 6）
-    _init_initial_monsters()       # 5. 初始抓怪（10-Deck.md 第 9 节步骤 7，D17）
-    _init_boss()                   # 6. 首领卡处理（08-MissionCard.md boss_config）
-    _init_target_markers()         # 7. 目标标记放置（08-MissionCard.md target_markers）
-    _init_block_scavenger_piles()  # 8. 地块拾荒牌堆初始化（09-MapBlock.md 第 9 节）
-    _init_managers()               # 9. TurnManager / SkillExecutor
+    _init_scientist_equipment()    # 5. 科学家装备（任务 3/8/9，D102 / D111）
+    _init_initial_monsters()       # 6. 初始抓怪（10-Deck.md 第 9 节步骤 7，D17）
+    _init_boss()                   # 7. 首领卡处理（08-MissionCard.md boss_config）
+    _init_target_markers()         # 8. 目标标记放置（08-MissionCard.md target_markers）
+    _init_block_scavenger_piles()  # 9. 地块拾荒牌堆初始化（09-MapBlock.md 第 9 节）
+    _init_managers()               # 10. TurnManager / SkillExecutor
 
 # 1. 地图填充（引用 09-MapBlock.md 第 8 节）
 func _init_map() -> void:
@@ -115,7 +116,25 @@ func _init_survivors(selected_characters: Array[CharacterCardData]) -> void:
         survivors.append(survivor)
         add_child(survivor)
 
-# 5. 初始抓怪（引用 10-Deck.md 第 9 节步骤 7，D17）
+# 5. 科学家装备（任务 3/8/9，D102 / D111）
+# 科学家为任务专属装备，source = MISSION，不进拾荒牌堆
+# 初始位置：第一个进行回合的玩家（survivors[0]）的装备区
+func _init_scientist_equipment() -> void:
+    var mission_scientists = [&"mission_3", &"mission_8", &"mission_9"]
+    if not mission_scientists.has(current_mission.mission_id):
+        return
+    var scientist_data = CardRegistry.get_card_data(&"scientist")
+    if scientist_data == null:
+        push_error("GameSession: mission %s requires scientist card but not found" % current_mission.mission_id)
+        return
+    var first_player = survivors[0]
+    var instance = CardInstance.new()
+    instance.data = scientist_data
+    instance.source = CardSource.MISSION
+    instance.location = CardLocation.EQUIPMENT
+    first_player.equip(instance)
+
+# 6. 初始抓怪（引用 10-Deck.md 第 9 节步骤 7，D17）
 func _init_initial_monsters() -> void:
     # 任务 11 例外：任务开始时不抓取怪物卡
     if current_mission.mission_id == &"mission_11":
@@ -168,7 +187,8 @@ func _init_block_scavenger_piles() -> void:
         if block.get_scavenger_piles().is_empty():
             continue
         for color in block.get_scavenger_piles():
-            block.scavenger_pile_remaining[color] = scavenger_deck_stack.get_count(color)
+            # 默认每个地块的每种拾荒色堆可拾荒 1 次（具体张数待原版数据确认）
+            block.scavenger_pile_remaining[color] = 1
 
 # 9. TurnManager / SkillExecutor
 func _init_managers() -> void:
@@ -275,6 +295,14 @@ func get_current_player() -> Survivor:
 func get_alive_players() -> Array[Survivor]:
     return survivors.filter(func(s: Survivor) -> bool: return s.is_alive)
 
+# 获取位于指定地块上的所有存活玩家（D108 地块摧毁等场景使用）
+func get_survivors_on_block(block: MapBlockInstance) -> Array[Survivor]:
+    var result: Array[Survivor] = []
+    for survivor in survivors:
+        if survivor.is_alive and survivor.current_block == block:
+            result.append(survivor)
+    return result
+
 # 怪物标记变化时调用（地块 monster_tokens 增减时）
 func notify_monster_token_changed() -> void:
     var total = map_grid.get_total_monster_tokens()
@@ -340,11 +368,12 @@ enum GameResult {
 | 2 | `_init_scavenger_decks()` | 10-Deck.md 第 9 节步骤 3-4 | 拾荒牌堆 + 弃牌堆初始化 |
 | 3 | `_init_monster_deck()` | 10-Deck.md 第 9 节步骤 5 | 怪物牌库 + 弃牌堆初始化 |
 | 4 | `_init_survivors()` | 10-Deck.md 第 9 节步骤 6 | 求生者牌库实例化（按座次顺序） |
-| 5 | `_init_initial_monsters()` | 10-Deck.md 第 9 节步骤 7 | 初始抓怪（D17，任务 11 例外） |
-| 6 | `_init_boss()` | 08-MissionCard.md 第 6 节 | 首领卡处理（按 boss_config.mechanic） |
-| 7 | `_init_target_markers()` | 08-MissionCard.md 第 7 节 | 目标标记放置（按 target_markers 约束） |
-| 8 | `_init_block_scavenger_piles()` | 09-MapBlock.md 第 9 节 | 地块拾荒牌堆剩余张数初始化 |
-| 9 | `_init_managers()` | 本文档第 2 节 | TurnManager / SkillExecutor 初始化 |
+| 5 | `_init_scientist_equipment()` | 本文档第 2 节 | 任务 3/8/9 的科学家装备给第一个玩家（D102 / D111） |
+| 6 | `_init_initial_monsters()` | 10-Deck.md 第 9 节步骤 7 | 初始抓怪（D17，任务 11 例外） |
+| 7 | `_init_boss()` | 08-MissionCard.md 第 6 节 | 首领卡处理（按 boss_config.mechanic） |
+| 8 | `_init_target_markers()` | 08-MissionCard.md 第 7 节 | 目标标记放置（按 target_markers 约束） |
+| 9 | `_init_block_scavenger_piles()` | 09-MapBlock.md 第 9 节 | 地块拾荒牌堆剩余张数初始化 |
+| 10 | `_init_managers()` | 本文档第 2 节 | TurnManager / SkillExecutor 初始化 |
 
 ### 6.2 首领卡处理分类
 
@@ -519,6 +548,9 @@ GameSession 是否需要支持存档/读档？MVP 阶段假设不支持，每局
 - D18 任务燃料机制（胜负判定引用 08-MissionCard.md）
 - D19 首领卡机制（`_init_boss()` 按 boss_config.mechanic 分类处理）
 - D20 回合限制（任务 5 的 3 回合限制，`turn_limit` 字段）
+- D102 科学家初始位置（`_init_scientist_equipment()` 装备给第一个玩家）
+- D108 任务 12 地块摧毁（`get_survivors_on_block()` 配合 09-MapBlock.md `destroy()`）
+- D111 科学家卡牌来源（`_init_scientist_equipment()` 中 `source = MISSION`）
 - 用户决策：GameSession 是场景根节点（每局新建，状态干净）
 - 用户决策：GameSession 持有 TurnManager / SkillExecutor（集中管理生命周期）
 - 用户决策：初始化流程引用 10-Deck.md 第 9 节不重复

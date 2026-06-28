@@ -2,7 +2,7 @@
 
 > 求生者游戏牌 = 求生者牌库中的卡（`ActionCardData` / `EquipmentCardData` 子类 + `source = SURVIVOR_DECK`）。
 > 不单设 `SurvivorCardData` 子类（02-Card.md 决策：按类型分层 + `source` 字段标记来源）。
-> 应用 v1 决策：D8（死亡后装备按来源处理）、D9（装备卡抓取先进手牌）、D10（求生者牌库循环）、D22（装备栏 size）。
+> 应用 v1 决策：D8（死亡后装备按来源处理）、D9（装备卡抓取先进手牌）、D10（求生者牌库循环）、D22（装备栏 size）、D80（行动中生成并装备的卡牌 source = SURVIVOR_DECK）、D82（枪手"搜索尸体"跨色随机拾荒）。
 
 ---
 

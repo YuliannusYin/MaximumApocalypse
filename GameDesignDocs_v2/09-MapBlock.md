@@ -2,7 +2,7 @@
 
 > MA 的地块系统抽象：25 种地块类型 + 38 个地块实例，由任务卡 `map_layout` 驱动填充到地图网格。
 > 数据 = Resource / 实体 = Node2D（不可变 `MapBlockData` + 可变 `MapBlockInstance` 分离，与卡牌系统一致）。
-> 本文档只定义基类与方法签名，不含具体地块实现与 skill 表。
+> 本文档定义基类、方法签名，以及 25 种地块类型与 38 个实例池的完整配置。
 > 应用 v1 决策：D3（任务卡内置布局 + 地块随机填充）、D4（25 种类型 / 38 实例）、D12（拾荒牌库空无法拾荒）、D16（怪物标记上限）、D24（地块技能统一为 Skill）。
 
 ---
@@ -13,7 +13,7 @@
 - **MapBlockInstance 继承 Node2D**：地块是地图上的可视对象，进场景树后可挂子节点（地块 Sprite / 怪物标记节点 / 拾荒牌堆可视化等），便于 UI 集成与点击交互。
 - **邻接关系由 MapGrid 统一管理**：`MapBlockInstance` 只存 `grid_pos: Vector2i`，邻接查询通过 `MapGrid.get_neighbor(pos, dir)` 集中处理，避免地块间双向引用同步问题（ponytail 风格）。
 - **地块效果统一为 Skill**（D24）：所有地块触发效果（展示/进入/离开/行动/结束）均存 `skill_ids: Array[StringName]`，运行时由 `SkillExecutor` 调度（forced=true TRIGGER，自动触发）。
-- **25 种地块详细 skill 表引用 v1**：本文档只定义基类与字段签名，25 种地块的详细属性与 skill 表见 [v1 04-地图系统设计.md](../GameDesignDocs_v1/04-地图系统设计.md) 第 5 章，38 实例池见第 6 章。
+- **25 种地块详细属性与 skill 表**：见本文档第 12 节，38 实例池见第 13 节。
 
 ---
 
@@ -102,6 +102,22 @@ func can_scavenge() -> bool:
         if scavenger_pile_remaining.get(color, 0) > 0:
             return true
     return false
+
+# 摧毁该地块（D108）
+# - 该地块上的玩家随机移动到周围相邻地块
+# - 怪物标记、拾荒卡等其余内容直接移出游戏
+func destroy() -> void:
+    # 1. 地块上玩家随机移动到相邻地块
+    for survivor in game_session.get_survivors_on_block(self):
+        var neighbors = game_session.map_grid.get_neighbors(grid_pos)
+        if neighbors.size() > 0:
+            var target_block = neighbors.pick_random()
+            survivor.move_to(target_block)
+    # 2. 其他内容（怪物标记/拾荒卡）移出游戏
+    monster_tokens = 0
+    scavenger_pile_remaining.clear()
+    # 3. 从地图网格移除
+    game_session.map_grid.remove_block(grid_pos)
 ```
 
 > 设计取舍：`scavenger_pile_remaining` 存地块级剩余张数，便于 UI 显示"剩余 X 张"。初始化时从 `ScavengerDeckStack` 抓取对应张数填入（见第 9 节）。
@@ -391,7 +407,8 @@ func init_scavenger_piles(block: MapBlockInstance, deck_stack: ScavengerDeckStac
         # 从全局拾荒牌堆抓取该色堆的牌放入地块
         # 注意：地块不存具体卡牌实例，只存剩余张数（卡牌实例由 ScavengerDeckStack 管理）
         # 抓取时由 ScavengerDeckStack.draw(color) 返回 CardInstance，玩家拾荒时再抓
-        block.scavenger_pile_remaining[color] = deck_stack.get_remaining_count(color)
+        # 默认每个地块的每种拾荒色堆可拾荒 1 次（具体张数待原版数据确认）
+        block.scavenger_pile_remaining[color] = 1
 ```
 
 > 实现要点：地块的 `scavenger_pile_remaining` 是"该色堆还有多少张"的计数，实际卡牌实例存在 `ScavengerDeckStack` 中。玩家拾荒时 `ScavengerDeckStack.draw(color)` 抓取卡牌，同时 `scavenger_pile_remaining[color] -= 1`。
@@ -466,7 +483,7 @@ func init_scavenger_piles(block: MapBlockInstance, deck_stack: ScavengerDeckStac
 
 ### 11.1 SkillExecutor 扫描范围扩展
 
-SkillExecutor 扫描对象需包含地块（见 v1 04-地图系统设计.md 第 10.1 节）：
+SkillExecutor 扫描对象需包含地块：
 
 ```text
 扫描对象 = [
@@ -481,7 +498,9 @@ SkillExecutor 扫描对象需包含地块（见 v1 04-地图系统设计.md 第 
 ### 11.2 地块事件触发流程
 
 ```text
-1. 玩家执行"展示相邻地块"操作
+玩家移动到相邻未展示地块的完整时序（D93）：
+
+1. 展示相邻未知地块（翻面）
    ↓
 2. SkillExecutor 发出 ON_REVEAL 事件，target = 被展示的 MapBlockInstance
    ↓
@@ -491,9 +510,19 @@ SkillExecutor 扫描对象需包含地块（见 v1 04-地图系统设计.md 第 
    - ConditionChecker 检查 condition
    - 通过 → 调用 EffectHandler[effect_id]
    ↓
-5. 玩家移动进入该地块
+5. 若 ON_REVEAL 触发"立即结束回合"（如监狱）：
+   → 立即结束该玩家回合，终止本次移动后续流程并跳过行动阶段
+6. 离开当前地块
    ↓
-6. SkillExecutor 发出 ON_ENTER 事件 → 同流程触发 ON_ENTER 技能
+7. SkillExecutor 发出 ON_LEAVE 事件，target = 原地块
+   ↓
+8. 进入刚展示的地块
+   ↓
+9. SkillExecutor 发出 ON_ENTER 事件，target = 目标地块
+   ↓
+10. 对目标地块每个 trigger_timing == ON_ENTER 的 Skill：
+    - ConditionChecker 检查 condition
+    - 通过 → 调用 EffectHandler[effect_id]
 ```
 
 ### 11.3 ON_LEAVE 时序问题
@@ -504,55 +533,494 @@ SkillExecutor 扫描对象需包含地块（见 v1 04-地图系统设计.md 第 
 玩家从森林 A 移动到地块 B
   ↓
 1. ON_LEAVE 事件触发（target=森林 A）
-   → 触发 forest_pass_through，但需检查 condition："本回合进入过森林 A"
+   → 触发 forest_pass_through，但需检查 condition："本回合进入过森林 A 且本回合离开森林 A"
    → 满足 → draw_monster_1
 2. ON_ENTER 事件触发（target=地块 B）
    → 触发地块 B 的 ON_ENTER 技能
 ```
 
 > ConditionChecker 需记录玩家本回合的"进入历史"列表 `entered_blocks_this_turn: Array[StringName]`。
+>
+> D98：只有"本回合进入森林并本回合离开森林"才触发抓怪物卡；从森林开始回合再离开不触发。
 
 ---
 
 ## 12. 25 种地块类型索引
 
-本文档只定义基类与字段签名，25 种地块的详细属性与 skill 表见 [v1 04-地图系统设计.md](../GameDesignDocs_v1/04-地图系统设计.md) 第 5 章。
+> 本节给出 25 种 `MapBlockData` 的完整字段与 skill 表。
+> - `skill_ids` 中所有 skill 均为 forced=true，由 `SkillExecutor` 在对应 `TriggerTiming` 调度。
+> - `ON_ACTION` 技能由玩家在地块上主动消耗 1 行动点触发。
+> - 多实例类型的 `instances_config` 长度即实例数；单实例类型为 `[]`。
 
-| block_id | block_name | 章节引用 |
-|---|---|---|
-| `general_store` | 百货商店 | v1 5.1 |
-| `shelter` | 避难所 | v1 5.2 |
-| `city_street` | 城市街道 | v1 5.3 |
-| `power_plant` | 电厂 | v1 5.4 |
-| `river` | 河流 | v1 5.5 |
-| `airport` | 机场 | v1 5.6 |
-| `police_station` | 警察局 | v1 5.7 |
-| `military_base` | 军事基地 | v1 5.8 |
-| `prison` | 监狱 | v1 5.9 |
-| `wasteland` | 旷野 | v1 5.10 |
-| `factory` | 工厂 | v1 5.11 |
-| `mall` | 购物中心 | v1 5.12 |
-| `gas_station` | 加油站 | v1 5.13 |
-| `oasis` | 绿洲 | v1 5.14 |
-| `van` | 面包车（起始地块） | v1 5.15 |
-| `graveyard` | 墓地 | v1 5.16 |
-| `farm` | 农场 | v1 5.17 |
-| `raider_camp` | 强盗营地 | v1 5.18 |
-| `mountain` | 山 | v1 5.19 |
-| `tunnel` | 隧道 | v1 5.20 |
-| `forest` | 森林 | v1 5.21 |
-| `desert` | 沙漠 | v1 5.22 |
-| `amusement_park` | 游乐园 | v1 5.23 |
-| `hospital` | 医院 | v1 5.24 |
-| `crash_site` | 坠毁点 | v1 5.25 |
+### 12.1 百货商店（general_store）
+
+| 属性 | 值 |
+|---|---|
+| block_id | `&"general_store"` |
+| block_name | `"百货商店"` |
+| scavenger_piles | `[DeckColor.GREEN]` |
+| monster_spawn_value | 9 |
+| skill_ids | `[&"general_store_free_scavenge"]` |
+| instances_config | `[]` |
+
+| skill_id | name | trigger_timing | condition | effect | effect_id |
+|---|---|---|---|---|---|
+| `&"general_store_free_scavenge"` | 免费拾荒 | ON_REVEAL | 无 | 执行一次免费的拾荒行动（见第 9 节） | `free_scavenge_once` |
+
+> 实现要点：`EffectHandler` 实现 `free_scavenge_once` 时不消耗行动点，从 `get_scavenger_piles()` 中选择一个未抓空的色堆抓 1 张拾荒卡。
+
+### 12.2 避难所（shelter）
+
+| 属性 | 值 |
+|---|---|
+| block_id | `&"shelter"` |
+| block_name | `"避难所"` |
+| scavenger_piles | `[]` |
+| monster_spawn_value | 12（默认值，实例 2 覆盖为 2） |
+| skill_ids | `[&"shelter_immune_damage"]` |
+| instances_config | `[{"monster_spawn_value": 12}, {"monster_spawn_value": 2}]` |
+
+| skill_id | name | trigger_timing | condition | effect | effect_id |
+|---|---|---|---|---|---|
+| `&"shelter_immune_damage"` | 避难免疫 | ON_TURN_END_ON_BLOCK | 无 | 玩家本回合免疫所有伤害 | `immune_damage_this_turn` |
+
+> D97：玩家在本回合于避难所结束回合时，免疫本回合内受到的所有伤害（无论伤害发生在本回合何时）。
+
+### 12.3 城市街道（city_street）
+
+| 属性 | 值 |
+|---|---|
+| block_id | `&"city_street"` |
+| block_name | `"城市街道"` |
+| scavenger_piles | `[DeckColor.RED]`（类型默认；3 个实例通过 `instances_config` 分别覆盖为 `[DeckColor.RED]` / `[DeckColor.GREEN]` / `[DeckColor.BLUE]`，见第 13.1 节） |
+| monster_spawn_value | 6（默认值，实例覆盖为 6 / 8 / 5） |
+| skill_ids | `[&"city_street_draw_monster"]` |
+| instances_config | `[{"monster_spawn_value": 6, "scavenger_piles": [DeckColor.RED]}, {"monster_spawn_value": 8, "scavenger_piles": [DeckColor.GREEN]}, {"monster_spawn_value": 5, "scavenger_piles": [DeckColor.BLUE]}]` |
+
+| skill_id | name | trigger_timing | condition | effect | effect_id |
+|---|---|---|---|---|---|
+| `&"city_street_draw_monster"` | 街道刷怪 | ON_ENTER | 无 | 抓一张怪物卡 | `draw_monster_1` |
+
+### 12.4 电厂（power_plant）
+
+| 属性 | 值 |
+|---|---|
+| block_id | `&"power_plant"` |
+| block_name | `"电厂"` |
+| scavenger_piles | `[]` |
+| monster_spawn_value | 10 |
+| skill_ids | `[&"power_plant_contamination"]` |
+| instances_config | `[]` |
+
+| skill_id | name | trigger_timing | condition | effect | effect_id |
+|---|---|---|---|---|---|
+| `&"power_plant_contamination"` | 电磁污染 | ON_ENTER | 无 | 弃掉所有食物卡，中毒层数 +1 | `discard_food_add_poison_1` |
+
+### 12.5 河流（river）
+
+| 属性 | 值 |
+|---|---|
+| block_id | `&"river"` |
+| block_name | `"河流"` |
+| scavenger_piles | `[]` |
+| monster_spawn_value | 10（默认值，实例 2 覆盖为 11） |
+| skill_ids | `[&"river_stealth_check"]` |
+| instances_config | `[{"monster_spawn_value": 10}, {"monster_spawn_value": 11}]` |
+
+| skill_id | name | trigger_timing | condition | effect | effect_id |
+|---|---|---|---|---|---|
+| `&"river_stealth_check"` | 渡河检定 | ON_ENTER | 无 | 进行一次潜行检定：成功则进入本地块；失败则返回之前的地块 | `stealth_check_or_return` |
+
+> 实现要点：`EffectHandler` 中 `stealth_check_or_return` 需读取玩家的 `stealth_normal` / `stealth_hungry` 进行掷骰判定（骰子机制见战斗系统文档）。
+>
+> D94：潜行检定失败返回原地块后，本次移动消耗的 1 行动点已扣除且不予返还，并视为未进入河流地块（不触发河流其它 ON_ENTER 后续流程）。
+
+### 12.6 机场（airport）
+
+| 属性 | 值 |
+|---|---|
+| block_id | `&"airport"` |
+| block_name | `"机场"` |
+| scavenger_piles | `[DeckColor.RED, DeckColor.GREEN]` |
+| monster_spawn_value | 8 |
+| skill_ids | `[&"airport_teleport"]` |
+| instances_config | `[]` |
+
+| skill_id | name | trigger_timing | condition | effect | effect_id |
+|---|---|---|---|---|---|
+| `&"airport_teleport"` | 空港传送 | ON_ACTION | 此地块上没有怪物 | 消耗 1 行动点，移动到另一个已展示的地图块 | `move_to_revealed_block` |
+
+> 实现要点：`ON_ACTION` 技能由玩家主动触发，消耗 1 行动点；若地块上有怪物（怪物标记或纠缠怪物）则条件不满足。
+
+### 12.7 警察局（police_station）
+
+| 属性 | 值 |
+|---|---|
+| block_id | `&"police_station"` |
+| block_name | `"警察局"` |
+| scavenger_piles | `[DeckColor.BLUE]` |
+| monster_spawn_value | 6 |
+| skill_ids | `[&"police_station_free_scavenge"]` |
+| instances_config | `[]` |
+
+| skill_id | name | trigger_timing | condition | effect | effect_id |
+|---|---|---|---|---|---|
+| `&"police_station_free_scavenge"` | 警局搜证 | ON_REVEAL | 无 | 执行一次免费的拾荒行动 | `free_scavenge_once` |
+
+> 任务 2（D19）：警察局到达时触发首领卡相关额外效果，详见 [08-MissionCard.md](08-MissionCard.md)。
+
+### 12.8 军事基地（military_base）
+
+| 属性 | 值 |
+|---|---|
+| block_id | `&"military_base"` |
+| block_name | `"军事基地"` |
+| scavenger_piles | `[DeckColor.RED, DeckColor.BLUE]` |
+| monster_spawn_value | 0 |
+| skill_ids | `[&"military_base_airstrike"]` |
+| instances_config | `[]` |
+
+| skill_id | name | trigger_timing | condition | effect | effect_id |
+|---|---|---|---|---|---|
+| `&"military_base_airstrike"` | 空袭 | ON_ENTER | 无 | 对你面前的所有纠缠怪物各造成 2 点伤害 | `damage_all_engaged_monsters_2` |
+
+> D95："对你面前的所有怪物" 指仅当前纠缠该玩家的怪物卡；地块上的怪物标记不计入目标。
+
+### 12.9 监狱（prison）
+
+| 属性 | 值 |
+|---|---|
+| block_id | `&"prison"` |
+| block_name | `"监狱"` |
+| scavenger_piles | `[DeckColor.RED, DeckColor.GREEN, DeckColor.BLUE]` |
+| monster_spawn_value | 9 |
+| skill_ids | `[&"prison_end_turn", &"prison_reduce_action"]` |
+| instances_config | `[]` |
+
+| skill_id | name | trigger_timing | condition | effect | effect_id |
+|---|---|---|---|---|---|
+| `&"prison_end_turn"` | 监狱闭门 | ON_REVEAL | 无 | 立即结束你的回合 | `end_turn_immediately` |
+| `&"prison_reduce_action"` | 监狱减员 | ON_ENTER | 无 | 本回合行动点 -1 | `reduce_action_1` |
+
+> D93：监狱的 ON_REVEAL `end_turn_immediately` 触发后，立即结束该玩家回合并跳过行动阶段；本次移动流程中监狱的 ON_ENTER 不再触发（玩家视为未进入监狱）。
+
+### 12.10 旷野（wasteland）
+
+| 属性 | 值 |
+|---|---|
+| block_id | `&"wasteland"` |
+| block_name | `"旷野"` |
+| scavenger_piles | `[]` |
+| monster_spawn_value | 6（默认值，实例 2 覆盖为 8） |
+| skill_ids | `[&"wasteland_reveal_spawn", &"wasteland_enter_spawn"]` |
+| instances_config | `[{"monster_spawn_value": 6}, {"monster_spawn_value": 8}]` |
+
+| skill_id | name | trigger_timing | condition | effect | effect_id |
+|---|---|---|---|---|---|
+| `&"wasteland_reveal_spawn"` | 旷野伏击 | ON_REVEAL | 无 | 抓一张怪物卡 | `draw_monster_1` |
+| `&"wasteland_enter_spawn"` | 旷野游荡 | ON_ENTER | 无 | 抓一张怪物卡 | `draw_monster_1` |
+
+### 12.11 工厂（factory）
+
+| 属性 | 值 |
+|---|---|
+| block_id | `&"factory"` |
+| block_name | `"工厂"` |
+| scavenger_piles | `[DeckColor.BLUE]` |
+| monster_spawn_value | 4 |
+| skill_ids | `[&"factory_spread_monsters"]` |
+| instances_config | `[]` |
+
+| skill_id | name | trigger_timing | condition | effect | effect_id |
+|---|---|---|---|---|---|
+| `&"factory_spread_monsters"` | 工厂扩散 | ON_REVEAL | 无 | 向所有相邻地块各增加 1 个怪物标记 | `add_monster_token_to_adjacent_1` |
+
+> 实现要点：`EffectHandler` 向四个正交相邻地块放置怪物标记；相邻位置为空或超出地图边界时，该方向的标记直接忽略（D100）。
+
+### 12.12 购物中心（mall）
+
+| 属性 | 值 |
+|---|---|
+| block_id | `&"mall"` |
+| block_name | `"购物中心"` |
+| scavenger_piles | `[DeckColor.BLUE]` |
+| monster_spawn_value | 8 |
+| skill_ids | `[&"mall_free_scavenge"]` |
+| instances_config | `[]` |
+
+| skill_id | name | trigger_timing | condition | effect | effect_id |
+|---|---|---|---|---|---|
+| `&"mall_free_scavenge"` | 商场扫货 | ON_REVEAL | 无 | 执行一次免费的拾荒行动 | `free_scavenge_once` |
+
+### 12.13 加油站（gas_station）
+
+| 属性 | 值 |
+|---|---|
+| block_id | `&"gas_station"` |
+| block_name | `"加油站"` |
+| scavenger_piles | `[DeckColor.RED]` |
+| monster_spawn_value | 9（默认值，实例覆盖为 9 / 5 / 4） |
+| skill_ids | `[&"gas_station_free_scavenge"]` |
+| instances_config | `[{"monster_spawn_value": 9}, {"monster_spawn_value": 5}, {"monster_spawn_value": 4}]` |
+
+| skill_id | name | trigger_timing | condition | effect | effect_id |
+|---|---|---|---|---|---|
+| `&"gas_station_free_scavenge"` | 加油站拾荒 | ON_REVEAL | 无 | 执行一次免费的拾荒行动 | `free_scavenge_once` |
+
+### 12.14 绿洲（oasis）
+
+| 属性 | 值 |
+|---|---|
+| block_id | `&"oasis"` |
+| block_name | `"绿洲"` |
+| scavenger_piles | `[]` |
+| monster_spawn_value | 11 |
+| skill_ids | `[&"oasis_reduce_hunger"]` |
+| instances_config | `[]` |
+
+| skill_id | name | trigger_timing | condition | effect | effect_id |
+|---|---|---|---|---|---|
+| `&"oasis_reduce_hunger"` | 绿洲止渴 | ON_TURN_END_ON_BLOCK | 无 | 饥饿等级 -1 | `reduce_hunger_1` |
+
+### 12.15 面包车（van）— 特殊起始地块
+
+| 属性 | 值 |
+|---|---|
+| block_id | `&"van"` |
+| block_name | `"面包车"` |
+| scavenger_piles | `[]` |
+| monster_spawn_value | 6 |
+| skill_ids | `[]` |
+| instances_config | `[]` |
+| is_starting | true |
+| is_special | true |
+
+无地块触发 Skill。加油功能由玩家主动操作触发（见 D5 与第 8 节）。
+
+### 12.16 墓地（graveyard）
+
+| 属性 | 值 |
+|---|---|
+| block_id | `&"graveyard"` |
+| block_name | `"墓地"` |
+| scavenger_piles | `[]` |
+| monster_spawn_value | 4 |
+| skill_ids | `[&"graveyard_reveal_mass_grave", &"graveyard_enter_spawn"]` |
+| instances_config | `[]` |
+
+| skill_id | name | trigger_timing | condition | effect | effect_id |
+|---|---|---|---|---|---|
+| `&"graveyard_reveal_mass_grave"` | 墓地群尸 | ON_REVEAL | 无 | 每名玩家各抓一张怪物卡 | `all_players_draw_monster_1` |
+| `&"graveyard_enter_spawn"` | 墓地惊魂 | ON_ENTER | 无 | 抓一张怪物卡 | `draw_monster_1` |
+
+### 12.17 农场（farm）
+
+| 属性 | 值 |
+|---|---|
+| block_id | `&"farm"` |
+| block_name | `"农场"` |
+| scavenger_piles | `[DeckColor.GREEN]` |
+| monster_spawn_value | 3（默认值，实例 2 覆盖为 11） |
+| skill_ids | `[&"farm_free_scavenge"]` |
+| instances_config | `[{"monster_spawn_value": 3}, {"monster_spawn_value": 11}]` |
+
+| skill_id | name | trigger_timing | condition | effect | effect_id |
+|---|---|---|---|---|---|
+| `&"farm_free_scavenge"` | 农场拾荒 | ON_REVEAL | 无 | 执行一次免费的拾荒行动 | `free_scavenge_once` |
+
+### 12.18 强盗营地（raider_camp）
+
+| 属性 | 值 |
+|---|---|
+| block_id | `&"raider_camp"` |
+| block_name | `"强盗营地"` |
+| scavenger_piles | `[]` |
+| monster_spawn_value | 9（默认值，实例 2 覆盖为 3） |
+| skill_ids | `[&"raider_camp_robbery"]` |
+| instances_config | `[{"monster_spawn_value": 9}, {"monster_spawn_value": 3}]` |
+
+| skill_id | name | trigger_timing | condition | effect | effect_id |
+|---|---|---|---|---|---|
+| `&"raider_camp_robbery"` | 强盗劫掠 | ON_ENTER | 无 | 弃掉一张已装备的装备卡 或 受到 5 点伤害（玩家二选一） | `discard_equipment_or_take_5_damage` |
+
+> 实现要点：`EffectHandler` 需向玩家弹出二选一窗口。
+
+### 12.19 山（mountain）
+
+| 属性 | 值 |
+|---|---|
+| block_id | `&"mountain"` |
+| block_name | `"山"` |
+| scavenger_piles | `[]` |
+| monster_spawn_value | 9（默认值，实例 2 覆盖为 5） |
+| skill_ids | `[&"mountain_draw_card"]` |
+| instances_config | `[{"monster_spawn_value": 9}, {"monster_spawn_value": 5}]` |
+
+| skill_id | name | trigger_timing | condition | effect | effect_id |
+|---|---|---|---|---|---|
+| `&"mountain_draw_card"` | 山顶灵感 | ON_ENTER | 无 | 从求生者牌库抓一张牌 | `draw_card_1` |
+
+> D96："进入：抓一张牌" 指从求生者牌库摸 1 张牌。
+
+### 12.20 隧道（tunnel）
+
+| 属性 | 值 |
+|---|---|
+| block_id | `&"tunnel"` |
+| block_name | `"隧道"` |
+| scavenger_piles | `[]` |
+| monster_spawn_value | 10（默认值，实例 2 覆盖为 4） |
+| skill_ids | `[&"tunnel_warp"]` |
+| instances_config | `[{"monster_spawn_value": 10}, {"monster_spawn_value": 4}]` |
+
+| skill_id | name | trigger_timing | condition | effect | effect_id |
+|---|---|---|---|---|---|
+| `&"tunnel_warp"` | 隧道穿梭 | ON_ACTION | 无 | 消耗 1 行动点，移动到另一个已展示的【隧道】地图块 | `move_to_another_tunnel` |
+
+> 实现要点：`ON_ACTION` 技能消耗 1 行动点；目标必须是已展示的隧道地块实例。
+
+### 12.21 森林（forest）
+
+| 属性 | 值 |
+|---|---|
+| block_id | `&"forest"` |
+| block_name | `"森林"` |
+| scavenger_piles | `[]` |
+| monster_spawn_value | 5（默认值，实例 2 覆盖为 8） |
+| skill_ids | `[&"forest_pass_through"]` |
+| instances_config | `[{"monster_spawn_value": 5}, {"monster_spawn_value": 8}]` |
+
+| skill_id | name | trigger_timing | condition | effect | effect_id |
+|---|---|---|---|---|---|
+| `&"forest_pass_through"` | 森林穿越 | ON_LEAVE | 本回合进入此森林地块且本回合离开此森林地块 | 抓一张怪物卡 | `draw_monster_1` |
+
+> D98：森林穿越判定仅在本回合进入森林并在本回合离开森林时触发。若玩家从森林开始回合再离开森林，不触发抓怪物卡。
+
+### 12.22 沙漠（desert）
+
+| 属性 | 值 |
+|---|---|
+| block_id | `&"desert"` |
+| block_name | `"沙漠"` |
+| scavenger_piles | `[]` |
+| monster_spawn_value | 10（默认值，实例 2 覆盖为 4） |
+| skill_ids | `[&"desert_dehydration"]` |
+| instances_config | `[{"monster_spawn_value": 10}, {"monster_spawn_value": 4}]` |
+
+| skill_id | name | trigger_timing | condition | effect | effect_id |
+|---|---|---|---|---|---|
+| `&"desert_dehydration"` | 沙漠脱水 | ON_ENTER | 无 | 饥饿等级 +1 | `add_hunger_1` |
+
+### 12.23 游乐园（amusement_park）
+
+| 属性 | 值 |
+|---|---|
+| block_id | `&"amusement_park"` |
+| block_name | `"游乐园"` |
+| scavenger_piles | `[DeckColor.RED, DeckColor.BLUE, DeckColor.GREEN]` |
+| monster_spawn_value | 6 |
+| skill_ids | `[&"amusement_park_reveal_discard", &"amusement_park_end_discard"]` |
+| instances_config | `[]` |
+
+| skill_id | name | trigger_timing | condition | effect | effect_id |
+|---|---|---|---|---|---|
+| `&"amusement_park_reveal_discard"` | 游乐园失物 | ON_REVEAL | 无 | 弃掉三张牌 | `discard_card_3` |
+| `&"amusement_park_end_discard"` | 游乐园余兴 | ON_TURN_END_ON_BLOCK | 无 | 弃掉一张牌 | `discard_card_1` |
+
+### 12.24 医院（hospital）
+
+| 属性 | 值 |
+|---|---|
+| block_id | `&"hospital"` |
+| block_name | `"医院"` |
+| scavenger_piles | `[DeckColor.RED]` |
+| monster_spawn_value | 3 |
+| skill_ids | `[&"hospital_enter_heal", &"hospital_end_heal"]` |
+| instances_config | `[]` |
+
+| skill_id | name | trigger_timing | condition | effect | effect_id |
+|---|---|---|---|---|---|
+| `&"hospital_enter_heal"` | 医院急救 | ON_ENTER | 无 | 恢复 1 点生命值 | `heal_self_1` |
+| `&"hospital_end_heal"` | 医院休养 | ON_TURN_END_ON_BLOCK | 无 | 恢复 2 点生命值 | `heal_self_2` |
+
+### 12.25 坠毁点（crash_site）
+
+| 属性 | 值 |
+|---|---|
+| block_id | `&"crash_site"` |
+| block_name | `"坠毁点"` |
+| scavenger_piles | `[]` |
+| monster_spawn_value | 10 |
+| skill_ids | `[&"crash_site_reveal_destroy", &"crash_site_enter_destroy"]` |
+| instances_config | `[]` |
+
+| skill_id | name | trigger_timing | condition | effect | effect_id |
+|---|---|---|---|---|---|
+| `&"crash_site_reveal_destroy"` | 坠毁点遗物 | ON_REVEAL | 无 | 所有玩家各 `remove()` 一张装备 | `all_players_remove_equipment_1` |
+| `&"crash_site_enter_destroy"` | 坠毁点残骸 | ON_ENTER | 无 | `remove()` 一张牌（手牌/装备由玩家选） | `remove_card_1` |
+
+> 原版"销毁"统一为 `remove()`（见 D7）。
 
 ---
 
 ## 13. 38 个地块实例池
 
-38 个地块实例（25 种类型）的完整配置表见 [v1 04-地图系统设计.md](../GameDesignDocs_v1/04-地图系统设计.md) 第 6 章。
+38 个地块实例（25 种类型）由 `MapGrid.build_instance_pool()` 从各 `MapBlockData.instances_config` 构建：单实例类型 `instances_config == []` 生成 1 个实例；多实例类型按数组长度生成，并应用 `monster_spawn_value` / `scavenger_piles` 覆盖。
 
-实例池由 `MapGrid.build_instance_pool()` 从 `MapBlockData.instances_config` 构建（见 8.4 节）。城市街道 3 实例的 `scavenger_piles_override` 配置见 v1 6.1 节（方案 B：实例级覆盖）。
+| 序号 | block_id | 实例编号 | monster_spawn_value |
+|---|---|---|---|
+| 1 | `&"general_store"` | 1 | 9 |
+| 2 | `&"shelter"` | 1 | 12 |
+| 3 | `&"shelter"` | 2 | 2 |
+| 4 | `&"city_street"` | 1 | 6 |
+| 5 | `&"city_street"` | 2 | 8 |
+| 6 | `&"city_street"` | 3 | 5 |
+| 7 | `&"power_plant"` | 1 | 10 |
+| 8 | `&"river"` | 1 | 10 |
+| 9 | `&"river"` | 2 | 11 |
+| 10 | `&"airport"` | 1 | 8 |
+| 11 | `&"police_station"` | 1 | 6 |
+| 12 | `&"military_base"` | 1 | 0 |
+| 13 | `&"prison"` | 1 | 9 |
+| 14 | `&"wasteland"` | 1 | 6 |
+| 15 | `&"wasteland"` | 2 | 8 |
+| 16 | `&"factory"` | 1 | 4 |
+| 17 | `&"mall"` | 1 | 8 |
+| 18 | `&"gas_station"` | 1 | 9 |
+| 19 | `&"gas_station"` | 2 | 5 |
+| 20 | `&"gas_station"` | 3 | 4 |
+| 21 | `&"oasis"` | 1 | 11 |
+| 22 | `&"van"` | 1 | 6 |
+| 23 | `&"graveyard"` | 1 | 4 |
+| 24 | `&"farm"` | 1 | 3 |
+| 25 | `&"farm"` | 2 | 11 |
+| 26 | `&"raider_camp"` | 1 | 9 |
+| 27 | `&"raider_camp"` | 2 | 3 |
+| 28 | `&"mountain"` | 1 | 9 |
+| 29 | `&"mountain"` | 2 | 5 |
+| 30 | `&"tunnel"` | 1 | 10 |
+| 31 | `&"tunnel"` | 2 | 4 |
+| 32 | `&"forest"` | 1 | 5 |
+| 33 | `&"forest"` | 2 | 8 |
+| 34 | `&"desert"` | 1 | 10 |
+| 35 | `&"desert"` | 2 | 4 |
+| 36 | `&"amusement_park"` | 1 | 6 |
+| 37 | `&"hospital"` | 1 | 3 |
+| 38 | `&"crash_site"` | 1 | 10 |
+
+> 注：原版配置表共 38 行实例（25 种类型），已确认按 38 实例处理（见 D4）。
+
+### 13.1 城市街道实例差异说明（已确认方案 B：实例级覆盖）
+
+城市街道的 `instances_config` 配置如下，3 个实例分别覆盖 `scavenger_piles`：
+
+| 实例编号 | monster_spawn_value | scavenger_piles_override |
+|---|---|---|
+| 1 | 6 | `[DeckColor.RED]` |
+| 2 | 8 | `[DeckColor.GREEN]` |
+| 3 | 5 | `[DeckColor.BLUE]` |
+
+> 实现要点：实例化时 `get_scavenger_piles()` 优先使用 `scavenger_piles_override`；除城市街道外，其它地块实例不覆盖拾荒牌堆颜色。
 
 ---
 
@@ -585,16 +1053,22 @@ SkillExecutor 扫描对象需包含地块（见 v1 04-地图系统设计.md 第 
 
 第 8.5 节的 `generate_map()` 接口 MVP 阶段不实现。是否需要在本文档定义完整签名，还是仅保留为未来扩展备注？
 
-### Q5. 骰子机制
+### Q5. 地块拾荒牌堆可拾荒张数
+
+第 9.1 节当前默认每个地块的每种拾荒色堆可拾荒 **1 次**（`scavenger_pile_remaining[color] = 1`）。该默认值是否与原版实体桌游一致？是否需要为某些地块配置更多张数（如购物中心、商场等多标记地块）？是否需要为 `MapBlockData` 增加 `scavenger_counts: Dictionary[DeckColor, int]` 字段来配置每色堆张数？
+
+### Q6. 骰子机制
 
 "大骰子"与战斗/潜行检定的骰子关系待确认（详见未来战斗系统设计文档）。"怪物出生阶段"在玩家回合中的时序位置待 GameSession 文档确认（建议位于回合结束效果之后，见 R2）。
 
-### Q6. 任务 6 核辐射扩散机制
+### Q7. ✅ 已确认：任务 6 核辐射扩散"外围"定义（D104）
 
-原版"投出 7 时展示/移除外围地块"的"外围"如何定义？
+原版"投出 7 时展示/移除外围地块"的"外围"已确认定义如下：
 
-- 建议方案：BFS 从面包车（地图中心）扩展，最外层非空地块为"外围"
-- 待确认"外围"的精确定义
+- **以面包车为起点 BFS** 向周围扩展
+- **最外层非空地块**即为"外围"
+
+任务 6 的核辐射扩散效果据此展示/移除外围地块。
 
 ---
 
@@ -609,5 +1083,16 @@ SkillExecutor 扫描对象需包含地块（见 v1 04-地图系统设计.md 第 
 - D12 拾荒牌库空无法拾荒（`can_scavenge()` 返回 false）
 - D16 怪物标记上限由任务卡配置（`get_total_monster_tokens()` 统计）
 - D24 Skill 通用技能系统（地块技能统一为 `skill_ids` + SkillExecutor 调度）
+- D79 v1 地块表迁移（25 种地块详细属性与 skill 表、38 实例池从 v1 迁移到 v2 第 12/13 节）
+- D93 揭示监狱的时序（移动到未知地块顺序：展示 → 离开 → 进入；监狱 ON_REVEAL 立即结束回合并终止后续流程）
+- D94 河流失败代价（潜行检定失败返回原地块后行动点已扣且视为未进入河流）
+- D95 军事基地目标范围（"对你面前的所有怪物" = 仅当前纠缠该玩家的怪物）
+- D96 山地块抓牌来源（"进入：抓一张牌" = 从求生者牌库摸 1 张）
+- D97 避难所免疫范围（本回合在避难所结束回合时免疫本回合内受到的所有伤害）
+- D98 森林穿越判定（只有本回合进入并本回合离开森林才抓怪物卡）
+- D99 玩家完整回合流程（地块技能在对应时机由 SkillExecutor 调度）
+- D100 地图边界外标记放置（相邻地块放标记越界则直接忽略）
+- D104 任务 6 "外围"定义（以面包车为起点 BFS，最外层非空地块为外围）
+- D108 任务 12 地块摧毁（`destroy()`：玩家随机移到相邻地块，其余内容移出游戏）
 - R2 回合结束顺序（地块→饥饿→怪物）
 - R3 怪物纠缠机制（怪物卡纠缠玩家，怪物标记不纠缠）

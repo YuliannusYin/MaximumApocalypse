@@ -51,6 +51,7 @@ enum TriggerTiming {
     ON_HUNGER_DAMAGE,      # 受饥饿伤害时
     ON_KILL,               # 杀死怪物时
     ON_MONSTER_ATTACK,     # 怪物攻击时（怪物回合结束攻击纠缠玩家前触发，用于"攻击时"天赋如外星科学家"伤害+1"）
+    ON_TARGET_SELECT,      # 选择目标时（D85：外星飞船强制拦截短距离目标）
 
     # 装备
     ON_EQUIP,              # 装备进入装备区时
