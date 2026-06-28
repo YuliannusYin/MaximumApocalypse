@@ -255,7 +255,7 @@ func update_hand_display(player_id: String) -> void:
 	for i in range(hand.size()):
 		var card = hand[i]
 		var card_button = Button.new()
-		card_button.text = card.template_id
+		card_button.text = card.card_name
 		card_button.size = Vector2(80, 50)
 
 		# 怪物卡用红色标注

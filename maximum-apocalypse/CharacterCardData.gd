@@ -30,3 +30,6 @@ extends Resource
 @export var range_type: Enums.RangeType
 
 @export var action_condition: String
+
+## 牌库中该卡牌的数量（根据角色卡包文档配置）
+@export var deck_quantity: int = 1

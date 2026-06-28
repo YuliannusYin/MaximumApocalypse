@@ -163,10 +163,12 @@ func load_character_cards_to_deck(player_id: String, character_id: String) -> vo
 				var full_path = cards_folder + clean_name
 				var res = load(full_path)
 				if res is CharacterCardData:
-					# 创建卡牌实例并添加到牌库
-					var card = CardRuntime.new("char_card_" + str(randi()), res.id)
-					player.deck.append(card)
-					print("[Game]   加载卡牌: " + res.id)
+					# 根据deck_quantity创建多张卡牌实例
+					var quantity = res.deck_quantity if res.deck_quantity > 0 else 1
+					for j in range(quantity):
+						var card = CardRuntime.new("char_card_" + str(randi()) + "_" + str(j), res.id, res.card_name)
+						player.deck.append(card)
+					print("[Game]   加载卡牌: " + res.card_name + " x" + str(quantity))
 			file_name = dir.get_next()
 
 	# 如果没有找到角色卡，添加默认测试卡
