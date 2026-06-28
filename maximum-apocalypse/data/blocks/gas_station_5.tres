@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="MapBlockData" format=3 uid="uid://gas_station_5"]
+
+[ext_resource type="Script" uid="uid://dplbo52je2iiy" path="res://MapBlockData.gd" id="1_gas_station_5"]
+
+[resource]
+script = ExtResource("1_gas_station_5")
+id = "gas_station_5"
+tile_name = "加油站"
+spawn_value = 5
+scavenge_colors = Array[int]([0])
+effect_trigger = Array[int]([0])
+effect_script_id = Array[String](["free_scavenge"])
+monster_mark = 0
+description = "红色拾荒
+展示：执行一次免费的拾荒行动"
+metadata/_custom_type_script = "uid://dplbo52je2iiy"

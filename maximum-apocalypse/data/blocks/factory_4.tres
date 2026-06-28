@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="MapBlockData" format=3 uid="uid://factory_4"]
+
+[ext_resource type="Script" uid="uid://dplbo52je2iiy" path="res://MapBlockData.gd" id="1_factory_4"]
+
+[resource]
+script = ExtResource("1_factory_4")
+id = "factory_4"
+tile_name = "工厂"
+spawn_value = 4
+scavenge_colors = Array[int]([2])
+effect_trigger = Array[int]([0])
+effect_script_id = Array[String](["add_monster_to_adjacent"])
+monster_mark = 0
+description = "蓝色拾荒
+展示：向所有相邻的地块各增加一个怪物标记"
+metadata/_custom_type_script = "uid://dplbo52je2iiy"

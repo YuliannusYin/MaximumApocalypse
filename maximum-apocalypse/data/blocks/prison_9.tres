@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="MapBlockData" format=3 uid="uid://prison_9"]
+
+[ext_resource type="Script" uid="uid://dplbo52je2iiy" path="res://MapBlockData.gd" id="1_prison_9"]
+
+[resource]
+script = ExtResource("1_prison_9")
+id = "prison_9"
+tile_name = "监狱"
+spawn_value = 9
+scavenge_colors = Array[int]([0, 1, 2])
+effect_trigger = Array[int]([0, 1])
+effect_script_id = Array[String](["end_turn_immediately", "reduce_action_1"])
+monster_mark = 0
+description = "红、绿、蓝拾荒
+展示：立即结束你的回合
+进入：减少一次行动次数"
+metadata/_custom_type_script = "uid://dplbo52je2iiy"

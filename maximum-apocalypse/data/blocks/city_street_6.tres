@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="MapBlockData" format=3 uid="uid://city_street_6"]
+
+[ext_resource type="Script" uid="uid://dplbo52je2iiy" path="res://MapBlockData.gd" id="1_city_street_6"]
+
+[resource]
+script = ExtResource("1_city_street_6")
+id = "city_street_6"
+tile_name = "城市街道"
+spawn_value = 6
+scavenge_colors = Array[int]([0])
+effect_trigger = Array[int]([1])
+effect_script_id = Array[String](["draw_monster_card"])
+monster_mark = 0
+description = "红色拾荒
+进入：抓一张怪物卡"
+metadata/_custom_type_script = "uid://dplbo52je2iiy"

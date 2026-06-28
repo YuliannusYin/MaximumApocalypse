@@ -8,11 +8,11 @@ extends Resource
 # [新增] 2026-06-24: 地块名称
 @export var tile_name: String = ""
 
-# [新增] 2026-06-24: 怪物出生值列表，匹配骰子值时在该地块放置怪物标记
-@export var spawn_values: int # 例如 8
+# [新增] 2026-06-24: 怪物出生值，匹配骰子值时在该地块放置怪物标记
+@export var spawn_value: int = 0
 
-# [新增] 2026-06-24: 拾荒颜色类型（红、绿、蓝、无）
-@export var scavenge_type: Enums.ScavengeColor = Enums.ScavengeColor.NONE
+# [新增] 2026-06-24: 拾荒颜色类型数组（红、绿、蓝、无），支持多色地块
+@export var scavenge_colors: Array[Enums.ScavengeColor] = []
 
 # [新增] 2026-06-24: 效果触发时机和效果脚本ID，具体效果通过EffectManager匹配执行
 # 简化的效果配置，具体效果可以通过 EffectManager 匹配 id 执行

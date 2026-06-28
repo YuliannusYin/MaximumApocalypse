@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="MapBlockData" format=3 uid="uid://hospital_3"]
+
+[ext_resource type="Script" uid="uid://dplbo52je2iiy" path="res://MapBlockData.gd" id="1_hospital_3"]
+
+[resource]
+script = ExtResource("1_hospital_3")
+id = "hospital_3"
+tile_name = "医院"
+spawn_value = 3
+scavenge_colors = Array[int]([0])
+effect_trigger = Array[int]([1, 2])
+effect_script_id = Array[String](["heal_1", "heal_2_on_end"])
+monster_mark = 0
+description = "红色拾荒
+进入：恢复一点生命值
+结束：恢复两点生命值"
+metadata/_custom_type_script = "uid://dplbo52je2iiy"

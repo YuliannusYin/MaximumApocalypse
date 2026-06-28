@@ -27,7 +27,7 @@ func execute_monster_spawn(dice_1: int, dice_2: int):
 		var tile = state.map_grid[pos]
 		var tile_data: MapBlockData = tile["data"]
 
-		if tile["is_revealed"] and X == tile_data.spawn_values:
+		if tile["is_revealed"] and X == tile_data.spawn_value:
 			if tile["monster_tokens"] < 3:
 				if state.available_monster_tokens <= 0:
 					state.game_status = Enums.GameStatus.DEFEAT

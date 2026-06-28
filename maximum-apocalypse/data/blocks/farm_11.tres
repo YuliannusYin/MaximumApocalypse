@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="MapBlockData" format=3 uid="uid://farm_11"]
+
+[ext_resource type="Script" uid="uid://dplbo52je2iiy" path="res://MapBlockData.gd" id="1_farm_11"]
+
+[resource]
+script = ExtResource("1_farm_11")
+id = "farm_11"
+tile_name = "农场"
+spawn_value = 11
+scavenge_colors = Array[int]([1])
+effect_trigger = Array[int]([0])
+effect_script_id = Array[String](["free_scavenge"])
+monster_mark = 0
+description = "绿色拾荒
+展示：执行一次免费的拾荒行动"
+metadata/_custom_type_script = "uid://dplbo52je2iiy"

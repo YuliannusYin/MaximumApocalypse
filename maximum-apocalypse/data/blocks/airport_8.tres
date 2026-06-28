@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="MapBlockData" format=3 uid="uid://airport_8"]
+
+[ext_resource type="Script" uid="uid://dplbo52je2iiy" path="res://MapBlockData.gd" id="1_airport_8"]
+
+[resource]
+script = ExtResource("1_airport_8")
+id = "airport_8"
+tile_name = "机场"
+spawn_value = 8
+scavenge_colors = Array[int]([0, 1])
+effect_trigger = Array[int]([3])
+effect_script_id = Array[String](["move_to_revealed_tile"])
+monster_mark = 0
+description = "红、绿拾荒
+行动：如果这里没有怪物，移动到另一个已展示的地图块"
+metadata/_custom_type_script = "uid://dplbo52je2iiy"

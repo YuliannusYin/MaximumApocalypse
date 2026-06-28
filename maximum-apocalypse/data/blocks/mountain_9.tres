@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="MapBlockData" format=3 uid="uid://mountain_9"]
+
+[ext_resource type="Script" uid="uid://dplbo52je2iiy" path="res://MapBlockData.gd" id="1_mountain_9"]
+
+[resource]
+script = ExtResource("1_mountain_9")
+id = "mountain_9"
+tile_name = "山"
+spawn_value = 9
+scavenge_colors = Array[int]([3])
+effect_trigger = Array[int]([1])
+effect_script_id = Array[String](["draw_card"])
+monster_mark = 0
+description = "无拾荒颜色
+进入：抓一张牌"
+metadata/_custom_type_script = "uid://dplbo52je2iiy"
