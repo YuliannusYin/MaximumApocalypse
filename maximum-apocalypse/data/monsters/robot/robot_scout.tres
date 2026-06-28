@@ -1,4 +1,4 @@
-﻿[gd_resource type="Resource" script_class="MonsterData" format=3 uid="uid://robot_scout"]
+[gd_resource type="Resource" script_class="MonsterData" format=3 uid="uid://robot_scout"]
 
 [ext_resource type="Script" uid="uid://dpimxl1hcwwcu" path="res://MonsterData.gd" id="1_robot_scout"]
 
@@ -16,4 +16,5 @@ description = "精英怪物。被抓取时在抓取玩家的所有相邻地块�
 Grab_trigger_id = "place_monster_tokens_adjacent_tiles_on_draw"
 Passive_id = "none"
 Destroy_id = "none"
+count = 4
 metadata/_custom_type_script = "uid://dpimxl1hcwwcu"

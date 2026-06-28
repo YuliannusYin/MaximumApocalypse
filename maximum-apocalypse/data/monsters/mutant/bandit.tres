@@ -1,4 +1,4 @@
-﻿[gd_resource type="Resource" script_class="MonsterData" format=3 uid="uid://bandit"]
+[gd_resource type="Resource" script_class="MonsterData" format=3 uid="uid://bandit"]
 
 [ext_resource type="Script" uid="uid://dpimxl1hcwwcu" path="res://MonsterData.gd" id="1_bandit"]
 
@@ -16,4 +16,5 @@ description = "精英怪物。被抓取时抓取玩家弃掉一拾荒卡，否�
 Grab_trigger_id = "discard_scavenge_or_damage_3_on_draw"
 Passive_id = "none"
 Destroy_id = "none"
+count = 6
 metadata/_custom_type_script = "uid://dpimxl1hcwwcu"

@@ -1,4 +1,4 @@
-﻿[gd_resource type="Resource" script_class="MonsterData" format=3 uid="uid://missile_tank"]
+[gd_resource type="Resource" script_class="MonsterData" format=3 uid="uid://missile_tank"]
 
 [ext_resource type="Script" uid="uid://dpimxl1hcwwcu" path="res://MonsterData.gd" id="1_missile_tank"]
 
@@ -16,4 +16,5 @@ description = "首领怪物。被抓取时抓取玩家弃掉所有装备区的�
 Grab_trigger_id = "discard_all_equipment_damage_all_players_on_draw"
 Passive_id = "none"
 Destroy_id = "none"
+count = 1
 metadata/_custom_type_script = "uid://dpimxl1hcwwcu"

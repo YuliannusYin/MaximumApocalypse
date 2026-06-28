@@ -1,4 +1,4 @@
-﻿[gd_resource type="Resource" script_class="MonsterData" format=3 uid="uid://laser_drone"]
+[gd_resource type="Resource" script_class="MonsterData" format=3 uid="uid://laser_drone"]
 
 [ext_resource type="Script" uid="uid://dpimxl1hcwwcu" path="res://MonsterData.gd" id="1_laser_drone"]
 
@@ -16,4 +16,5 @@ description = "精英怪物。被动：被该怪物卡纠缠的玩家进行潜�
 Grab_trigger_id = "none"
 Passive_id = "skip_sneak_check_draw_monster"
 Destroy_id = "none"
+count = 12
 metadata/_custom_type_script = "uid://dpimxl1hcwwcu"

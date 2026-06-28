@@ -1,4 +1,4 @@
-﻿[gd_resource type="Resource" script_class="MonsterData" format=3 uid="uid://omni_robot"]
+[gd_resource type="Resource" script_class="MonsterData" format=3 uid="uid://omni_robot"]
 
 [ext_resource type="Script" uid="uid://dpimxl1hcwwcu" path="res://MonsterData.gd" id="1_omni_robot"]
 
@@ -16,4 +16,5 @@ description = "精英怪物。被玩家消灭/摧毁时，对射程范围内的�
 Grab_trigger_id = "none"
 Passive_id = "none"
 Destroy_id = "damage_4_all_players_on_destroy"
+count = 4
 metadata/_custom_type_script = "uid://dpimxl1hcwwcu"

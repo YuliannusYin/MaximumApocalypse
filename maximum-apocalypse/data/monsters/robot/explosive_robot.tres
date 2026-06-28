@@ -1,4 +1,4 @@
-﻿[gd_resource type="Resource" script_class="MonsterData" format=3 uid="uid://explosive_robot"]
+[gd_resource type="Resource" script_class="MonsterData" format=3 uid="uid://explosive_robot"]
 
 [ext_resource type="Script" uid="uid://dpimxl1hcwwcu" path="res://MonsterData.gd" id="1_explosive_robot"]
 
@@ -16,4 +16,5 @@ description = "精英怪物。被消灭/摧毁时对该怪物卡所纠缠的玩�
 Grab_trigger_id = "none"
 Passive_id = "double_damage_if_no_move"
 Destroy_id = "damage_2_on_destroy"
+count = 8
 metadata/_custom_type_script = "uid://dpimxl1hcwwcu"

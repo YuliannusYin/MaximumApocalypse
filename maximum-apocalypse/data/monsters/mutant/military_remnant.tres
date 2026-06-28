@@ -1,4 +1,4 @@
-﻿[gd_resource type="Resource" script_class="MonsterData" format=3 uid="uid://military_remnant"]
+[gd_resource type="Resource" script_class="MonsterData" format=3 uid="uid://military_remnant"]
 
 [ext_resource type="Script" uid="uid://dpimxl1hcwwcu" path="res://MonsterData.gd" id="1_military_remnant"]
 
@@ -16,4 +16,5 @@ description = "精英怪物。被抓取时抓取玩家弃掉一张装备区内�
 Grab_trigger_id = "discard_equipment_or_damage_4_on_draw"
 Passive_id = "none"
 Destroy_id = "none"
+count = 4
 metadata/_custom_type_script = "uid://dpimxl1hcwwcu"

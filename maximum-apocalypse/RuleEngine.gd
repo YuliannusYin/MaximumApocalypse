@@ -397,10 +397,28 @@ func get_monsters_engaged_with(player_id: String) -> Array[String]:
 
 func draw_monster_card_to_player(player_id: String):
 	var player = GameState.players[player_id]
-	var monster_id = "monster_" + str(randi() % 10 + 1)
-	var new_monster = CardRuntime.new("monster_instance_" + str(randi()), monster_id)
+
+	# 检查怪物牌库是否为空
+	if GameState.monster_deck.size() == 0:
+		# 如果弃牌堆不为空，洗回牌库
+		if GameState.monster_discard_pile.size() > 0:
+			GameState.monster_deck = GameState.monster_discard_pile.duplicate()
+			GameState.monster_deck.shuffle()
+			GameState.monster_discard_pile.clear()
+			print("[RuleEngine] 怪物牌库已空，将弃牌堆洗回牌库")
+		else:
+			print("[RuleEngine] 怪物牌库和弃牌堆都已空，无法抽取怪物卡")
+			return
+
+	# 从牌库顶部抽取一张怪物卡
+	var monster_data: MonsterData = GameState.monster_deck.pop_front()
+	var instance_id = "monster_" + monster_data.id + "_" + str(randi() % 10000)
+
+	# 创建怪物卡实例放入玩家手牌
+	var new_monster = CardRuntime.new(instance_id, monster_data.id, monster_data.monster_name)
 	player.hand.append(new_monster)
-	print("[RuleEngine] 玩家 " + player_id + " 抽取怪物卡: " + monster_id)
+
+	print("[RuleEngine] 玩家 " + player_id + " 抽取怪物卡: " + monster_data.monster_name + " (ID: " + monster_data.id + ")")
 
 func apply_damage_to_player(player_id: String, damage: int, reason: String):
 	var player = GameState.players[player_id]

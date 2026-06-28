@@ -1,4 +1,4 @@
-﻿[gd_resource type="Resource" script_class="MonsterData" format=3 uid="uid://alien_invader"]
+[gd_resource type="Resource" script_class="MonsterData" format=3 uid="uid://alien_invader"]
 
 [ext_resource type="Script" uid="uid://dpimxl1hcwwcu" path="res://MonsterData.gd" id="1_alien_invader"]
 
@@ -16,4 +16,5 @@ description = "精英怪物。攻击时随机烧毁目标玩家区域内的一�
 Grab_trigger_id = "none"
 Passive_id = "burn_1_card_on_attack"
 Destroy_id = "none"
+count = 7
 metadata/_custom_type_script = "uid://dpimxl1hcwwcu"

@@ -39,3 +39,6 @@ extends Resource
 
 ## 怪物死亡能力脚本ID (供RuleEngine/EffectManager匹配执行具体逻辑)
 @export var Destroy_id: String 
+
+## 该怪物卡牌在牌库中的数量 (默认为1)
+@export var count: int = 1 

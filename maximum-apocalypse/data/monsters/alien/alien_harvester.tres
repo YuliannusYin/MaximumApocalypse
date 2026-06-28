@@ -1,4 +1,4 @@
-﻿[gd_resource type="Resource" script_class="MonsterData" format=3 uid="uid://alien_harvester"]
+[gd_resource type="Resource" script_class="MonsterData" format=3 uid="uid://alien_harvester"]
 
 [ext_resource type="Script" uid="uid://dpimxl1hcwwcu" path="res://MonsterData.gd" id="1_alien_harvester"]
 
@@ -16,4 +16,5 @@ description = "首领怪物。被抓取时摧毁场上所有装备牌。攻击�
 Grab_trigger_id = "destroy_all_equipment_on_draw"
 Passive_id = "burn_card_on_attack"
 Destroy_id = "none"
+count = 1
 metadata/_custom_type_script = "uid://dpimxl1hcwwcu"

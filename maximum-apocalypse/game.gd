@@ -73,6 +73,66 @@ func setup_game_state() -> void:
 
 	print("[Game] 游戏状态已初始化：关卡=" + mission.mission_name + "，需要燃料=" + str(GameState.required_fuel))
 
+	# 加载怪物牌库（根据关卡怪物类型）
+	setup_monster_deck()
+
+func setup_monster_deck() -> void:
+	var mission = GameState.selected_mission
+	var monster_type = mission.monster_type
+
+	# 根据怪物类型确定文件夹路径
+	var pack_folder: String
+	var pack_name: String
+	match monster_type:
+		Enums.MonsterPack.ZOMBIE:
+			pack_folder = "zombie"
+			pack_name = "僵尸"
+		Enums.MonsterPack.MUTANT:
+			pack_folder = "mutant"
+			pack_name = "突变体"
+		Enums.MonsterPack.ALIEN:
+			pack_folder = "alien"
+			pack_name = "外星人"
+		Enums.MonsterPack.ROBOT:
+			pack_folder = "robot"
+			pack_name = "机器人"
+		_:
+			push_error("[Game] 错误：未知怪物类型 " + str(monster_type))
+			return
+
+	var path = "res://data/monsters/" + pack_folder + "/"
+	print("[Game] 正在加载" + pack_name + "怪物包...")
+
+	# 扫描文件夹，加载所有怪物卡
+	var dir = DirAccess.open(path)
+	if not dir:
+		push_error("[Game] 错误：无法打开怪物包文件夹 " + path)
+		return
+
+	dir.list_dir_begin()
+	var file_name = dir.get_next()
+	var total_monsters = 0
+
+	while file_name != "":
+		if not dir.current_is_dir() and file_name.ends_with(".tres"):
+			var full_path = path + file_name.replace(".remap", "")
+			var res = load(full_path)
+			if res is MonsterData:
+				# 根据count字段添加相应数量的怪物实例
+				var count = res.count
+				for i in range(count):
+					GameState.monster_deck.append(res)
+				total_monsters += count
+				print("[Game]   加载: " + res.monster_name + " x" + str(count))
+		file_name = dir.get_next()
+
+	dir.list_dir_end()
+
+	# 打乱怪物牌库
+	GameState.monster_deck.shuffle()
+
+	print("[Game] " + pack_name + "怪物包已加载完成，共 " + str(total_monsters) + " 张怪物卡，牌库已打乱")
+
 func setup_players_from_selection() -> void:
 	var mission = GameState.selected_mission
 

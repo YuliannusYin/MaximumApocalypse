@@ -17,9 +17,9 @@ var game_status: Enums.GameStatus = Enums.GameStatus.PLAYING
 
 var available_monster_tokens: int = 30
 
-var monster_deck: Array[String] = []
+var monster_deck: Array = []  # 怪物牌库，存放MonsterData资源实例
 
-var monster_discard_pile: Array[String] = []
+var monster_discard_pile: Array = []  # 怪物弃牌堆
 
 var scavenge_decks = {
 	Enums.ScavengeColor.RED: [],
