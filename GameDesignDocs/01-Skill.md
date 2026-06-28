@@ -50,6 +50,7 @@ enum TriggerTiming {
     ON_DAMAGE_TAKEN,       # 受到伤害时
     ON_HUNGER_DAMAGE,      # 受饥饿伤害时
     ON_KILL,               # 杀死怪物时
+    ON_MONSTER_ATTACK,     # 怪物攻击时（怪物回合结束攻击纠缠玩家前触发，用于"攻击时"天赋如外星科学家"伤害+1"）
 
     # 装备
     ON_EQUIP,              # 装备进入装备区时
@@ -62,6 +63,7 @@ enum TriggerTiming {
     # 地图
     ON_SCAVENGE,           # 拾荒时
     ON_MOVE,               # 玩家移动时（进入/离开地块）
+    ON_STEALTH_CHECK,      # 潜行检定时（玩家进入有怪物标记的地块时触发，用于激光无人机"跳过检定直接抓怪物卡"等天赋）
 
     # 主动入口
     ACTIVE_USE,            # 玩家主动使用 ACTIVE 技能
