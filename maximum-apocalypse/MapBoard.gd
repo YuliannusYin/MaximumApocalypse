@@ -6,9 +6,9 @@ extends Node2D
 const TILES_FOLDER_PATH = "res://data/blocks/"
 
 # --- 渲染配置 ---
-@export var tile_size: Vector2 = Vector2(100, 100)  # 方框的长宽
+@export var tile_size: Vector2 = Vector2(60, 60)  # 方框的长宽
 @export var grid_spacing: float = 12.0             # 方框间距
-@export var map_offset: Vector2 = Vector2(350, 100) # 地图偏移（避开UI面板）
+@export var map_offset: Vector2 = Vector2(300, 10) # 地图偏移（避开UI面板）
 
 # --- 内部运行数据 ---
 var spawned_tile_views: Dictionary = {}
@@ -57,12 +57,12 @@ class TileView extends Node2D:
 		border_rect.color = bg_rect.color.lightened(0.1) # 边框颜色比背景略亮一点点
 		add_child(border_rect)
 
-		# --- 3. 动态生成地块名字文本 ---
+		# --- 3. 动态生成地块名字文本（包含坐标）
 		name_label = Label.new()
-		name_label.text = static_template.tile_name
+		name_label.text = "%s (%d,%d)" % [static_template.tile_name, grid_coordinate.x, grid_coordinate.y]
 		name_label.position = Vector2(8, 8)
 		name_label.add_theme_color_override("font_color", Color.WHITE)
-		name_label.add_theme_font_size_override("font_size", 25)
+		name_label.add_theme_font_size_override("font_size", 20)
 		add_child(name_label)
 
 		# --- 4. 动态生成状态信息文本 ---
@@ -79,9 +79,9 @@ class TileView extends Node2D:
 		fog_rect.color = Color(0.08, 0.08, 0.1, 0.98) # 接近全黑的深色方框代表迷雾
 		add_child(fog_rect)
 
-		# 动态在迷雾上加一行细字提示未探索
+		# 动态在迷雾上加一行细字提示未探索（显示地块ID和坐标）
 		var fog_label = Label.new()
-		fog_label.text = "未探索"
+		fog_label.text = "未探索 (%d,%d)" % [grid_coordinate.x, grid_coordinate.y]
 		fog_label.position = Vector2(8, 8)
 		fog_label.add_theme_color_override("font_color", Color(0.4, 0.4, 0.4))
 		fog_label.add_theme_font_size_override("font_size", 20)
@@ -238,7 +238,7 @@ func _load_van_resource() -> void:
 			print("[MapBoard] 预加载面包车模板: " + van_template.id)
 
 # 根据关卡配置初始化地图
-func initialize_map_from_mission(mission: MissionData) -> void:
+func initialize_map_from_mission(mission: MissionData) -> Vector2i:
 	print("[MapBoard] 开始根据关卡配置生成地图...")
 
 	# 清理旧地图
@@ -251,6 +251,7 @@ func initialize_map_from_mission(mission: MissionData) -> void:
 	var tile_manifest = mission.tile_manifest
 	var positions: Array[Vector2i] = []
 	var total_tiles = 0
+	var starting_tile_pos: Vector2i = Vector2i(-99, -99)  # 记录起始地块位置
 
 	# 计算总地块数量
 	for tile_id in tile_manifest.keys():
@@ -295,10 +296,11 @@ func initialize_map_from_mission(mission: MissionData) -> void:
 				"dropped_cards": []
 			}
 
-			# 如果是起始地块，应该翻开显示
+			# 如果是起始地块，记录位置并翻开显示
 			if tile_id == mission.starting_tile_id:
 				tile_data["is_revealed"] = true
-				print("[MapBoard] 起始地块 " + template.id + " 已翻开")
+				starting_tile_pos = pos
+				print("[MapBoard] 起始地块 " + template.id + " 已翻开，位置: " + str(pos))
 
 			GameState.map_grid[pos] = tile_data
 			_create_tile_view(pos, tile_data)
@@ -317,7 +319,13 @@ func initialize_map_from_mission(mission: MissionData) -> void:
 		_create_tile_view(van_pos, van_data)
 		print("[MapBoard] 面包车放置在: " + str(van_pos))
 
+		# 如果面包车是起始地块，记录其位置
+		if mission.starting_tile_id == "van":
+			starting_tile_pos = van_pos
+			print("[MapBoard] 面包车作为起始地块，位置: " + str(van_pos))
+
 	print("[MapBoard] 地图生成完成，共 " + str(GameState.map_grid.size()) + " 个地块")
+	return starting_tile_pos
 
 ## 动态创建地块视图（使用内部类 TileView）
 func _create_tile_view(grid_pos: Vector2i, runtime_data: Dictionary) -> void:
@@ -393,3 +401,10 @@ func _on_tile_revealed(pos: Vector2i) -> void:
 	if spawned_tile_views.has(pos):
 		var tile_view = spawned_tile_views[pos]
 		tile_view.update_fog_state()
+
+# === 更新地块怪物数量显示 ===
+func update_tile_monster_count(pos: Vector2i, count: int) -> void:
+	if spawned_tile_views.has(pos):
+		var tile_view = spawned_tile_views[pos]
+		tile_view.update_monster_display(count)
+		print("[MapBoard] 更新地块 " + str(pos) + " 的怪物显示: " + str(count))

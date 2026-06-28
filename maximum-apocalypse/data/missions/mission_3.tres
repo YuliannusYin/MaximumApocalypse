@@ -10,7 +10,7 @@ difficulty = "简单"
 required_van_fuel = 0
 description = ""
 objective_text = "目标：收集2个医疗用品和3个解毒剂并把科学家带到医院来治疗僵尸。科学家会一直装备在一位求生者的面前。如果你和另一名求生者在同一地点，你们可以像交易拾荒牌一样交易科学家。当你们带着对应的卡牌将科学家带到医院且该回合结束时没有死亡，你们就获胜。"
-starting_tile_id = "shopping_center"
+starting_tile_id = "van"
 initial_setup_rule = "首领设置：从怪物牌库中抓9张牌，把首领卡加入其中并正面朝下洗混。把这10张牌放到怪物牌库底。"
 tile_manifest = {
 "graveyard": 1,

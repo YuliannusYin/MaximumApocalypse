@@ -26,15 +26,15 @@ func _ready() -> void:
 	# 初始化地图（根据关卡配置）
 	await get_tree().create_timer(0.5).timeout
 	if map_board and map_board.has_method("initialize_map_from_mission"):
-		map_board.initialize_map_from_mission(GameState.selected_mission)
+		var starting_pos = map_board.initialize_map_from_mission(GameState.selected_mission)
 
-		# 重新查找起始地块位置（地图已创建）
-		var starting_pos = find_tile_by_id(GameState.selected_mission.starting_tile_id)
+		# 使用返回的起始地块位置更新所有玩家位置
 		if starting_pos != Vector2i(-99, -99):
-			# 更新所有玩家位置到起始地块
 			for player_id in GameState.players.keys():
 				GameState.players[player_id].position = starting_pos
 			print("[Game] 所有玩家位置已更新到起始地块: " + str(starting_pos))
+		else:
+			push_error("[Game] 错误：未找到起始地块！")
 
 		# 显示玩家位置
 		map_board.update_player_positions()
@@ -76,15 +76,6 @@ func setup_game_state() -> void:
 func setup_players_from_selection() -> void:
 	var mission = GameState.selected_mission
 
-	# 找到起始地块的位置
-	var starting_tile_pos = find_tile_by_id(mission.starting_tile_id)
-
-	if starting_tile_pos == Vector2i(-99, -99):
-		push_error("[Game] 错误：未找到起始地块 " + mission.starting_tile_id)
-		starting_tile_pos = Vector2i(0, 0)  # 默认位置
-
-	print("[Game] 起始地块位置: " + str(starting_tile_pos))
-
 	# 为每个选中的角色创建玩家
 	for i in range(GameState.selected_character_ids.size()):
 		var character_id = GameState.selected_character_ids[i]
@@ -95,6 +86,7 @@ func setup_players_from_selection() -> void:
 			continue
 
 		# 创建玩家实例（复制角色数据）
+		# 注意：位置将在地图初始化后设置
 		var player_id = "player_" + str(i + 1)
 		var player = {
 			"id": player_id,
@@ -104,7 +96,7 @@ func setup_players_from_selection() -> void:
 			"hunger_level": player_data.hunger_level,  # 使用角色初始饥饿度
 			"is_starving": player_data.is_starving,
 			"starving_damage_stage": player_data.starving_damage_stage,
-			"position": starting_tile_pos,
+			"position": Vector2i(-99, -99),  # 临时位置，等地图初始化后更新
 			"base_stealth": player_data.base_stealth,
 			"starving_stealth": player_data.starving_stealth,
 			"action_points": player_data.action_points,
@@ -121,7 +113,7 @@ func setup_players_from_selection() -> void:
 		# 加载角色卡到牌库
 		load_character_cards_to_deck(player_id, character_id)
 
-		print("[Game] 玩家已创建: " + player_id + " (" + player_data.character_name + ")，位置=" + str(starting_tile_pos))
+		print("[Game] 玩家已创建: " + player_id + " (" + player_data.character_name + ")")
 
 	# 设置第一个玩家为当前活跃玩家
 	if not GameState.players.is_empty():

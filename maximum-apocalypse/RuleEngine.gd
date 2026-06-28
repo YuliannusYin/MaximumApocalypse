@@ -38,6 +38,9 @@ func execute_monster_spawn(dice_1: int, dice_2: int):
 				state.available_monster_tokens -= 1
 				spawned_count += 1
 				print("[RuleEngine] 在地块 " + str(pos) + " 放置怪物标记")
+
+				# 更新地块的怪物显示
+				_update_tile_monster_display(pos, tile["monster_tokens"])
 			else:
 				var players_on_tile = get_players_at_position(pos)
 				for player_id in players_on_tile:
@@ -114,6 +117,9 @@ func move_player(player_id: String, target_pos: Vector2i):
 			var count = tile["monster_tokens"]
 			tile["monster_tokens"] = 0
 			state.available_monster_tokens += count
+
+			# 更新地块的怪物显示（清除怪物）
+			_update_tile_monster_display(target_pos, 0)
 
 			for i in range(count):
 				draw_monster_card_to_player(player_id)
@@ -354,8 +360,15 @@ func check_victory_conditions():
 			var tile = GameState.map_grid.get(player.position)
 			if tile and tile["template_id"] != "van":
 				all_players_at_van = false
-				break
 
 		if all_players_at_van:
 			GameState.game_status = Enums.GameStatus.VICTORY
 			GameState.game_over.emit(GameState.game_status)
+
+# === 更新地块怪物显示 ===
+func _update_tile_monster_display(pos: Vector2i, count: int) -> void:
+	var game_node = get_parent()
+	if game_node and game_node.has_node("MapBoard"):
+		var map_board = game_node.get_node("MapBoard")
+		if map_board.has_method("update_tile_monster_count"):
+			map_board.update_tile_monster_count(pos, count)
