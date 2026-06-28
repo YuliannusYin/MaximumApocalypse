@@ -8,6 +8,7 @@ id = "mission_3"
 mission_name = "研制解药"
 difficulty = "简单"
 required_van_fuel = 0
+monster_type = 3
 description = ""
 objective_text = "目标：收集2个医疗用品和3个解毒剂并把科学家带到医院来治疗僵尸。科学家会一直装备在一位求生者的面前。如果你和另一名求生者在同一地点，你们可以像交易拾荒牌一样交易科学家。当你们带着对应的卡牌将科学家带到医院且该回合结束时没有死亡，你们就获胜。"
 starting_tile_id = "van"

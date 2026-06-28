@@ -183,27 +183,104 @@ func load_character_cards_to_deck(player_id: String, character_id: String) -> vo
 func setup_scavenge_decks() -> void:
 	var mission = GameState.selected_mission
 
+	# 预先扫描所有拾荒卡文件夹，建立ID映射和类别映射
+	var scavenge_card_map = _build_scavenge_card_map()
+
 	# 加载红色拾荒牌堆
 	for card_id in mission.red_scavenge_pool.keys():
 		var count = mission.red_scavenge_pool[card_id]
-		for i in range(count):
-			var card = CardRuntime.new("scavenge_red_" + str(randi()), card_id)
-			GameState.scavenge_decks[Enums.ScavengeColor.RED].append(card)
+		_load_scavenge_card_to_deck(card_id, count, Enums.ScavengeColor.RED, scavenge_card_map)
 
 	# 加载绿色拾荒牌堆
 	for card_id in mission.green_scavenge_pool.keys():
 		var count = mission.green_scavenge_pool[card_id]
-		for i in range(count):
-			var card = CardRuntime.new("scavenge_green_" + str(randi()), card_id)
-			GameState.scavenge_decks[Enums.ScavengeColor.GREEN].append(card)
+		_load_scavenge_card_to_deck(card_id, count, Enums.ScavengeColor.GREEN, scavenge_card_map)
 
 	# 加载蓝色拾荒牌堆
 	for card_id in mission.blue_scavenge_pool.keys():
 		var count = mission.blue_scavenge_pool[card_id]
-		for i in range(count):
-			var card = CardRuntime.new("scavenge_blue_" + str(randi()), card_id)
-			GameState.scavenge_decks[Enums.ScavengeColor.BLUE].append(card)
+		_load_scavenge_card_to_deck(card_id, count, Enums.ScavengeColor.BLUE, scavenge_card_map)
 
 	print("[Game] 拾荒牌堆已加载：红=" + str(GameState.scavenge_decks[Enums.ScavengeColor.RED].size()) +
 		  "，绿=" + str(GameState.scavenge_decks[Enums.ScavengeColor.GREEN].size()) +
 		  "，蓝=" + str(GameState.scavenge_decks[Enums.ScavengeColor.BLUE].size()))
+
+# 扫描所有拾荒卡文件夹，建立精确ID映射和类别ID映射
+func _build_scavenge_card_map() -> Dictionary:
+	# 精确ID映射：id -> {path, data}
+	var exact_map: Dictionary = {}
+	# 类别ID映射：category_prefix -> [list of variants]
+	var category_map: Dictionary = {}
+
+	# 类别ID前缀定义（任务配置中使用的类别名 -> 对应的拾荒卡ID前缀）
+	var category_prefixes = {
+		"food": "food_",
+		"ammo": "ammo_",
+		"medical_supplies": "medical_",
+		"fuel": "",  # fuel没有变体，精确匹配
+		"nothing": "",  # nothing没有变体
+		"spare_parts": "",  # spare_parts没有变体
+		"flashlight": "",
+		"binoculars": "",
+		"pistol": "",
+		"walkie_talkie": "",
+		"backpack": "",
+		"bulletproof_vest": "",
+		"dynamite": "",
+		"antidote": ""
+	}
+
+	var folders = ["red", "green", "blue", "gray"]
+
+	for folder in folders:
+		var path = "res://data/cards/scavengeCards/" + folder + "/"
+		var dir = DirAccess.open(path)
+		if dir:
+			dir.list_dir_begin()
+			var file_name = dir.get_next()
+			while file_name != "":
+				if not dir.current_is_dir() and file_name.ends_with(".tres"):
+					var full_path = path + file_name.replace(".remap", "")
+					var res = load(full_path)
+					if res is ScavengeCardData:
+						# 精确ID映射
+						exact_map[res.id] = {"path": full_path, "data": res}
+
+						# 类别ID映射：检查ID是否属于某个类别
+						for category in category_prefixes.keys():
+							var prefix = category_prefixes[category]
+							if prefix != "" and res.id.begins_with(prefix):
+								if not category_map.has(category):
+									category_map[category] = []
+								category_map[category].append(res)
+								break
+				file_name = dir.get_next()
+
+	return {"exact": exact_map, "category": category_map}
+
+# 根据ID加载拾荒卡到指定颜色的牌堆（支持类别ID随机变体）
+func _load_scavenge_card_to_deck(card_id: String, count: int, color: Enums.ScavengeColor, card_map: Dictionary) -> void:
+	var exact_map = card_map["exact"]
+	var category_map = card_map["category"]
+
+	# 检查是否是精确ID
+	if exact_map.has(card_id):
+		var card_info = exact_map[card_id]
+		var res: ScavengeCardData = card_info["data"]
+		for i in range(count):
+			var card = CardRuntime.new("scavenge_" + str(randi()), res.id, res.card_name)
+			GameState.scavenge_decks[color].append(card)
+		print("[Game]   加载拾荒卡: " + res.card_name + " x" + str(count) + " -> " + Enums.ScavengeColor.keys()[color] + "牌堆")
+		return
+
+	# 检查是否是类别ID（需要从变体中随机选择）
+	if category_map.has(card_id):
+		var variants = category_map[card_id]
+		for i in range(count):
+			var res: ScavengeCardData = variants[randi() % variants.size()]
+			var card = CardRuntime.new("scavenge_" + str(randi()), res.id, res.card_name)
+			GameState.scavenge_decks[color].append(card)
+		print("[Game]   加载拾荒卡(随机变体): " + card_id + " x" + str(count) + " -> " + Enums.ScavengeColor.keys()[color] + "牌堆")
+		return
+
+	print("[Game] 警告：拾荒卡ID不存在: " + card_id)

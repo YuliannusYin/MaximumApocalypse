@@ -1,4 +1,4 @@
-﻿[gd_resource type="Resource" script_class="MissionData" format=3 uid="uid://mission_recon_alien_7"]
+[gd_resource type="Resource" script_class="MissionData" format=3 uid="uid://mission_recon_alien_7"]
 
 [ext_resource type="Script" path="res://MissionData.gd" id="1_mission"]
 
@@ -8,6 +8,7 @@ id = "mission_7"
 mission_name = "侦查外星人地区"
 difficulty = "困难"
 required_van_fuel = 4
+monster_type = 0
 description = "我们的军事实力不及外星人。但是，如果他们认为我们会在他们摧毁我们的文明之后坐以待毙，那么他们就大错特错了。我们要侦察一下这个地区，这样我们就知道发起攻击的最佳地点。"
 objective_text = "目标：展示所有地图块，然后带着足够多的燃料返回面包车上逃跑。"
 starting_tile_id = "van"

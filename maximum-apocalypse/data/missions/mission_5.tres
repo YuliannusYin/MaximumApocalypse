@@ -1,4 +1,4 @@
-﻿[gd_resource type="Resource" script_class="MissionData" format=3 uid="uid://mission_defuse_bomb_5"]
+[gd_resource type="Resource" script_class="MissionData" format=3 uid="uid://mission_defuse_bomb_5"]
 
 [ext_resource type="Script" path="res://MissionData.gd" id="1_mission"]
 
@@ -8,6 +8,7 @@ id = "mission_5"
 mission_name = "拆除炸弹"
 difficulty = "普通"
 required_van_fuel = 3
+monster_type = 1
 description = "有传闻说，一枚锁在电厂里的炸弹即将爆炸，这将使整个反应堆燃烧。很明显，它被锁在一处只有高级人员才能出入的地方。一名老员工写的满是灰尘的日记本应该能帮我们进去。"
 objective_text = "目标：找到满是灰尘的日记本然后前往电厂。花费2个行动来解除炸弹。在解除炸弹后，你们只有3个回合来返回面包车上。"
 starting_tile_id = "van"

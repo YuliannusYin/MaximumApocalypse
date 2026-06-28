@@ -16,6 +16,7 @@ func _ready() -> void:
 	ui_manager.turn_ended.connect(_on_turn_ended)
 	ui_manager.turn_end_processed.connect(_on_turn_end_processed)
 	ui_manager.card_played.connect(_on_card_played)
+	ui_manager.scavenge_performed.connect(_on_scavenge_performed)
 
 # === 怪物出生阶段 ===
 func execute_monster_spawn(dice_1: int, dice_2: int):
@@ -129,6 +130,10 @@ func move_player(player_id: String, target_pos: Vector2i):
 	ui_manager.update_player_info(player_id)
 	ui_manager.status_label.text = "移动到 (" + str(target_pos.x) + "," + str(target_pos.y) + ")"
 
+	# 更新拾荒按钮状态（检查新地块是否有拾荒标记）
+	if GameState.current_phase == Enums.GamePhase.ACTION:
+		ui_manager.show_phase_buttons(Enums.GamePhase.ACTION, player_id)
+
 	# 更新地图上的玩家显示
 	var game_node = get_parent()
 	if game_node and game_node.has_node("MapBoard"):
@@ -166,6 +171,64 @@ func play_card(player_id: String, card_index: int):
 	# 更新UI
 	ui_manager.update_player_info(player_id)
 	ui_manager.status_label.text = "已打出: " + card.template_id
+
+# === 拾荒 ===
+func execute_scavenge(player_id: String):
+	var player = GameState.players[player_id]
+
+	if player.action_points <= 0:
+		print("[RuleEngine] 没有行动点，无法拾荒")
+		ui_manager.status_label.text = "没有行动点!"
+		return
+
+	# 检查地块是否有拾荒颜色标记
+	var player_pos = player.position
+	if not GameState.map_grid.has(player_pos):
+		print("[RuleEngine] 玩家位置无效")
+		return
+
+	var tile = GameState.map_grid[player_pos]
+	var tile_data: MapBlockData = tile["data"]
+	var scavenge_colors = tile_data.scavenge_colors
+
+	if scavenge_colors.size() == 0:
+		print("[RuleEngine] 当前地块没有拾荒标记")
+		ui_manager.status_label.text = "当前地块没有拾荒标记!"
+		return
+
+	# 如果只有一个拾荒颜色，直接抓牌
+	if scavenge_colors.size() == 1:
+		var color = scavenge_colors[0]
+		_draw_scavenge_card(player_id, color)
+	# 如果有多个拾荒颜色，随机选择一个（简化处理，实际应该让玩家选择）
+	else:
+		var color = scavenge_colors[randi() % scavenge_colors.size()]
+		print("[RuleEngine] 多色地块，随机选择: " + Enums.ScavengeColor.keys()[color])
+		_draw_scavenge_card(player_id, color)
+
+func _draw_scavenge_card(player_id: String, color: Enums.ScavengeColor) -> void:
+	var player = GameState.players[player_id]
+	var deck = GameState.scavenge_decks.get(color)
+
+	if not deck or deck.size() == 0:
+		print("[RuleEngine] " + Enums.ScavengeColor.keys()[color] + "拾荒牌堆已空")
+		ui_manager.status_label.text = Enums.ScavengeColor.keys()[color] + "拾荒牌堆已空!"
+		return
+
+	# 从牌堆抓取一张卡
+	var drawn_card = deck.pop_front()
+	player.hand.append(drawn_card)
+	player.action_points -= 1
+
+	print("[RuleEngine] 玩家 " + player_id + " 拾荒: " + drawn_card.card_name + " (" + Enums.ScavengeColor.keys()[color] + ")")
+
+	# 更新UI
+	ui_manager.update_player_info(player_id)
+	ui_manager.status_label.text = "拾荒获得: " + drawn_card.card_name
+
+	# 更新拾荒按钮状态（如果行动点耗尽或牌堆空）
+	if player.action_points <= 0 or deck.size() == 0:
+		ui_manager.scavenge_button.visible = false
 
 # === 回合结束阶段（饥饿+怪物攻击） ===
 func execute_turn_end(player_id: String):
@@ -247,6 +310,9 @@ func _on_turn_end_processed(player_id: String) -> void:
 
 func _on_card_played(player_id: String, card_index: int) -> void:
 	play_card(player_id, card_index)
+
+func _on_scavenge_performed(player_id: String) -> void:
+	execute_scavenge(player_id)
 
 # === 地图点击响应 ===
 func on_tile_clicked(player_id: String, tile_pos: Vector2i) -> void:

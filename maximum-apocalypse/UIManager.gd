@@ -17,6 +17,7 @@ var dice_button: Button
 var draw_button: Button
 var end_turn_button: Button
 var turn_end_button: Button  # 回合结束按钮（合并饥饿和怪物攻击）
+var scavenge_button: Button  # 拾荒按钮
 
 # 当前玩家ID
 var current_player_id: String = ""
@@ -94,6 +95,14 @@ func create_ui_panels() -> void:
 	turn_end_button.pressed.connect(_on_turn_end_button_pressed)
 	control_container.add_child(turn_end_button)
 
+	# 拾荒按钮（行动阶段）
+	scavenge_button = Button.new()
+	scavenge_button.text = "拾荒 (消耗1行动点)"
+	scavenge_button.size = Vector2(280, 40)
+	scavenge_button.visible = false
+	scavenge_button.pressed.connect(_on_scavenge_button_pressed)
+	control_container.add_child(scavenge_button)
+
 	# 玩家信息面板（左上）
 	player_info_panel = PanelContainer.new()
 	player_info_panel.position = Vector2(50, 50)
@@ -156,6 +165,7 @@ signal card_drawn(player_id: String)
 signal turn_ended(player_id: String)
 signal turn_end_processed(player_id: String)  # 回合结束信号
 signal card_played(player_id: String, card_index: int)
+signal scavenge_performed(player_id: String)  # 拾荒信号
 
 # 按钮事件处理
 func _on_dice_button_pressed() -> void:
@@ -184,6 +194,10 @@ func _on_card_button_pressed(card_index: int) -> void:
 	status_label.text = "出牌: 手牌索引 " + str(card_index)
 	card_played.emit(current_player_id, card_index)
 
+func _on_scavenge_button_pressed() -> void:
+	status_label.text = "拾荒中..."
+	scavenge_performed.emit(current_player_id)
+
 # 显示当前阶段的按钮
 func show_phase_buttons(phase: Enums.GamePhase, player_id: String) -> void:
 	current_player_id = player_id
@@ -193,6 +207,7 @@ func show_phase_buttons(phase: Enums.GamePhase, player_id: String) -> void:
 	draw_button.visible = false
 	end_turn_button.visible = false
 	turn_end_button.visible = false
+	scavenge_button.visible = false
 
 	# 根据阶段显示对应按钮
 	match phase:
@@ -204,10 +219,31 @@ func show_phase_buttons(phase: Enums.GamePhase, player_id: String) -> void:
 			status_label.text = "点击抽牌按钮"
 		Enums.GamePhase.ACTION:
 			end_turn_button.visible = true
+			# 检查玩家是否在有拾荒标记的地块上
+			if _can_player_scavenge(player_id):
+				scavenge_button.visible = true
+				scavenge_button.text = "拾荒 (消耗1行动点)"
 			status_label.text = "行动阶段 - 点击地图移动或点击手牌出牌"
 		Enums.GamePhase.MONSTER_ATTACK:  # 回合结束阶段
 			turn_end_button.visible = true
 			status_label.text = "回合结束 - 点击结算饥饿和怪物攻击"
+
+# 检查玩家是否可以在当前位置拾荒
+func _can_player_scavenge(player_id: String) -> bool:
+	if not GameState.players.has(player_id):
+		return false
+
+	var player = GameState.players[player_id]
+	var player_pos = player.position
+
+	if not GameState.map_grid.has(player_pos):
+		return false
+
+	var tile = GameState.map_grid[player_pos]
+	var tile_data: MapBlockData = tile["data"]
+
+	# 检查地块是否有拾荒颜色标记
+	return tile_data.scavenge_colors.size() > 0
 
 # 更新玩家信息面板
 func update_player_info(player_id: String) -> void:

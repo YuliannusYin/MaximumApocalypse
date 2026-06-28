@@ -1,4 +1,4 @@
-﻿[gd_resource type="Resource" script_class="MissionData" format=3 uid="uid://mission_human_counterattack_9"]
+[gd_resource type="Resource" script_class="MissionData" format=3 uid="uid://mission_human_counterattack_9"]
 
 [ext_resource type="Script" path="res://MissionData.gd" id="1_mission"]
 
@@ -8,6 +8,7 @@ id = "mission_9"
 mission_name = "人类反击"
 difficulty = "困难"
 required_van_fuel = 0
+monster_type = 0
 description = "根据你找到的情报，我们绘制出了控制他们的机械和无人机的外星神经网络图。我们团队的科学家们写了一个让他们瘫痪的病毒。我们击毁了一艘外星飞船，现在需要到那里上传病毒。"
 objective_text = "目标：摧毁2个外星发射器，然后把科学家带到现场去上传病毒。"
 starting_tile_id = "van"

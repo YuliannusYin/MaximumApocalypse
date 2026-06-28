@@ -8,6 +8,7 @@ id = "mission_0"
 mission_name = "教程"
 difficulty = "特别简单"
 required_van_fuel = 4
+monster_type = 3
 description = "当一切陷入地狱之前，我们只听到了警报的声音。我们很幸运，离一家购物中心很近，但是现在，我们已经没有食物了并且援助还没到。我们要知道外面到底发生了什么。"
 objective_text = "目标：找到 4 桶燃料并逃到你们从屋顶上看到的一辆远处的面包车里。当所有人都成功上车并且你们有足够的燃料，你们就能开车逃离这里了。"
 starting_tile_id = "shopping_center"

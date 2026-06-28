@@ -8,6 +8,7 @@ id = "mission_1"
 mission_name = "解救科学家"
 difficulty = "简单"
 required_van_fuel = 4
+monster_type = 3
 description = "你们在收音机里听到一条嘈杂的信息。有人还活着，并且他说他能结束这场噩梦。他们在警察局设了路障来保护自己，但是时间不多了。"
 objective_text = "目标：解救警察局的科学家。当在警察局时，你可以花费2个行动来解救科学家。把科学家带回你们的面包车里并逃离该区域。"
 starting_tile_id = "van"

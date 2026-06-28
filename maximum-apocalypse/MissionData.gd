@@ -22,6 +22,9 @@ extends Resource
 ## 任务核心目标说明 (用于局内悬顶UI的目标提醒显示)
 @export_multiline var objective_text: String 
 
+## 任务怪物包类型 (zombie, mutant, alien, robot)
+@export var monster_type: Enums.MonsterPack
+
 
 # --- 2. 局内核心通关条件 ---
 

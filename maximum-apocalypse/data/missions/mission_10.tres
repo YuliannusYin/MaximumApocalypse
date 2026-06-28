@@ -1,4 +1,4 @@
-﻿[gd_resource type="Resource" script_class="MissionData" format=3 uid="uid://mission_transport_10"]
+[gd_resource type="Resource" script_class="MissionData" format=3 uid="uid://mission_transport_10"]
 
 [ext_resource type="Script" path="res://MissionData.gd" id="1_mission"]
 
@@ -8,6 +8,7 @@ id = "mission_10"
 mission_name = "运输"
 difficulty = "困难"
 required_van_fuel = 6
+monster_type = 2
 description = "机器人们继续抓捕或杀死任何他们遇到的人类。我们必须继续抵抗。"
 objective_text = "目标：带着6个燃料、3个脏毯子、2个医疗用品和2个多余零件返回基地。"
 starting_tile_id = "military_base"

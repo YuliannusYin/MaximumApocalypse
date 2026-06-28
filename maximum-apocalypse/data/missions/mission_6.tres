@@ -1,4 +1,4 @@
-﻿[gd_resource type="Resource" script_class="MissionData" format=3 uid="uid://mission_radiation_6"]
+[gd_resource type="Resource" script_class="MissionData" format=3 uid="uid://mission_radiation_6"]
 
 [ext_resource type="Script" path="res://MissionData.gd" id="1_mission"]
 
@@ -8,6 +8,7 @@ id = "mission_6"
 mission_name = "核辐射"
 difficulty = "普通"
 required_van_fuel = 3
+monster_type = 1
 description = "我们开车离开时，看见了远处的蘑菇云。我们心烦意乱，撞上了一辆侧翻的废弃汽车，我们的面包车嘎吱嘎吱地停了下来。我们要在核辐射杀死我们之前离开这。"
 objective_text = "目标：收集3个多余配件并修理面包车来逃离。作为1个行动，你可以打出1张多余配件来修理面包车。面包车需要被修理3次。当怪物出生阶段投出7时，展示地图最外围的一个地图块。当所有的外围地图块被展示后，再次投出7时，移除一个外围地图块。"
 starting_tile_id = "van"

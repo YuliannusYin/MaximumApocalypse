@@ -8,6 +8,7 @@ id = "mission_2"
 mission_name = "收集样本"
 difficulty = "简单"
 required_van_fuel = 4
+monster_type = 3
 description = "科学家说他需要一些样本来研制解药，所以我们要去那边杀死一些僵尸。"
 objective_text = "目标：杀死8个僵尸并收集样本。每次1个僵尸被杀死，就把那张牌加入到本目标。收集下列怪物各2个：僵尸步行者、僵尸喷吐者、僵尸狗和僵尸士兵来完成本目标。收集到所有样本和燃料后，返回面包车里逃离。首领设置：从怪物牌库中抓9张牌，把首领卡加入其中并正面朝下洗混。把这10张牌放到怪物牌库底。"
 starting_tile_id = "van"
