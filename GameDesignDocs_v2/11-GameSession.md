@@ -68,15 +68,14 @@ func start_new_game(mission_data: MissionCardData, selected_characters: Array[Ch
 
 func _init_subsystems(selected_characters: Array[CharacterCardData]) -> void:
     _init_map()                    # 1. 地图填充（09-MapBlock.md 第 8 节）
-    _init_scavenger_decks()        # 2. 拾荒牌堆（10-Deck.md 第 9 节步骤 3-4）
+    _init_scavenger_decks()        # 2. 拾荒牌堆（10-Deck.md 第 9 节步骤 3-4；D112：全局共享，地块不持牌堆）
     _init_monster_deck()           # 3. 怪物牌库（10-Deck.md 第 9 节步骤 5）
     _init_survivors(selected_characters)  # 4. 求生者（10-Deck.md 第 9 节步骤 6）
     _init_scientist_equipment()    # 5. 科学家装备（任务 3/8/9，D102 / D111）
     _init_initial_monsters()       # 6. 初始抓怪（10-Deck.md 第 9 节步骤 7，D17）
     _init_boss()                   # 7. 首领卡处理（08-MissionCard.md boss_config）
     _init_target_markers()         # 8. 目标标记放置（08-MissionCard.md target_markers）
-    _init_block_scavenger_piles()  # 9. 地块拾荒牌堆初始化（09-MapBlock.md 第 9 节）
-    _init_managers()               # 10. TurnManager / SkillExecutor
+    _init_managers()               # 9. TurnManager / SkillExecutor
 
 # 1. 地图填充（引用 09-MapBlock.md 第 8 节）
 func _init_map() -> void:
@@ -181,16 +180,7 @@ func _init_target_markers() -> void:
         # 记录 on_first_arrival_skill 供后续触发
     # 验证所有目标标记已放置
 
-# 8. 地块拾荒牌堆初始化（引用 09-MapBlock.md 第 9 节）
-func _init_block_scavenger_piles() -> void:
-    for block in map_grid.get_all_blocks():
-        if block.get_scavenger_piles().is_empty():
-            continue
-        for color in block.get_scavenger_piles():
-            # 默认每个地块的每种拾荒色堆可拾荒 1 次（具体张数待原版数据确认）
-            block.scavenger_pile_remaining[color] = 1
-
-# 9. TurnManager / SkillExecutor
+# 8. TurnManager / SkillExecutor
 func _init_managers() -> void:
     skill_executor = SkillExecutor.new()
     add_child(skill_executor)
@@ -365,15 +355,14 @@ enum GameResult {
 |---|---|---|---|
 | 0 | CardRegistry._ready() | 10-Deck.md 第 2 节 | autoload 启动时自动扫描 .tres（游戏启动时已完成，非每局调用） |
 | 1 | `_init_map()` | 09-MapBlock.md 第 8 节 | 地图填充：build_instance_pool + map_layout 遍历 |
-| 2 | `_init_scavenger_decks()` | 10-Deck.md 第 9 节步骤 3-4 | 拾荒牌堆 + 弃牌堆初始化 |
+| 2 | `_init_scavenger_decks()` | 10-Deck.md 第 9 节步骤 3-4 | 拾荒牌堆 + 弃牌堆初始化（D112：全局共享，地块不持牌堆） |
 | 3 | `_init_monster_deck()` | 10-Deck.md 第 9 节步骤 5 | 怪物牌库 + 弃牌堆初始化 |
 | 4 | `_init_survivors()` | 10-Deck.md 第 9 节步骤 6 | 求生者牌库实例化（按座次顺序） |
 | 5 | `_init_scientist_equipment()` | 本文档第 2 节 | 任务 3/8/9 的科学家装备给第一个玩家（D102 / D111） |
 | 6 | `_init_initial_monsters()` | 10-Deck.md 第 9 节步骤 7 | 初始抓怪（D17，任务 11 例外） |
 | 7 | `_init_boss()` | 08-MissionCard.md 第 6 节 | 首领卡处理（按 boss_config.mechanic） |
 | 8 | `_init_target_markers()` | 08-MissionCard.md 第 7 节 | 目标标记放置（按 target_markers 约束） |
-| 9 | `_init_block_scavenger_piles()` | 09-MapBlock.md 第 9 节 | 地块拾荒牌堆剩余张数初始化 |
-| 10 | `_init_managers()` | 本文档第 2 节 | TurnManager / SkillExecutor 初始化 |
+| 9 | `_init_managers()` | 本文档第 2 节 | TurnManager / SkillExecutor 初始化 |
 
 ### 6.2 首领卡处理分类
 

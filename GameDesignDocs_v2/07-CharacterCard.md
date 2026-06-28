@@ -142,7 +142,8 @@ func discard_from_hand(card: CardInstance, pile: Variant) -> void
 func move_to(target_block: MapBlockInstance) -> void
 
 # --- 拾荒 ---
-# 从地块关联的拾荒牌堆抓 1 张（pile_color 来自 MapBlockInstance.get_scavenger_piles()）
+# 消耗 1 行动点，从全局对应颜色拾荒牌堆抓 1 张到手牌
+# pile_color 必须属于 current_block.get_scavenger_piles()；实际抓牌由 game_session.scavenger_deck_stack.draw() 执行
 func scavenge(pile_color: DeckColor) -> void
 
 # --- 战斗 ---

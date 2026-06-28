@@ -117,11 +117,11 @@ enum DeckColor {
 
 ### 4.3 牌堆与地块关联
 
-地块通过 `scavenger_piles: Array[DeckColor]` 字段关联可拾荒的牌堆（详见 09-MapBlock.md）。
+地块通过 `scavenger_piles: Array[DeckColor]` 字段记录可拾荒的颜色入口（详见 09-MapBlock.md）。拾荒牌堆全局共享，地块本身不持牌堆。
 
-- 地块无拾荒标记 → 不能拾荒
-- 地块有 1 个拾荒标记 → 可从该色牌堆抓 1 张
-- 地块有 2-3 个拾荒标记 → 可从多色牌堆各抓 1 张（如游乐场[红、绿、蓝]）
+- 地块无拾荒标记（`scavenger_piles` 为空）→ 不能拾荒
+- 地块有 1 个拾荒标记 → 可从该色全局牌堆抓 1 张（消耗 1 行动点）
+- 地块有 2-3 个拾荒标记 → 玩家每次选择其中一个颜色，从对应全局牌堆抓 1 张（同一地块可多次拾荒，只要还有行动点和牌）
 
 ---
 
@@ -236,7 +236,8 @@ func get_trigger_timings() -> Array[TriggerTiming]:
 func can_trigger(event, owner) -> bool:
     return true   # 抓到即触发，无条件
 func execute(event, owner) -> void:
-    owner.discard(ScavengerDiscardPile)   # 弃置自身进拾荒弃牌堆
+    # 通过 owner.owner_player.game_session 获取全局拾荒弃牌堆实例
+    owner.discard(owner.owner_player.game_session.scavenger_discard_pile)
 # forced = true（在 Skill 基类字段中设置，01-Skill.md）
 
 # 伏击（forced=true TRIGGER，抓到即抓怪物卡 + 弃）
@@ -422,6 +423,7 @@ MVP 阶段仅实现**任务 0（教程）**配置的三色牌堆子集：
 - D8 死亡后卡牌按来源区分处理（拾荒来源卡留在死亡地块）
 - D9 装备卡抓取先进手牌，使用花 1 行动（燃料卡例外）
 - D12 拾荒牌库空无法拾荒（弃牌堆不可重洗）
+- D112 地块是拾荒颜色入口（地块不持牌堆，玩家从全局 `ScavengerDeckStack` 对应颜色抓 1 张）
 - D13 MVP 最小可玩闭环（任务 0 配置子集）
 - D22 装备栏大小字段 `size: int`
 - D24 Skill 通用技能系统（事件卡用 forced=true TRIGGER 实现）

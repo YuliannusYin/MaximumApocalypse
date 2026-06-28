@@ -3,7 +3,7 @@
 > MA 的回合管理器：管理玩家回合内的 4 阶段流程（怪物出生→抓牌→行动→回合结束结算）、行动点机制、骰子机制。
 > TurnManager 由 GameSession 持有（子节点），通过 `game_session` 字段反查 GameSession。
 > 本文档定义基类与方法签名，并完整列出行动类型与免费行动规则（不引用 v1，使本文档成为完整的回合规则文档）。
-> 应用 v1 决策：R2（回合结束顺序：地块→饥饿→怪物）、D5（燃料机制）、D9（装备卡先进手牌）、D12（拾荒牌库空）、D16（怪物标记上限）、D17（初始抓怪按座次）。
+> 应用 v1 决策：R2（回合结束顺序：地块→饥饿→怪物）、D5（燃料机制）、D9（装备卡先进手牌）、D12（拾荒牌库空）、D16（怪物标记上限）、D17（初始抓怪按座次）、D112（地块只是拾荒颜色入口，拾荒从全局牌堆抓 1 张）。
 
 ---
 
@@ -299,7 +299,7 @@ enum TurnPhase {
 | **抓牌** | `draw_from_survivor_deck(n: int = 1)` | 从个人求生者牌库抓 n 张牌 |
 | **打牌** | `play_card(card: CardInstance)` | 从手牌打出 1 张即时行动卡（结算后 discard） |
 | **执行卡牌行动** | `execute_card_action(card: CardInstance)` | 执行已装备卡牌上的行动（如武器开火，需消耗弹药） |
-| **拾荒** | `scavenge(color: DeckColor)` | 当前地块有拾荒标记时，从对应色堆抓 1 张（见 D12 牌库空处理） |
+| **拾荒** | `scavenge(color: DeckColor)` | 当前地块有拾荒标记时，消耗 1 行动点从全局对应色拾荒牌堆抓 1 张（见 D12 牌库空处理、D112） |
 | **装填武器** | `reload_weapon(weapon: CardInstance, ammo: CardInstance)` | 装填武器弹药（消耗弹药卡） |
 | **吃食物** | `eat_food(food: CardInstance)` | 打出食物卡降低饥饿值 |
 | **治疗玩家** | `heal_player(medical: CardInstance)` | 打出医疗用品等治疗玩家 |
