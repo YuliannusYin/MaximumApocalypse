@@ -40,11 +40,25 @@ func display_mission_list() -> void:
 		btn.text = mission.mission_name + " (" + mission.difficulty + ")"
 		btn.position = Vector2(200, start_y + i * (button_height + spacing))
 		btn.size = Vector2(400, button_height)
-		
+
+		# [新增] 2026-06-30: 鼠标悬停显示任务详情
+		btn.tooltip_text = _build_mission_tooltip(mission)
+
 		btn.pressed.connect(_on_mission_button_pressed.bind(mission))
-		
+
 		add_child(btn)
 		mission_buttons.append(btn)
+
+# [新增] 2026-06-30: 构建任务tooltip文本
+func _build_mission_tooltip(mission: MissionData) -> String:
+	var tip = "【" + mission.mission_name + "】"
+	tip += "\n难度: " + mission.difficulty
+	tip += "\n所需燃料: " + str(mission.required_van_fuel)
+	if mission.description != "":
+		tip += "\n\n" + mission.description
+	if mission.objective_text != "":
+		tip += "\n\n" + mission.objective_text
+	return tip
 
 func _on_mission_button_pressed(mission: MissionData) -> void:
 	print("[MissionSelect] 选择任务: " + mission.mission_name)

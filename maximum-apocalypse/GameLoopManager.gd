@@ -19,6 +19,10 @@ func _ready() -> void:
 
 	# 连接UIManager的武器攻击信号
 	ui_manager.weapon_attack_triggered.connect(_on_weapon_attack_triggered)
+	# 连接UIManager的弃装备信号
+	ui_manager.equipment_discarded.connect(_on_equipment_discarded)
+	# 提供RuleEngine引用给UIManager用于查询装备栏槽位
+	ui_manager.rule_engine_ref = rule_engine
 
 func start_game():
 	print("[GameLoop] 游戏开始，初始化数据...")
@@ -130,3 +134,7 @@ func _on_turn_end_phase_complete() -> void:
 # 武器攻击回调
 func _on_weapon_attack_triggered(player_id: String, equipment_index: int) -> void:
 	rule_engine.use_weapon_attack(player_id, equipment_index)
+
+# 弃装备回调
+func _on_equipment_discarded(player_id: String, equipment_index: int) -> void:
+	rule_engine.discard_equipment(player_id, equipment_index)

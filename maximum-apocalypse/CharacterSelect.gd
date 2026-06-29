@@ -47,10 +47,22 @@ func display_character_list() -> void:
 		btn.position = Vector2(200, start_y + i * (button_height + spacing))
 		btn.size = Vector2(300, button_height)
 
+		# [新增] 2026-06-30: 鼠标悬停显示角色信息
+		btn.tooltip_text = _build_character_tooltip(character)
+
 		btn.pressed.connect(_on_character_button_pressed.bind(character.id))
 
 		add_child(btn)
 		character_buttons.append(btn)
+
+# [新增] 2026-06-30: 构建角色tooltip文本
+func _build_character_tooltip(character: PlayerData) -> String:
+	var tip = "【" + character.character_name + "】"
+	tip += "\n生命值: " + str(character.max_hp)
+	tip += "\n基础潜行: " + str(character.base_stealth)
+	tip += "\n饥饿潜行: " + str(character.starving_stealth)
+	tip += "\n行动点: " + str(character.action_points)
+	return tip
 
 func create_ui_elements() -> void:
 	# 已选择数量标签

@@ -220,8 +220,10 @@ func play_card(player_id: String, card_index: int):
 
 	if is_equipment:
 		# 装备牌：不执行攻击效果，直接装备到装备栏
-		# 检查是否已有同种装备（顶掉旧的）
-		_equip_to_player(player_id, card_index, card_data)
+		# 检查是否已有同种装备（顶掉旧的）+ 槽位上限
+		var equip_ok = _equip_to_player(player_id, card_index, card_data)
+		if not equip_ok:
+			return  # 装备失败，不消耗行动点
 	else:
 		# 非装备牌：执行效果 → 弃牌
 		if card_data and effect_manager:
@@ -655,10 +657,33 @@ func get_first_monster(player_id: String) -> CardRuntime:
 
 # === 装备系统 ===
 
-# 装备卡牌到玩家装备栏（顶掉同种旧装备）
-func _equip_to_player(player_id: String, card_index: int, card_data: Resource) -> void:
+# 获取玩家当前装备栏槽位上限（基础+背包加成）
+func get_player_equipment_slots(player_id: String) -> int:
+	var player = GameState.players[player_id]
+	var slots = player.base_equipment_slots
+	# 检查背包被动+1格
+	for equipment in player.equipment_zone:
+		var card_data = _load_card_data(equipment.template_id)
+		if card_data is CharacterCardData and card_data.effect_script_id == "increase_equipment_slots_1":
+			slots += 1
+		elif card_data is ScavengeCardData and card_data.effect_script_id == "increase_equipment_slots_1":
+			slots += 1
+	return slots
+
+# 获取装备卡的槽位花费
+func _get_equipment_cost(card_data: Resource) -> int:
+	if card_data is CharacterCardData:
+		return card_data.equipment_cost
+	elif card_data is ScavengeCardData:
+		return card_data.equipment_slot
+	return 0
+
+# 装备卡牌到玩家装备栏（顶掉同种旧装备，检查槽位上限）
+func _equip_to_player(player_id: String, card_index: int, card_data: Resource) -> bool:
 	var player = GameState.players[player_id]
 	var card = player.hand[card_index]
+
+	var new_cost = _get_equipment_cost(card_data)
 
 	# 检查是否已有同种装备（template_id相同）
 	for i in range(player.equipment_zone.size()):
@@ -679,9 +704,24 @@ func _equip_to_player(player_id: String, card_index: int, card_data: Resource) -
 			print("[RuleEngine] 装备: " + card.card_name)
 			ui_manager.add_log_message("装备: " + card.card_name)
 			ui_manager.update_player_info(player_id)
-			return
+			ui_manager.update_equipment_display(player_id)
+			# 触发装备时效果
+			_trigger_on_equip(player_id, card, card_data)
+			return true
 
-	# 没有同种装备，直接添加
+	# 没有同种装备，检查槽位上限
+	var current_used = 0
+	for equipment in player.equipment_zone:
+		var ed = _load_card_data(equipment.template_id)
+		current_used += _get_equipment_cost(ed)
+	var max_slots = get_player_equipment_slots(player_id)
+	if current_used + new_cost > max_slots:
+		print("[RuleEngine] 装备栏槽位不足: " + str(current_used) + "/" + str(max_slots) + "，新增需" + str(new_cost))
+		ui_manager.add_log_message("装备栏槽位不足（" + str(current_used) + "/" + str(max_slots) + "），无法装备 " + card.card_name)
+		ui_manager.status_label.text = "装备栏已满!"
+		return false
+
+	# 装备新卡
 	if card_data is CharacterCardData and card_data.max_ammo != 0:
 		card.current_ammo = card_data.max_ammo
 	player.equipment_zone.append(card)
@@ -689,6 +729,50 @@ func _equip_to_player(player_id: String, card_index: int, card_data: Resource) -
 	print("[RuleEngine] 装备: " + card.card_name)
 	ui_manager.add_log_message("装备: " + card.card_name)
 	ui_manager.update_player_info(player_id)
+	ui_manager.update_equipment_display(player_id)
+	# 触发装备时效果
+	_trigger_on_equip(player_id, card, card_data)
+	return true
+
+# 装备时触发的效果（如恢复HP等）
+func _trigger_on_equip(player_id: String, card: CardRuntime, card_data: Resource) -> void:
+	if effect_manager == null:
+		return
+	var eid = ""
+	if card_data is CharacterCardData:
+		eid = card_data.effect_script_id
+	elif card_data is ScavengeCardData:
+		eid = card_data.effect_script_id
+	# 这些效果需要装备时触发
+	if eid == "heal_veteran_dog_2_reduce_veteran_damage_1" or eid == "heal_3_on_equip_increase_damage_1":
+		effect_manager.execute_effect(card_data, player_id, card)
+
+# 玩家主动弃掉装备区的装备（用于触发弃牌效果）
+func discard_equipment(player_id: String, equipment_index: int) -> bool:
+	var player = GameState.players[player_id]
+	if equipment_index < 0 or equipment_index >= player.equipment_zone.size():
+		return false
+
+	var equipment = player.equipment_zone[equipment_index]
+	player.equipment_zone.remove_at(equipment_index)
+
+	# 判断是否拾荒卡
+	var card_data = _load_card_data(equipment.template_id)
+	if card_data is ScavengeCardData:
+		# 拾荒卡放到拾荒弃牌堆
+		var color = card_data.color
+		if GameState.has("scavenge_discard_piles") and GameState.scavenge_discard_piles.has(color):
+			GameState.scavenge_discard_piles[color].append(equipment)
+		else:
+			player.discard_pile.append(equipment)
+	else:
+		player.discard_pile.append(equipment)
+
+	print("[RuleEngine] 弃掉装备: " + equipment.card_name)
+	ui_manager.add_log_message("弃掉装备: " + equipment.card_name)
+	ui_manager.update_player_info(player_id)
+	ui_manager.update_equipment_display(player_id)
+	return true
 
 # 使用武器攻击（消耗1弹药+1行动点，执行武器效果）
 func use_weapon_attack(player_id: String, equipment_index: int) -> bool:

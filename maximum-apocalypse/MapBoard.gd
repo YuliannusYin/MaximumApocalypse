@@ -96,11 +96,51 @@ class TileView extends Node2D:
 		# --- 7. 动态创建玩家标记容器（显示在该地块上的玩家） ---
 		_create_player_markers_container(size)
 
+		# [新增] 2026-06-30: 初始化tooltip（仅在已翻开时显示）
+		_refresh_tooltip()
+
 	## 刷新迷雾层的展示
 	func update_fog_state() -> void:
 		if fog_rect:
 			# 如果数据里被翻开了，迷雾立刻消失，露出底部的名字和数据
 			fog_rect.visible = not tile_runtime_data["is_revealed"]
+		# [新增] 2026-06-30: 翻开状态变化时同步更新tooltip
+		_refresh_tooltip()
+
+	## [新增] 2026-06-30: 根据翻开状态刷新tooltip（未翻开不显示）
+	func _refresh_tooltip() -> void:
+		if not click_button: return
+		if tile_runtime_data.get("is_revealed", false):
+			click_button.tooltip_text = _build_tile_tooltip()
+		else:
+			click_button.tooltip_text = ""
+
+	## [新增] 2026-06-30: 构建地块tooltip文本（与info_label信息一致+描述）
+	func _build_tile_tooltip() -> String:
+		var static_template: MapBlockData = tile_runtime_data["data"]
+		var tip = "【" + static_template.tile_name + "】"
+
+		# 拾荒颜色
+		var scav_color_str = ""
+		for color in static_template.scavenge_colors:
+			if scav_color_str != "":
+				scav_color_str += ","
+			scav_color_str += Enums.ScavengeColor.keys()[color]
+		if scav_color_str == "":
+			scav_color_str = "无"
+		tip += "\n拾荒牌堆: " + scav_color_str
+
+		# 爆怪骰子
+		tip += "\n爆怪骰子: " + str(static_template.spawn_value)
+
+		# 怪物数量
+		if tile_runtime_data.get("monster_tokens", 0) > 0:
+			tip += "\n怪物数量: " + str(tile_runtime_data["monster_tokens"])
+
+		# 描述
+		if static_template.description != "":
+			tip += "\n描述: " + static_template.description
+		return tip
 
 	## 动态刷新地块内的数据文本提示
 	func _refresh_info_text() -> void:
@@ -131,6 +171,8 @@ class TileView extends Node2D:
 	func update_monster_display(new_count: int) -> void:
 		tile_runtime_data["monster_tokens"] = new_count
 		_refresh_info_text()
+		# [新增] 2026-06-30: 同步刷新tooltip（怪物数量变化）
+		_refresh_tooltip()
 
 	## 创建透明点击按钮覆盖整个地块
 	func _create_click_button(size: Vector2) -> void:

@@ -157,29 +157,23 @@ func setup_players_from_selection() -> void:
 			push_error("[Game] 错误：无法加载角色数据 " + character_id)
 			continue
 
-		# 创建玩家实例（复制角色数据）
+		# 创建玩家实例（使用PlayerState类）
 		# 注意：位置将在地图初始化后设置
 		var player_id = "player_" + str(i + 1)
-		var player = {
-			"id": player_id,
-			"character_name": player_data.character_name,
-			"max_hp": player_data.max_hp,
-			"current_hp": player_data.max_hp,  # 初始满血
-			"hunger_level": player_data.hunger_level,  # 使用角色初始饥饿度
-			"is_starving": player_data.is_starving,
-			"starving_damage_stage": player_data.starving_damage_stage,
-			"position": Vector2i(-99, -99),  # 临时位置，等地图初始化后更新
-			"base_stealth": player_data.base_stealth,
-			"starving_stealth": player_data.starving_stealth,
-			"action_points": player_data.action_points,
-			"poison_tokens": player_data.poison_tokens,
-			"is_stunned": player_data.is_stunned,
-			"hand": [],
-			"equipment_zone": [],
-			"deck": [],  # 初始化为空，稍后填充角色卡
-			"discard_pile": [],
-			"monster_zone": []  # 纠缠的怪物
-		}
+		var player = PlayerState.new()
+		player.id = player_id
+		player.character_name = player_data.character_name
+		player.max_hp = player_data.max_hp
+		player.current_hp = player_data.max_hp  # 初始满血
+		player.hunger_level = player_data.hunger_level
+		player.is_starving = player_data.is_starving
+		player.starving_damage_stage = player_data.starving_damage_stage
+		player.position = Vector2i(-99, -99)  # 临时位置，等地图初始化后更新
+		player.base_stealth = player_data.base_stealth
+		player.starving_stealth = player_data.starving_stealth
+		player.action_points = player_data.action_points
+		player.poison_tokens = player_data.poison_tokens
+		player.is_stunned = player_data.is_stunned
 
 		GameState.players[player_id] = player
 
