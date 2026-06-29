@@ -1,4 +1,4 @@
-﻿[gd_resource type="Resource" script_class="ScavengeCardData" format=3 uid="uid://food_micro"]
+[gd_resource type="Resource" script_class="ScavengeCardData" format=3 uid="uid://food_micro"]
 
 [ext_resource type="Script" uid="uid://25vl3dgcqrwf" path="res://ScavengeCardData.gd" id="1_food_micro"]
 
@@ -8,7 +8,7 @@ id = "food_micro"
 card_name = "微量食粮"
 category = "食物"
 color = 1
-card_type = "行动牌"
+card_type = 0
 value = 1
 effect = "玩家饥饿值减少1点"
 effect_script_id = "reduce_hunger_1"

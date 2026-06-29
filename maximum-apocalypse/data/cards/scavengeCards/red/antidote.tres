@@ -1,4 +1,4 @@
-﻿[gd_resource type="Resource" script_class="ScavengeCardData" format=3 uid="uid://antidote"]
+[gd_resource type="Resource" script_class="ScavengeCardData" format=3 uid="uid://antidote"]
 
 [ext_resource type="Script" uid="uid://25vl3dgcqrwf" path="res://ScavengeCardData.gd" id="1_antidote"]
 
@@ -8,7 +8,7 @@ id = "antidote"
 card_name = "解毒剂"
 category = "补给"
 color = 0
-card_type = "行动牌"
+card_type = 0
 value = 0
 effect = "清除所有的异常状态效果"
 effect_script_id = "clear_all_status_effects"

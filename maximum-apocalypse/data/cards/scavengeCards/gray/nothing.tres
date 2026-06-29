@@ -1,4 +1,4 @@
-﻿[gd_resource type="Resource" script_class="ScavengeCardData" format=3 uid="uid://nothing"]
+[gd_resource type="Resource" script_class="ScavengeCardData" format=3 uid="uid://nothing"]
 
 [ext_resource type="Script" uid="uid://25vl3dgcqrwf" path="res://ScavengeCardData.gd" id="1_nothing"]
 
@@ -8,7 +8,7 @@ id = "nothing"
 card_name = "一无所获"
 category = "其他"
 color = 3
-card_type = "行动牌"
+card_type = 0
 equipment_slot = 0
 effect = "当玩家抓取此牌时，立即弃掉"
 effect_script_id = "discard_on_draw"

@@ -1,4 +1,4 @@
-﻿[gd_resource type="Resource" script_class="ScavengeCardData" format=3 uid="uid://dynamite"]
+[gd_resource type="Resource" script_class="ScavengeCardData" format=3 uid="uid://dynamite"]
 
 [ext_resource type="Script" uid="uid://25vl3dgcqrwf" path="res://ScavengeCardData.gd" id="1_dynamite"]
 
@@ -8,7 +8,7 @@ id = "dynamite"
 card_name = "炸药"
 category = "战备"
 color = 2
-card_type = "行动牌"
+card_type = 0
 equipment_slot = 0
 effect = "移除一个板块上的所有怪物标记，并对板块上的所有目标造成8点伤害（长距离）"
 effect_script_id = "remove_all_monsters_deal_8_damage"

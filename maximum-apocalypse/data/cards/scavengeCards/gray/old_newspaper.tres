@@ -1,4 +1,4 @@
-﻿[gd_resource type="Resource" script_class="ScavengeCardData" format=3 uid="uid://old_newspaper"]
+[gd_resource type="Resource" script_class="ScavengeCardData" format=3 uid="uid://old_newspaper"]
 
 [ext_resource type="Script" uid="uid://25vl3dgcqrwf" path="res://ScavengeCardData.gd" id="1_old_newspaper"]
 
@@ -8,7 +8,7 @@ id = "old_newspaper"
 card_name = "老报纸"
 category = "其他"
 color = 3
-card_type = "物品"
+card_type = 2
 equipment_slot = 0
 effect = "作为游戏结算时的物品"
 effect_script_id = "game_end_item"

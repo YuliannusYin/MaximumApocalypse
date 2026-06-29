@@ -1,10 +1,11 @@
-[gd_scene load_steps=6 format=3 uid="uid://dvdxxycuhepd4"]
+[gd_scene load_steps=7 format=3 uid="uid://dvdxxycuhepd4"]
 
 [ext_resource type="Script" path="res://game.gd" id="1_game"]
 [ext_resource type="Script" path="res://RuleEngine.gd" id="3_ruleengine"]
 [ext_resource type="Script" path="res://GameLoopManager.gd" id="4_gameloop"]
 [ext_resource type="Script" path="res://UIManager.gd" id="5_uimanager"]
 [ext_resource type="Script" path="res://MapBoard.gd" id="6_mapboard"]
+[ext_resource type="Script" path="res://EffectManager.gd" id="7_effectmanager"]
 
 [node name="Game" type="Node2D" unique_id=1611663693]
 script = ExtResource("1_game")
@@ -23,6 +24,9 @@ script = ExtResource("6_mapboard")
 tile_size = Vector2(140, 140)
 grid_spacing = 12.0
 total_tiles_needed = 13
+
+[node name="EffectManager" type="Node" parent="."]
+script = ExtResource("7_effectmanager")
 
 [node name="TitleLabel" type="Label" parent="."]
 offset_left = 550.0

@@ -1,4 +1,4 @@
-﻿[gd_resource type="Resource" script_class="ScavengeCardData" format=3 uid="uid://fuel"]
+[gd_resource type="Resource" script_class="ScavengeCardData" format=3 uid="uid://fuel"]
 
 [ext_resource type="Script" uid="uid://25vl3dgcqrwf" path="res://ScavengeCardData.gd" id="1_fuel"]
 
@@ -8,7 +8,7 @@ id = "fuel"
 card_name = "燃料"
 category = "补给"
 color = 0
-card_type = "装备牌"
+card_type = 1
 value = 0
 effect = "给弹药类型为燃料的武器卡填装满燃料"
 effect_script_id = "reload_fuel_weapon_full"

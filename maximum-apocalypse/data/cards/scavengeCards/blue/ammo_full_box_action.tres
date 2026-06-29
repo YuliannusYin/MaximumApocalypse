@@ -1,4 +1,4 @@
-﻿[gd_resource type="Resource" script_class="ScavengeCardData" format=3 uid="uid://ammo_full_box_action"]
+[gd_resource type="Resource" script_class="ScavengeCardData" format=3 uid="uid://ammo_full_box_action"]
 
 [ext_resource type="Script" uid="uid://25vl3dgcqrwf" path="res://ScavengeCardData.gd" id="1_ammo_full_box"]
 
@@ -8,7 +8,7 @@ id = "ammo_full_box_action"
 card_name = "整盒弹药"
 category = "战备"
 color = 2
-card_type = "行动牌"
+card_type = 0
 value = 0
 effect = "将一张武器卡填装到满弹药"
 effect_script_id = "reload_weapon_full"

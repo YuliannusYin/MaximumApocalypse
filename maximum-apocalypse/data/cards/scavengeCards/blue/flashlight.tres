@@ -1,4 +1,4 @@
-﻿[gd_resource type="Resource" script_class="ScavengeCardData" format=3 uid="uid://flashlight"]
+[gd_resource type="Resource" script_class="ScavengeCardData" format=3 uid="uid://flashlight"]
 
 [ext_resource type="Script" uid="uid://25vl3dgcqrwf" path="res://ScavengeCardData.gd" id="1_flashlight"]
 
@@ -8,7 +8,7 @@ id = "flashlight"
 card_name = "手电筒"
 category = "战备"
 color = 2
-card_type = "装备牌"
+card_type = 1
 equipment_slot = 1
 effect = "当你执行拾荒行动时，改为观看牌堆顶两张牌，然后你保留其中一张，将另一张置于牌堆底"
 effect_script_id = "scavenge_peek_top_2"

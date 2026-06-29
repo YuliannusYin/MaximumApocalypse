@@ -1,4 +1,4 @@
-﻿[gd_resource type="Resource" script_class="ScavengeCardData" format=3 uid="uid://big_dynamite"]
+[gd_resource type="Resource" script_class="ScavengeCardData" format=3 uid="uid://big_dynamite"]
 
 [ext_resource type="Script" uid="uid://25vl3dgcqrwf" path="res://ScavengeCardData.gd" id="1_big_dynamite"]
 
@@ -8,7 +8,7 @@ id = "big_dynamite"
 card_name = "大炸药"
 category = "战备"
 color = 2
-card_type = "行动牌"
+card_type = 0
 equipment_slot = 0
 effect = "摧毁一个地图板块（短距离）"
 effect_script_id = "destroy_tile"

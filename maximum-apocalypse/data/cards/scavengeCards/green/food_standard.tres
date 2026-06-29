@@ -1,4 +1,4 @@
-﻿[gd_resource type="Resource" script_class="ScavengeCardData" format=3 uid="uid://food_standard"]
+[gd_resource type="Resource" script_class="ScavengeCardData" format=3 uid="uid://food_standard"]
 
 [ext_resource type="Script" uid="uid://25vl3dgcqrwf" path="res://ScavengeCardData.gd" id="1_food_standard"]
 
@@ -8,7 +8,7 @@ id = "food_standard"
 card_name = "标准食粮"
 category = "食物"
 color = 1
-card_type = "行动牌"
+card_type = 0
 value = 3
 effect = "玩家饥饿值减少3点"
 effect_script_id = "reduce_hunger_3"

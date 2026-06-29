@@ -3,12 +3,19 @@ class_name RuleEngine
 extends Node
 
 var ui_manager: UIManager
+var effect_manager: EffectManager
 var current_player_id: String = ""
 
 func _ready() -> void:
-	# 等待父节点准备好后获取UIManager
-	await get_tree().create_timer(0.2).timeout
+	# 等待父节点准备好后获取UIManager和EffectManager
+	await get_tree().create_timer(0.3).timeout
 	ui_manager = get_parent().get_node("UIManager")
+	effect_manager = get_parent().get_node("EffectManager")
+	
+	if effect_manager:
+		print("[RuleEngine] EffectManager已获取")
+	else:
+		print("[RuleEngine] 错误：EffectManager未找到！")
 
 	# 连接UIManager的信号
 	ui_manager.dice_rolled.connect(_on_dice_rolled)
@@ -145,6 +152,10 @@ func move_player(player_id: String, target_pos: Vector2i):
 func play_card(player_id: String, card_index: int):
 	var player = GameState.players[player_id]
 
+	print("[RuleEngine] === 出牌流程开始 ===")
+	print("[RuleEngine] 玩家: " + player_id + ", 卡牌索引: " + str(card_index))
+	print("[RuleEngine] 手牌数量: " + str(player.hand.size()))
+
 	if card_index < 0 or card_index >= player.hand.size():
 		print("[RuleEngine] 非法卡牌索引")
 		return
@@ -155,22 +166,94 @@ func play_card(player_id: String, card_index: int):
 		return
 
 	var card = player.hand[card_index]
+	print("[RuleEngine] 卡牌信息: template_id=" + card.template_id + ", name=" + card.card_name)
 
 	# 如果是怪物卡，不能直接打出，需要战斗
 	if card.template_id.contains("monster"):
 		ui_manager.status_label.text = "怪物卡需要战斗才能清除!"
 		return
 
-	# 打出卡牌（从手牌移到弃牌堆）
-	player.hand.remove_at(card_index)
-	player.discard_pile.append(card)
-	player.action_points -= 1
+	# 加载卡牌数据以获取效果脚本ID
+	print("[RuleEngine] 尝试加载卡牌数据...")
+	var card_data = _load_card_data(card.template_id)
+	
+	if card_data:
+		print("[RuleEngine] 卡牌数据已加载: " + str(card_data))
+		if card_data is ScavengeCardData:
+			print("[RuleEngine]  - effect_script_id: " + card_data.effect_script_id)
+			print("[RuleEngine]  - card_type: " + str(card_data.card_type))
+	else:
+		print("[RuleEngine] 错误：卡牌数据加载失败")
 
-	print("[RuleEngine] 玩家 " + player_id + " 出牌: " + card.template_id)
+	# 执行卡牌效果（在打出之前）
+	if card_data and effect_manager:
+		print("[RuleEngine] effect_manager存在，尝试执行效果...")
+		var success = effect_manager.execute_effect(card_data, player_id, card)
+		if not success:
+			print("[RuleEngine] 卡牌效果执行失败")
+			# 效果失败时卡牌不移除（可选）
+			ui_manager.status_label.text = "效果执行失败!"
+			return
+		else:
+			print("[RuleEngine] 卡牌效果执行成功")
+	else:
+		if not card_data:
+			print("[RuleEngine] 无法执行效果：card_data为null")
+		if not effect_manager:
+			print("[RuleEngine] 无法执行效果：effect_manager为null")
+
+	# 检查是否是装备牌（装备牌不弃掉）
+	var is_equipment = false
+	if card_data is ScavengeCardData:
+		is_equipment = (card_data.card_type == Enums.ScavengeCardType.EQUIPMENT)
+	elif card_data is CharacterCardData:
+		is_equipment = (card_data.card_type == Enums.CharacterCard.EQUIPMENT)
+
+	if is_equipment:
+		# 装备牌放入装备栏（EffectManager中已处理）
+		player.hand.remove_at(card_index)
+		print("[RuleEngine] 玩家 " + player_id + " 装备: " + card.card_name)
+	else:
+		# 打出卡牌（从手牌移到弃牌堆）
+		player.hand.remove_at(card_index)
+		player.discard_pile.append(card)
+		print("[RuleEngine] 玩家 " + player_id + " 出牌: " + card.card_name)
+
+	player.action_points -= 1
 
 	# 更新UI
 	ui_manager.update_player_info(player_id)
-	ui_manager.status_label.text = "已打出: " + card.template_id
+	ui_manager.status_label.text = "已打出: " + card.card_name
+	print("[RuleEngine] === 出牌流程结束 ===")
+
+# 加载卡牌数据
+func _load_card_data(template_id: String) -> Resource:
+	print("[RuleEngine] _load_card_data 尝试加载: " + template_id)
+	
+	# 尝试从拾荒卡文件夹加载
+	var scavenge_folders = ["red", "green", "blue", "gray"]
+	for folder in scavenge_folders:
+		var path = "res://data/cards/scavengeCards/" + folder + "/" + template_id + ".tres"
+		print("[RuleEngine]   检查路径: " + path)
+		if ResourceLoader.exists(path):
+			print("[RuleEngine]   找到资源！加载中...")
+			var res = load(path)
+			print("[RuleEngine]   加载成功: " + str(res))
+			return res
+		else:
+			print("[RuleEngine]   路径不存在")
+
+	# 尝试从角色卡文件夹加载（需要扫描子文件夹）
+	var char_folders = ["cowboy", "firefighter", "hunter", "mechanic", "surgeon", "veteran"]
+	for folder in char_folders:
+		var path = "res://data/cards/characterCards/" + folder + "/" + template_id + ".tres"
+		print("[RuleEngine]   检查路径: " + path)
+		if ResourceLoader.exists(path):
+			print("[RuleEngine]   找到角色卡资源！")
+			return load(path)
+
+	print("[RuleEngine] 未找到卡牌数据: " + template_id)
+	return null
 
 # === 拾荒 ===
 func execute_scavenge(player_id: String):
@@ -215,12 +298,37 @@ func _draw_scavenge_card(player_id: String, color: Enums.ScavengeColor) -> void:
 		ui_manager.status_label.text = Enums.ScavengeColor.keys()[color] + "拾荒牌堆已空!"
 		return
 
-	# 从牌堆抓取一张卡
-	var drawn_card = deck.pop_front()
-	player.hand.append(drawn_card)
-	player.action_points -= 1
+	# 从牌堆抓取一张卡（CardRuntime实例）
+	var drawn_card: CardRuntime = deck.pop_front()
 
 	print("[RuleEngine] 玩家 " + player_id + " 拾荒: " + drawn_card.card_name + " (" + Enums.ScavengeColor.keys()[color] + ")")
+
+	# 加载卡牌数据以检查是否需要触发抽牌效果
+	var card_data = _load_card_data(drawn_card.template_id)
+
+	# 检查是否是gray牌（抽到时触发效果）
+	if card_data and card_data is ScavengeCardData:
+		if card_data.color == Enums.ScavengeCardColor.GRAY:
+			# 执行抽牌效果（如"一无所获"立即弃掉，"伏击"抽怪物卡）
+			if effect_manager:
+				var success = effect_manager.execute_effect(card_data, player_id, drawn_card)
+				if success:
+					print("[RuleEngine] Gray牌效果已触发")
+					# 效果执行后，卡牌可能已被弃掉或处理，不加入手牌
+					player.action_points -= 1
+					ui_manager.update_player_info(player_id)
+					ui_manager.status_label.text = "拾荒触发效果: " + drawn_card.card_name
+					return
+			# 如果效果执行失败，正常加入手牌
+			player.hand.append(drawn_card)
+		else:
+			# 正常加入手牌
+			player.hand.append(drawn_card)
+	else:
+		# 未知卡牌类型，正常加入手牌
+		player.hand.append(drawn_card)
+
+	player.action_points -= 1
 
 	# 更新UI
 	ui_manager.update_player_info(player_id)

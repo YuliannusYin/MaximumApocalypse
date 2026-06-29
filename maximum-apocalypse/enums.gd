@@ -21,7 +21,7 @@ enum GamePhase { SPAWN, DRAW, ACTION, HUNGER, MONSTER_ATTACK }
 # [新增] 2026-06-24: 游戏状态枚举（进行中、胜利、失败）
 enum GameStatus { PLAYING, VICTORY, DEFEAT }
 
-enum ScavengeCardType { ACTION, EQUIPMENT }
+enum ScavengeCardType { ACTION, EQUIPMENT, ITEM }
 
 enum CharacterCard { ACTION, EQUIPMENT }
 

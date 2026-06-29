@@ -4,9 +4,13 @@ extends Node2D
 @onready var ui_manager: CanvasLayer = $UIManager
 @onready var game_loop: Node = $GameLoopManager
 @onready var rule_engine: Node = $RuleEngine
+@onready var effect_manager: Node = $EffectManager
 
 func _ready() -> void:
 	print("[Game] 游戏场景初始化...")
+
+	# 等待所有子节点准备完成
+	await get_tree().create_timer(0.3).timeout
 
 	# 检查是否有选中的关卡和角色
 	if not GameState.selected_mission:
@@ -16,6 +20,11 @@ func _ready() -> void:
 	if GameState.selected_character_ids.is_empty():
 		push_error("[Game] 错误：未选择角色！")
 		return
+
+	# 初始化效果管理器（必须在setup_game_state之前）
+	if effect_manager and effect_manager.has_method("initialize"):
+		effect_manager.initialize(rule_engine, ui_manager, map_board)
+		print("[Game] EffectManager已初始化")
 
 	# 初始化游戏状态
 	setup_game_state()
