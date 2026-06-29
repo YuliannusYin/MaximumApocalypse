@@ -1,0 +1,122 @@
+Skill{
+    技能名："移动"
+    技能描述："移动到目标地块"
+    active: "行动阶段"
+    filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 # 行动阶段且有剩余行动次数时可用
+    filterTarget: return target != player.所在地图块() # 目标地块不能是玩家当前所在地块
+    filterTargetRange: "短距离" # 目标地块必须在短距离范围内（相邻地块）
+    content: {
+        # 1. 离开所在地块前
+        player.减少行动次数( 1 ) # 消耗1点行动次数
+        # 2. 离开所在地块时 # 触发"离开地块时"事件。
+        # 3. 进入目标地块前 # 获得目标地块的技能，然后触发"进入地块前"事件。
+        # 4. 移动时 # 触发"移动时"事件。
+        player.moveToMapBlock( target ) # 将玩家移至目标地块
+        # 5. 离开所在地块后 # 清除离开地块的技能。
+        # 6. 进入目标地块时 # 触发"进入地块时"事件。
+        # 7. 进入目标地块后 # 展示地图块并触发"展示地块时"事件。
+        if( !target.已展示() ) target.展示() # 若目标地块尚未翻开（未探索），将其翻开面朝上
+    }
+} 
+
+Skill{
+    技能名："拾荒"
+    技能描述："从可以进行拾荒的牌堆中抓取一张牌"
+    active: "行动阶段"
+    filter: {
+        if( player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.所在地图块().hasColor() ){
+            return true # 行动阶段、有剩余行动次数，且当前所在地块存在可拾荒的颜色牌堆时可用
+        } else return false # 否则不可用
+    }
+    filterTarget: return getColor(target).isIn(getColor(player.所在地图块())) # 目标拾荒牌堆的颜色必须属于玩家所在地块的颜色集合
+    content: {
+        player.减少行动次数( 1 ) # 消耗1点行动次数
+        player.drawScavenge(1, target) # 从目标拾荒牌堆中抓取1张牌
+    }
+}
+
+Skill{
+    技能名："摸牌"
+    技能描述："从玩家游戏牌库中抓取一张牌"
+    active: "行动阶段"
+    filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 # 行动阶段且有剩余行动次数时可用
+    content: {
+        player.减少行动次数( 1 ) # 消耗1点行动次数
+        player.draw(1) # 从玩家游戏牌库抓取1张牌到手牌区
+    }
+}
+
+Skill{
+    技能名："制衡"
+    技能描述："你可以弃置两张玩家游戏牌，然后从玩家游戏牌库中抓取一张牌"
+    active: "行动阶段"
+    usable: 1 # 每个回合的行动阶段限用1次
+    filter: return player.inPhase == "行动阶段" # 免费行动：不消耗行动次数，仅在行动阶段可用
+    selectCard: 2 # 需选择2张牌
+    filterCard: return getSource(card) == player # 只能选来源于“玩家游戏牌库”的牌（即必须是玩家游戏牌）
+    position: "手牌区" # 选牌位置限定为手牌区
+    content: {
+        player.Discard(cards) # 弃置所选的2张牌
+        player.draw(1) # 从玩家游戏牌库抓取1张牌
+    }
+}
+
+Skill{
+    技能名："交易"
+    技能描述："你可以选择一张拾荒牌牌和同地图块内另一玩家，然后你将该拾荒牌牌向该玩家展示，其可以选择一张手中的拾荒牌与你交易。"
+    active: "行动阶段"
+    usable: 1 # 每个回合的行动阶段限用1次
+    filter: return player.inPhase == "行动阶段" && getPlayerNumber(player.所在地图块()) > 1 # 免费行动：不消耗行动次数；需在行动阶段，且当前地块上有超过1名玩家（即有交易对象）
+    selectCard: 1 # 需选择1张牌
+    filterCard: return getSource(card) == scavenge # 选中的牌必须来源于拾荒牌堆（即必须是拾荒牌）
+    position: "手牌区" # 选牌位置限定为手牌区
+    selectTarget: 1 # 需选择1个目标
+    filterTargetRange: "短距离" # 目标必须在短距离范围内（同地块内）
+    filterTarget: return target.hasScavengeCard() && target != player # 目标必须持有拾荒牌，且不能是玩家自己
+    content: {
+        # 向目标展示所选的拾荒牌
+        player.ShowCard(card, target) # 向target展示card
+        
+        # 询问目标是否同意交易
+        list = ["同意", "拒绝"]
+        result = target.Choose( list )
+
+        # 若目标同意，则进行双方拾荒牌交换
+        if( result == "同意" ){
+
+            # 目标从其手牌区中选择1张拾荒牌
+            card2 = target.ChooseCard(1, position="手牌区", source="scavenge") # target选择手牌区中的一张拾荒牌
+            
+            target.getCard(card) # 目标获得玩家展示的牌
+            player.getCard(card2) # 玩家获得目标选定的牌
+        } 
+    }
+}
+
+Skill{
+    技能名："加油"
+    技能描述：""
+    active: "行动阶段"
+    usable: Infinity # 不限使用次数
+    filter: return player.inPhase == "行动阶段" && player.hasFuel() # 免费行动：不消耗行动次数；需在行动阶段，且玩家持有燃料
+    filterTargetRange: "短距离" # 目标必须在短距离范围内
+    filterTarget:{
+        if( target == player.所在地图块() && target == "面包车" ){ # 目标是玩家所在地块的面包车
+            return true
+        } else if( target.是需要燃料的装备() ){ # 目标是需要燃料的装备
+            return true
+        }
+        return false
+    }
+    content: {
+        player.减少燃料( 1 ) # 玩家消耗1个燃料
+
+        # 根据目标类型执行不同的加油逻辑
+        if( target == "面包车" ){ # 目标是面包车：玩家往面包车添加1个燃料
+            target.加油(1, player) # 玩家往面包车添加1个燃料
+        }
+        else{ # 目标是装备：添加该装备允许的最大燃料量
+            target.添加燃料(max) # 往装备添加最大燃料量
+        }
+    }
+}
