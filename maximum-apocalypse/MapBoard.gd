@@ -8,7 +8,7 @@ const TILES_FOLDER_PATH = "res://data/blocks/"
 # --- 渲染配置 ---
 @export var tile_size: Vector2 = Vector2(60, 60)  # 方框的长宽
 @export var grid_spacing: float = 12.0             # 方框间距
-@export var map_offset: Vector2 = Vector2(300, 10) # 地图偏移（避开UI面板）
+@export var map_offset: Vector2 = Vector2(10, 10) # 地图偏移（避开UI面板）
 
 # --- 内部运行数据 ---
 var spawned_tile_views: Dictionary = {}

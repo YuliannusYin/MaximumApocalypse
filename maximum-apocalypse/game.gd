@@ -9,6 +9,9 @@ extends Node2D
 func _ready() -> void:
 	print("[Game] 游戏场景初始化...")
 
+	# 设置窗口大小以适配UI布局
+	DisplayServer.window_set_size(Vector2i(1300, 900))
+	
 	# 等待所有子节点准备完成
 	await get_tree().create_timer(0.3).timeout
 
@@ -174,7 +177,8 @@ func setup_players_from_selection() -> void:
 			"hand": [],
 			"equipment_zone": [],
 			"deck": [],  # 初始化为空，稍后填充角色卡
-			"discard_pile": []
+			"discard_pile": [],
+			"monster_zone": []  # 纠缠的怪物
 		}
 
 		GameState.players[player_id] = player
@@ -239,7 +243,9 @@ func load_character_cards_to_deck(player_id: String, character_id: String) -> vo
 			var card = CardRuntime.new("default_card_" + str(i), "default_action")
 			player.deck.append(card)
 	else:
-		print("[Game] 玩家 " + player_id + " 牌库加载完成（" + str(player.deck.size()) + "张）")
+		# 洗牌
+		player.deck.shuffle()
+		print("[Game] 玩家 " + player_id + " 牌库加载完成并洗牌（" + str(player.deck.size()) + "张）")
 
 	# === 开局抽4张牌作为初始手牌 ===
 	for i in range(4):
@@ -273,6 +279,12 @@ func setup_scavenge_decks() -> void:
 	print("[Game] 拾荒牌堆已加载：红=" + str(GameState.scavenge_decks[Enums.ScavengeColor.RED].size()) +
 		  "，绿=" + str(GameState.scavenge_decks[Enums.ScavengeColor.GREEN].size()) +
 		  "，蓝=" + str(GameState.scavenge_decks[Enums.ScavengeColor.BLUE].size()))
+
+	# 洗牌
+	GameState.scavenge_decks[Enums.ScavengeColor.RED].shuffle()
+	GameState.scavenge_decks[Enums.ScavengeColor.GREEN].shuffle()
+	GameState.scavenge_decks[Enums.ScavengeColor.BLUE].shuffle()
+	print("[Game] 拾荒牌堆已洗牌")
 
 # 扫描所有拾荒卡文件夹，建立精确ID映射和类别ID映射
 func _build_scavenge_card_map() -> Dictionary:

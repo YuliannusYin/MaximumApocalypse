@@ -14,4 +14,5 @@ equipment_cost = 1
 range_type = 2
 action_condition = "无"
 deck_quantity = 3
+max_ammo = -1
 metadata/_custom_type_script = "uid://cw2m7xg7nf4d5"

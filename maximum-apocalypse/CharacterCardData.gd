@@ -33,3 +33,6 @@ extends Resource
 
 ## 牌库中该卡牌的数量（根据角色卡包文档配置）
 @export var deck_quantity: int = 1
+
+## 武器最大弹药量（0=被动装备，-1=无弹药武器（近战/弓），>0=弹药武器每次攻击消耗1弹药）
+@export var max_ammo: int = 0

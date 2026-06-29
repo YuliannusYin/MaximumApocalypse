@@ -31,6 +31,8 @@ func execute_monster_spawn(dice_1: int, dice_2: int):
 	var state = GameState
 	var spawned_count = 0
 
+	ui_manager.add_log_message("丢筛子: " + str(dice_1) + " + " + str(dice_2) + " = " + str(X))
+
 	for pos in state.map_grid.keys():
 		var tile = state.map_grid[pos]
 		var tile_data: MapBlockData = tile["data"]
@@ -40,12 +42,14 @@ func execute_monster_spawn(dice_1: int, dice_2: int):
 				if state.available_monster_tokens <= 0:
 					state.game_status = Enums.GameStatus.DEFEAT
 					state.game_over.emit(state.game_status)
+					ui_manager.add_log_message("怪物标记耗尽，游戏失败！")
 					return
 
 				tile["monster_tokens"] += 1
 				state.available_monster_tokens -= 1
 				spawned_count += 1
 				print("[RuleEngine] 在地块 " + str(pos) + " 放置怪物标记")
+				ui_manager.add_log_message("在(" + str(pos.x) + "," + str(pos.y) + ")刷怪")
 
 				# 更新地块的怪物显示
 				_update_tile_monster_display(pos, tile["monster_tokens"])
@@ -54,9 +58,11 @@ func execute_monster_spawn(dice_1: int, dice_2: int):
 				for player_id in players_on_tile:
 					draw_monster_card_to_player(player_id)
 					print("[RuleEngine] 地块已满，玩家 " + player_id + " 抽取怪物卡")
+					ui_manager.add_log_message("地块怪物满，玩家被纠缠")
 
 	if spawned_count == 0:
 		print("[RuleEngine] 本轮无怪物出生")
+		ui_manager.add_log_message("本轮无怪物出生")
 
 	# 更新UI
 	ui_manager.update_player_info(current_player_id)
@@ -66,16 +72,26 @@ func execute_monster_spawn(dice_1: int, dice_2: int):
 func execute_draw_card(player_id: String):
 	var player = GameState.players[player_id]
 
+	# 牌库空时，将弃牌堆洗回牌库
 	if player.deck.size() == 0:
-		print("[RuleEngine] 玩家 " + player_id + " 牌库已空，死亡")
-		kill_player(player_id)
-		return
+		if player.discard_pile.size() > 0:
+			player.deck = player.discard_pile.duplicate()
+			player.deck.shuffle()
+			player.discard_pile.clear()
+			print("[RuleEngine] 玩家 " + player_id + " 牌库已空，将弃牌堆洗回牌库")
+			ui_manager.add_log_message("玩家牌库洗牌")
+		else:
+			print("[RuleEngine] 玩家 " + player_id + " 牌库已空，死亡")
+			ui_manager.add_log_message("牌库已空，玩家死亡")
+			kill_player(player_id)
+			return
 
 	# 从牌库抽取一张卡到手牌
 	var drawn_card = player.deck.pop_front()
 	player.hand.append(drawn_card)
 
 	print("[RuleEngine] 玩家 " + player_id + " 抽牌: " + drawn_card.template_id)
+	ui_manager.add_log_message("抽到: " + drawn_card.card_name)
 
 	# 更新UI
 	ui_manager.update_player_info(player_id)
@@ -91,10 +107,12 @@ func move_player(player_id: String, target_pos: Vector2i):
 
 	if not tile:
 		print("[RuleEngine] 非法移动：目标地块不存在")
+		ui_manager.add_log_message("移动失败：地块不存在")
 		return
 
 	if player.action_points <= 0:
 		print("[RuleEngine] 没有行动点，无法移动")
+		ui_manager.add_log_message("移动失败：无行动点")
 		return
 
 	# 检查是否相邻地块（只能移动到相邻位置）
@@ -103,15 +121,18 @@ func move_player(player_id: String, target_pos: Vector2i):
 	if distance > 1:
 		print("[RuleEngine] 只能移动到相邻地块")
 		ui_manager.status_label.text = "只能移动到相邻地块!"
+		ui_manager.add_log_message("移动失败：只能移动相邻地块")
 		return
 
 	player.action_points -= 1
 	player.position = target_pos
+	ui_manager.add_log_message("移动到(" + str(target_pos.x) + "," + str(target_pos.y) + ") AP-1")
 
 	if not tile["is_revealed"]:
 		tile["is_revealed"] = true
 		state.tile_revealed.emit(target_pos)
 		print("[RuleEngine] 翻开地块: " + str(target_pos))
+		ui_manager.add_log_message("翻开地块")
 
 	if tile["monster_tokens"] > 0 and not has_engaged_monsters(player_id):
 		var base_stealth = player.starving_stealth if player.is_starving else player.base_stealth
@@ -120,6 +141,7 @@ func move_player(player_id: String, target_pos: Vector2i):
 		var roll = randi_range(1, 6) + randi_range(1, 6)
 		print("[RuleEngine] 潜行检定: 骰子=" + str(roll) + " vs 需求=" + str(final_stealth))
 		ui_manager.status_label.text = "潜行检定: " + str(roll) + " vs " + str(final_stealth)
+		ui_manager.add_log_message("潜行检定: " + str(roll) + " vs " + str(final_stealth))
 
 		if roll > final_stealth:
 			var count = tile["monster_tokens"]
@@ -167,10 +189,12 @@ func play_card(player_id: String, card_index: int):
 
 	var card = player.hand[card_index]
 	print("[RuleEngine] 卡牌信息: template_id=" + card.template_id + ", name=" + card.card_name)
+	ui_manager.add_log_message("尝试出牌: " + card.card_name)
 
 	# 如果是怪物卡，不能直接打出，需要战斗
 	if card.template_id.contains("monster"):
 		ui_manager.status_label.text = "怪物卡需要战斗才能清除!"
+		ui_manager.add_log_message("怪物卡需要战斗清除")
 		return
 
 	# 加载卡牌数据以获取效果脚本ID
@@ -185,39 +209,30 @@ func play_card(player_id: String, card_index: int):
 	else:
 		print("[RuleEngine] 错误：卡牌数据加载失败")
 
-	# 执行卡牌效果（在打出之前）
-	if card_data and effect_manager:
-		print("[RuleEngine] effect_manager存在，尝试执行效果...")
-		var success = effect_manager.execute_effect(card_data, player_id, card)
-		if not success:
-			print("[RuleEngine] 卡牌效果执行失败")
-			# 效果失败时卡牌不移除（可选）
-			ui_manager.status_label.text = "效果执行失败!"
-			return
-		else:
-			print("[RuleEngine] 卡牌效果执行成功")
-	else:
-		if not card_data:
-			print("[RuleEngine] 无法执行效果：card_data为null")
-		if not effect_manager:
-			print("[RuleEngine] 无法执行效果：effect_manager为null")
-
-	# 检查是否是装备牌（装备牌不弃掉）
+	# 检查是否是装备牌
 	var is_equipment = false
+	var is_weapon = false
 	if card_data is ScavengeCardData:
 		is_equipment = (card_data.card_type == Enums.ScavengeCardType.EQUIPMENT)
 	elif card_data is CharacterCardData:
 		is_equipment = (card_data.card_type == Enums.CharacterCard.EQUIPMENT)
+		is_weapon = (card_data.max_ammo > 0)
 
 	if is_equipment:
-		# 装备牌放入装备栏（EffectManager中已处理）
-		player.hand.remove_at(card_index)
-		print("[RuleEngine] 玩家 " + player_id + " 装备: " + card.card_name)
+		# 装备牌：不执行攻击效果，直接装备到装备栏
+		# 检查是否已有同种装备（顶掉旧的）
+		_equip_to_player(player_id, card_index, card_data)
 	else:
-		# 打出卡牌（从手牌移到弃牌堆）
+		# 非装备牌：执行效果 → 弃牌
+		if card_data and effect_manager:
+			var success = effect_manager.execute_effect(card_data, player_id, card)
+			if not success:
+				ui_manager.status_label.text = "效果执行失败!"
+				return
 		player.hand.remove_at(card_index)
 		player.discard_pile.append(card)
 		print("[RuleEngine] 玩家 " + player_id + " 出牌: " + card.card_name)
+		ui_manager.add_log_message("打出: " + card.card_name + " AP-1")
 
 	player.action_points -= 1
 
@@ -262,12 +277,14 @@ func execute_scavenge(player_id: String):
 	if player.action_points <= 0:
 		print("[RuleEngine] 没有行动点，无法拾荒")
 		ui_manager.status_label.text = "没有行动点!"
+		ui_manager.add_log_message("拾荒失败：无行动点")
 		return
 
 	# 检查地块是否有拾荒颜色标记
 	var player_pos = player.position
 	if not GameState.map_grid.has(player_pos):
 		print("[RuleEngine] 玩家位置无效")
+		ui_manager.add_log_message("拾荒失败：位置无效")
 		return
 
 	var tile = GameState.map_grid[player_pos]
@@ -277,16 +294,19 @@ func execute_scavenge(player_id: String):
 	if scavenge_colors.size() == 0:
 		print("[RuleEngine] 当前地块没有拾荒标记")
 		ui_manager.status_label.text = "当前地块没有拾荒标记!"
+		ui_manager.add_log_message("拾荒失败：地块无标记")
 		return
 
 	# 如果只有一个拾荒颜色，直接抓牌
 	if scavenge_colors.size() == 1:
 		var color = scavenge_colors[0]
+		ui_manager.add_log_message("拾荒: " + Enums.ScavengeColor.keys()[color] + "牌")
 		_draw_scavenge_card(player_id, color)
 	# 如果有多个拾荒颜色，随机选择一个（简化处理，实际应该让玩家选择）
 	else:
 		var color = scavenge_colors[randi() % scavenge_colors.size()]
 		print("[RuleEngine] 多色地块，随机选择: " + Enums.ScavengeColor.keys()[color])
+		ui_manager.add_log_message("多色地块，随机: " + Enums.ScavengeColor.keys()[color])
 		_draw_scavenge_card(player_id, color)
 
 func _draw_scavenge_card(player_id: String, color: Enums.ScavengeColor) -> void:
@@ -296,12 +316,14 @@ func _draw_scavenge_card(player_id: String, color: Enums.ScavengeColor) -> void:
 	if not deck or deck.size() == 0:
 		print("[RuleEngine] " + Enums.ScavengeColor.keys()[color] + "拾荒牌堆已空")
 		ui_manager.status_label.text = Enums.ScavengeColor.keys()[color] + "拾荒牌堆已空!"
+		ui_manager.add_log_message(Enums.ScavengeColor.keys()[color] + "牌堆已空")
 		return
 
 	# 从牌堆抓取一张卡（CardRuntime实例）
 	var drawn_card: CardRuntime = deck.pop_front()
 
 	print("[RuleEngine] 玩家 " + player_id + " 拾荒: " + drawn_card.card_name + " (" + Enums.ScavengeColor.keys()[color] + ")")
+	ui_manager.add_log_message("拾到: " + drawn_card.card_name)
 
 	# 加载卡牌数据以检查是否需要触发抽牌效果
 	var card_data = _load_card_data(drawn_card.template_id)
@@ -341,6 +363,7 @@ func _draw_scavenge_card(player_id: String, color: Enums.ScavengeColor) -> void:
 # === 回合结束阶段（饥饿+怪物攻击） ===
 func execute_turn_end(player_id: String):
 	print("[RuleEngine] 开始回合结束处理...")
+	ui_manager.add_log_message("--- 回合结束结算 ---")
 
 	# 1. 饥饿结算
 	execute_hunger(player_id)
@@ -355,6 +378,7 @@ func execute_turn_end(player_id: String):
 	# 更新UI
 	ui_manager.update_player_info(player_id)
 	ui_manager.status_label.text = "回合结束处理完成"
+	ui_manager.add_log_message("回合结束完成")
 
 	notify_phase_complete()
 
@@ -365,6 +389,7 @@ func execute_hunger(player_id: String):
 	player.hunger_level += 1
 	print("[RuleEngine] 玩家 " + player_id + " 饥饿度增加到 " + str(player.hunger_level))
 	ui_manager.status_label.text = "饥饿度: " + str(player.hunger_level)
+	ui_manager.add_log_message("饥饿度+1 → " + str(player.hunger_level))
 
 	if player.hunger_level >= 6:
 		if not player.is_starving:
@@ -372,10 +397,12 @@ func execute_hunger(player_id: String):
 			player.starving_damage_stage = 1
 			print("[RuleEngine] 玩家 " + player_id + " 进入饥饿状态")
 			ui_manager.status_label.text = "进入饥饿状态!"
+			ui_manager.add_log_message("进入饥饿状态!")
 
 		var dmg = player.starving_damage_stage * 2
 		apply_damage_to_player(player_id, dmg, "饥饿")
 		ui_manager.status_label.text = "饥饿伤害: " + str(dmg)
+		ui_manager.add_log_message("饥饿伤害: " + str(dmg))
 
 		player.starving_damage_stage += 1
 
@@ -386,12 +413,16 @@ func execute_monster_attack(player_id: String):
 	if monsters.is_empty():
 		print("[RuleEngine] 玩家 " + player_id + " 没有纠缠的怪物")
 		ui_manager.status_label.text = "没有纠缠的怪物"
+		ui_manager.add_log_message("无纠缠怪物")
 		return
+
+	ui_manager.add_log_message("怪物攻击：" + str(monsters.size()) + "只")
 
 	for monster_id in monsters:
 		var monster_damage = 2
 		apply_damage_to_player(player_id, monster_damage, "怪物攻击")
 		ui_manager.status_label.text = "怪物攻击: " + str(monster_damage) + " 点伤害"
+		ui_manager.add_log_message("怪物造成" + str(monster_damage) + "伤害")
 
 		if _is_game_over():
 			return
@@ -489,18 +520,14 @@ func get_players_at_position(pos: Vector2i) -> Array[String]:
 
 func has_engaged_monsters(player_id: String) -> bool:
 	var player = GameState.players[player_id]
-	for card in player.hand:
-		if card.template_id.contains("monster"):
-			return true
-	return false
+	return player.monster_zone.size() > 0
 
 func get_monsters_engaged_with(player_id: String) -> Array[String]:
 	var result: Array[String] = []
 	var player = GameState.players[player_id]
 
-	for card in player.hand:
-		if card.template_id.contains("monster"):
-			result.append(card.instance_id)
+	for card in player.monster_zone:
+		result.append(card.instance_id)
 	return result
 
 func draw_monster_card_to_player(player_id: String):
@@ -514,27 +541,197 @@ func draw_monster_card_to_player(player_id: String):
 			GameState.monster_deck.shuffle()
 			GameState.monster_discard_pile.clear()
 			print("[RuleEngine] 怪物牌库已空，将弃牌堆洗回牌库")
+			ui_manager.add_log_message("怪物牌库洗牌")
 		else:
 			print("[RuleEngine] 怪物牌库和弃牌堆都已空，无法抽取怪物卡")
+			ui_manager.add_log_message("怪物牌库已空")
 			return
 
 	# 从牌库顶部抽取一张怪物卡
 	var monster_data: MonsterData = GameState.monster_deck.pop_front()
 	var instance_id = "monster_" + monster_data.id + "_" + str(randi() % 10000)
 
-	# 创建怪物卡实例放入玩家手牌
-	var new_monster = CardRuntime.new(instance_id, monster_data.id, monster_data.monster_name)
-	player.hand.append(new_monster)
+	# 创建怪物卡实例放入玩家纠缠怪物区（monster_zone），而不是手牌
+	var new_monster = CardRuntime.new(instance_id, monster_data.id, monster_data.monster_name, 0, monster_data.max_hp)
+	player.monster_zone.append(new_monster)
 
-	print("[RuleEngine] 玩家 " + player_id + " 抽取怪物卡: " + monster_data.monster_name + " (ID: " + monster_data.id + ")")
+	print("[RuleEngine] 玩家 " + player_id + " 抽取怪物卡: " + monster_data.monster_name + " (ID: " + monster_data.id + ", HP: " + str(monster_data.max_hp) + ")")
+	ui_manager.add_log_message("被怪物纠缠: " + monster_data.monster_name)
+
+	# 更新UI显示
+	ui_manager.update_monster_display(player_id)
 
 func apply_damage_to_player(player_id: String, damage: int, reason: String):
 	var player = GameState.players[player_id]
-	player.current_hp -= damage
-	print("[RuleEngine] 玩家 " + player_id + " 受到 " + str(damage) + " 点伤害 (" + reason + ")，剩余生命=" + str(player.current_hp))
+
+	# 检查装备区减伤效果
+	var damage_reduction = 0
+	for equipment in player.equipment_zone:
+		var card_data = _load_card_data(equipment.template_id)
+		if card_data is CharacterCardData:
+			var eid = card_data.effect_script_id
+			if eid == "reduce_damage_by_1" or eid == "reduce_all_damage_by_1":
+				damage_reduction += 1
+			elif eid == "heal_veteran_dog_2_reduce_veteran_damage_1":
+				damage_reduction += 1
+			elif eid == "damage_reduction_2_uses_3":
+				# 防弹背心：减伤2，使用次数存在current_ammo中
+				if equipment.current_ammo > 0:
+					damage_reduction += 2
+					equipment.current_ammo -= 1
+					if equipment.current_ammo <= 0:
+						# 用完移到弃牌堆
+						player.equipment_zone.erase(equipment)
+						player.discard_pile.append(equipment)
+					ui_manager.add_log_message("防弹背心减伤2（剩余" + str(equipment.current_ammo) + "次）")
+
+	var actual_damage = max(0, damage - damage_reduction)
+	if damage_reduction > 0:
+		print("[RuleEngine] 减伤" + str(damage_reduction) + "，实际伤害=" + str(actual_damage))
+		ui_manager.add_log_message("减伤" + str(damage_reduction) + "，实际受到" + str(actual_damage) + "伤害")
+
+	player.current_hp -= actual_damage
+	print("[RuleEngine] 玩家 " + player_id + " 受到 " + str(actual_damage) + " 点伤害 (" + reason + ")，剩余生命=" + str(player.current_hp))
 
 	if player.current_hp <= 0:
 		kill_player(player_id)
+
+	ui_manager.update_player_info(player_id)
+	ui_manager.update_equipment_display(player_id)
+
+# 对纠缠怪物造成伤害
+func apply_damage_to_monster(player_id: String, monster_instance_id: String, damage: int) -> bool:
+	var player = GameState.players[player_id]
+
+	# 检查装备区增伤效果
+	var damage_bonus = 0
+	for equipment in player.equipment_zone:
+		var card_data = _load_card_data(equipment.template_id)
+		if card_data is CharacterCardData:
+			var eid = card_data.effect_script_id
+			if eid == "heal_3_on_equip_increase_damage_1":
+				damage_bonus += 1
+	var actual_damage = damage + damage_bonus
+
+	for i in range(player.monster_zone.size()):
+		var monster = player.monster_zone[i]
+		if monster.instance_id == monster_instance_id:
+			monster.current_hp -= actual_damage
+			print("[RuleEngine] 怪物 " + monster.card_name + " 受到 " + str(actual_damage) + " 点伤害，剩余HP=" + str(monster.current_hp))
+			ui_manager.add_log_message("对 " + monster.card_name + " 造成 " + str(actual_damage) + " 伤害")
+
+			if monster.current_hp <= 0:
+				# 怪物死亡，移到弃牌堆
+				player.monster_zone.remove_at(i)
+				GameState.monster_discard_pile.append(_get_monster_data_by_id(monster.template_id))
+				print("[RuleEngine] 怪物 " + monster.card_name + " 被消灭")
+				ui_manager.add_log_message("消灭: " + monster.card_name)
+
+			ui_manager.update_monster_display(player_id)
+			return true
+
+	print("[RuleEngine] 未找到目标怪物: " + monster_instance_id)
+	return false
+
+# 根据ID获取怪物数据（从牌库/弃牌堆查找）
+func _get_monster_data_by_id(monster_id: String) -> MonsterData:
+	# 先在弃牌堆找
+	for data in GameState.monster_discard_pile:
+		if data.id == monster_id:
+			return data
+	# 在牌库找
+	for data in GameState.monster_deck:
+		if data.id == monster_id:
+			return data
+	# 创建一个空数据返回
+	return null
+
+# 获取第一个纠缠怪物（简化目标选择）
+func get_first_monster(player_id: String) -> CardRuntime:
+	var player = GameState.players[player_id]
+	if player.monster_zone.size() > 0:
+		return player.monster_zone[0]
+	return null
+
+# === 装备系统 ===
+
+# 装备卡牌到玩家装备栏（顶掉同种旧装备）
+func _equip_to_player(player_id: String, card_index: int, card_data: Resource) -> void:
+	var player = GameState.players[player_id]
+	var card = player.hand[card_index]
+
+	# 检查是否已有同种装备（template_id相同）
+	for i in range(player.equipment_zone.size()):
+		var existing = player.equipment_zone[i]
+		if existing.template_id == card.template_id:
+			# 顶掉旧装备（移到弃牌堆）
+			player.discard_pile.append(existing)
+			print("[RuleEngine] 顶掉旧装备: " + existing.card_name)
+			ui_manager.add_log_message("替换装备: " + existing.card_name)
+			# 装备新卡
+			player.equipment_zone[i] = card
+			# 如果是武器，初始化弹药
+			if card_data is CharacterCardData and card_data.max_ammo > 0:
+				card.current_ammo = card_data.max_ammo
+			elif card_data is ScavengeCardData:
+				card.current_ammo = 0
+			player.hand.remove_at(card_index)
+			print("[RuleEngine] 装备: " + card.card_name)
+			ui_manager.add_log_message("装备: " + card.card_name)
+			ui_manager.update_player_info(player_id)
+			return
+
+	# 没有同种装备，直接添加
+	if card_data is CharacterCardData and card_data.max_ammo != 0:
+		card.current_ammo = card_data.max_ammo
+	player.equipment_zone.append(card)
+	player.hand.remove_at(card_index)
+	print("[RuleEngine] 装备: " + card.card_name)
+	ui_manager.add_log_message("装备: " + card.card_name)
+	ui_manager.update_player_info(player_id)
+
+# 使用武器攻击（消耗1弹药+1行动点，执行武器效果）
+func use_weapon_attack(player_id: String, equipment_index: int) -> bool:
+	var player = GameState.players[player_id]
+
+	if equipment_index < 0 or equipment_index >= player.equipment_zone.size():
+		return false
+
+	var weapon = player.equipment_zone[equipment_index]
+
+	# 检查行动点
+	if player.action_points <= 0:
+		ui_manager.status_label.text = "没有行动点!"
+		return false
+
+	# 检查弹药（-1表示无限弹药，不需要检查）
+	if weapon.current_ammo == 0:
+		ui_manager.status_label.text = "弹药不足!"
+		ui_manager.add_log_message(weapon.card_name + " 弹药不足")
+		return false
+
+	# 加载卡牌数据
+	var card_data = _load_card_data(weapon.template_id)
+	if card_data == null or effect_manager == null:
+		return false
+
+	# 消耗弹药（-1表示无限弹药，不消耗）
+	if weapon.current_ammo > 0:
+		weapon.current_ammo -= 1
+
+	# 执行武器效果
+	var success = effect_manager.execute_effect(card_data, player_id, weapon)
+	if not success:
+		# 效果失败，退还弹药
+		weapon.current_ammo += 1
+		return false
+
+	# 消耗行动点
+	player.action_points -= 1
+
+	ui_manager.add_log_message("使用 " + weapon.card_name + " 攻击 (剩余弹药:" + str(weapon.current_ammo) + ")")
+	ui_manager.update_player_info(player_id)
+	return true
 
 func kill_player(player_id: String):
 	print("[RuleEngine] 玩家 " + player_id + " 死亡")

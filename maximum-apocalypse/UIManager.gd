@@ -2,13 +2,15 @@ class_name UIManager
 extends CanvasLayer
 
 # UI面板
-var info_panel: PanelContainer
+var info_panel: PanelContainer  # 右侧综合信息面板
 var status_label: Label
 var turn_label: Label
 var phase_label: Label
-var player_info_panel: PanelContainer
+var log_label: Label  # 输出日志
 var hand_panel: PanelContainer
 var hand_cards_container: HBoxContainer
+var equipment_container: HBoxContainer
+var monster_container: HBoxContainer
 var control_panel: PanelContainer
 var control_container: VBoxContainer
 
@@ -16,8 +18,8 @@ var control_container: VBoxContainer
 var dice_button: Button
 var draw_button: Button
 var end_turn_button: Button
-var turn_end_button: Button  # 回合结束按钮（合并饥饿和怪物攻击）
-var scavenge_button: Button  # 拾荒按钮
+var turn_end_button: Button
+var scavenge_button: Button
 
 # 当前玩家ID
 var current_player_id: String = ""
@@ -26,146 +28,190 @@ func _ready() -> void:
 	create_ui_panels()
 
 func create_ui_panels() -> void:
-	# 信息面板（右上）
+	# === 右侧：综合信息面板（合并所有信息）===
 	info_panel = PanelContainer.new()
-	info_panel.position = Vector2(900, 50)
-	info_panel.size = Vector2(300, 300)
+	info_panel.position = Vector2(750, 0)
+	info_panel.size = Vector2(500, 610)
+	info_panel.modulate = Color(0.95, 0.96, 0.98, 0.95)
 	add_child(info_panel)
 
-	var vbox = VBoxContainer.new()
-	info_panel.add_child(vbox)
+	var main_vbox = VBoxContainer.new()
+	info_panel.add_child(main_vbox)
 
+	# 回合信息
 	turn_label = Label.new()
 	turn_label.text = "回合: 1"
 	turn_label.add_theme_font_size_override("font_size", 18)
-	vbox.add_child(turn_label)
+	main_vbox.add_child(turn_label)
 
 	phase_label = Label.new()
 	phase_label.text = "阶段: 怪物出生"
 	phase_label.add_theme_font_size_override("font_size", 16)
-	vbox.add_child(phase_label)
+	main_vbox.add_child(phase_label)
 
 	status_label = Label.new()
 	status_label.text = "游戏进行中"
-	vbox.add_child(status_label)
+	status_label.add_theme_font_size_override("font_size", 14)
+	main_vbox.add_child(status_label)
 
-	# 控制面板（右下）
+	main_vbox.add_child(HSeparator.new())
+
+	# 玩家状态区
+	var player_title = Label.new()
+	player_title.text = "【玩家状态】"
+	player_title.add_theme_font_size_override("font_size", 14)
+	main_vbox.add_child(player_title)
+
+	var player_name_label = Label.new()
+	player_name_label.text = "玩家: 消防员"
+	player_name_label.name = "PlayerNameLabel"
+	main_vbox.add_child(player_name_label)
+
+	var hp_label = Label.new()
+	hp_label.text = "生命值: 6/6"
+	hp_label.name = "HPLabel"
+	main_vbox.add_child(hp_label)
+
+	var hunger_label = Label.new()
+	hunger_label.text = "饥饿度: 0"
+	hunger_label.name = "HungerLabel"
+	main_vbox.add_child(hunger_label)
+
+	var action_label = Label.new()
+	action_label.text = "行动点: 4"
+	action_label.name = "ActionLabel"
+	main_vbox.add_child(action_label)
+
+	var deck_label = Label.new()
+	deck_label.text = "牌库: 10张 | 弃牌: 0张"
+	deck_label.name = "DeckLabel"
+	main_vbox.add_child(deck_label)
+
+	var position_label = Label.new()
+	position_label.text = "位置: (0, 0)"
+	position_label.name = "PositionLabel"
+	main_vbox.add_child(position_label)
+
+	main_vbox.add_child(HSeparator.new())
+
+	# 装备区
+	var equip_title = Label.new()
+	equip_title.text = "【装备区】"
+	equip_title.add_theme_font_size_override("font_size", 14)
+	main_vbox.add_child(equip_title)
+
+	equipment_container = HBoxContainer.new()
+	equipment_container.add_theme_constant_override("separation", 8)
+	main_vbox.add_child(equipment_container)
+
+	main_vbox.add_child(HSeparator.new())
+
+	# 纠缠怪物区
+	var monster_title = Label.new()
+	monster_title.text = "【纠缠怪物】"
+	monster_title.add_theme_font_size_override("font_size", 14)
+	main_vbox.add_child(monster_title)
+
+	monster_container = HBoxContainer.new()
+	monster_container.add_theme_constant_override("separation", 8)
+	main_vbox.add_child(monster_container)
+
+	main_vbox.add_child(HSeparator.new())
+
+	# 游戏日志
+	var log_title = Label.new()
+	log_title.text = "【游戏日志】"
+	log_title.add_theme_font_size_override("font_size", 14)
+	main_vbox.add_child(log_title)
+
+	log_label = Label.new()
+	log_label.text = ""
+	log_label.add_theme_font_size_override("font_size", 12)
+	log_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	main_vbox.add_child(log_label)
+
+	# === 右下角：控制面板 ===
 	control_panel = PanelContainer.new()
-	control_panel.position = Vector2(900, 400)
-	control_panel.size = Vector2(300, 250)
+	control_panel.position = Vector2(900, 80)
+	control_panel.size = Vector2(500, 200)
+	control_panel.modulate = Color(1.0, 0.96, 0.92, 0.95)
 	add_child(control_panel)
 
 	control_container = VBoxContainer.new()
 	control_panel.add_child(control_container)
 
 	var control_title = Label.new()
-	control_title.text = "操作控制"
-	control_title.add_theme_font_size_override("font_size", 16)
+	control_title.text = "【操作控制】"
+	control_title.add_theme_font_size_override("font_size", 14)
 	control_container.add_child(control_title)
 
-	# 丢筛子按钮（怪物出生阶段）
 	dice_button = Button.new()
 	dice_button.text = "丢筛子 (怪物出生)"
-	dice_button.size = Vector2(280, 40)
+	dice_button.size = Vector2(480, 32)
+	dice_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	dice_button.visible = false
 	dice_button.pressed.connect(_on_dice_button_pressed)
 	control_container.add_child(dice_button)
 
-	# 抽牌按钮（抽牌阶段）
 	draw_button = Button.new()
 	draw_button.text = "抽牌"
-	draw_button.size = Vector2(280, 40)
+	draw_button.size = Vector2(480, 32)
+	draw_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	draw_button.visible = false
 	draw_button.pressed.connect(_on_draw_button_pressed)
 	control_container.add_child(draw_button)
 
-	# 结束回合按钮（行动阶段）
 	end_turn_button = Button.new()
 	end_turn_button.text = "结束行动"
-	end_turn_button.size = Vector2(280, 40)
+	end_turn_button.size = Vector2(480, 32)
+	end_turn_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	end_turn_button.visible = false
 	end_turn_button.pressed.connect(_on_end_turn_pressed)
 	control_container.add_child(end_turn_button)
 
-	# 回合结束按钮（合并饥饿和怪物攻击）
 	turn_end_button = Button.new()
 	turn_end_button.text = "回合结束 (饥饿+怪物攻击)"
-	turn_end_button.size = Vector2(280, 40)
+	turn_end_button.size = Vector2(480, 32)
+	turn_end_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	turn_end_button.visible = false
 	turn_end_button.pressed.connect(_on_turn_end_button_pressed)
 	control_container.add_child(turn_end_button)
 
-	# 拾荒按钮（行动阶段）
 	scavenge_button = Button.new()
 	scavenge_button.text = "拾荒 (消耗1行动点)"
-	scavenge_button.size = Vector2(280, 40)
+	scavenge_button.size = Vector2(480, 32)
+	scavenge_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	scavenge_button.visible = false
 	scavenge_button.pressed.connect(_on_scavenge_button_pressed)
 	control_container.add_child(scavenge_button)
 
-	# 玩家信息面板（左上）
-	player_info_panel = PanelContainer.new()
-	player_info_panel.position = Vector2(50, 50)
-	player_info_panel.size = Vector2(250, 220)
-	add_child(player_info_panel)
-
-	var player_vbox = VBoxContainer.new()
-	player_info_panel.add_child(player_vbox)
-
-	var player_name_label = Label.new()
-	player_name_label.text = "玩家: 消防员"
-	player_name_label.add_theme_font_size_override("font_size", 16)
-	player_vbox.add_child(player_name_label)
-
-	var hp_label = Label.new()
-	hp_label.text = "生命值: 6/6"
-	hp_label.name = "HPLabel"
-	player_vbox.add_child(hp_label)
-
-	var hunger_label = Label.new()
-	hunger_label.text = "饥饿度: 0"
-	hunger_label.name = "HungerLabel"
-	player_vbox.add_child(hunger_label)
-
-	var action_label = Label.new()
-	action_label.text = "行动点: 4"
-	action_label.name = "ActionLabel"
-	player_vbox.add_child(action_label)
-
-	var deck_label = Label.new()
-	deck_label.text = "牌库: 10张"
-	deck_label.name = "DeckLabel"
-	player_vbox.add_child(deck_label)
-
-	var position_label = Label.new()
-	position_label.text = "位置: (0, 0)"
-	position_label.name = "PositionLabel"
-	player_vbox.add_child(position_label)
-
-	# 手牌面板（底部）
+	# === 底部：手牌区 ===
 	hand_panel = PanelContainer.new()
-	hand_panel.position = Vector2(50, 550)
-	hand_panel.size = Vector2(900, 100)
+	hand_panel.position = Vector2(50, 600)
+	hand_panel.size = Vector2(700, 180)
+	hand_panel.modulate = Color(0.95, 1.0, 0.95, 0.95)
 	add_child(hand_panel)
 
 	var hand_vbox = VBoxContainer.new()
 	hand_panel.add_child(hand_vbox)
 
 	var hand_title = Label.new()
-	hand_title.text = "手牌区域（点击卡牌出牌）"
+	hand_title.text = "【手牌区】点击卡牌出牌（消耗1行动点）"
+	hand_title.add_theme_font_size_override("font_size", 14)
 	hand_vbox.add_child(hand_title)
 
 	hand_cards_container = HBoxContainer.new()
-	hand_cards_container.add_theme_constant_override("separation", 10)
+	hand_cards_container.add_theme_constant_override("separation", 6)
 	hand_vbox.add_child(hand_cards_container)
 
 # 信号定义
 signal dice_rolled(d1: int, d2: int)
 signal card_drawn(player_id: String)
 signal turn_ended(player_id: String)
-signal turn_end_processed(player_id: String)  # 回合结束信号
+signal turn_end_processed(player_id: String)
 signal card_played(player_id: String, card_index: int)
-signal scavenge_performed(player_id: String)  # 拾荒信号
+signal scavenge_performed(player_id: String)
+signal weapon_attack_triggered(player_id: String, equipment_index: int)
 
 # 按钮事件处理
 func _on_dice_button_pressed() -> void:
@@ -202,14 +248,12 @@ func _on_scavenge_button_pressed() -> void:
 func show_phase_buttons(phase: Enums.GamePhase, player_id: String) -> void:
 	current_player_id = player_id
 
-	# 隐藏所有按钮
 	dice_button.visible = false
 	draw_button.visible = false
 	end_turn_button.visible = false
 	turn_end_button.visible = false
 	scavenge_button.visible = false
 
-	# 根据阶段显示对应按钮
 	match phase:
 		Enums.GamePhase.SPAWN:
 			dice_button.visible = true
@@ -219,12 +263,10 @@ func show_phase_buttons(phase: Enums.GamePhase, player_id: String) -> void:
 			status_label.text = "点击抽牌按钮"
 		Enums.GamePhase.ACTION:
 			end_turn_button.visible = true
-			# 检查玩家是否在有拾荒标记的地块上
 			if _can_player_scavenge(player_id):
 				scavenge_button.visible = true
-				scavenge_button.text = "拾荒 (消耗1行动点)"
 			status_label.text = "行动阶段 - 点击地图移动或点击手牌出牌"
-		Enums.GamePhase.MONSTER_ATTACK:  # 回合结束阶段
+		Enums.GamePhase.MONSTER_ATTACK:
 			turn_end_button.visible = true
 			status_label.text = "回合结束 - 点击结算饥饿和怪物攻击"
 
@@ -242,7 +284,6 @@ func _can_player_scavenge(player_id: String) -> bool:
 	var tile = GameState.map_grid[player_pos]
 	var tile_data: MapBlockData = tile["data"]
 
-	# 检查地块是否有拾荒颜色标记
 	return tile_data.scavenge_colors.size() > 0
 
 # 更新玩家信息面板
@@ -252,32 +293,97 @@ func update_player_info(player_id: String) -> void:
 
 	var player = GameState.players[player_id]
 
-	var hp_label = player_info_panel.find_child("HPLabel", true, false)
+	var player_name_label = info_panel.find_child("PlayerNameLabel", true, false)
+	if player_name_label:
+		player_name_label.text = "玩家: " + player.character_name
+
+	var hp_label = info_panel.find_child("HPLabel", true, false)
 	if hp_label:
 		hp_label.text = "生命值: " + str(player.current_hp) + "/" + str(player.max_hp)
 
-	var hunger_label = player_info_panel.find_child("HungerLabel", true, false)
+	var hunger_label = info_panel.find_child("HungerLabel", true, false)
 	if hunger_label:
 		hunger_label.text = "饥饿度: " + str(player.hunger_level)
 
-	var action_label = player_info_panel.find_child("ActionLabel", true, false)
+	var action_label = info_panel.find_child("ActionLabel", true, false)
 	if action_label:
 		action_label.text = "行动点: " + str(player.action_points)
 
-	var deck_label = player_info_panel.find_child("DeckLabel", true, false)
+	var deck_label = info_panel.find_child("DeckLabel", true, false)
 	if deck_label:
-		deck_label.text = "牌库: " + str(player.deck.size()) + "张"
+		deck_label.text = "牌库: " + str(player.deck.size()) + "张 | 弃牌: " + str(player.discard_pile.size()) + "张"
 
-	var position_label = player_info_panel.find_child("PositionLabel", true, false)
+	var position_label = info_panel.find_child("PositionLabel", true, false)
 	if position_label:
 		position_label.text = "位置: (" + str(player.position.x) + ", " + str(player.position.y) + ")"
 
-	# 更新手牌显示
 	update_hand_display(player_id)
+	update_equipment_display(player_id)
+	update_monster_display(player_id)
 
-# 更新手牌显示（改为按钮卡片）
+# 更新装备区显示
+func update_equipment_display(player_id: String) -> void:
+	for child in equipment_container.get_children():
+		child.queue_free()
+
+	if not GameState.players.has(player_id):
+		return
+
+	var player = GameState.players[player_id]
+	var equipment_zone = player.equipment_zone
+
+	for i in range(equipment_zone.size()):
+		var equipment = equipment_zone[i]
+		var equip_button = Button.new()
+		# 武器显示弹药数，-1表示无限弹药
+		if equipment.current_ammo > 0:
+			equip_button.text = equipment.card_name + "(弹" + str(equipment.current_ammo) + ")"
+		elif equipment.current_ammo == -1:
+			equip_button.text = equipment.card_name + "(∞)"
+		else:
+			equip_button.text = equipment.card_name
+		equip_button.size = Vector2(100, 40)
+		# 武器（有弹药或无限弹药）可点击攻击
+		if equipment.current_ammo != 0:
+			equip_button.tooltip_text = "点击使用武器攻击（消耗1行动点）"
+			var idx = i
+			equip_button.pressed.connect(func(): _on_weapon_attack_pressed(idx))
+		else:
+			equip_button.disabled = true
+		equipment_container.add_child(equip_button)
+
+# 武器攻击按钮回调
+func _on_weapon_attack_pressed(equipment_index: int) -> void:
+	weapon_attack_triggered.emit(current_player_id, equipment_index)
+
+# 更新怪物区显示
+func update_monster_display(player_id: String) -> void:
+	for child in monster_container.get_children():
+		child.queue_free()
+
+	if not GameState.players.has(player_id):
+		return
+
+	var player = GameState.players[player_id]
+	var monster_zone = player.monster_zone
+
+	if monster_zone.size() == 0:
+		var no_monster_label = Label.new()
+		no_monster_label.text = "无纠缠怪物"
+		no_monster_label.add_theme_font_size_override("font_size", 12)
+		monster_container.add_child(no_monster_label)
+		return
+
+	for monster in monster_zone:
+		var monster_button = Button.new()
+		monster_button.text = monster.card_name + " (" + str(monster.current_hp) + "HP)"
+		monster_button.size = Vector2(80, 40)
+		monster_button.modulate = Color(0.8, 0.3, 0.3)
+		monster_button.disabled = true
+		monster_container.add_child(monster_button)
+
+# 更新手牌显示
 func update_hand_display(player_id: String) -> void:
-	# 清空当前手牌
 	for child in hand_cards_container.get_children():
 		child.queue_free()
 
@@ -287,19 +393,30 @@ func update_hand_display(player_id: String) -> void:
 	var player = GameState.players[player_id]
 	var hand = player.hand
 
-	# 为每张手牌创建按钮
 	for i in range(hand.size()):
 		var card = hand[i]
 		var card_button = Button.new()
 		card_button.text = card.card_name
-		card_button.size = Vector2(80, 50)
+		card_button.size = Vector2(70, 40)
 
-		# 怪物卡用红色标注
 		if card.template_id.contains("monster"):
 			card_button.modulate = Color(0.8, 0.2, 0.2)
 
 		card_button.pressed.connect(_on_card_button_pressed.bind(i))
 		hand_cards_container.add_child(card_button)
+
+# 添加日志输出（新日志在最上方）
+func add_log_message(message: String) -> void:
+	if log_label:
+		var current_text = log_label.text
+		var lines = current_text.split("\n")
+		# 新消息插入到开头
+		lines.insert(0, message)
+		# 保留最近15行日志（移除最旧的末尾）
+		if lines.size() > 15:
+			lines.remove_at(lines.size() - 1)
+		log_label.text = "\n".join(lines)
+		print("[UI日志] " + message)
 
 # 显示胜利画面
 func show_victory_screen() -> void:

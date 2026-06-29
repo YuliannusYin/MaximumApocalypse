@@ -18,7 +18,7 @@ var position: Vector2i = Vector2i.ZERO # Godot 的网格坐标直接用 Vector2i
 # 属性与行动力
 var base_stealth: int = 7
 var starving_stealth: int = 6
-var action_points: int = 4
+var action_points: int = 40
 
 # 状态效果
 var poison_tokens: int = 0
@@ -29,3 +29,4 @@ var hand: Array[CardRuntime] = []
 var equipment_zone: Array[CardRuntime] = []
 var deck: Array[CardRuntime] = []
 var discard_pile: Array[CardRuntime] = []
+var monster_zone: Array[CardRuntime] = []  # 纠缠玩家的怪物
