@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ScavengeCardData" format=3 uid="uid://scientist"]
+
+[ext_resource type="Script" uid="uid://25vl3dgcqrwf" path="res://ScavengeCardData.gd" id="1_scientist"]
+
+[resource]
+script = ExtResource("1_scientist")
+id = "scientist"
+card_name = "科学家"
+category = "特殊"
+color = 1
+card_type = 0
+equipment_slot = 0
+effect = "可以像交易拾荒牌一样交易科学家。在警察局花费2行动解救科学家"
+effect_script_id = "none"
+metadata/_custom_type_script = "uid://25vl3dgcqrwf"

@@ -1,4 +1,4 @@
-﻿[gd_resource type="Resource" script_class="MissionData" format=3 uid="uid://mission_rescue_scientist_1"]
+[gd_resource type="Resource" script_class="MissionData" format=3 uid="uid://mission_rescue_scientist_1"]
 
 [ext_resource type="Script" path="res://MissionData.gd" id="1_mission"]
 
@@ -31,7 +31,7 @@ red_scavenge_pool = {
 "food_small": 2,
 "fuel": 4,
 "medical_small": 2,
-"ammo_red": 1,
+"ammo_small": 1,
 "binoculars": 1,
 "spare_parts": 1,
 "nothing": 1,
@@ -41,7 +41,7 @@ red_scavenge_pool = {
 green_scavenge_pool = {
 "food_small": 6,
 "fuel": 2,
-"ammo_green": 1,
+"ammo_small": 1,
 "flashlight": 1,
 "spare_parts": 1,
 "nothing": 1,
@@ -51,7 +51,7 @@ green_scavenge_pool = {
 blue_scavenge_pool = {
 "food_small": 2,
 "fuel": 2,
-"ammo_blue": 3,
+"ammo_small": 3,
 "binoculars": 1,
 "pistol": 1,
 "walkie_talkie": 1,

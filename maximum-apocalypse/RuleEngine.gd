@@ -163,6 +163,9 @@ func move_player(player_id: String, target_pos: Vector2i):
 	if GameState.current_phase == Enums.GamePhase.ACTION:
 		ui_manager.show_phase_buttons(Enums.GamePhase.ACTION, player_id)
 
+	# [新增] 2026-06-30: 检测到达警察局（任务1首领卡抓取）
+	_check_police_station_arrival(player_id, target_pos)
+
 	# 更新地图上的玩家显示
 	var game_node = get_parent()
 	if game_node and game_node.has_node("MapBoard"):
@@ -345,9 +348,13 @@ func _draw_scavenge_card(player_id: String, color: Enums.ScavengeColor) -> void:
 					return
 			# 如果效果执行失败，正常加入手牌
 			player.hand.append(drawn_card)
+			# [新增] 2026-06-30: 检查收集物品目标进度
+			check_item_collected(drawn_card.template_id, player_id)
 		else:
 			# 正常加入手牌
 			player.hand.append(drawn_card)
+			# [新增] 2026-06-30: 检查收集物品目标进度
+			check_item_collected(drawn_card.template_id, player_id)
 	else:
 		# 未知卡牌类型，正常加入手牌
 		player.hand.append(drawn_card)
@@ -624,10 +631,14 @@ func apply_damage_to_monster(player_id: String, monster_instance_id: String, dam
 
 			if monster.current_hp <= 0:
 				# 怪物死亡，移到弃牌堆
+				var killed_monster_id = monster.template_id  # 保存怪物ID用于目标检查
 				player.monster_zone.remove_at(i)
 				GameState.monster_discard_pile.append(_get_monster_data_by_id(monster.template_id))
 				print("[RuleEngine] 怪物 " + monster.card_name + " 被消灭")
 				ui_manager.add_log_message("消灭: " + monster.card_name)
+
+				# [新增] 2026-06-30: 检查杀死怪物目标进度
+				check_monster_killed(killed_monster_id, player_id)
 
 			ui_manager.update_monster_display(player_id)
 			return true
@@ -648,12 +659,135 @@ func _get_monster_data_by_id(monster_id: String) -> MonsterData:
 	# 创建一个空数据返回
 	return null
 
+# [新增] 2026-06-30: 从文件加载怪物数据（用于首领卡等特殊怪物）
+func _load_monster_data(monster_id: String) -> MonsterData:
+	var monster_folders = ["alien", "mutant", "robot", "zombie"]
+	for folder in monster_folders:
+		var path = "res://data/monsters/" + folder + "/" + monster_id + ".tres"
+		if ResourceLoader.exists(path):
+			var res = load(path)
+			if res is MonsterData:
+				return res
+	return null
+
 # 获取第一个纠缠怪物（简化目标选择）
 func get_first_monster(player_id: String) -> CardRuntime:
 	var player = GameState.players[player_id]
 	if player.monster_zone.size() > 0:
 		return player.monster_zone[0]
 	return null
+
+# === [新增] 2026-06-30: 解救科学家（任务1特殊机制） ===
+# 尝试解救科学家（到达警察局花费2行动）
+func rescue_scientist(player_id: String) -> bool:
+	# 检查科学家是否已经被解救
+	if GameState.scientist_rescued:
+		ui_manager.status_label.text = "科学家已经被解救了!"
+		ui_manager.add_log_message("科学家已被解救")
+		return false
+
+	var player = GameState.players[player_id]
+
+	# 检查行动点（需要2个行动点）
+	if player.action_points < 2:
+		ui_manager.status_label.text = "需要2个行动点才能解救科学家!"
+		ui_manager.add_log_message("解救科学家失败：行动点不足（需要2个）")
+		return false
+
+	# 检查位置（必须在警察局）
+	var player_pos = player.position
+	if not GameState.map_grid.has(player_pos):
+		ui_manager.status_label.text = "位置无效!"
+		ui_manager.add_log_message("解救科学家失败：位置无效")
+		return false
+
+	var tile = GameState.map_grid[player_pos]
+	var tile_data: MapBlockData = tile["data"]
+
+	if tile_data.id != "police_station" and not tile_data.id.contains("police_station"):
+		ui_manager.status_label.text = "必须在警察局才能解救科学家!"
+		ui_manager.add_log_message("解救科学家失败：不在警察局")
+		return false
+
+	# 解救科学家：添加到玩家装备栏
+	var scientist_card = CardRuntime.new("scientist_" + player_id, "scientist", "科学家")
+
+	player.equipment_zone.append(scientist_card)
+	GameState.scientist_rescued = true
+	GameState.scientist_carried_by = player_id
+
+	# 消耗行动点
+	player.action_points -= 2
+
+	print("[RuleEngine] 玩家 " + player_id + " 解救了科学家")
+	ui_manager.status_label.text = "成功解救科学家!"
+	ui_manager.add_log_message("解救科学家成功！现在需要带回面包车")
+
+	# 更新UI
+	ui_manager.update_player_info(player_id)
+
+	return true
+
+# === [新增] 2026-06-30: 首领卡抓取机制（任务1） ===
+# 检测玩家到达警察局（第一个到达的玩家抓取首领卡）
+func _check_police_station_arrival(player_id: String, target_pos: Vector2i) -> void:
+	# 只对任务1生效
+	if not GameState.selected_mission or GameState.selected_mission.id != "mission_1":
+		return
+
+	# 首领卡已经被抓取，不再触发
+	if GameState.boss_card_grabbed:
+		return
+
+	var tile = GameState.map_grid.get(target_pos)
+	if not tile:
+		return
+
+	var tile_data: MapBlockData = tile["data"]
+
+	# 检查是否是警察局
+	if tile_data.id != "police_station" and not tile_data.id.contains("police_station"):
+		return
+
+	# 第一个到达警察局的玩家抓取首领卡
+	print("[RuleEngine] 玩家 " + player_id + " 第一个到达警察局，抓取首领卡")
+	ui_manager.add_log_message("到达警察局！抓取首领卡")
+
+	_grab_boss_card(player_id)
+
+# 抓取首领卡（作为怪物卡添加到玩家纠缠怪物区）
+func _grab_boss_card(player_id: String) -> void:
+	# 标记首领卡已被抓取
+	GameState.boss_card_grabbed = true
+
+	# 加载首领卡数据（根据任务包类型选择首领卡）
+	var boss_id = "zombie_queen"  # 默认僵尸女王（任务1僵尸任务包）
+	var boss_data = _load_monster_data(boss_id)
+
+	if not boss_data:
+		print("[RuleEngine] 错误：无法加载首领卡数据: " + boss_id)
+		ui_manager.add_log_message("首领卡加载失败！")
+		return
+
+	# 创建首领卡实例
+	var boss_card = CardRuntime.new(
+		boss_id + "_" + player_id + "_" + str(randi() % 1000),
+		boss_id,
+		boss_data.monster_name,
+		0,
+		boss_data.max_hp
+	)
+
+	# 添加到玩家纠缠怪物区
+	var player = GameState.players[player_id]
+	player.monster_zone.append(boss_card)
+
+	print("[RuleEngine] 玩家 " + player_id + " 抓取首领卡: " + boss_data.monster_name)
+	ui_manager.status_label.text = "抓取首领卡: " + boss_data.monster_name
+	ui_manager.add_log_message("抓取首领卡: " + boss_data.monster_name)
+
+	# 更新UI
+	ui_manager.update_monster_display(player_id)
 
 # === 装备系统 ===
 
@@ -826,6 +960,31 @@ func kill_player(player_id: String):
 		GameState.game_over.emit(GameState.game_status)
 
 func check_victory_conditions():
+	# [新增] 2026-06-30: 检查任务特殊胜利条件（任务1: 科学家到达面包车）
+	if GameState.selected_mission and GameState.selected_mission.id == "mission_1":
+		# 任务1胜利条件：科学家被解救 + 科学家到达面包车 + 燃料足够 + 所有玩家在面包车
+		if GameState.scientist_rescued:
+			# 检查携带科学家的玩家是否在面包车
+			if GameState.scientist_carried_by != "":
+				var carrier = GameState.players.get(GameState.scientist_carried_by)
+				if carrier:
+					var tile = GameState.map_grid.get(carrier.position)
+					if tile and tile["template_id"] == "van":
+						# 检查燃料和所有玩家在面包车
+						if GameState.current_fuel_in_van >= GameState.required_fuel:
+							var all_players_at_van = true
+							for player_id in GameState.players.keys():
+								var player = GameState.players[player_id]
+								var player_tile = GameState.map_grid.get(player.position)
+								if player_tile and player_tile["template_id"] != "van":
+									all_players_at_van = false
+							
+							if all_players_at_van:
+								GameState.game_status = Enums.GameStatus.VICTORY
+								GameState.game_over.emit(GameState.game_status)
+								print("[RuleEngine] 任务1胜利：科学家已到达面包车")
+
+	# 默认胜利条件：燃料足够 + 所有玩家在面包车
 	if GameState.current_fuel_in_van >= GameState.required_fuel:
 		var all_players_at_van = true
 		for player_id in GameState.players.keys():
@@ -835,8 +994,10 @@ func check_victory_conditions():
 				all_players_at_van = false
 
 		if all_players_at_van:
-			GameState.game_status = Enums.GameStatus.VICTORY
-			GameState.game_over.emit(GameState.game_status)
+			# [新增] 2026-06-30: 检查任务特殊目标是否全部完成
+			if check_all_objectives_completed():
+				GameState.game_status = Enums.GameStatus.VICTORY
+				GameState.game_over.emit(GameState.game_status)
 
 # === 更新地块怪物显示 ===
 func _update_tile_monster_display(pos: Vector2i, count: int) -> void:
@@ -845,3 +1006,134 @@ func _update_tile_monster_display(pos: Vector2i, count: int) -> void:
 		var map_board = game_node.get_node("MapBoard")
 		if map_board.has_method("update_tile_monster_count"):
 			map_board.update_tile_monster_count(pos, count)
+
+# === [新增] 2026-06-30: 任务特殊目标系统 ===
+
+# 初始化任务目标（根据任务配置）
+func initialize_mission_objectives() -> void:
+	if not GameState.selected_mission:
+		return
+
+	GameState.mission_objectives.clear()
+	GameState.objective_progress.clear()
+
+	# 根据任务ID创建目标
+	var mission_id = GameState.selected_mission.id
+
+	if mission_id == "mission_2":
+		# 任务2: 杀死8个僵尸（各2个）
+		_create_kill_monster_objective("obj_kill_zombie_walker", "杀死僵尸步行者", "zombie_walker", 2)
+		_create_kill_monster_objective("obj_kill_zombie_spitter", "杀死僵尸喷吐者", "zombie_spitter", 2)
+		_create_kill_monster_objective("obj_kill_zombie_dog", "杀死僵尸狗", "zombie_dog", 2)
+		_create_kill_monster_objective("obj_kill_zombie_soldier", "杀死僵尸士兵", "zombie_soldier", 2)
+
+	elif mission_id == "mission_3":
+		# 任务3: 收集2个医疗用品和3个解毒剂
+		_create_collect_item_objective("obj_collect_medical", "收集医疗用品", "medical_small", 2)
+		_create_collect_item_objective("obj_collect_antidote", "收集解毒剂", "antidote", 3)
+
+	elif mission_id == "mission_8":
+		# 任务8: 到达目标标记并解救科学家
+		_create_reach_location_objective("obj_reach_marker", "到达目标标记", "target_marker")
+		_create_rescue_npc_objective("obj_rescue_scientist", "解救科学家", "scientist")
+
+	print("[RuleEngine] 初始化任务目标: " + str(GameState.mission_objectives.size()) + " 个")
+
+# 创建杀死怪物目标
+func _create_kill_monster_objective(obj_id: String, desc: String, monster_id: String, count: int) -> void:
+	var obj = MissionObjective.new()
+	obj.objective_id = obj_id
+	obj.description = desc
+	obj.objective_type = MissionObjective.ObjectiveType.KILL_MONSTERS
+	obj.target_data = {"monster_id": monster_id, "count": count}
+	obj.is_required = true
+	obj.current_progress = 0
+
+	GameState.mission_objectives.append(obj)
+	GameState.objective_progress[obj_id] = 0
+
+# 创建收集物品目标
+func _create_collect_item_objective(obj_id: String, desc: String, item_id: String, count: int) -> void:
+	var obj = MissionObjective.new()
+	obj.objective_id = obj_id
+	obj.description = desc
+	obj.objective_type = MissionObjective.ObjectiveType.COLLECT_ITEMS
+	obj.target_data = {"item_id": item_id, "count": count}
+	obj.is_required = true
+	obj.current_progress = 0
+
+	GameState.mission_objectives.append(obj)
+	GameState.objective_progress[obj_id] = 0
+
+# 创建到达地点目标
+func _create_reach_location_objective(obj_id: String, desc: String, location_id: String) -> void:
+	var obj = MissionObjective.new()
+	obj.objective_id = obj_id
+	obj.description = desc
+	obj.objective_type = MissionObjective.ObjectiveType.REACH_LOCATION
+	obj.target_data = {"location_id": location_id}
+	obj.is_required = true
+	obj.current_progress = 0
+
+	GameState.mission_objectives.append(obj)
+	GameState.objective_progress[obj_id] = 0
+
+# 创建解救NPC目标
+func _create_rescue_npc_objective(obj_id: String, desc: String, npc_id: String) -> void:
+	var obj = MissionObjective.new()
+	obj.objective_id = obj_id
+	obj.description = desc
+	obj.objective_type = MissionObjective.ObjectiveType.RESCUE_NPC
+	obj.target_data = {"npc_id": npc_id}
+	obj.is_required = true
+	obj.current_progress = 0
+
+	GameState.mission_objectives.append(obj)
+	GameState.objective_progress[obj_id] = 0
+
+# 检查怪物被杀死（更新杀死怪物目标进度）
+func check_monster_killed(monster_template_id: String, killer_player_id: String) -> void:
+	for obj in GameState.mission_objectives:
+		if obj.objective_type == MissionObjective.ObjectiveType.KILL_MONSTERS:
+			var target_monster_id = obj.target_data.get("monster_id", "")
+			if target_monster_id == monster_template_id or target_monster_id.contains(monster_template_id):
+				# 更新进度
+				obj.current_progress += 1
+				GameState.objective_progress[obj.objective_id] = obj.current_progress
+
+				var required_count = obj.target_data.get("count", 0)
+				print("[RuleEngine] 目标进度更新: " + obj.description + " (" + str(obj.current_progress) + "/" + str(required_count) + ")")
+				ui_manager.add_log_message(obj.description + " 进度: " + str(obj.current_progress) + "/" + str(required_count))
+
+				# 检查是否完成
+				if obj.current_progress >= required_count:
+					obj.is_completed = true
+					print("[RuleEngine] 目标完成: " + obj.description)
+					ui_manager.add_log_message("目标完成: " + obj.description)
+
+# 检查物品收集（更新收集物品目标进度）
+func check_item_collected(item_template_id: String, collector_player_id: String) -> void:
+	for obj in GameState.mission_objectives:
+		if obj.objective_type == MissionObjective.ObjectiveType.COLLECT_ITEMS:
+			var target_item_id = obj.target_data.get("item_id", "")
+			if target_item_id == item_template_id or target_item_id.contains(item_template_id):
+				# 更新进度
+				obj.current_progress += 1
+				GameState.objective_progress[obj.objective_id] = obj.current_progress
+
+				var required_count = obj.target_data.get("count", 0)
+				print("[RuleEngine] 目标进度更新: " + obj.description + " (" + str(obj.current_progress) + "/" + str(required_count) + ")")
+				ui_manager.add_log_message(obj.description + " 进度: " + str(obj.current_progress) + "/" + str(required_count))
+
+				# 检查是否完成
+				if obj.current_progress >= required_count:
+					obj.is_completed = true
+					print("[RuleEngine] 目标完成: " + obj.description)
+					ui_manager.add_log_message("目标完成: " + obj.description)
+
+# 检查所有必须目标是否完成
+func check_all_objectives_completed() -> bool:
+	for obj in GameState.mission_objectives:
+		if obj.is_required and not obj.is_completed:
+			return false
+	return true

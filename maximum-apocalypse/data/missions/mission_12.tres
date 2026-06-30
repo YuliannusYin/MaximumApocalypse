@@ -37,7 +37,7 @@ red_scavenge_pool = {
 "food_small": 2,
 "fuel": 2,
 "medical_small": 4,
-"ammo_red": 2,
+"ammo_small": 2,
 "binoculars": 1,
 "spare_parts": 2,
 "ambush": 1,
@@ -46,7 +46,7 @@ red_scavenge_pool = {
 green_scavenge_pool = {
 "food_small": 6,
 "fuel": 2,
-"ammo_green": 2,
+"ammo_small": 2,
 "flashlight": 1,
 "backpack": 1,
 "spare_parts": 1,
@@ -56,7 +56,7 @@ green_scavenge_pool = {
 blue_scavenge_pool = {
 "food_small": 2,
 "fuel": 2,
-"ammo_blue": 4,
+"ammo_small": 4,
 "pistol": 1,
 "walkie_talkie": 1,
 "flashlight": 1,
