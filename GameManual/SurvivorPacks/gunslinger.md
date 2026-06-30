@@ -2,15 +2,36 @@
 ## 角色详情
 
 求生者{
-    角色名称：枪手
-    生命值上限：28
-    初始生命值：28
-    潜行值：7（饥饿状态下为6）
-    天赋[快速拔枪]:{
-        触发时机1：游戏开始时。
-        触发效果1：将牌库中的装备牌【柯尔特手枪】装备你的装备区。
-        触发时机2：当你受到饥饿伤害时。
-        触发效果2：将装备区或弃牌区中的【柯尔特手枪】重新洗回你的牌库。
+    角色名称: 枪手
+    生命值上限: 28
+    初始生命值: 28
+    潜行值: 7
+    饥饿状态潜行值: 6
+    技能: {
+        技能名: "快速拔枪"
+        技能效果："游戏开始时，将牌库中的装备牌【柯尔特手枪】装备你的装备区。当你受到饥饿伤害时，将装备区或弃牌区中的【柯尔特手枪】重新洗回你的牌库。"
+        trigger: 游戏开始时、受到伤害时
+        filter: 无
+        content: {
+            if( trigger == "游戏开始时" ){
+                pile = player.getPile("游戏牌堆") # 获取玩家的游戏牌堆
+                card = game.getCard(name = "柯尔特手枪", pile) # 获取玩家游戏牌堆中的【柯尔特手枪】牌
+                if( card == null ){
+                    game.log("玩家游戏牌堆中没有【柯尔特手枪】牌")
+                    return failure
+                }
+                player.装备(card)
+            } else if( trigger == "受到伤害时" && trigger.damageType == "饥饿" ){ # 当受到饥饿伤害时触发。
+                card = game.getCard(name = "柯尔特手枪", position = "场上") # 获取场上（所有的装备区、手牌区和牌堆）的【柯尔特手枪】牌
+                if( card == null ){
+                    game.log("场上没有【柯尔特手枪】牌")
+                    return failure
+                }
+                pile = player.getPile("游戏牌堆") # 获取玩家的游戏牌堆
+                player.addCardToPile(card, pile)
+                player.洗牌(pile)
+            }
+        }
     }
 }
 

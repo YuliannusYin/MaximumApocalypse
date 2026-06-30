@@ -4,18 +4,10 @@ Skill{
     active: "行动阶段"
     filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 # 行动阶段且有剩余行动次数时可用
     filterTarget: return target != player.所在地图块() # 目标地块不能是玩家当前所在地块
-    filterTargetRange: "短距离" # 目标地块必须在短距离范围内（相邻地块）
+    filterTargetRange: "中距离" # 目标地块必须在中距离范围内（相邻地块）
     content: {
-        # 1. 离开所在地块前
         player.减少行动次数( 1 ) # 消耗1点行动次数
-        # 2. 离开所在地块时 # 触发"离开地块时"事件。
-        # 3. 进入目标地块前 # 获得目标地块的技能，然后触发"进入地块前"事件。
-        # 4. 移动时 # 触发"移动时"事件。
-        player.moveToMapBlock( target ) # 将玩家移至目标地块
-        # 5. 离开所在地块后 # 清除离开地块的技能。
-        # 6. 进入目标地块时 # 触发"进入地块时"事件。
-        # 7. 进入目标地块后 # 展示地图块并触发"展示地块时"事件。
-        if( !target.已展示() ) target.展示() # 若目标地块尚未翻开（未探索），将其翻开面朝上
+        player.moveTo(target) # 调用底层函数
     }
 } 
 
@@ -119,4 +111,34 @@ Skill{
             target.添加燃料(max) # 往装备添加最大燃料量
         }
     }
+}
+
+function player.moveTo(target) { # 底层移动函数（不扣行动次数，只负责移动和触发钩子）
+    source = player.所在地图块()
+
+    # 1. 离开所在地块前（扣费已由调用方处理，这里不再扣）
+    # 2. 离开所在地块时
+    source.触发("离开地块时", player)
+
+    # 3. 进入目标地块前（准入检定）
+    if( target.触发("进入地块前", player) == false ){
+        return false  # 移动失败（如河流潜行失败）
+    }
+
+    # 4. 移动时（坐标变更）
+    player.moveToMapBlock( target )
+
+    # 5. 离开所在地块后（清除旧地块技能）
+    source.清除技能( player )
+
+    # 6. 进入目标地块时
+    target.触发("进入地块时", player)
+
+    # 7. 进入目标地块后（翻开 + 展示）
+    if( !target.已展示() ) {
+        target.展示()
+        target.触发("展示地块时", player)
+    }
+
+    return true  # 移动成功
 }
