@@ -259,7 +259,7 @@
         filter: 无
         content: {
             if( trigger == "展示地块时" ){
-                List = game.get场上所有玩家() # 获取场上所有玩家
+                List = getAllPlayers() # 获取场上所有玩家
                 for i in List:
                     i.drawMonster(1) # 每名玩家各抓1张怪物卡
             }
@@ -413,7 +413,7 @@
         filter: 无
         content: {
             if( trigger == "展示地块时" ){
-                List = game.get场上所有玩家() # 获取场上所有玩家
+                List = getAllPlayers() # 获取场上所有玩家
                 for i in List: # 遍历场上所有玩家
                     # 玩家装备区不为空时，随机销毁一张装备
                     if( i.装备区有牌() ){

@@ -144,8 +144,9 @@ function player.moveTo(target) { # 底层移动函数（不扣行动次数，只
 }
 
 function player.recover(num) { # 恢复生命值
-    if( num > player.生命值上限 - player.生命值 ){
-        num = player.生命值上限 - player.生命值
+    max = player.最大生命值() - player.生命值()
+    if( num > max ){
+        num = max
     }
-    player.增加生命值(num)    
+    player.增加生命值(num)
 }

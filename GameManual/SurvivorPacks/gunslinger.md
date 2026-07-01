@@ -192,6 +192,7 @@
             draw: {
                 trigger: 杀死怪物时
                 forced: true
+                filter: return trigger.source == player
                 content: {
                     牌堆 = game.拾荒牌堆(random = true) # 随机选取一个拾荒牌堆（无地块颜色限制）
                     player.drawScavenge(1, 牌堆) # 从随机拾荒牌堆抓取1张牌
