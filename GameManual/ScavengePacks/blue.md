@@ -189,12 +189,12 @@
         技能名: "背包"
         技能描述: "被动：玩家增加1格装备栏。"
         skillType: "装备"
-        trigger: 卡牌进入装备区时、卡牌离开装备时
+        trigger: 卡牌进入装备区时、卡牌离开装备区时
         filter: return event.card.名字 == "背包"
-        forced: true 
+        forced: true
         content:{
             if( trigger == "卡牌进入装备区时" ) player.增加装备栏( 1 ) # 装备时玩家装备栏+1格
-            else if( trigger == "卡牌离开装备时" ) player.减少装备栏( 1 ) # 装备时玩家装备栏-1格
+            else if( trigger == "卡牌离开装备区时" ) player.减少装备栏( 1 ) # 装备时玩家装备栏-1格
         }
     }
 }
@@ -209,7 +209,7 @@
         技能名: "手电筒"
         技能描述: "被动：当你执行拾荒行动时，改为展示牌堆顶两张牌，然后你选择保留其中一张，将另一张置于牌堆底。"
         skillType: "装备"
-        trigger: beforeDrawScavenge
+        trigger: 抓取拾荒牌前
         filter: true # 每次拾荒均触发
         forced: true # 强制发动，替代原有拾荒逻辑
         content:{

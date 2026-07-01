@@ -105,7 +105,7 @@ Skill{
         player.discard( name = "燃料", quantity = 1, position = "装备区" ) 
 
         # 根据目标类型执行不同的加油逻辑
-        if( target == "面包车" ){ # 目标是面包车：玩家往面包车添加1个燃料
+        if( target.名字 == "面包车" ){ # 目标是面包车：玩家往面包车添加1个燃料
             target.加油(1, player) # 玩家往面包车添加1个燃料
         }
         else{ # 目标是装备：添加该装备允许的最大燃料量
@@ -143,3 +143,9 @@ function player.moveTo(target) { # 底层移动函数（不扣行动次数，只
     return true  # 移动成功
 }
 
+function player.recover(num) { # 恢复生命值
+    if( num > player.生命值上限 - player.生命值 ){
+        num = player.生命值上限 - player.生命值
+    }
+    player.增加生命值(num)    
+}
