@@ -120,7 +120,7 @@
             player.减少行动次数( 1 ) # 消耗1点行动次数
             player.减少填充物数量( 1, "猎枪" ) # 消耗1点弹药
             target.受到伤害(4, player) # 对主目标造成4点伤害，伤害来源为玩家
-            List = getTarget(player.所在地图块()) # [修改] 2026-07-01: 所在地块→所在地图块，与 PlayerSkill.md 统一；获取玩家所在地图块的所有目标
+            List = getTarget(player.所在地图块()) # 获取玩家所在地图块的所有目标
             for i in List:
                 if( i != player ) i.受到伤害(2, player) # 对溅射目标造成2点伤害，伤害来源为玩家
         }
@@ -245,8 +245,8 @@
                 player.装备(card)
             }
             result = player.choose(prompt = "请选择你抓取的拾荒卡颜色：", ["red", "green", "blue"])
-            牌堆 = player.获取拾荒牌堆(result) # [新增] 2026-07-01: 按颜色获取对应拾荒牌堆对象，为统一 drawScavenge 签名
-            player.drawScavenge(1, 牌堆) # [修改] 2026-07-01: color=result→牌堆对象，与 PlayerSkill.md 拾荒技能签名统一
+            牌堆 = player.获取拾荒牌堆(result) # 按颜色获取对应拾荒牌堆对象
+            player.drawScavenge(1, 牌堆) # 抓取一张拾荒卡
         }
     }
 }

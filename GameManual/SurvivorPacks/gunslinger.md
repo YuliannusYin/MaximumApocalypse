@@ -128,15 +128,46 @@
     名字：齐射
     牌库中数量：2
     类型：行动
-    射程：中距离
-    行动条件：装备区所有武器的弹药量之和大于零。
-    行动效果：弃掉所有武器的弹药，对一个目标造成3+2X点伤害。（X为你以此法弃掉的弹药数量）
+    技能: {
+        技能名: "齐射"
+        技能描述: "行动：弃掉装备区内的所有弹药，对一个目标造成X次2伤害。（X为你以此法弃掉的弹药数量。）"
+        射程: "中距离"
+        active: "行动阶段"
+        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.get武器弹药() > 0
+        filterTarget: return target != player
+        selectTarget: 1
+        filterTargetRange: "中距离"
+        content: {
+            player.减少行动次数( 1 ) # 消耗1点行动次数
+            num = player.get武器弹药()
+            玩家弃置装备区所有弹药 # 消耗所有弹药
+            for i in range(num):
+                target.受到伤害( 2, player ) # 对目标造成2点伤害
+        }
+    }
 }
 
 求生者卡牌{
     名字：手榴弹
     牌库中数量：3
     类型：行动
+    技能: {
+        技能名: "手榴弹"
+        技能描述: "行动：对一个目标造成5点伤害，并对其同一地块的所有目标造成3点伤害。"
+        射程: "中距离"
+        active: "行动阶段"
+        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.get武器弹药() > 0
+        filterTarget: return target != player
+        selectTarget: 1
+        filterTargetRange: "中距离"
+        content: {
+            player.减少行动次数( 1 ) # 消耗1点行动次数
+            player.减少武器弹药( 1, target ) # 消耗1枚弹药
+            target.受到伤害( 5, player ) # 对目标造成5点伤害
+            for i in range(3):
+                target.受到伤害( 3, player ) # 对目标造成3点伤害
+        }
+    }
     射程：中距离
     行动条件：无。
     行动效果：对一个目标造成5点伤害，并对其同一地块的所有目标造成3点伤害。
