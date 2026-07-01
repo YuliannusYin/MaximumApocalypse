@@ -1,0 +1,14 @@
+{
+  "id": "castle",
+  "tile_name": "城堡",
+  "spawn_values": 9,
+  "scavenge_type": "NONE",
+  "effect_trigger": [
+    "ON_ENTER"
+  ],
+  "effect_script_id": [
+    "all_monsters_heal_full"
+  ],
+  "monster_mark": 0,
+  "description": "进入：游戏中所有怪物生命值回复至满血（负面效果）"
+}

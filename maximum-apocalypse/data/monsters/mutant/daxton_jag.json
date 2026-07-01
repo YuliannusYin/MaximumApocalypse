@@ -1,0 +1,14 @@
+{
+  "id": "daxton_jag",
+  "monster_name": "达克斯顿·贾格",
+  "pack": "MUTANT",
+  "rank": "BOSS",
+  "max_hp": 24,
+  "current_hp": 24,
+  "damage": 4,
+  "range_type": "MEDIUM",
+  "description": "首领怪物。被抓取时所有玩家弃掉一张装备区内的装备，否则受到四点伤害。",
+  "grab_trigger_id": "all_players_discard_equipment_or_damage_4_on_draw",
+  "passive_id": "none",
+  "destroy_id": "none"
+}

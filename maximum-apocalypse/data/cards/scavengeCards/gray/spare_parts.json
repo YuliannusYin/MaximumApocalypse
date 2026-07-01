@@ -1,0 +1,10 @@
+{
+  "id": "spare_parts",
+  "card_name": "多余配件",
+  "category": "其他",
+  "color": "GRAY",
+  "card_type": "ACTION",
+  "equipment_slot": 0,
+  "effect": "从你的弃牌堆将一张牌返回手牌",
+  "effect_script_id": "return_card_from_discard_to_hand"
+}

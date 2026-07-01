@@ -1,0 +1,11 @@
+{
+  "id": "colt_pistol",
+  "card_name": "柯尔特手枪",
+  "owner_character_id": "cowboy",
+  "description": "对一个目标造成2点伤害",
+  "effect_script_id": "deal_2_damage_medium_range",
+  "card_type": "EQUIPMENT",
+  "equipment_cost": 0,
+  "range_type": "MEDIUM",
+  "action_condition": "武器射程内有目标"
+}

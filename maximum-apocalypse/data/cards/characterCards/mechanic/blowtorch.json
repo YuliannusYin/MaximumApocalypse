@@ -1,0 +1,11 @@
+{
+  "id": "blowtorch",
+  "card_name": "喷灯",
+  "owner_character_id": "mechanic",
+  "description": "对一个目标造成6点伤害",
+  "effect_script_id": "deal_6_damage_short_range",
+  "card_type": "EQUIPMENT",
+  "equipment_cost": 2,
+  "range_type": "SHORT",
+  "action_condition": "无"
+}

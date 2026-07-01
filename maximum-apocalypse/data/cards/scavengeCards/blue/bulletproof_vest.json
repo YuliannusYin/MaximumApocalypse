@@ -1,0 +1,10 @@
+{
+  "id": "bulletproof_vest",
+  "card_name": "防弹背心",
+  "category": "战备",
+  "color": "BLUE",
+  "card_type": "EQUIPMENT",
+  "equipment_slot": 1,
+  "effect": "受到的伤害减少2点，使用三次后销毁",
+  "effect_script_id": "damage_reduction_2_uses_3"
+}

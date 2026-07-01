@@ -1,0 +1,14 @@
+{
+  "id": "ai_core_leader",
+  "monster_name": "人工智能核心领袖",
+  "pack": "ROBOT",
+  "rank": "BOSS",
+  "max_hp": 19,
+  "current_hp": 19,
+  "damage": 4,
+  "range_type": "MEDIUM",
+  "description": "首领怪物。被抓取时抓取玩家弃掉所有手牌区的牌，直接对射程内的所有玩家造成一次伤害。",
+  "grab_trigger_id": "discard_all_hand_damage_all_players_on_draw",
+  "passive_id": "none",
+  "destroy_id": "none"
+}

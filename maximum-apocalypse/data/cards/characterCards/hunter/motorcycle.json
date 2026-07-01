@@ -1,0 +1,11 @@
+{
+  "id": "motorcycle",
+  "card_name": "摩托车",
+  "owner_character_id": "hunter",
+  "description": "消耗1点燃料，最多移动3格",
+  "effect_script_id": "consume_fuel_move_3_tiles",
+  "card_type": "EQUIPMENT",
+  "equipment_cost": 2,
+  "range_type": "NONE",
+  "action_condition": "燃料大于0"
+}

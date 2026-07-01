@@ -1,0 +1,14 @@
+{
+  "id": "power_plant",
+  "tile_name": "电厂",
+  "spawn_values": 10,
+  "scavenge_type": "NONE",
+  "effect_trigger": [
+    "ON_ENTER"
+  ],
+  "effect_script_id": [
+    "discard_all_food_poison"
+  ],
+  "monster_mark": 0,
+  "description": "进入：弃掉所有的食物卡，中毒"
+}

@@ -1,0 +1,14 @@
+{
+  "id": "shelter",
+  "tile_name": "避难所",
+  "spawn_values": 12,
+  "scavenge_type": "NONE",
+  "effect_trigger": [
+    "ON_END"
+  ],
+  "effect_script_id": [
+    "immune_damage_if_end_turn"
+  ],
+  "monster_mark": 0,
+  "description": "当你本回合开始时不在这里且在这里结束回合时，你免疫伤害"
+}

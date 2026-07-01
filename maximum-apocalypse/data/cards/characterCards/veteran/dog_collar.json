@@ -1,0 +1,11 @@
+{
+  "id": "dog_collar",
+  "card_name": "狗项圈",
+  "owner_character_id": "veteran",
+  "description": "所有对狗造成的伤害减1",
+  "effect_script_id": "reduce_dog_damage_by_1",
+  "card_type": "EQUIPMENT",
+  "equipment_cost": 0,
+  "range_type": "NONE",
+  "action_condition": "无"
+}

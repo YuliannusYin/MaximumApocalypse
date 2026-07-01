@@ -1,0 +1,10 @@
+{
+  "id": "antidote",
+  "card_name": "解毒剂",
+  "category": "补给",
+  "color": "RED",
+  "card_type": "ACTION",
+  "value": 0,
+  "effect": "清除所有的异常状态效果",
+  "effect_script_id": "clear_all_status_effects"
+}

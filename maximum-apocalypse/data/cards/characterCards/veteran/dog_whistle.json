@@ -1,0 +1,11 @@
+{
+  "id": "dog_whistle",
+  "card_name": "狗哨",
+  "owner_character_id": "veteran",
+  "description": "如果狗还活着把射程内的一个怪物标记移除。狗受到2点伤害",
+  "effect_script_id": "dog_alive_remove_monster_dog_damage_2",
+  "card_type": "EQUIPMENT",
+  "equipment_cost": 1,
+  "range_type": "LONG",
+  "action_condition": "无"
+}

@@ -1,0 +1,11 @@
+{
+  "id": "molotov",
+  "card_name": "莫洛托夫鸡尾酒",
+  "owner_character_id": "surgeon",
+  "description": "对射程内的所有敌人造成2点伤害",
+  "effect_script_id": "deal_2_damage_all_enemies_medium_range",
+  "card_type": "ACTION",
+  "equipment_cost": 0,
+  "range_type": "MEDIUM",
+  "action_condition": "无"
+}

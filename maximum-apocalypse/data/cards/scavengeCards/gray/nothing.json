@@ -1,0 +1,10 @@
+{
+  "id": "nothing",
+  "card_name": "一无所获",
+  "category": "其他",
+  "color": "GRAY",
+  "card_type": "ACTION",
+  "equipment_slot": 0,
+  "effect": "当玩家抓取此牌时，立即弃掉",
+  "effect_script_id": "discard_on_draw"
+}

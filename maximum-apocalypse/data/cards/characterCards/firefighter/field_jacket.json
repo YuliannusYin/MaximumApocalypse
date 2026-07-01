@@ -1,0 +1,11 @@
+{
+  "id": "field_jacket",
+  "card_name": "野地夹克",
+  "owner_character_id": "firefighter",
+  "description": "你可以增加一点饥饿值恢复一点行动数。（此行为不消耗每回合的行动点数）",
+  "effect_script_id": "increase_hunger_restore_action",
+  "card_type": "EQUIPMENT",
+  "equipment_cost": 1,
+  "range_type": "NONE",
+  "action_condition": "你的饥饿值小于6"
+}

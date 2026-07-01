@@ -1,0 +1,11 @@
+{
+  "id": "hollow_point",
+  "card_name": "空尖弹",
+  "owner_character_id": "cowboy",
+  "description": "将此牌置于一张弹药类武器上，此武器牌填装满空尖弹药，弹药会让武器牌额外造成两点伤害。此后武器被填装弹药时摧毁本牌，且武器失去造成额外伤害的效果。",
+  "effect_script_id": "attach_hollow_point_ammo",
+  "card_type": "ACTION",
+  "equipment_cost": 0,
+  "range_type": "NONE",
+  "action_condition": "装备区有装备消耗弹药的武器"
+}

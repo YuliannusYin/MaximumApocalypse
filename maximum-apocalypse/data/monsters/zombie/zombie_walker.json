@@ -1,0 +1,14 @@
+{
+  "id": "zombie_walker",
+  "monster_name": "僵尸步行者",
+  "pack": "ZOMBIE",
+  "rank": "NORMAL",
+  "max_hp": 4,
+  "current_hp": 4,
+  "damage": 2,
+  "range_type": "NONE",
+  "description": "普通怪物。无特殊能力。",
+  "grab_trigger_id": "none",
+  "passive_id": "none",
+  "destroy_id": "none"
+}

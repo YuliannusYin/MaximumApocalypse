@@ -1,0 +1,14 @@
+{
+  "id": "wilderness",
+  "tile_name": "旷野",
+  "spawn_values": 8,
+  "effect_trigger": [
+    "ON_REVEAL",
+    "ON_END"
+  ],
+  "effect_script_id": [
+    "draw_monster_card_1",
+    "draw_monster_card_1"
+  ],
+  "description": "展示：抓一张怪物牌\n结束：抓一张怪物牌"
+}

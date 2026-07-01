@@ -1,0 +1,9 @@
+{
+  "id": "veteran",
+  "character_name": "老兵",
+  "max_hp": 22,
+  "current_hp": 22,
+  "hunger_level": 1,
+  "base_stealth": 7,
+  "starving_stealth": 6
+}

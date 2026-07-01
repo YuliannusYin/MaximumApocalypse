@@ -1,0 +1,11 @@
+{
+  "id": "fire_extinguisher",
+  "card_name": "灭火器",
+  "owner_character_id": "firefighter",
+  "description": "击晕射程内的所有怪物，直到你的下个回合开始",
+  "effect_script_id": "stun_all_monsters_until_next_turn",
+  "card_type": "ACTION",
+  "equipment_cost": 0,
+  "range_type": "SHORT",
+  "action_condition": "无"
+}

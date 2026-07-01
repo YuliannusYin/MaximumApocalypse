@@ -1,0 +1,14 @@
+{
+  "id": "zombie_soldier",
+  "monster_name": "僵尸士兵",
+  "pack": "ZOMBIE",
+  "rank": "NORMAL",
+  "max_hp": 8,
+  "current_hp": 8,
+  "damage": 4,
+  "range_type": "NONE",
+  "description": "普通怪物。无特殊能力。",
+  "grab_trigger_id": "none",
+  "passive_id": "none",
+  "destroy_id": "none"
+}

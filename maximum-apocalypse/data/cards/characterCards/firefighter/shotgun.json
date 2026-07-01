@@ -1,0 +1,11 @@
+{
+  "id": "shotgun",
+  "card_name": "猎枪",
+  "owner_character_id": "firefighter",
+  "description": "对射程内的一个目标造成4点伤害，然后对你面前的所有目标造成2点伤害",
+  "effect_script_id": "deal_4_damage_front_targets_2_damage",
+  "card_type": "EQUIPMENT",
+  "equipment_cost": 1,
+  "range_type": "MEDIUM",
+  "action_condition": "无"
+}

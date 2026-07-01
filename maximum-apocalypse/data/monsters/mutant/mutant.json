@@ -1,0 +1,14 @@
+{
+  "id": "mutant",
+  "monster_name": "突变体",
+  "pack": "MUTANT",
+  "rank": "ELITE",
+  "max_hp": 8,
+  "current_hp": 8,
+  "damage": 5,
+  "range_type": "NONE",
+  "description": "精英怪物。无特殊能力。",
+  "grab_trigger_id": "none",
+  "passive_id": "none",
+  "destroy_id": "none"
+}

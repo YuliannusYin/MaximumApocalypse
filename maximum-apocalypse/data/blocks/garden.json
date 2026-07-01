@@ -1,0 +1,14 @@
+{
+  "id": "garden",
+  "tile_name": "花园",
+  "spawn_values": 5,
+  "scavenge_type": "GREEN",
+  "effect_trigger": [
+    "ON_END"
+  ],
+  "effect_script_id": [
+    "cure_all_status_effects"
+  ],
+  "monster_mark": 0,
+  "description": "绿色拾荒\n结束：治愈所有状态效果"
+}

@@ -1,0 +1,11 @@
+{
+  "id": "fireproof_helmet",
+  "card_name": "防火头盔",
+  "owner_character_id": "firefighter",
+  "description": "受到的伤害减一",
+  "effect_script_id": "reduce_damage_by_1",
+  "card_type": "EQUIPMENT",
+  "equipment_cost": 1,
+  "range_type": "NONE",
+  "action_condition": "无"
+}

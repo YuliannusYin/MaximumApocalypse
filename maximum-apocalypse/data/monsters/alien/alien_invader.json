@@ -1,0 +1,14 @@
+{
+  "id": "alien_invader",
+  "monster_name": "外星入侵者",
+  "pack": "ALIEN",
+  "rank": "ELITE",
+  "max_hp": 7,
+  "current_hp": 7,
+  "damage": 3,
+  "range_type": "NONE",
+  "description": "精英怪物。攻击时随机烧毁目标玩家区域内的一张牌。",
+  "grab_trigger_id": "none",
+  "passive_id": "burn_1_card_on_attack",
+  "destroy_id": "none"
+}

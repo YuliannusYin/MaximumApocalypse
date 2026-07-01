@@ -1,0 +1,14 @@
+{
+  "id": "zombie_walker_elite",
+  "monster_name": "僵尸步行者（精英）",
+  "pack": "ZOMBIE",
+  "rank": "ELITE",
+  "max_hp": 4,
+  "current_hp": 4,
+  "damage": 2,
+  "range_type": "NONE",
+  "description": "精英怪物。被抓取时抓取玩家再抓取一张怪物卡。",
+  "grab_trigger_id": "draw_monster_on_draw",
+  "passive_id": "none",
+  "destroy_id": "none"
+}

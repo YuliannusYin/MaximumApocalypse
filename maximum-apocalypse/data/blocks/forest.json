@@ -1,0 +1,14 @@
+{
+  "id": "forest",
+  "tile_name": "森林",
+  "spawn_values": 8,
+  "scavenge_type": "NONE",
+  "effect_trigger": [
+    "ON_ACTION"
+  ],
+  "effect_script_id": [
+    "draw_monster_card_if_move"
+  ],
+  "monster_mark": 0,
+  "description": "停止：如果你本回合继续移动，抓一张怪物卡"
+}

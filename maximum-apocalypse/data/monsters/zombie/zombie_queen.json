@@ -1,0 +1,14 @@
+{
+  "id": "zombie_queen",
+  "monster_name": "僵尸女王",
+  "pack": "ZOMBIE",
+  "rank": "BOSS",
+  "max_hp": 18,
+  "current_hp": 18,
+  "damage": 5,
+  "range_type": "NONE",
+  "description": "首领怪物。当场上任何僵尸类型怪物被消灭时，消灭该怪物的玩家必须抓取一张新的怪物卡。",
+  "grab_trigger_id": "none",
+  "passive_id": "draw_monster_on_zombie_killed",
+  "destroy_id": "none"
+}

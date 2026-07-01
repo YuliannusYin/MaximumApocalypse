@@ -1,0 +1,11 @@
+{
+  "id": "night_cover",
+  "card_name": "夜色掩护",
+  "owner_character_id": "hunter",
+  "description": "从任一拾荒牌库中抓最多3张牌，然后弃置掉其中一张",
+  "effect_script_id": "draw_3_scavenge_discard_1",
+  "card_type": "ACTION",
+  "equipment_cost": 0,
+  "range_type": "NONE",
+  "action_condition": "无"
+}

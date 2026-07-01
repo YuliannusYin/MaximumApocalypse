@@ -1,0 +1,11 @@
+{
+  "id": "machete",
+  "card_name": "砍刀",
+  "owner_character_id": "hunter",
+  "description": "对一个目标造成3点伤害",
+  "effect_script_id": "deal_3_damage_short_range",
+  "card_type": "EQUIPMENT",
+  "equipment_cost": 1,
+  "range_type": "SHORT",
+  "action_condition": "无"
+}

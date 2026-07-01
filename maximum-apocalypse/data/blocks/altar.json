@@ -1,0 +1,14 @@
+{
+  "id": "altar",
+  "tile_name": "祭坛",
+  "spawn_values": 6,
+  "scavenge_type": "NONE",
+  "effect_trigger": [
+    "ON_REVEAL"
+  ],
+  "effect_script_id": [
+    "add_3_monster_markers"
+  ],
+  "monster_mark": 0,
+  "description": "展示：放置3个怪物标记"
+}

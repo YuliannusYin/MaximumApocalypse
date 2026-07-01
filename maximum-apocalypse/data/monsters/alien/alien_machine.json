@@ -1,0 +1,14 @@
+{
+  "id": "alien_machine",
+  "monster_name": "外星机械",
+  "pack": "ALIEN",
+  "rank": "ELITE",
+  "max_hp": 18,
+  "current_hp": 18,
+  "damage": 4,
+  "range_type": "NONE",
+  "description": "精英怪物。被抓取时随机烧毁抓取该卡玩家的两张牌。",
+  "grab_trigger_id": "burn_2_cards_on_draw",
+  "passive_id": "none",
+  "destroy_id": "none"
+}

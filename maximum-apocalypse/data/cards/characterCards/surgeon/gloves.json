@@ -1,0 +1,11 @@
+{
+  "id": "gloves",
+  "card_name": "手套",
+  "owner_character_id": "surgeon",
+  "description": "回复生命时，额外回复1点",
+  "effect_script_id": "heal_bonus_1",
+  "card_type": "EQUIPMENT",
+  "equipment_cost": 1,
+  "range_type": "NONE",
+  "action_condition": "无"
+}

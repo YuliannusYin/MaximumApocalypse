@@ -1,0 +1,11 @@
+{
+  "id": "catch_small_animals",
+  "card_name": "抓捕小动物",
+  "owner_character_id": "veteran",
+  "description": "如果狗还活着，把老兵和狗的饥饿等级降低2点",
+  "effect_script_id": "dog_alive_reduce_veteran_dog_hunger_2",
+  "card_type": "ACTION",
+  "equipment_cost": 0,
+  "range_type": "NONE",
+  "action_condition": "狗还活着"
+}

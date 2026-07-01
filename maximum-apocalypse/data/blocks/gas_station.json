@@ -1,0 +1,14 @@
+{
+  "id": "gas_station",
+  "tile_name": "加油站",
+  "spawn_values": 9,
+  "scavenge_type": "RED",
+  "effect_trigger": [
+    "ON_REVEAL"
+  ],
+  "effect_script_id": [
+    "free_scavenge"
+  ],
+  "monster_mark": 0,
+  "description": "红色拾荒，可获取燃料\n展示：执行一次免费的拾荒行动"
+}

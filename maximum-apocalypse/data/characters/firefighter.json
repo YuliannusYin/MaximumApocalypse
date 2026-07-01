@@ -1,0 +1,10 @@
+{
+  "id": "firefighter",
+  "character_name": "消防员",
+  "max_hp": 32,
+  "current_hp": 32,
+  "hunger_level": 1,
+  "base_stealth": 6,
+  "starving_stealth": 5,
+  "action_points": 4
+}

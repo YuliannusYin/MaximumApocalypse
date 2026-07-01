@@ -1,0 +1,11 @@
+{
+  "id": "oxygen_tank",
+  "card_name": "氧气罐",
+  "owner_character_id": "firefighter",
+  "description": "消耗一点打火机的弹药，然后对射程内的所有目标造成3点伤害",
+  "effect_script_id": "consume_lighter_ammo_deal_3_damage_all",
+  "card_type": "ACTION",
+  "equipment_cost": 0,
+  "range_type": "MEDIUM",
+  "action_condition": "打火机在场上且有弹药"
+}

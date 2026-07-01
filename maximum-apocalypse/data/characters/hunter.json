@@ -1,0 +1,9 @@
+{
+  "id": "hunter",
+  "character_name": "猎手",
+  "max_hp": 24,
+  "current_hp": 24,
+  "hunger_level": 1,
+  "base_stealth": 9,
+  "starving_stealth": 8
+}

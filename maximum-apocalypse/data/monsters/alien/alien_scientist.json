@@ -1,0 +1,14 @@
+{
+  "id": "alien_scientist",
+  "monster_name": "外星科学家",
+  "pack": "ALIEN",
+  "rank": "ELITE",
+  "max_hp": 9,
+  "current_hp": 9,
+  "damage": 1,
+  "range_type": "NONE",
+  "description": "精英怪物。被抓取时抓取玩家弃掉一张装备区内的装备，否则受到六点伤害。所有外星人类怪物攻击时伤害加一。",
+  "grab_trigger_id": "discard_equipment_or_damage_6_on_draw",
+  "passive_id": "increase_alien_damage_1",
+  "destroy_id": "none"
+}

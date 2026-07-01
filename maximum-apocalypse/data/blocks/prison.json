@@ -1,0 +1,16 @@
+{
+  "id": "prison",
+  "tile_name": "监狱",
+  "spawn_values": 9,
+  "scavenge_type": "BLUE",
+  "effect_trigger": [
+    "ON_REVEAL",
+    "ON_ENTER"
+  ],
+  "effect_script_id": [
+    "end_turn",
+    "lose_1_action_point"
+  ],
+  "monster_mark": 0,
+  "description": "蓝色、绿色、红色拾荒\n展示：结束你的回合\n进入：失去1个行动点"
+}

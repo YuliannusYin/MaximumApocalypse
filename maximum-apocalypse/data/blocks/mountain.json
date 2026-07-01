@@ -1,0 +1,14 @@
+{
+  "id": "mountain",
+  "tile_name": "山",
+  "spawn_values": 9,
+  "scavenge_type": "NONE",
+  "effect_trigger": [
+    "ON_ENTER"
+  ],
+  "effect_script_id": [
+    "draw_card_1"
+  ],
+  "monster_mark": 0,
+  "description": "进入：抓一张牌"
+}

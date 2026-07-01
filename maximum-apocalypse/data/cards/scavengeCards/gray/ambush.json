@@ -1,0 +1,10 @@
+{
+  "id": "ambush",
+  "card_name": "伏击！",
+  "category": "其他",
+  "color": "GRAY",
+  "card_type": "ACTION",
+  "equipment_slot": 0,
+  "effect": "玩家抓取此牌时，立即抓取一张怪物卡，然后弃掉此卡",
+  "effect_script_id": "draw_monster_discard_self"
+}

@@ -1,0 +1,11 @@
+{
+  "id": "nail_bomb",
+  "card_name": "钉子炸弹",
+  "owner_character_id": "mechanic",
+  "description": "对射程内的最多3个敌人各造成5点伤害，或者移除一个相邻地图块上的所有怪物标记",
+  "effect_script_id": "deal_5_damage_3_targets_or_remove_monsters",
+  "card_type": "ACTION",
+  "equipment_cost": 0,
+  "range_type": "MEDIUM",
+  "action_condition": "无"
+}

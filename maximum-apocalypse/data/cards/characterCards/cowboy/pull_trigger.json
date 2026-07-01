@@ -1,0 +1,11 @@
+{
+  "id": "pull_trigger",
+  "card_name": "扣动扳机让我快乐",
+  "owner_character_id": "cowboy",
+  "description": "本回合可以额外执行两个行动",
+  "effect_script_id": "gain_2_extra_actions",
+  "card_type": "ACTION",
+  "equipment_cost": 0,
+  "range_type": "NONE",
+  "action_condition": "无"
+}

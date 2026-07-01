@@ -1,0 +1,14 @@
+{
+  "id": "alien_soldier",
+  "monster_name": "外星士兵",
+  "pack": "ALIEN",
+  "rank": "ELITE",
+  "max_hp": 15,
+  "current_hp": 15,
+  "damage": 3,
+  "range_type": "LONG",
+  "description": "精英怪物。无特殊能力。",
+  "grab_trigger_id": "none",
+  "passive_id": "none",
+  "destroy_id": "none"
+}

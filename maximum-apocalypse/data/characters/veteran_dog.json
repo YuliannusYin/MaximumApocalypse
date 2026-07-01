@@ -1,0 +1,9 @@
+{
+  "id": "veteran_dog",
+  "character_name": "狗",
+  "max_hp": 12,
+  "current_hp": 12,
+  "hunger_level": 1,
+  "base_stealth": 9,
+  "starving_stealth": 8
+}

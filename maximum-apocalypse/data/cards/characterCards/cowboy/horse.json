@@ -1,0 +1,11 @@
+{
+  "id": "horse",
+  "card_name": "马",
+  "owner_character_id": "cowboy",
+  "description": "移动最多两格。弃置此牌将场上所有玩家的饥饿等级降低一点（此行为不消耗每回合的行动点数）。",
+  "effect_script_id": "move_2_tiles_discard_reduce_hunger",
+  "card_type": "EQUIPMENT",
+  "equipment_cost": 2,
+  "range_type": "NONE",
+  "action_condition": "无"
+}

@@ -1,0 +1,11 @@
+{
+  "id": "energy_drink",
+  "card_name": "能量饮料",
+  "owner_character_id": "firefighter",
+  "description": "直到你的下个回合开始，你免疫饥饿伤害。你抓一张牌",
+  "effect_script_id": "immune_hunger_draw_1_card",
+  "card_type": "ACTION",
+  "equipment_cost": 0,
+  "range_type": "NONE",
+  "action_condition": "无"
+}

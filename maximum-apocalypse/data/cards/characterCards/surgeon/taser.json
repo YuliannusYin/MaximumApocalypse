@@ -1,0 +1,11 @@
+{
+  "id": "taser",
+  "card_name": "泰瑟枪",
+  "owner_character_id": "surgeon",
+  "description": "击晕一个敌人直到你的下回合开始",
+  "effect_script_id": "stun_enemy_until_next_turn",
+  "card_type": "EQUIPMENT",
+  "equipment_cost": 2,
+  "range_type": "MEDIUM",
+  "action_condition": "无"
+}

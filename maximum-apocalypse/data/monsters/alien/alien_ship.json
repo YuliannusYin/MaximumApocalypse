@@ -1,0 +1,14 @@
+{
+  "id": "alien_ship",
+  "monster_name": "外星飞船",
+  "pack": "ALIEN",
+  "rank": "ELITE",
+  "max_hp": 10,
+  "current_hp": 10,
+  "damage": 6,
+  "range_type": "NONE",
+  "description": "精英怪物。攻击时随机烧毁目标玩家区域内的一张牌。不能被射程为短距离的武器或行动选为目标。",
+  "grab_trigger_id": "none",
+  "passive_id": "burn_1_card_on_attack_immune_short_range",
+  "destroy_id": "none"
+}

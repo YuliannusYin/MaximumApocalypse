@@ -1,0 +1,14 @@
+{
+  "id": "city_street",
+  "tile_name": "城市街道",
+  "spawn_values": 8,
+  "scavenge_type": "NONE",
+  "effect_trigger": [
+    "ON_ENTER"
+  ],
+  "effect_script_id": [
+    "draw_monster_card_1"
+  ],
+  "monster_mark": 0,
+  "description": "拾荒标记：蓝5、红6、绿8（需骰子值匹配）\n进入：抓一张怪物卡"
+}

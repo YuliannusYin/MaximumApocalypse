@@ -1,0 +1,11 @@
+{
+  "id": "search_bodies",
+  "card_name": "搜索尸体",
+  "owner_character_id": "cowboy",
+  "description": "直到你的回合结束，你每杀死一个怪物就随机抓取一到两张拾荒卡牌（无地块拾荒颜色限制）",
+  "effect_script_id": "scavenge_on_kill_until_turn_end",
+  "card_type": "ACTION",
+  "equipment_cost": 0,
+  "range_type": "NONE",
+  "action_condition": "无"
+}

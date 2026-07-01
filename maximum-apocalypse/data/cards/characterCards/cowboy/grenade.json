@@ -1,0 +1,11 @@
+{
+  "id": "grenade",
+  "card_name": "手榴弹",
+  "owner_character_id": "cowboy",
+  "description": "对一个目标造成5点伤害，并对其同一地块的所有目标造成3点伤害",
+  "effect_script_id": "deal_5_damage_area_3_damage",
+  "card_type": "ACTION",
+  "equipment_cost": 0,
+  "range_type": "MEDIUM",
+  "action_condition": "无"
+}

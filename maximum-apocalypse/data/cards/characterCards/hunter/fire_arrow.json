@@ -1,0 +1,11 @@
+{
+  "id": "fire_arrow",
+  "card_name": "火焰箭",
+  "owner_character_id": "hunter",
+  "description": "对一个目标造成5点伤害",
+  "effect_script_id": "deal_5_damage_fire_arrow",
+  "card_type": "EQUIPMENT",
+  "equipment_cost": 1,
+  "range_type": "MEDIUM",
+  "action_condition": "装备区里有【弓】或者【弩】"
+}

@@ -1,0 +1,14 @@
+{
+  "id": "laser_drone",
+  "monster_name": "激光无人机",
+  "pack": "ROBOT",
+  "rank": "ELITE",
+  "max_hp": 10,
+  "current_hp": 10,
+  "damage": 2,
+  "range_type": "NONE",
+  "description": "精英怪物。被动：被该怪物卡纠缠的玩家进行潜行判定前，跳过该玩家的潜行判定，直接抓取怪物卡。",
+  "grab_trigger_id": "none",
+  "passive_id": "skip_sneak_check_draw_monster",
+  "destroy_id": "none"
+}

@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://bjhs6ltlnvt"]
 
-[ext_resource type="Script" uid="uid://7mr6bnwc4c51" path="res://godot/main.gd" id="1_5s166"]
+[ext_resource type="Script" path="res://Scripts/UI/Main.cs" id="1_5s166"]
 
 [node name="Main" type="Node2D" unique_id=645631924]
 script = ExtResource("1_5s166")
@@ -26,5 +26,5 @@ grow_horizontal = 2
 grow_vertical = 2
 text = "退出游戏"
 
-[connection signal="button_down" from="StartButton" to="." method="_on_start_button_button_down"]
-[connection signal="button_down" from="QuitButton" to="." method="_on_quit_button_button_down"]
+[connection signal="button_down" from="StartButton" to="." method="OnStartButtonButtonDown"]
+[connection signal="button_down" from="QuitButton" to="." method="OnQuitButtonButtonDown"]

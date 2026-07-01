@@ -1,0 +1,11 @@
+{
+  "id": "cripple",
+  "card_name": "致残",
+  "owner_character_id": "veteran",
+  "description": "如果狗还活着，击晕一个目标并对它造成2点伤害",
+  "effect_script_id": "dog_alive_stun_deal_2_damage",
+  "card_type": "ACTION",
+  "equipment_cost": 0,
+  "range_type": "MEDIUM",
+  "action_condition": "狗还活着"
+}

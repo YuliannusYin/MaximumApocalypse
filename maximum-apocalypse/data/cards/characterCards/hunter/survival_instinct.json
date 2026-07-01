@@ -1,0 +1,11 @@
+{
+  "id": "hunter_survival_instinct",
+  "card_name": "生存本能",
+  "owner_character_id": "hunter",
+  "description": "使场上所有玩家的饥饿值降低1点",
+  "effect_script_id": "reduce_all_players_hunger_1",
+  "card_type": "ACTION",
+  "equipment_cost": 0,
+  "range_type": "NONE",
+  "action_condition": "无"
+}

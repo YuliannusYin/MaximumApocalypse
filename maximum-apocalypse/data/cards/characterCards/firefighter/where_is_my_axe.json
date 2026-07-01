@@ -1,0 +1,11 @@
+{
+  "id": "where_is_my_axe",
+  "card_name": "我的斧子去哪儿了？",
+  "owner_character_id": "firefighter",
+  "description": "将装备【值得信赖的斧子】置入你的装备区。并抓取一张拾荒卡。",
+  "effect_script_id": "equip_trusty_axe_draw_scavenge",
+  "card_type": "ACTION",
+  "equipment_cost": 0,
+  "range_type": "NONE",
+  "action_condition": "无"
+}

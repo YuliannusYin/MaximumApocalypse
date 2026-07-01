@@ -1,0 +1,14 @@
+{
+  "id": "alien_commander",
+  "monster_name": "外星指挥官",
+  "pack": "ALIEN",
+  "rank": "BOSS",
+  "max_hp": 22,
+  "current_hp": 22,
+  "damage": 4,
+  "range_type": "NONE",
+  "description": "首领怪物。被抓取时将场上所有外星人类怪物回复到满生命值。攻击时随机烧毁目标玩家区域内的两张牌。",
+  "grab_trigger_id": "heal_all_alien_on_draw",
+  "passive_id": "burn_2_cards_on_attack",
+  "destroy_id": "none"
+}

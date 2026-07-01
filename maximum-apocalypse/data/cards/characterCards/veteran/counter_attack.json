@@ -1,0 +1,11 @@
+{
+  "id": "counter_attack",
+  "card_name": "反击开始",
+  "owner_character_id": "veteran",
+  "description": "如果狗已死亡直到你的下回合开始，老兵造成的伤害加3",
+  "effect_script_id": "dog_dead_increase_damage_3",
+  "card_type": "ACTION",
+  "equipment_cost": 0,
+  "range_type": "NONE",
+  "action_condition": "狗已死亡"
+}

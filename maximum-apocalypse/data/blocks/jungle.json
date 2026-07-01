@@ -1,0 +1,16 @@
+{
+  "id": "jungle",
+  "tile_name": "丛林",
+  "spawn_values": 11,
+  "scavenge_type": "GREEN",
+  "effect_trigger": [
+    "ON_REVEAL",
+    "ON_ENTER"
+  ],
+  "effect_script_id": [
+    "discard_equipment_card",
+    "draw_monster_card_1"
+  ],
+  "monster_mark": 0,
+  "description": "绿色拾荒\n展示：弃掉一张已打出的装备卡\n进入：抽1张怪物卡"
+}

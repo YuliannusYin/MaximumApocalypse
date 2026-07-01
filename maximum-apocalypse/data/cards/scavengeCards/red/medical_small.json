@@ -1,0 +1,10 @@
+{
+  "id": "medical_small",
+  "card_name": "医疗用品(小型)",
+  "category": "补给",
+  "color": "RED",
+  "card_type": "ACTION",
+  "value": 4,
+  "effect": "恢复4点生命值",
+  "effect_script_id": "restore_hp_4"
+}

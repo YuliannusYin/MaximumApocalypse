@@ -1,0 +1,11 @@
+{
+  "id": "quick_thinking",
+  "card_name": "快速思考",
+  "owner_character_id": "surgeon",
+  "description": "抓取两张牌和一张拾荒卡",
+  "effect_script_id": "draw_2_cards_1_scavenge",
+  "card_type": "ACTION",
+  "equipment_cost": 0,
+  "range_type": "NONE",
+  "action_condition": "无"
+}

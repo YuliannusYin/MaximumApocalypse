@@ -1,0 +1,11 @@
+{
+  "id": "tactical_leadership",
+  "card_name": "战术领导力",
+  "owner_character_id": "cowboy",
+  "description": "选择令一名玩家，使其立即执行一个行动",
+  "effect_script_id": "grant_action_to_other_player",
+  "card_type": "ACTION",
+  "equipment_cost": 0,
+  "range_type": "NONE",
+  "action_condition": "场上有其他玩家"
+}

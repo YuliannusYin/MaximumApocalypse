@@ -1,0 +1,11 @@
+{
+  "id": "dog_tags",
+  "card_name": "军牌",
+  "owner_character_id": "veteran",
+  "description": "装备时老兵和狗各恢复2点生命。所有对老兵造成的伤害减1",
+  "effect_script_id": "heal_veteran_dog_2_reduce_veteran_damage_1",
+  "card_type": "EQUIPMENT",
+  "equipment_cost": 1,
+  "range_type": "NONE",
+  "action_condition": "无"
+}

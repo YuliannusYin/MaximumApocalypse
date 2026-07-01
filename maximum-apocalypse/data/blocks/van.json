@@ -1,0 +1,10 @@
+{
+  "id": "van",
+  "tile_name": "面包车",
+  "spawn_values": 6,
+  "scavenge_type": "NONE",
+  "effect_trigger": [],
+  "effect_script_id": [],
+  "monster_mark": 0,
+  "description": "游戏起始点，玩家从这里开始游戏"
+}

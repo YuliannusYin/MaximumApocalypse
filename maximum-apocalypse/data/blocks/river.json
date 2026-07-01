@@ -1,0 +1,14 @@
+{
+  "id": "river",
+  "tile_name": "河流",
+  "spawn_values": 11,
+  "scavenge_type": "NONE",
+  "effect_trigger": [
+    "ON_ENTER"
+  ],
+  "effect_script_id": [
+    "stealth_check_river"
+  ],
+  "monster_mark": 0,
+  "description": "检定：成功：移动到本地图块；失败：返回之前的地图块"
+}

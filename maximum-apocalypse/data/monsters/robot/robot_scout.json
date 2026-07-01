@@ -1,0 +1,14 @@
+{
+  "id": "robot_scout",
+  "monster_name": "机器人侦察兵",
+  "pack": "ROBOT",
+  "rank": "ELITE",
+  "max_hp": 12,
+  "current_hp": 12,
+  "damage": 3,
+  "range_type": "NONE",
+  "description": "精英怪物。被抓取时在抓取玩家的所有相邻地块上各放置一个怪物标记。",
+  "grab_trigger_id": "place_monster_tokens_adjacent_tiles_on_draw",
+  "passive_id": "none",
+  "destroy_id": "none"
+}

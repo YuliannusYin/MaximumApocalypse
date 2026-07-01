@@ -1,0 +1,11 @@
+{
+  "id": "scalpel",
+  "card_name": "手术刀",
+  "owner_character_id": "surgeon",
+  "description": "对1个目标造成2点伤害。回复生命时，额外回复1点。",
+  "effect_script_id": "deal_2_damage_heal_bonus_1",
+  "card_type": "EQUIPMENT",
+  "equipment_cost": 1,
+  "range_type": "SHORT",
+  "action_condition": "无"
+}

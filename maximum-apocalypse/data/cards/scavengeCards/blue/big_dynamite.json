@@ -1,0 +1,10 @@
+{
+  "id": "big_dynamite",
+  "card_name": "大炸药",
+  "category": "战备",
+  "color": "BLUE",
+  "card_type": "ACTION",
+  "equipment_slot": 0,
+  "effect": "摧毁一个地图板块（短距离）",
+  "effect_script_id": "destroy_tile"
+}

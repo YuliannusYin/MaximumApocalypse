@@ -1,0 +1,11 @@
+{
+  "id": "start_car",
+  "card_name": "启动汽车",
+  "owner_character_id": "mechanic",
+  "description": "把任一玩家移动到任一已展示的地图块",
+  "effect_script_id": "move_player_to_revealed_tile",
+  "card_type": "ACTION",
+  "equipment_cost": 0,
+  "range_type": "NONE",
+  "action_condition": "无"
+}

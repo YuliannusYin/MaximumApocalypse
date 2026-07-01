@@ -1,0 +1,11 @@
+{
+  "id": "flare",
+  "card_name": "闪光棒",
+  "owner_character_id": "firefighter",
+  "description": "将射程内的所有怪物吸引到你的面前",
+  "effect_script_id": "attract_all_monsters_to_front",
+  "card_type": "ACTION",
+  "equipment_cost": 0,
+  "range_type": "LONG",
+  "action_condition": "无"
+}

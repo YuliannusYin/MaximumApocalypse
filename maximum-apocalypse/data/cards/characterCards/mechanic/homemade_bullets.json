@@ -1,0 +1,11 @@
+{
+  "id": "homemade_bullets",
+  "card_name": "自制子弹",
+  "owner_character_id": "mechanic",
+  "description": "完全装填射程内的任一武器",
+  "effect_script_id": "fully_reload_weapon",
+  "card_type": "ACTION",
+  "equipment_cost": 0,
+  "range_type": "SHORT",
+  "action_condition": "无"
+}

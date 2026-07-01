@@ -1,0 +1,14 @@
+{
+  "id": "alien_harvester",
+  "monster_name": "外星收割者",
+  "pack": "ALIEN",
+  "rank": "BOSS",
+  "max_hp": 25,
+  "current_hp": 25,
+  "damage": 5,
+  "range_type": "NONE",
+  "description": "首领怪物。被抓取时摧毁场上所有装备牌。攻击时随机烧毁目标玩家区域内的一张牌。",
+  "grab_trigger_id": "destroy_all_equipment_on_draw",
+  "passive_id": "burn_card_on_attack",
+  "destroy_id": "none"
+}

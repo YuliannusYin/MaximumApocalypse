@@ -1,0 +1,14 @@
+{
+  "id": "desert",
+  "tile_name": "沙漠",
+  "spawn_values": 10,
+  "scavenge_type": "NONE",
+  "effect_trigger": [
+    "ON_ENTER"
+  ],
+  "effect_script_id": [
+    "increase_hunger_1"
+  ],
+  "monster_mark": 0,
+  "description": "进入：饥饿等级增加1"
+}

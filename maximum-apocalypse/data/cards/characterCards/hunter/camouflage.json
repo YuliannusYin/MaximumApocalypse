@@ -1,0 +1,11 @@
+{
+  "id": "camouflage",
+  "card_name": "伪装",
+  "owner_character_id": "hunter",
+  "description": "角色的潜行值加2。弃置时受到3点伤害，然后弃置掉你面前的一张非首领怪物，并替换为一个怪物标记。",
+  "effect_script_id": "increase_stealth_2_discard_monster",
+  "card_type": "EQUIPMENT",
+  "equipment_cost": 1,
+  "range_type": "NONE",
+  "action_condition": "无"
+}

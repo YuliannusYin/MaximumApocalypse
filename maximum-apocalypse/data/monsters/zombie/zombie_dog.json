@@ -1,0 +1,14 @@
+{
+  "id": "zombie_dog",
+  "monster_name": "僵尸狗",
+  "pack": "ZOMBIE",
+  "rank": "NORMAL",
+  "max_hp": 5,
+  "current_hp": 5,
+  "damage": 4,
+  "range_type": "NONE",
+  "description": "普通怪物。无特殊能力。",
+  "grab_trigger_id": "none",
+  "passive_id": "none",
+  "destroy_id": "none"
+}

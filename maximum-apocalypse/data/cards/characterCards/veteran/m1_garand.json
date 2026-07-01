@@ -1,0 +1,11 @@
+{
+  "id": "m1_garand",
+  "card_name": "M1加兰德步枪",
+  "owner_character_id": "veteran",
+  "description": "对一个目标造成8点伤害",
+  "effect_script_id": "deal_8_damage_long_range",
+  "card_type": "EQUIPMENT",
+  "equipment_cost": 2,
+  "range_type": "LONG",
+  "action_condition": "无"
+}

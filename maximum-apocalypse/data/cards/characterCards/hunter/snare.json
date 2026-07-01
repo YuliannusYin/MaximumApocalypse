@@ -1,0 +1,11 @@
+{
+  "id": "snare",
+  "card_name": "圈套",
+  "owner_character_id": "hunter",
+  "description": "对一个目标造成1点伤害并击晕，直到你的下个回合开始",
+  "effect_script_id": "deal_1_damage_stun_until_next_turn",
+  "card_type": "ACTION",
+  "equipment_cost": 0,
+  "range_type": "MEDIUM",
+  "action_condition": "无"
+}

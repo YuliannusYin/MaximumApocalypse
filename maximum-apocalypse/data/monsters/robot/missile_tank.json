@@ -1,0 +1,14 @@
+{
+  "id": "missile_tank",
+  "monster_name": "导弹坦克",
+  "pack": "ROBOT",
+  "rank": "BOSS",
+  "max_hp": 22,
+  "current_hp": 22,
+  "damage": 6,
+  "range_type": "MEDIUM",
+  "description": "首领怪物。被抓取时抓取玩家弃掉所有装备区的牌，直接对射程内的所有玩家造成一次伤害。",
+  "grab_trigger_id": "discard_all_equipment_damage_all_players_on_draw",
+  "passive_id": "none",
+  "destroy_id": "none"
+}

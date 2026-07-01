@@ -1,0 +1,14 @@
+{
+  "id": "tunnel",
+  "tile_name": "隧道",
+  "spawn_values": 10,
+  "scavenge_type": "NONE",
+  "effect_trigger": [
+    "ON_ACTION"
+  ],
+  "effect_script_id": [
+    "move_to_another_tunnel"
+  ],
+  "monster_mark": 0,
+  "description": "行动：移动到另一个已展示的隧道地图块"
+}

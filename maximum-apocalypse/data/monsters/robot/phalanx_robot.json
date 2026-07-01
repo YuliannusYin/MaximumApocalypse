@@ -1,0 +1,14 @@
+{
+  "id": "phalanx_robot",
+  "monster_name": "方阵机器人",
+  "pack": "ROBOT",
+  "rank": "ELITE",
+  "max_hp": 11,
+  "current_hp": 11,
+  "damage": 4,
+  "range_type": "MEDIUM",
+  "description": "精英怪物。射程内的机器人类怪物卡受到伤害时，受到的伤害减少1点。",
+  "grab_trigger_id": "none",
+  "passive_id": "reduce_robot_damage_1_in_range",
+  "destroy_id": "none"
+}

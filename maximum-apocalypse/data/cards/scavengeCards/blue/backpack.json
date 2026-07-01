@@ -1,0 +1,10 @@
+{
+  "id": "backpack",
+  "card_name": "背包",
+  "category": "战备",
+  "color": "BLUE",
+  "card_type": "EQUIPMENT",
+  "equipment_slot": 0,
+  "effect": "玩家加1格装备栏",
+  "effect_script_id": "increase_equipment_slots_1"
+}

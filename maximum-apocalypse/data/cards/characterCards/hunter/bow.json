@@ -1,0 +1,11 @@
+{
+  "id": "bow",
+  "card_name": "弓",
+  "owner_character_id": "hunter",
+  "description": "对一个目标造成2点伤害",
+  "effect_script_id": "deal_2_damage_medium_range",
+  "card_type": "EQUIPMENT",
+  "equipment_cost": 1,
+  "range_type": "MEDIUM",
+  "action_condition": "无"
+}

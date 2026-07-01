@@ -1,0 +1,10 @@
+{
+  "id": "dirty_blanket",
+  "card_name": "脏毯子",
+  "category": "其他",
+  "color": "GRAY",
+  "card_type": "ITEM",
+  "equipment_slot": 0,
+  "effect": "作为游戏结算时的物品",
+  "effect_script_id": "game_end_item"
+}

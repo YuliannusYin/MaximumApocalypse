@@ -1,0 +1,16 @@
+{
+  "id": "amusement_park",
+  "tile_name": "游乐园",
+  "spawn_values": 6,
+  "scavenge_type": "BLUE",
+  "effect_trigger": [
+    "ON_REVEAL",
+    "ON_END"
+  ],
+  "effect_script_id": [
+    "discard_3_cards",
+    "discard_1_card"
+  ],
+  "monster_mark": 0,
+  "description": "蓝色、绿色、红色拾荒\n展示：弃掉3张牌\n结束：弃掉1张牌"
+}

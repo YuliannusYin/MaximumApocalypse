@@ -1,0 +1,11 @@
+{
+  "id": "inject_steroid",
+  "card_name": "注射类固醇",
+  "owner_character_id": "surgeon",
+  "description": "选择一名玩家，该玩家可以立即打出2张牌",
+  "effect_script_id": "player_play_2_cards",
+  "card_type": "ACTION",
+  "equipment_cost": 0,
+  "range_type": "NONE",
+  "action_condition": "无"
+}

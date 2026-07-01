@@ -1,0 +1,14 @@
+{
+  "id": "mutant_rat",
+  "monster_name": "突变体老鼠",
+  "pack": "MUTANT",
+  "rank": "ELITE",
+  "max_hp": 5,
+  "current_hp": 5,
+  "damage": 2,
+  "range_type": "NONE",
+  "description": "精英怪物。造成伤害时对受到伤害的玩家添加一层中毒效果。",
+  "grab_trigger_id": "none",
+  "passive_id": "add_poison_on_damage",
+  "destroy_id": "none"
+}

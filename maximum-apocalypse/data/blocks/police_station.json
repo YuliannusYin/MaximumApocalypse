@@ -1,0 +1,14 @@
+{
+  "id": "police_station",
+  "tile_name": "警察局",
+  "spawn_values": 6,
+  "scavenge_type": "BLUE",
+  "effect_trigger": [
+    "ON_REVEAL"
+  ],
+  "effect_script_id": [
+    "free_scavenge"
+  ],
+  "monster_mark": 0,
+  "description": "蓝色拾荒\n展示：执行一次免费的拾荒行动"
+}

@@ -1,0 +1,10 @@
+{
+  "id": "medical_large",
+  "card_name": "医疗用品(大型)",
+  "category": "补给",
+  "color": "RED",
+  "card_type": "ACTION",
+  "value": 6,
+  "effect": "恢复6点生命值",
+  "effect_script_id": "restore_hp_6"
+}

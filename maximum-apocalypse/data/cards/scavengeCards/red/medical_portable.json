@@ -1,0 +1,10 @@
+{
+  "id": "medical_portable",
+  "card_name": "医疗用品(便携)",
+  "category": "补给",
+  "color": "RED",
+  "card_type": "ACTION",
+  "value": 2,
+  "effect": "恢复2点生命值",
+  "effect_script_id": "restore_hp_2"
+}

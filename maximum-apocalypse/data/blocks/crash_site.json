@@ -1,0 +1,16 @@
+{
+  "id": "crash_site",
+  "tile_name": "坠骇点",
+  "spawn_values": 10,
+  "scavenge_type": "NONE",
+  "effect_trigger": [
+    "ON_REVEAL",
+    "ON_ENTER"
+  ],
+  "effect_script_id": [
+    "destroy_equipment_all",
+    "burn_card"
+  ],
+  "monster_mark": 0,
+  "description": "展示：每名玩家摧毁一张装备\n进入：烧毁一张卡牌"
+}

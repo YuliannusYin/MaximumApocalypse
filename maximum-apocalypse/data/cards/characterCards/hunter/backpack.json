@@ -1,0 +1,11 @@
+{
+  "id": "hunter_backpack",
+  "card_name": "背包",
+  "owner_character_id": "hunter",
+  "description": "增加一格角色装备栏",
+  "effect_script_id": "increase_equipment_slots_1",
+  "card_type": "EQUIPMENT",
+  "equipment_cost": 0,
+  "range_type": "NONE",
+  "action_condition": "无"
+}

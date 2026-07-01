@@ -31,12 +31,14 @@
 .mono/
 data_*/
 mono_crash.*.json
-*.csproj
-*.sln
+# 注意：*.csproj / *.sln 必须纳入版本控制（Godot C# 工程）
 *.user
 *.pidb
 *.pdb
 *.dll
+# C# 构建产物
+bin/
+obj/
 
 # ---------- 翻译文件（可选，根据项目需要）----------
 # *.translation

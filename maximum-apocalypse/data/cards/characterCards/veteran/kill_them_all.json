@@ -1,0 +1,11 @@
+{
+  "id": "kill_them_all",
+  "card_name": "干死你们",
+  "owner_character_id": "veteran",
+  "description": "如果狗已死亡，对射程内的所有目标造成6点伤害",
+  "effect_script_id": "dog_dead_deal_6_damage_all_targets",
+  "card_type": "ACTION",
+  "equipment_cost": 0,
+  "range_type": "MEDIUM",
+  "action_condition": "狗已死亡"
+}

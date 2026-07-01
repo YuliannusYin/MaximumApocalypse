@@ -1,0 +1,11 @@
+{
+  "id": "sensor_mine",
+  "card_name": "感应地雷",
+  "owner_character_id": "mechanic",
+  "description": "当玩家抓取一张怪物卡后，弃掉此装备并对该怪物造成7点伤害",
+  "effect_script_id": "discard_on_monster_draw_deal_7_damage",
+  "card_type": "EQUIPMENT",
+  "equipment_cost": 1,
+  "range_type": "NONE",
+  "action_condition": "无"
+}

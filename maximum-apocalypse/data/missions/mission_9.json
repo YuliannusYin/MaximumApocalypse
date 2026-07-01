@@ -1,0 +1,61 @@
+{
+  "id": "mission_9",
+  "mission_name": "人类反击",
+  "difficulty": "困难",
+  "required_van_fuel": 0,
+  "description": "根据你找到的情报，我们绘制出了控制他们的机械和无人机的外星神经网络图。我们团队的科学家们写了一个让他们瘫痪的病毒。我们击毁了一艘外星飞船，现在需要到那里上传病毒。",
+  "objective_text": "目标：摧毁2个外星发射器，然后把科学家带到现场去上传病毒。",
+  "starting_tile_id": "van",
+  "initial_setup_rule": "设置：把1个目标标记和3个怪物标记各放到2个地图块上。这代表被守卫的外星发射器。你可以花费1个行动来摧毁1个发射器。首领：把2张首领卡洗入怪物牌库。",
+  "tile_manifest": {
+    "gas_station": 2,
+    "tunnel": 2,
+    "city_street": 1,
+    "river": 1,
+    "police_station": 1,
+    "bandit_camp": 1,
+    "airport": 1,
+    "crash_site": 1,
+    "military_base": 1,
+    "mountain": 2,
+    "shelter": 2,
+    "farm": 2,
+    "oasis": 1,
+    "department_store": 1,
+    "hospital": 1,
+    "factory": 1,
+    "prison": 1
+  },
+  "red_scavenge_pool": {
+    "food_small": 2,
+    "fuel": 4,
+    "medical_small": 2,
+    "ammo_red": 4,
+    "ammo_red_large": 2,
+    "backpack": 1,
+    "binoculars": 1,
+    "spare_parts": 1,
+    "nothing": 1,
+    "ambush": 1
+  },
+  "green_scavenge_pool": {
+    "food_small": 6,
+    "fuel": 2,
+    "ammo_green": 2,
+    "flashlight": 1,
+    "walkie_talkie": 1,
+    "spare_parts": 1,
+    "nothing": 1,
+    "dusty_journal": 1,
+    "ambush": 1
+  },
+  "blue_scavenge_pool": {
+    "food_small": 2,
+    "fuel": 2,
+    "pistol": 1,
+    "spare_parts": 2,
+    "nothing": 1,
+    "ambush": 1
+  },
+  "special_map_requirements": ""
+}

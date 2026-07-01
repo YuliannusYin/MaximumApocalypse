@@ -1,0 +1,9 @@
+{
+  "id": "surgeon",
+  "character_name": "外科医生",
+  "max_hp": 23,
+  "current_hp": 23,
+  "hunger_level": 1,
+  "base_stealth": 8,
+  "starving_stealth": 7
+}

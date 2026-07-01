@@ -1,0 +1,14 @@
+{
+  "id": "bandit_camp",
+  "tile_name": "强盗营地",
+  "spawn_values": 9,
+  "scavenge_type": "NONE",
+  "effect_trigger": [
+    "ON_ENTER"
+  ],
+  "effect_script_id": [
+    "discard_equipment_or_damage_5"
+  ],
+  "monster_mark": 0,
+  "description": "进入：弃掉一张已装备的装备卡或受到5点伤害"
+}

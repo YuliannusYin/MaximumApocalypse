@@ -1,0 +1,10 @@
+{
+  "id": "fuel",
+  "card_name": "燃料",
+  "category": "补给",
+  "color": "RED",
+  "card_type": "EQUIPMENT",
+  "value": 0,
+  "effect": "给弹药类型为燃料的武器卡填装满燃料",
+  "effect_script_id": "reload_fuel_weapon_full"
+}

@@ -1,0 +1,14 @@
+{
+  "id": "oasis",
+  "tile_name": "绿洲",
+  "spawn_values": 11,
+  "scavenge_type": "NONE",
+  "effect_trigger": [
+    "ON_END"
+  ],
+  "effect_script_id": [
+    "reduce_hunger_1"
+  ],
+  "monster_mark": 0,
+  "description": "结束：饥饿等级减少1点"
+}

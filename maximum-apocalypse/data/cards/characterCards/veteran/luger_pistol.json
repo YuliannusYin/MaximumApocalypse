@@ -1,0 +1,11 @@
+{
+  "id": "luger_pistol",
+  "card_name": "鲁格手枪",
+  "owner_character_id": "veteran",
+  "description": "对一个目标造成4点伤害",
+  "effect_script_id": "deal_4_damage_medium_range",
+  "card_type": "EQUIPMENT",
+  "equipment_cost": 1,
+  "range_type": "MEDIUM",
+  "action_condition": "无"
+}

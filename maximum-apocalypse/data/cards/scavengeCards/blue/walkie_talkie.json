@@ -1,0 +1,10 @@
+{
+  "id": "walkie_talkie",
+  "card_name": "对讲机",
+  "category": "战备",
+  "color": "BLUE",
+  "card_type": "EQUIPMENT",
+  "equipment_slot": 1,
+  "effect": "选择另一名玩家，该玩家立即执行一个行动",
+  "effect_script_id": "grant_action_to_other_player"
+}

@@ -1,0 +1,11 @@
+{
+  "id": "headshot",
+  "card_name": "爆头",
+  "owner_character_id": "hunter",
+  "description": "对一个目标造成6点伤害",
+  "effect_script_id": "deal_6_damage_long_range",
+  "card_type": "ACTION",
+  "equipment_cost": 0,
+  "range_type": "LONG",
+  "action_condition": "装备区里有【弓】或者【弩】"
+}

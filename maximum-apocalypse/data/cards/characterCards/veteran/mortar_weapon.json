@@ -1,0 +1,11 @@
+{
+  "id": "mortar_weapon",
+  "card_name": "迫击炮",
+  "owner_character_id": "veteran",
+  "description": "目标一个地图块移除上面所有的怪物标记或对该地图块的所有目标造成6点伤害",
+  "effect_script_id": "remove_monsters_or_deal_6_damage_all",
+  "card_type": "EQUIPMENT",
+  "equipment_cost": 2,
+  "range_type": "LONG",
+  "action_condition": "无"
+}

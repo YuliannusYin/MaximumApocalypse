@@ -1,0 +1,11 @@
+{
+  "id": "ranger_hat",
+  "card_name": "游侠帽",
+  "owner_character_id": "cowboy",
+  "description": "此装备进入玩家的装备区时，玩家回复三点生命值。当你造成伤害时，所有你造成的伤害加一。",
+  "effect_script_id": "heal_3_on_equip_increase_damage_1",
+  "card_type": "EQUIPMENT",
+  "equipment_cost": 1,
+  "range_type": "NONE",
+  "action_condition": "无"
+}

@@ -1,0 +1,14 @@
+{
+  "id": "military_base",
+  "tile_name": "军事基地",
+  "spawn_values": 0,
+  "scavenge_type": "BLUE",
+  "effect_trigger": [
+    "ON_ENTER"
+  ],
+  "effect_script_id": [
+    "damage_all_facing_monsters_2"
+  ],
+  "monster_mark": 0,
+  "description": "蓝色、红色拾荒\n进入：对你面前的所有怪物各造成2点伤害\n怪物出生值为0（永远不会出生怪物）"
+}

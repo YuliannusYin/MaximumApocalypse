@@ -1,0 +1,11 @@
+{
+  "id": "trust_instinct",
+  "card_name": "相信它的直觉",
+  "owner_character_id": "veteran",
+  "description": "如果狗还活着，展示2张地图块，不触发它们的展示效果",
+  "effect_script_id": "dog_alive_reveal_2_tiles_no_trigger",
+  "card_type": "ACTION",
+  "equipment_cost": 0,
+  "range_type": "NONE",
+  "action_condition": "狗还活着"
+}

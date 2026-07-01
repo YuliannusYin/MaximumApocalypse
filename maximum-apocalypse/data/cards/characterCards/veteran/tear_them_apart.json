@@ -1,0 +1,11 @@
+{
+  "id": "tear_them_apart",
+  "card_name": "把他们撕成碎片",
+  "owner_character_id": "veteran",
+  "description": "如果狗还活着，对最多3个射程内的目标造成3点伤害",
+  "effect_script_id": "dog_alive_deal_3_damage_3_targets",
+  "card_type": "ACTION",
+  "equipment_cost": 0,
+  "range_type": "MEDIUM",
+  "action_condition": "狗还活着"
+}

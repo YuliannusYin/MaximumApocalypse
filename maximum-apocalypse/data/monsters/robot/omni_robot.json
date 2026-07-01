@@ -1,0 +1,14 @@
+{
+  "id": "omni_robot",
+  "monster_name": "全能机器人",
+  "pack": "ROBOT",
+  "rank": "ELITE",
+  "max_hp": 20,
+  "current_hp": 20,
+  "damage": 3,
+  "range_type": "MEDIUM",
+  "description": "精英怪物。被玩家消灭/摧毁时，对射程范围内的所有玩家造成四点伤害。",
+  "grab_trigger_id": "none",
+  "passive_id": "none",
+  "destroy_id": "damage_4_all_players_on_destroy"
+}

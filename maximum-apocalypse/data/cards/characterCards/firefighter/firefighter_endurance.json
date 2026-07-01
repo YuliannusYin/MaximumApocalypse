@@ -1,0 +1,11 @@
+{
+  "id": "firefighter_endurance",
+  "card_name": "消防员的耐力",
+  "owner_character_id": "firefighter",
+  "description": "移动最多三格，然后抓取一张牌。",
+  "effect_script_id": "move_3_tiles_draw_1_card",
+  "card_type": "ACTION",
+  "equipment_cost": 0,
+  "range_type": "NONE",
+  "action_condition": "无"
+}

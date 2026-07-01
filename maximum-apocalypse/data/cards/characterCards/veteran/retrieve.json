@@ -1,0 +1,11 @@
+{
+  "id": "retrieve",
+  "card_name": "取回",
+  "owner_character_id": "veteran",
+  "description": "如果狗还活着，抓任意3张拾荒卡并弃掉2张",
+  "effect_script_id": "dog_alive_draw_3_scavenge_discard_2",
+  "card_type": "ACTION",
+  "equipment_cost": 0,
+  "range_type": "NONE",
+  "action_condition": "狗还活着"
+}

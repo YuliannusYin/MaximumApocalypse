@@ -1,0 +1,14 @@
+{
+  "id": "military_remnant",
+  "monster_name": "军部残余武装",
+  "pack": "MUTANT",
+  "rank": "ELITE",
+  "max_hp": 10,
+  "current_hp": 10,
+  "damage": 4,
+  "range_type": "NONE",
+  "description": "精英怪物。被抓取时抓取玩家弃掉一张装备区内的装备，否则受到四点伤害。",
+  "grab_trigger_id": "discard_equipment_or_damage_4_on_draw",
+  "passive_id": "none",
+  "destroy_id": "none"
+}

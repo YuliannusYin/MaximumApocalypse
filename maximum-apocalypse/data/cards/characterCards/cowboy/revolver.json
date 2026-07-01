@@ -1,0 +1,11 @@
+{
+  "id": "revolver",
+  "card_name": "左轮手枪",
+  "owner_character_id": "cowboy",
+  "description": "对一个目标造成3点伤害，然后你可以再花费一个弹药来攻击另一个目标。",
+  "effect_script_id": "deal_3_damage_chain_attack",
+  "card_type": "EQUIPMENT",
+  "equipment_cost": 1,
+  "range_type": "NONE",
+  "action_condition": "武器射程内有两个及以上的目标"
+}

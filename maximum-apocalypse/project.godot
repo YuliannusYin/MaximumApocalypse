@@ -12,17 +12,21 @@ config_version=5
 
 config/name="MaximumApocalypse"
 run/main_scene="uid://bjhs6ltlnvt"
-config/features=PackedStringArray("4.7", "Forward Plus")
+config/features=PackedStringArray("4.7", "C#", "Forward Plus")
 config/icon="res://icon.svg"
 
 [autoload]
 
-Enums="*uid://buvwmjhq41w3f"
+GameState="*res://Scripts/Core/GameState.cs"
 
 [display]
 
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+
+[dotnet]
+
+project/assembly_name="MaximumApocalypse"
 
 [physics]
 

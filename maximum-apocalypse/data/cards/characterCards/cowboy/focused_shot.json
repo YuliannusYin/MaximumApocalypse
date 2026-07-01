@@ -1,0 +1,11 @@
+{
+  "id": "focused_shot",
+  "card_name": "集中射击",
+  "owner_character_id": "cowboy",
+  "description": "消耗一枚弹药，对一个选定目标造成5点伤害",
+  "effect_script_id": "consume_ammo_deal_5_damage",
+  "card_type": "ACTION",
+  "equipment_cost": 0,
+  "range_type": "LONG",
+  "action_condition": "装备区有装备消耗弹药的武器，且弹药量大于零"
+}

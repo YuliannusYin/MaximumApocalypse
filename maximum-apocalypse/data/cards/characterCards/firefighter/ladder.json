@@ -1,0 +1,11 @@
+{
+  "id": "ladder",
+  "card_name": "梯子",
+  "owner_character_id": "firefighter",
+  "description": "自动通过河流地图块的检定。弃置此装备，然后跳过抓取怪物卡的步骤。（此行为不消耗每回合的行动点数）",
+  "effect_script_id": "auto_pass_river_skip_monster_draw",
+  "card_type": "EQUIPMENT",
+  "equipment_cost": 1,
+  "range_type": "NONE",
+  "action_condition": "无"
+}

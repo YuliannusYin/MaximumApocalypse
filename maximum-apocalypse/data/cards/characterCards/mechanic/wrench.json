@@ -1,0 +1,11 @@
+{
+  "id": "wrench",
+  "card_name": "扳手",
+  "owner_character_id": "mechanic",
+  "description": "对目标造成2点伤害",
+  "effect_script_id": "deal_2_damage_short_range",
+  "card_type": "EQUIPMENT",
+  "equipment_cost": 1,
+  "range_type": "SHORT",
+  "action_condition": "无"
+}

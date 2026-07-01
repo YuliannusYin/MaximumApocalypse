@@ -1,0 +1,11 @@
+{
+  "id": "versatile",
+  "card_name": "神通广大",
+  "owner_character_id": "hunter",
+  "description": "从任一弃牌堆中抽一张装备牌，并把它放置在场上任一玩家的装备区中",
+  "effect_script_id": "draw_equipment_from_discard_equip_to_player",
+  "card_type": "ACTION",
+  "equipment_cost": 0,
+  "range_type": "NONE",
+  "action_condition": "场上的所有弃牌堆中至少有1张装备牌"
+}

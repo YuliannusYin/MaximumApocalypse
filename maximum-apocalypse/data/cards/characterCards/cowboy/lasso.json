@@ -1,0 +1,11 @@
+{
+  "id": "lasso",
+  "card_name": "套索",
+  "owner_character_id": "cowboy",
+  "description": "击晕一个怪物并将其移动至你的面前",
+  "effect_script_id": "stun_and_pull_monster",
+  "card_type": "ACTION",
+  "equipment_cost": 0,
+  "range_type": "MEDIUM",
+  "action_condition": "射程范围内有可以被击晕的怪物"
+}

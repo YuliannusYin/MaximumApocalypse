@@ -1,0 +1,14 @@
+{
+  "id": "explosive_robot",
+  "monster_name": "爆破机器人",
+  "pack": "ROBOT",
+  "rank": "ELITE",
+  "max_hp": 15,
+  "current_hp": 15,
+  "damage": 4,
+  "range_type": "NONE",
+  "description": "精英怪物。被消灭/摧毁时对该怪物卡所纠缠的玩家造成2点伤害。造成伤害时，若受到伤害的玩家本回合没有移动过，伤害翻倍。",
+  "grab_trigger_id": "none",
+  "passive_id": "double_damage_if_no_move",
+  "destroy_id": "damage_2_on_destroy"
+}

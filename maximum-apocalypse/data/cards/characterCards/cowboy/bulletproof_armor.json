@@ -1,0 +1,11 @@
+{
+  "id": "bulletproof_armor",
+  "card_name": "防弹衣",
+  "owner_character_id": "cowboy",
+  "description": "受到的伤害减一",
+  "effect_script_id": "reduce_damage_by_1",
+  "card_type": "EQUIPMENT",
+  "equipment_cost": 1,
+  "range_type": "NONE",
+  "action_condition": "无"
+}

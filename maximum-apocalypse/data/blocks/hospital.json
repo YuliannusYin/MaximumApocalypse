@@ -1,0 +1,16 @@
+{
+  "id": "hospital",
+  "tile_name": "医院",
+  "spawn_values": 3,
+  "scavenge_type": "RED",
+  "effect_trigger": [
+    "ON_ENTER",
+    "ON_END"
+  ],
+  "effect_script_id": [
+    "heal_1",
+    "heal_2"
+  ],
+  "monster_mark": 0,
+  "description": "提供医疗服务的场所\n进入：恢复1点生命\n结束：恢复2点生命"
+}

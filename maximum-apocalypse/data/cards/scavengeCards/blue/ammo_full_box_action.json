@@ -1,0 +1,10 @@
+{
+  "id": "ammo_full_box_action",
+  "card_name": "整盒弹药",
+  "category": "战备",
+  "color": "BLUE",
+  "card_type": "ACTION",
+  "value": 0,
+  "effect": "将一张武器卡填装到满弹药",
+  "effect_script_id": "reload_weapon_full"
+}

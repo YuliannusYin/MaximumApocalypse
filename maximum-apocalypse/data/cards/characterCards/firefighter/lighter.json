@@ -1,0 +1,11 @@
+{
+  "id": "lighter",
+  "card_name": "打火机",
+  "owner_character_id": "firefighter",
+  "description": "对射程内的所有怪物造成2点伤害",
+  "effect_script_id": "deal_2_damage_all_monsters_in_range",
+  "card_type": "EQUIPMENT",
+  "equipment_cost": 1,
+  "range_type": "NONE",
+  "action_condition": "无"
+}

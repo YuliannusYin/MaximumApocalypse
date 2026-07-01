@@ -1,0 +1,14 @@
+{
+  "id": "farm",
+  "tile_name": "农场",
+  "spawn_values": 11,
+  "scavenge_type": "GREEN",
+  "effect_trigger": [
+    "ON_REVEAL"
+  ],
+  "effect_script_id": [
+    "free_scavenge"
+  ],
+  "monster_mark": 0,
+  "description": "绿色拾荒\n展示：执行一次免费的拾荒行动"
+}

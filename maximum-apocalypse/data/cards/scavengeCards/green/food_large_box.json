@@ -1,0 +1,10 @@
+{
+  "id": "food_large_box",
+  "card_name": "一大箱食物",
+  "category": "食物",
+  "color": "GREEN",
+  "card_type": "ACTION",
+  "value": 2,
+  "effect": "所有玩家的饥饿值减少2点",
+  "effect_script_id": "reduce_all_hunger_2"
+}

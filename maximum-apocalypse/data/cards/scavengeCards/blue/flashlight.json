@@ -1,0 +1,10 @@
+{
+  "id": "flashlight",
+  "card_name": "手电筒",
+  "category": "战备",
+  "color": "BLUE",
+  "card_type": "EQUIPMENT",
+  "equipment_slot": 1,
+  "effect": "当你执行拾荒行动时，改为观看牌堆顶两张牌，然后你保留其中一张，将另一张置于牌堆底",
+  "effect_script_id": "scavenge_peek_top_2"
+}

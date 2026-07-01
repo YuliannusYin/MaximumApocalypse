@@ -1,0 +1,11 @@
+{
+  "id": "trusty_axe",
+  "card_name": "值得信赖的斧子",
+  "owner_character_id": "firefighter",
+  "description": "对一个目标造成4点伤害",
+  "effect_script_id": "deal_4_damage_short_range",
+  "card_type": "EQUIPMENT",
+  "equipment_cost": 2,
+  "range_type": "SHORT",
+  "action_condition": "无"
+}

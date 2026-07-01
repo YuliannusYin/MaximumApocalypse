@@ -1,0 +1,14 @@
+{
+  "id": "factory",
+  "tile_name": "工厂",
+  "spawn_values": 4,
+  "scavenge_type": "BLUE",
+  "effect_trigger": [
+    "ON_REVEAL"
+  ],
+  "effect_script_id": [
+    "add_monster_marker_adjacent"
+  ],
+  "monster_mark": 0,
+  "description": "蓝色拾荒\n展示：向所有相邻的地块各增加一个怪物标记"
+}

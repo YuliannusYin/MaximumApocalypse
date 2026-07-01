@@ -1,0 +1,11 @@
+{
+  "id": "volley_fire",
+  "card_name": "齐射",
+  "owner_character_id": "cowboy",
+  "description": "弃掉所有武器的弹药，对一个目标造成3+2X点伤害。（X为你以此法弃掉的弹药数量）",
+  "effect_script_id": "discard_all_ammo_damage_3_plus_2x",
+  "card_type": "ACTION",
+  "equipment_cost": 0,
+  "range_type": "MEDIUM",
+  "action_condition": "装备区所有武器的弹药量之和大于零"
+}

@@ -1,0 +1,9 @@
+{
+  "id": "mechanic",
+  "character_name": "机械师",
+  "max_hp": 26,
+  "current_hp": 26,
+  "hunger_level": 1,
+  "base_stealth": 8,
+  "starving_stealth": 7
+}

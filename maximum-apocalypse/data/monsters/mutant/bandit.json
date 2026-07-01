@@ -1,0 +1,14 @@
+{
+  "id": "bandit",
+  "monster_name": "强盗",
+  "pack": "MUTANT",
+  "rank": "ELITE",
+  "max_hp": 7,
+  "current_hp": 7,
+  "damage": 3,
+  "range_type": "NONE",
+  "description": "精英怪物。被抓取时抓取玩家弃掉一拾荒卡，否则受到三点伤害。",
+  "grab_trigger_id": "discard_scavenge_or_damage_3_on_draw",
+  "passive_id": "none",
+  "destroy_id": "none"
+}

@@ -1,0 +1,14 @@
+{
+  "id": "graveyard",
+  "tile_name": "墓地",
+  "spawn_values": 4,
+  "scavenge_type": "NONE",
+  "effect_trigger": [
+    "ON_REVEAL"
+  ],
+  "effect_script_id": [
+    "draw_monster_card_all_players"
+  ],
+  "monster_mark": 0,
+  "description": "展示：每名玩家抓一张怪物卡"
+}

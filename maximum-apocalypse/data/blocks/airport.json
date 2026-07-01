@@ -1,0 +1,14 @@
+{
+  "id": "airport",
+  "tile_name": "机场",
+  "spawn_values": 8,
+  "scavenge_type": "GREEN",
+  "effect_trigger": [
+    "ON_ACTION"
+  ],
+  "effect_script_id": [
+    "move_to_revealed_tile"
+  ],
+  "monster_mark": 0,
+  "description": "绿色、红色拾荒\n行动：如果这里没有怪物，移动到另一个已展示的地图块"
+}

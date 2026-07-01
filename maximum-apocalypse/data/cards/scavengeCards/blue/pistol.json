@@ -1,0 +1,10 @@
+{
+  "id": "pistol",
+  "card_name": "手枪",
+  "category": "战备",
+  "color": "BLUE",
+  "card_type": "EQUIPMENT",
+  "equipment_slot": 1,
+  "effect": "对一个目标造成2点伤害（中距离）",
+  "effect_script_id": "deal_damage_2_medium_range"
+}

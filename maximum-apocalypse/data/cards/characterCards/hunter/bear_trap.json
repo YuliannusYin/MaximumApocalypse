@@ -1,0 +1,11 @@
+{
+  "id": "bear_trap",
+  "card_name": "捕熊陷阱",
+  "owner_character_id": "hunter",
+  "description": "对一个目标造成4点伤害",
+  "effect_script_id": "deal_4_damage_trap",
+  "card_type": "EQUIPMENT",
+  "equipment_cost": 1,
+  "range_type": "SHORT",
+  "action_condition": "射程内有目标"
+}

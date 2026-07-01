@@ -1,0 +1,14 @@
+{
+  "id": "swamp",
+  "tile_name": "沼泽",
+  "spawn_values": 8,
+  "scavenge_type": "NONE",
+  "effect_trigger": [
+    "ON_ENTER"
+  ],
+  "effect_script_id": [
+    "stealth_check_swamp"
+  ],
+  "monster_mark": 0,
+  "description": "进入：成功：放置1个怪物标记；失败：纠缠你的所有怪物立刻激活"
+}

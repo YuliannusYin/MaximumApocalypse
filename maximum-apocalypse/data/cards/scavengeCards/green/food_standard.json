@@ -1,0 +1,10 @@
+{
+  "id": "food_standard",
+  "card_name": "标准食粮",
+  "category": "食物",
+  "color": "GREEN",
+  "card_type": "ACTION",
+  "value": 3,
+  "effect": "玩家饥饿值减少3点",
+  "effect_script_id": "reduce_hunger_3"
+}

@@ -1,0 +1,10 @@
+{
+  "id": "ammo_half_box",
+  "card_name": "半盒弹药",
+  "category": "战备",
+  "color": "BLUE",
+  "card_type": "ACTION",
+  "value": 3,
+  "effect": "向一张武器卡填装3发弹药",
+  "effect_script_id": "reload_weapon_3"
+}

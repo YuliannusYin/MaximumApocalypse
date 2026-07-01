@@ -1,0 +1,11 @@
+{
+  "id": "first_aid_kit",
+  "card_name": "急救包",
+  "owner_character_id": "firefighter",
+  "description": "使射程内任一玩家一个目标恢复4点生命值",
+  "effect_script_id": "heal_4_hp_to_player",
+  "card_type": "ACTION",
+  "equipment_cost": 0,
+  "range_type": "SHORT",
+  "action_condition": "无"
+}

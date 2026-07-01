@@ -1,0 +1,11 @@
+{
+  "id": "auto_turret",
+  "card_name": "自动炮塔",
+  "owner_character_id": "mechanic",
+  "description": "每次你受到伤害时，自动炮塔对伤害来源造成4点伤害",
+  "effect_script_id": "auto_turret_counter_damage_4",
+  "card_type": "EQUIPMENT",
+  "equipment_cost": 2,
+  "range_type": "NONE",
+  "action_condition": "无"
+}
