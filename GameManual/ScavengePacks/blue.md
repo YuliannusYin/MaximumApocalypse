@@ -243,7 +243,7 @@
         filterTargetRange: "长距离" # 目标必须在长距离范围内
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            target.展示(触发效果=false) # 展示但不触发"展示地块时"钩子
+            target.展示(触发效果=false, player) # 展示但不触发"展示地块时"钩子
         }
     }
 }
