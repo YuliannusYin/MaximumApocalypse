@@ -89,7 +89,7 @@
         skillType: "装备"
         技能名: "燃料"
         技能描述: "抓取到此卡时,需要立即装备或者弃掉（不额外消耗行动次数）。"
-        trigger: 卡牌进入手牌区时
+        trigger: 抓取拾荒牌时 
         filter: return event.card.名字 == "燃料"
         content: {
             card = event.card

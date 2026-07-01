@@ -16,6 +16,17 @@
     初始血量：30
     攻击伤害：5
     射程：短距离
+    技能: {
+        技能名: "狂暴的突变体"
+        技能描述："攻击附带一层中毒效果"
+        skillType: "Monster"
+        trigger: 怪物攻击后
+        filter: return event.monster.name == "狂暴的突变体"
+        forced: true
+        content:{
+            player
+        }
+    }
     天赋：{
         触发时机：该怪物卡造成伤害时。
         触发效果：对受到伤害的玩家添加一层中毒效果。

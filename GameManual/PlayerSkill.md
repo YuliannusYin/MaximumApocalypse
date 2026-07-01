@@ -48,7 +48,7 @@ Skill{
     filterCard: return getSource(card) == player # 只能选来源于“玩家游戏牌库”的牌（即必须是玩家游戏牌）
     position: "手牌区" # 选牌位置限定为手牌区
     content: {
-        player.Discard(cards) # 弃置所选的2张牌
+        player.discard(cards)
         player.draw(1) # 从玩家游戏牌库抓取1张牌
     }
 }
@@ -67,7 +67,7 @@ Skill{
     filterTarget: return target.hasScavengeCard() && target != player # 目标必须持有拾荒牌，且不能是玩家自己
     content: {
         # 向目标展示所选的拾荒牌
-        player.ShowCard(card, target) # 向target展示card
+        player.showCard(card, target)
         
         # 询问目标是否同意交易
         list = ["同意", "拒绝"]
@@ -77,7 +77,7 @@ Skill{
         if( result == "同意" ){
 
             # 目标从其手牌区中选择1张拾荒牌
-            card2 = target.ChooseCard(1, position="手牌区", source="scavenge") # target选择手牌区中的一张拾荒牌
+            card2 = target.chooseCard(1, position="手牌区", source="scavenge") #target选择手牌区中的一张拾荒牌
             
             target.getCard(card) # 目标获得玩家展示的牌
             player.getCard(card2) # 玩家获得目标选定的牌
@@ -93,7 +93,8 @@ Skill{
     filter: return player.inPhase == "行动阶段" && 玩家装备区里有'燃料' # 自然语言描述，待实现为具体函数调用；免费行动：不消耗行动次数；需在行动阶段，且玩家持有燃料
     filterTargetRange: "短距离" # 目标必须在短距离范围内
     filterTarget: {
-        if( target == player.所在地图块() && target == "面包车" ){ # 目标是玩家所在地块的面包车
+        # [修改] 2026-07-01: 修正类型矛盾——原 target == player.所在地图块() && target == "面包车" 不可能同时成立（target 不可能既等于地块对象又等于字符串），改为分项判断地块名
+        if( target == player.所在地图块() && player.所在地图块().名字 == "面包车" ){ # 目标是玩家所在地块的面包车
             return true
         } else if( target.填充物类型 == "燃料" ){ # 目标是填充物类型为"燃料"的装备
             return true
@@ -136,8 +137,7 @@ function player.moveTo(target) { # 底层移动函数（不扣行动次数，只
 
     # 7. 进入目标地块后（展示地图块并触发展示效果）
     if( !target.已展示() ) {
-        target.展示()
-        target.触发("展示地块时", player)
+        target.展示(触发效果=true, player) # 玩家展示地块并触发"展示地块时"钩子
     }
 
     return true  # 移动成功

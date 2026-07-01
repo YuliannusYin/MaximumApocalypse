@@ -214,6 +214,7 @@
         forced: true # 强制发动，替代原有拾荒逻辑
         content:{
             player.cancel('drawScavenge')
+            # cancel 替代原 drawScavenge 后，「抓取拾荒牌时」事件不再触发，故手电筒拾荒不会抓到「一无所获/伏击！」
             # 备注：trigger 机制需钩住 PlayerSkill.md 中「拾荒」技能的 content，将原「抓1张」改为「看2留1放1」
             牌堆 = player.当前拾荒牌堆() # 获取当前拾荒的牌堆
             顶两张 = 牌堆.查看顶( 2 ) # 查看牌堆顶2张牌（不抓取）
@@ -242,7 +243,7 @@
         filterTargetRange: "长距离" # 目标必须在长距离范围内
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            target.展示() # 展示目标地块
+            target.展示(触发效果=false) # 展示但不触发"展示地块时"钩子
         }
     }
 }

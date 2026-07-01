@@ -20,8 +20,10 @@
     技能: {
         技能名: "僵尸女王"
         技能描述："当场上任何僵尸类型怪物被消灭时，消灭该怪物的玩家必须抓取一张新的怪物卡。" 
+        skillType: "Monster"
         trigger: 怪物被消灭时
-        filter: return trigger.subType == Zombie
+        filter: return trigger.subType == "ZOMBIE"
+        forced: true
         content:{
             player.drawMonster(1)
         }
@@ -36,8 +38,10 @@
     技能: {
         技能名: "一大波僵尸"
         技能描述："在抓取该卡玩家的所有相邻地块上各放置一个怪物标记。该玩家再抓取一张怪物卡。"
-        trigger: 怪物被抓取时
-        filter：无
+        skillType: "Monster"
+        trigger: 抓取怪物时
+        filter: return event.monster.name == "一大波僵尸"
+        forced: true
         content:{
             List = get相邻的地块(player.所在地图块()) # 获取当前地块所有相邻的地块
             for i in List:
@@ -52,7 +56,6 @@
     初始血量：5
     攻击伤害：4
     射程：无
-    天赋：无
 }
 
 僵尸士兵{
@@ -60,7 +63,6 @@
     初始血量：8
     攻击伤害：4
     射程：无
-    天赋：无
 }
 
 僵尸步行者{
@@ -68,7 +70,6 @@
     初始血量：4
     攻击伤害：2
     射程：无
-    天赋：无
 }
 
 僵尸步行者（精英）{
@@ -78,9 +79,11 @@
     射程：无
     技能: {
         技能名: "僵尸步行者"
-        技能描述："在抓取该卡玩家的所有相邻地块上各放置一个怪物标记。该玩家再抓取一张怪物卡。"
-        trigger: 怪物被抓取时
-        filter：无
+        技能描述："抓取此卡的玩家再抓取一张怪物卡。"
+        skillType: "Monster"
+        trigger: 抓取怪物时
+        filter: return event.monster.name == "僵尸步行者"
+        forced: true
         content:{
             player.drawMonster(1)
         }
@@ -92,7 +95,6 @@
     初始血量：6
     攻击伤害：2
     射程：中距离
-    天赋：无
 }
 
 僵尸潜行者（精英）{
@@ -100,8 +102,17 @@
     初始血量：12
     攻击伤害：5
     射程：中距离
-    天赋：{
-        触发时机：该怪物卡造成伤害后。
-        触发效果：该怪物卡移动到并纠缠场上血量最低的玩家面前。
+    技能: {
+        技能名: "僵尸潜行者"
+        技能描述："攻击后，移动到并纠缠场上血量最低的玩家面前"
+        skillType: "Monster"
+        trigger: 怪物攻击后
+        filter: return event.monster.name == "僵尸潜行者"
+        filterTarget: return target.type == "HUMAN" && target.isMinHp()
+        filterTargetRange: Infinity # 无距离限制
+        forced: true
+        content:{
+            修改"僵尸潜行者"的纠缠目标为target
+        }
     }
 }
