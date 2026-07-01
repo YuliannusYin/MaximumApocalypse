@@ -71,7 +71,7 @@ Skill{
         
         # 询问目标是否同意交易
         list = ["同意", "拒绝"]
-        result = target.Choose( list )
+        result = target.choose( list )
 
         # 若目标同意，则进行双方拾荒牌交换
         if( result == "同意" ){
@@ -87,28 +87,28 @@ Skill{
 
 Skill{
     技能名："加油"
-    技能描述：""
+    技能描述："行动：消耗一个燃料，为面包车或燃料型装备补充燃料。"
     active: "行动阶段"
     usable: Infinity # 不限使用次数
-    filter: return player.inPhase == "行动阶段" && player.hasFuel() # 免费行动：不消耗行动次数；需在行动阶段，且玩家持有燃料
+    filter: return player.inPhase == "行动阶段" && 玩家装备区里有'燃料' # 自然语言描述，待实现为具体函数调用；免费行动：不消耗行动次数；需在行动阶段，且玩家持有燃料
     filterTargetRange: "短距离" # 目标必须在短距离范围内
-    filterTarget:{
+    filterTarget: {
         if( target == player.所在地图块() && target == "面包车" ){ # 目标是玩家所在地块的面包车
             return true
-        } else if( target.是需要燃料的装备() ){ # 目标是需要燃料的装备
+        } else if( target.填充物类型 == "燃料" ){ # 目标是填充物类型为"燃料"的装备
             return true
         }
         return false
     }
     content: {
-        player.减少燃料( 1 ) # 玩家消耗1个燃料
+        player.discard( name = "燃料", quantity = 1, position = "装备区" ) 
 
         # 根据目标类型执行不同的加油逻辑
         if( target == "面包车" ){ # 目标是面包车：玩家往面包车添加1个燃料
             target.加油(1, player) # 玩家往面包车添加1个燃料
         }
         else{ # 目标是装备：添加该装备允许的最大燃料量
-            target.添加燃料(max) # 往装备添加最大燃料量
+            target.添加填充物(max, "燃料") # 往装备添加最大燃料量
         }
     }
 }
@@ -134,7 +134,7 @@ function player.moveTo(target) { # 底层移动函数（不扣行动次数，只
     # 6. 进入目标地块时
     target.触发("进入地块时", player)
 
-    # 7. 进入目标地块后（翻开 + 展示）
+    # 7. 进入目标地块后（展示地图块并触发展示效果）
     if( !target.已展示() ) {
         target.展示()
         target.触发("展示地块时", player)
@@ -142,3 +142,4 @@ function player.moveTo(target) { # 底层移动函数（不扣行动次数，只
 
     return true  # 移动成功
 }
+

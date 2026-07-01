@@ -10,7 +10,7 @@
     饥饿状态潜行值: 5
     技能: {
         技能名: "拳打"
-        技能描述: "行动：对一个目标造成2点伤。"
+        技能描述: "行动：对一个目标造成2点伤害。"
         射程: "短距离"
         active: "行动阶段"
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 # 行动阶段且有剩余行动次数时可用
@@ -34,7 +34,7 @@
         技能名: "防火头盔"
         技能描述: "被动：受到的伤害减一。"
         skillType: "装备"
-        trigger: "受到伤害时"
+        trigger: 受到伤害时
         filter: true # 任意来源的伤害均触发
         forced: true # 满足触发条件就强制执行，玩家不能选择不发动
         content:{
@@ -47,9 +47,9 @@
     名字：打火机
     牌库中数量：3
     类型：装备
-    弹药上限：2
-    初始弹药：2
-    弹药类型：燃料
+    填充物上限：2
+    初始填充数：2
+    填充物类型：燃料
     大小：1格装备栏
     技能: {
         技能名: "打火机"
@@ -57,29 +57,29 @@
         射程: "短距离"
         skillType: "装备"
         active: "行动阶段"
-        # 行动阶段、有剩余行动次数、有弹药时可用
-        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.get武器弹药( "打火机" ) > 0 
+        # 行动阶段、有剩余行动次数、有燃料时可用
+        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.get填充物数量( "打火机" ) > 0
         selectTarget: -1 # 选择所有目标
         filterTarget: return target.type == Monster # 目标必须是怪物类型
         filterTargetRange: "短距离" # 目标必须在短距离范围内（即同一个地块内）
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
             List = event.target # event.target 为经过 filter 筛选后的目标列表
-            player.减少武器弹药( 1, "打火机" ) # 消耗1点弹药
+            player.减少填充物数量( 1, "打火机" ) # 消耗1点燃料
             for i in List:
                 i.受到伤害(3, player) # 对所有目标造成3点伤害，伤害来源为玩家。
         }
     }
 }
 
-求生者卡牌{
+求生者游戏牌{
     名字：急救包
     牌库中数量：3
     类型：行动
     射程：短距离
     行动条件：无
     行动效果：使射程内任一玩家一个目标恢复4点生命值。
-    技能：{
+    技能: {
         技能名: "急救包"
         技能描述: "行动：使射程内任一玩家一个目标恢复4点生命值。"
         射程: "短距离"
@@ -96,29 +96,29 @@
     }
 }
 
-求生者卡牌{
+求生者游戏牌{
     名字：猎枪
     牌库中数量：1
     类型：装备
     子类：武器
-    弹药上限：4
-    初始弹药：4
-    弹药类型：子弹
+    填充物上限：4
+    初始填充数：4
+    填充物类型：弹药
     大小：1格装备栏
     技能: {
         技能名: "猎枪"
-        技能描述："行动：对射程内的一个目标造成4点伤害，然后对你面前的所有目标造成2点伤害。"
+        技能描述: "行动：对射程内的一个目标造成4点伤害，然后对你面前的所有目标造成2点伤害。"
         射程: "中距离"
         skillType: "装备"
         active: "行动阶段"
         # 行动阶段、有剩余行动次数、有弹药时可用
-        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.get武器弹药( "猎枪" ) > 0
+        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.get填充物数量( "猎枪" ) > 0
         selectTarget: 1 # 选择1个主目标
         filterTarget: return true # 任何目标都可用
         filterTargetRange: "中距离" # 目标必须在中距离范围内（即目标在玩家所在地块及其相邻地块中）
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            player.减少武器弹药( 1, "猎枪" ) # 消耗1点弹药
+            player.减少填充物数量( 1, "猎枪" ) # 消耗1点弹药
             target.受到伤害(4, player) # 对主目标造成4点伤害，伤害来源为玩家
             List = getTarget(player.所在地块()) # 获取玩家所在地块的所有目标
             for i in List:
@@ -127,7 +127,7 @@
     }
 }
 
-求生者卡牌{
+求生者游戏牌{
     名字：灭火器
     牌库中数量：3
     类型：行动
@@ -149,11 +149,11 @@
     }
 }
 
-求生者卡牌{
+求生者游戏牌{
     名字：能量饮料
     牌库中数量：2
     类型：行动
-    技能:{
+    技能: {
         技能名: "能量饮料"
         技能描述: "行动：直到你的下个回合开始，你免疫饥饿伤害。你抓一张牌"
         skillType: "行动"
@@ -169,6 +169,7 @@
         subSkill: {
             satiety: {
                 trigger: 受到伤害时
+                forced: true
                 filter: return trigger.damageType == "饥饿" # 仅对饥饿伤害生效
                 content: trigger.cancel() # 取消本次伤害结算
             }
@@ -176,7 +177,7 @@
     }
 }
 
-求生者卡牌{
+求生者游戏牌{
     名字: 梯子
     牌库中数量: 2
     类型: 装备
@@ -186,14 +187,14 @@
         技能描述: "被动：自动通过河流地图块的检定。弃置：抓取怪物卡前，可以弃置此装备，然后跳过抓取怪物卡的步骤。"
         trigger: 潜行检定前、抓取怪物卡前
         filter: true 
-        content: { 
+        content: {
             # 当触发「潜行检定前」且触发来源为河流地块时，终止河流检定结算（视为自动通过）
             if( trigger == "潜行检定前" && event.name == "河流" ){
                 player.终止技能结算("河流")
             }
             # 当触发「抓取怪物卡前」时，玩家可选择弃置此装备以跳过本次抓怪
             else if( trigger == "抓取怪物卡前" ){
-                if( player.choose("是否弃置此装备取消这次抓怪？") ){
+                if( player.choose(["是", "否"]) == "是" ){
                     player.discard(name = "梯子", position = "装备区")
                     trigger.cancel()
                 }
@@ -202,7 +203,7 @@
     }
 }
 
-求生者卡牌{
+求生者游戏牌{
     名字: 闪光棒
     牌库中数量: 4
     类型: 行动
@@ -224,7 +225,7 @@
     }
 }
 
-求生者卡牌{
+求生者游戏牌{
     名字：我的斧子去哪儿了？
     牌库中数量：2
     类型：行动
@@ -243,13 +244,13 @@
             }else{
                 player.装备(card)
             }
-            result = player.choose(prompt = "请选择你抓取的拾荒卡颜色：", "red", "green", "blue")
+            result = player.choose(prompt = "请选择你抓取的拾荒卡颜色：", ["red", "green", "blue"])
             player.drawScavenge(1, color = result) # 抓取一张拾荒卡
         }
     }
 }
 
-求生者卡牌{
+求生者游戏牌{
     名字：消防员的耐力
     牌库中数量：2
     类型：行动
@@ -285,7 +286,7 @@
     }
 }
 
-求生者卡牌{
+求生者游戏牌{
     名字：野地夹克
     牌库中数量：2
     类型：装备
@@ -305,31 +306,31 @@
     }
 }
 
-求生者卡牌{
+求生者游戏牌{
     名字：氧气罐
     牌库中数量：2
     类型：行动
     技能: {
         技能名: "氧气罐"
-        技能范围: "中距离"
-        技能描述: "行动：消耗一点打火机的弹药，然后对射程内的所有目标造成5点伤害。"
+        射程: "中距离"
+        技能描述: "行动：消耗一点打火机的燃料，然后对射程内的所有目标造成5点伤害。"
         skillType: "行动"
         active: "行动阶段"
-        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.get武器弹药( "打火机" ) > 0 
+        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.get填充物数量( "打火机" ) > 0 
         selectTarget: -1 # 选取所有目标
         filterTarget: return target != player 
         filterTargetRange: "中距离"
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            player.减少武器弹药(1, "打火机") # 消耗1点打火机弹药
+            player.减少填充物数量(1, "打火机") 
             List = event.target # event.target 为经过 filter 筛选后的目标列表
             for i in List:
-                i.受到伤害(5, player) # [修改] 2026-06-30: 造成伤害→受到伤害，统一伤害方法名（与打火机、猎枪等一致）
+                i.受到伤害(5, player)
         }
     }
 }
 
-求生者卡牌{
+求生者游戏牌{
     名字：值得信赖的斧子
     牌库中数量：2
     类型：装备

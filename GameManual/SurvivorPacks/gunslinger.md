@@ -41,27 +41,87 @@
     名字：集中射击
     牌库中数量：2
     类型：行动
-    射程：长距离
-    行动条件：装备区有装备消耗弹药的武器，且弹药量大于零。
-    行动效果：消耗一枚弹药，对一个选定目标造成5点伤害。
+    技能: {
+        技能名: "集中射击"
+        射程: "长距离"
+        技能效果："消耗一枚弹药，对一个选定目标造成5点伤害。"
+        skillType: "行动"
+        active: "行动阶段"
+        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.get武器弹药() > 0
+        complexTarget: true
+        filterTarget1: 装备区内有弹药的武器。
+        filterTarget2: true 
+        filterTarget2Range: "长距离"
+        content: {
+            player.减少行动次数( 1 ) # 消耗1点行动次数
+            player.减少武器弹药( 1, target1 ) # 消耗1枚弹药
+            target2.受到伤害(5, player) # 对目标造成5点伤害
+        }
+    }
 }
 
 求生者卡牌{
     名字：扣动扳机让我快乐
     牌库中数量：2
     类型：行动
-    射程：无
-    行动条件：无。
-    行动效果：本回合可以额外执行两个行动。
+    技能: {
+        技能名: "扣动扳机让我快乐"
+        技能效果："行动：本回合可以额外执行两个行动。"
+        skillType: "行动"
+        active: "行动阶段"
+        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0
+        content: {
+            player.减少行动次数( 1 ) # 消耗1点行动次数
+            player.增加最大行动次数( 2 ) # 增加2点最大行动次数
+            player.addTempSkill('扣动扳机让我快乐_clear', until = "回合结束时" )  
+            player.增加行动次数( 2 ) # 增加2点行动次数
+        }
+        subSkill: {
+            clear: {
+                trigger: 回合结束前
+                forced: true
+                content: player.减少最大行动次数( 2 ) # 减少2点最大行动次数
+            }
+        }
+    }
 }
 
 求生者卡牌{
     名字：空尖弹
     牌库中数量：2
     类型：行动
-    射程：无
-    行动条件：装备区有装备消耗弹药的武器。
-    行动效果：将此牌置于一张弹药类武器上，此武器牌填装满空尖弹药，弹药会让武器牌额外造成两点伤害。此后武器被填装弹药时摧毁本牌，且武器失去造成额外伤害的效果。
+    技能: {
+        技能名: "空尖弹"
+        技能效果："行动：销毁本牌然后将一张弹药类武器填装满【空尖弹】弹药，这种弹药会让武器牌额外造成两点伤害。武器弹药耗尽时弃置武器牌。"
+        skillType: "行动"
+        active: "行动阶段"
+        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && 玩家装备区有可以填充弹药的武器。
+        filterTarget: return target == 玩家装备区内的弹药类武器牌
+        content: {
+            player.减少行动次数(1) # 消耗1点行动次数
+            player.removeCard(结算区中的【空尖弹】)
+            player.addSkill("空尖弹_damage")
+            player.addSkill("空尖弹_remove")
+            target.改变弹药类型("空尖弹")
+            target.补满弹药()
+        }
+        subSkill: {
+            damage:{
+                trigger: 造成伤害时
+                forced: true
+                filter: return event.card.武器弹药类型 == "空尖弹"
+                content: trigger.num += 2
+            }
+            remove:{
+                trigger: 弹药耗尽时
+                forced: true
+                filter: return event.card.武器弹药类型 == "空尖弹"
+                content: {
+                    player.discard(event.card) # 弃置武器牌
+                }
+            }
+        }
+    }
 }
 
 求生者卡牌{
