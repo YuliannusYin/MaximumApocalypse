@@ -88,7 +88,7 @@
         filterTargetRange: "短距离" # 目标必须在短距离范围内（即同一个地块内）
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            target.增加生命值(4)
+            target.recover(4)
         }
     }
 }
@@ -141,7 +141,7 @@
             player.减少行动次数( 1 ) # 消耗1点行动次数
             List = event.target # event.target 为经过 filter 筛选后的目标列表
             for i in List:
-                i.击晕(player, until = "下个回合开始时") # [修改] 2026-07-02: 统一 until 参数格式，与 gunslinger.md 套索一致
+                i.击晕(player, until = "下个回合开始时")
         }
     }
 }
@@ -217,7 +217,7 @@
             player.减少行动次数( 1 ) # 消耗1点行动次数
             List = event.target # event.target 为经过 filter 筛选后的目标列表
             for i in List:
-                i.修改纠缠对象(player) # [修改] 2026-07-02: 自然语言→函数调用，与 gunslinger.md 套索统一
+                i.修改纠缠对象(player)
         }
     }
 }
@@ -298,7 +298,7 @@
         # 玩家饥饿值上限为6，达到6时无法再用此技能换取行动次数
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家饥饿值" ) < 6
         content:{
-            player.增加饥饿值( 1 ) # 增加1点饥饿值
+            player.increaseHunger( 1 )
             player.增加行动次数( 1 ) # 增加1点行动次数
         }
     }

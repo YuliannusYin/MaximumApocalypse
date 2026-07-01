@@ -335,7 +335,7 @@
             player.discard( name = "马", position = "装备区" ) # 弃置此装备
             List = getAllPlayers() # 获取场上所有玩家
             for i in List:
-                i.减少饥饿值( 1 ) # 饥饿等级降低1点
+                i.decreaseHunger( 1 )
         }
     }
 }
@@ -355,7 +355,7 @@
         forced: true
         content:{
             if( trigger == "卡牌进入装备区时"){
-                player.增加生命值(3)
+                player.recover(3)
                 player.addSkill('游侠帽_damage')
             }
             else if( trigger == "卡牌离开装备区时" ){

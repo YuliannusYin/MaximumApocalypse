@@ -143,10 +143,30 @@ function player.moveTo(target) { # 底层移动函数（不扣行动次数，只
     return true  # 移动成功
 }
 
-function player.recover(num) { # 恢复生命值
+function player.recover(num) { # 恢复生命值方法
     max = player.最大生命值() - player.生命值()
     if( num > max ){
         num = max
     }
     player.增加生命值(num)
+}
+
+function player.increaseHunger(num) { # 增加饥饿值方法
+    max = 6 - player.饥饿值()
+    if( num > max ){
+        num = max
+    }
+    player.增加饥饿值(num)
+}
+
+function player.decreaseHunger(num) { # 减少饥饿值方法
+    max = player.饥饿值() - 1
+    if( num > max ){
+        num = max
+    }
+    if( num <= 0 ){
+        game.log("饥饿值已减少到1，无法继续减少")
+        return false
+    }
+    player.减少饥饿值(num)
 }

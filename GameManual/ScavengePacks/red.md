@@ -15,7 +15,7 @@
         filterTarget: return target == player
         content: {
             player.减少行动次数( 1 )
-            player.增加生命值(2)
+            player.recover(2)
         }
     }
 }
@@ -35,7 +35,7 @@
         filterTarget: return target == player
         content: {
             player.减少行动次数( 1 )
-            player.增加生命值(4)
+            player.recover(4)
         }
     }
 }
@@ -55,7 +55,7 @@
         filterTarget: return target == player
         content: {
             player.减少行动次数( 1 )
-            player.增加生命值(6)
+            player.recover(6)
         }
     }
 }

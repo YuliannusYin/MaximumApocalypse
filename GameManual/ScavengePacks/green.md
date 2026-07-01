@@ -15,7 +15,7 @@
         filterTarget: return target == player # 仅作用于玩家自身
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            player.减少饥饿值( 1 ) # 玩家饥饿值减少1点
+            player.decreaseHunger( 1 )
         }
     }
 }
@@ -35,7 +35,7 @@
         filterTarget: return target == player # 仅作用于玩家自身
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            player.减少饥饿值( 2 ) # 玩家饥饿值减少2点
+            player.decreaseHunger( 2 )
         }
     }
 }
@@ -55,7 +55,7 @@
         filterTarget: return target == player # 仅作用于玩家自身
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            player.减少饥饿值( 3 ) # 玩家饥饿值减少3点
+            player.decreaseHunger( 3 )
         }
     }
 }
@@ -75,7 +75,7 @@
         filterTarget: return target == player # 仅作用于玩家自身
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            player.减少饥饿值( 4 ) # 玩家饥饿值减少4点
+            player.decreaseHunger( 4 )
         }
     }
 }
@@ -95,7 +95,7 @@
         filterTarget: return target == player # 仅作用于玩家自身
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            player.减少饥饿值( 5 ) # 玩家饥饿值减少5点
+            player.decreaseHunger( 5 )
         }
     }
 }
@@ -116,7 +116,7 @@
             player.减少行动次数( 1 ) # 消耗1点行动次数
             List = getAllPlayers() # 获取场上所有玩家
             for i in List:
-                i.减少饥饿值( 1 ) # 饥饿值-1（饥饿值最小为1）
+                i.decreaseHunger( 1 )
         }
     }
 }
@@ -137,7 +137,7 @@
             player.减少行动次数( 1 ) # 消耗1点行动次数
             List = getAllPlayers() # 获取场上所有玩家
             for i in List:
-                i.减少饥饿值( 2 ) # 饥饿值-2（饥饿值最小为1）
+                i.decreaseHunger( 2 )
         }
     }
 }
