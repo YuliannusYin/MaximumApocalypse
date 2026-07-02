@@ -55,7 +55,7 @@
         filterTarget2Range: "长距离"
         content: {
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            target1.减少填充物( 1, "弹药" )
+            target1.消耗填充物( 1, "弹药" )
             target2.受到伤害(5, player) # 对目标造成5点伤害
         }
     }
@@ -97,6 +97,7 @@
         skillType: "行动"
         active: "行动阶段"
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && 玩家装备区有可以填充弹药的武器 # [修改] 2026-07-02: 自然语言描述，待实现为具体函数调用
+        selectTarget: 1 # 选择1个目标武器
         filterTarget: return target.在玩家装备区内 && target.填充物类型 == "弹药" # 目标必须是玩家装备区内的弹药类武器牌
         content: {
             player.减少行动次数(1) # 消耗1点行动次数
@@ -208,7 +209,7 @@
     类型：行动
     技能: {
         技能名: "套索"
-        技能描述: "行动：击晕一个怪物并将其移动至你的面前。"
+        技能描述: "行动：击晕一个怪物并让其纠缠你。"
         射程: "中距离"
         skillType: "行动"
         active: "行动阶段"
@@ -284,7 +285,7 @@
         filterTargetRange: "中距离"
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            player.减少填充物数量( 1, "柯尔特手枪" ) # 消耗1枚弹药
+            player.消耗填充物( 1, "柯尔特手枪" ) # 消耗1枚弹药
             target.受到伤害(2, player) # 对目标造成2点伤害
         }
     }
@@ -397,7 +398,7 @@
         filterTargetRange: "中距离"
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            player.减少填充物数量( 1, "左轮手枪" ) # 消耗1枚弹药
+            player.消耗填充物( 1, "左轮手枪" ) # 消耗1枚弹药
             target.受到伤害(3, player) # 对主目标造成3点伤害
             # 若仍有弹药，询问玩家是否再攻击另一个目标
             if( player.get填充物数量( "左轮手枪" ) > 0 && player.choose(["继续攻击", "停止"]) == "继续攻击" ){
@@ -406,7 +407,7 @@
                     filterTarget: return target2 != target # 不能是同一个目标
                     filterTargetRange: "中距离"
                 })
-                player.减少填充物数量( 1, "左轮手枪" ) # 再消耗1枚弹药
+                player.消耗填充物( 1, "左轮手枪" ) # 再消耗1枚弹药
                 target2.受到伤害(3, player) # 对第二个目标造成3点伤害
             }
         }

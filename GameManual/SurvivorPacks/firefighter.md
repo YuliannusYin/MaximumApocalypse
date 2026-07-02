@@ -65,7 +65,7 @@
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
             List = event.target # event.target 为经过 filter 筛选后的目标列表
-            player.减少填充物数量( 1, "打火机" ) # 消耗1点燃料
+            player.消耗填充物( 1, "打火机" ) # 消耗1点燃料
             for i in List:
                 i.受到伤害(3, player) # 对所有目标造成3点伤害，伤害来源为玩家。
         }
@@ -115,7 +115,7 @@
         filterTargetRange: "中距离" # 目标必须在中距离范围内（即目标在玩家所在地块及其相邻地块中）
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            player.减少填充物数量( 1, "猎枪" ) # 消耗1点弹药
+            player.消耗填充物( 1, "猎枪" ) # 消耗1点弹药
             target.受到伤害(4, player) # 对主目标造成4点伤害，伤害来源为玩家
             List = getTarget(player.所在地图块()) # 获取玩家所在地图块的所有目标
             for i in List:
@@ -206,7 +206,7 @@
     类型: 行动
     技能: {
         技能名: "闪光棒"
-        技能描述: "行动：将射程内的所有怪物吸引到你的面前。"
+        技能描述: "行动：将射程内的所有怪物纠缠的目标改成你。"
         skillType: "行动"
         active: "行动阶段"
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0
@@ -320,7 +320,7 @@
         filterTargetRange: "中距离"
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            player.减少填充物数量(1, "打火机") 
+            player.消耗填充物(1, "打火机") 
             List = event.target # event.target 为经过 filter 筛选后的目标列表
             for i in List:
                 i.受到伤害(5, player)

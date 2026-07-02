@@ -173,7 +173,7 @@
         filterTargetRange: "中距离" # 目标必须在中距离范围内
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            player.减少填充物数量( 1, "手枪" )
+            player.消耗填充物( 1, "手枪" )
             target.受到伤害(2, player) # 对目标造成2点伤害，伤害来源为玩家
         }
     }

@@ -145,7 +145,7 @@
         filterTargetRange: "中距离" # 目标必须在中距离范围内
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            player.减少填充物数量( 1, "火焰箭" ) # 消耗1点燃料
+            player.消耗填充物( 1, "火焰箭" ) # 消耗1点燃料
             target.受到伤害( 4, player ) # 对目标造成4点伤害，伤害来源为玩家
         }
     }
@@ -190,7 +190,7 @@
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.get填充物数量( "摩托车" ) > 0
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            player.减少填充物数量( 1, "摩托车" ) # 消耗1点燃料
+            player.消耗填充物( 1, "摩托车" ) # 消耗1点燃料
             maxSteps = 3 # 最多移动3格
             steps = 0
             while( steps < maxSteps ){
@@ -233,7 +233,7 @@
         filterTargetRange: "中距离" # 目标必须在中距离范围内
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            player.减少填充物数量( 1, "弩" ) # 消耗1点弹药
+            player.消耗填充物( 1, "弩" ) # 消耗1点弹药
             target.受到伤害( 3, player ) # 对目标造成3点伤害，伤害来源为玩家
         }
     }
