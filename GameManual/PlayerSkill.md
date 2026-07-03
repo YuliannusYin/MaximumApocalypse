@@ -207,6 +207,13 @@ function player.decreaseHunger(num) { # 减少饥饿值方法
     if( !player.角色卡牌.is正面() ) player.角色卡牌.翻面()
 }
 
+function player.poison(){ # 中毒结算方法
+    if( player.countMark('posison') > 0 ){
+        num = player.countMark('posison')
+        player.damage( num, source = NULL, type = 'posison' );
+    }
+}
+
 function player.judge() { # 检定方法
     player.随机投掷两颗大骰子()
     result = 两颗大骰子的点数之和
