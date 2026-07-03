@@ -29,7 +29,7 @@
             filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.dog.生命值() > 0
             content:{
                 player.减少行动次数( 1 ) # 消耗1点行动次数
-                player.veteran.受到伤害( 2, player ) # 老兵对自己造成2点伤害
+                player.veteran.damage( 2, player ) # 老兵对自己造成2点伤害
                 player.dog.addTempSkill( '把你的爪子拿开_immune', until = "下个回合开始时" ) # 狗获得免疫，持续到下个回合开始时失效
             }
             subSkill: {
@@ -37,7 +37,7 @@
                     trigger: 受到伤害时
                     forced: true # 强制发动
                     filter: true # 任意来源的伤害均取消
-                    content: trigger.cancel() # 取消本次伤害结算
+                    content: event.cancel() # 取消本次伤害结算
                 }
             }
         }
@@ -59,8 +59,8 @@
             filterTargetRange: "中距离" # 目标必须在中距离范围内
             content:{
                 player.减少行动次数( 1 ) # 消耗1点行动次数（共用行动次数池）
-                target.受到伤害( 3, player.dog ) 
-                player.dog.受到伤害( 1, player ) # 狗受到1点伤害
+                target.damage( 3, player.dog ) 
+                player.dog.damage( 1, player ) # 狗受到1点伤害
             }
         }
     }
@@ -87,7 +87,7 @@
             player.减少行动次数( 1 ) # 消耗1点行动次数
             List = event.target # event.target 为经过 filter 筛选后的目标列表
             for i in List:
-                i.受到伤害( 3, player ) # 对每个目标造成3点伤害，伤害来源为'老兵与狗'
+                i.damage( 3, player ) # 对每个目标造成3点伤害，伤害来源为'老兵与狗'
         }
     }
 }
@@ -112,7 +112,7 @@
                 trigger: 造成伤害时
                 forced: true # 强制发动
                 filter: true
-                content: trigger.num += 3 # 老兵造成的伤害+3
+                content: event.num += 3 # 老兵造成的伤害+3
             }
         }
     }
@@ -139,7 +139,7 @@
                 filterTargetRange: "长距离" # 目标必须在长距离范围内
             })
             target.移除怪物标记( 1 ) # 移除地块上的1个怪物标记；自然语言描述，待实现为具体函数调用
-            player.dog.受到伤害( 2, player )
+            player.dog.damage( 2, player )
         }
     }
 }
@@ -163,7 +163,7 @@
             player.减少行动次数( 1 ) # 消耗1点行动次数
             List = event.target # event.target 为经过 filter 筛选后的目标列表
             for i in List:
-                i.受到伤害( 6, player.veteran ) # 对每个目标造成6点伤害，伤害来源为老兵
+                i.damage( 6, player.veteran ) # 对每个目标造成6点伤害，伤害来源为老兵
         }
     }
 }
@@ -182,7 +182,7 @@
         filter: true # 装备于狗身上，仅狗受到伤害时触发
         forced: true # 强制发动
         content:{
-            trigger.num-- # trigger.num 为本次伤害的伤害值变量；将其减1，实现受到的伤害减1点
+            event.num-- # event.num 为本次伤害的伤害值变量；将其减1，实现受到的伤害减1点
         }
     }
 }
@@ -206,7 +206,7 @@
                 if( player.dog.生命值() > 0 ) player.dog.recover( 2 ) # 狗存活时也恢复2点生命值
             }
             else if( trigger == "受到伤害时" ){
-                trigger.num-- # 受到的伤害减1点
+                event.num-- # 受到的伤害减1点
             }
         }
     }
@@ -235,7 +235,7 @@
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
             player.消耗填充物( 1, "M1加兰德步枪" ) # 消耗1枚弹药
-            target.受到伤害( 8, player.veteran )
+            target.damage( 8, player.veteran )
         }
     }
 }
@@ -272,7 +272,7 @@
             else if( choice == "造成伤害" ){
                 List = getTarget( target ) # 获取该地图块的所有目标
                 for i in List:
-                    i.受到伤害( 6, player.veteran ) # 对每个目标造成6点伤害，伤害来源为老兵
+                    i.damage( 6, player.veteran ) # 对每个目标造成6点伤害，伤害来源为老兵
             }
         }
     }
@@ -322,7 +322,7 @@
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
             player.消耗填充物( 1, "鲁格手枪" ) # 消耗1枚弹药
-            target.受到伤害( 4, player.veteran ) # 对目标造成4点伤害，伤害来源为老兵
+            target.damage( 4, player.veteran ) # 对目标造成4点伤害，伤害来源为老兵
         }
     }
 }
@@ -372,7 +372,7 @@
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.dog.生命值() > 0
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            player.veteran.decreaseHunger( 2 ) # 老兵饥饿等级降低2点（见 PlayerSkill.md 中 decreaseHunger 定义，最低降至1）
+            player.veteran.decreaseHunger( 2 ) # 老兵饥饿等级降低2点（见 GameSystem/PlayerState.md 中 decreaseHunger 定义，最低降至1）
             player.dog.decreaseHunger( 2 ) # 狗饥饿等级降低2点
         }
     }
@@ -395,7 +395,7 @@
         filterTargetRange: "中距离" # 目标必须在中距离范围内
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            target.受到伤害( 2, player.dog ) # 对目标造成2点伤害，伤害来源为狗
+            target.damage( 2, player.dog ) # 对目标造成2点伤害，伤害来源为狗
             target.击晕( player.dog, until = "下个回合开始时" ) # 击晕目标直到你的下个回合开始
         }
     }

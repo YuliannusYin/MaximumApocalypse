@@ -19,7 +19,7 @@
         filterTargetRange: "短距离" # 目标必须在短距离范围内（即同一个地块内）
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            target.recover(1) # 使目标回复1点生命（见 PlayerSkill.md 中 recover 定义）
+            target.recover(1) # 使目标回复1点生命（见 GameSystem/PlayerState.md 中 recover 定义）
         }
     }
 }
@@ -87,7 +87,7 @@
             player.减少行动次数( 1 ) # 消耗1点行动次数
             List = event.target # event.target 为经过 filter 筛选后的目标列表
             for i in List:
-                i.受到伤害(3, player) # 对每个目标造成3点伤害，伤害来源为玩家
+                i.damage(3, player) # 对每个目标造成3点伤害，伤害来源为玩家
         }
     }
 }
@@ -109,7 +109,7 @@
         filterTargetRange: "短距离" # 目标必须在短距离范围内（即同一个地块内）
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            target.受到伤害(2, player) # 对目标造成2点伤害，伤害来源为玩家
+            target.damage(2, player) # 对目标造成2点伤害，伤害来源为玩家
         }
     }
     技能2: {
@@ -120,7 +120,7 @@
         filter: true # 任意来源的回复均触发
         forced: true # 强制发动
         content:{
-            trigger.num += 1 # trigger.num 为本次回复的回复量变量；将其加1，实现额外回复1点
+            event.num += 1 # event.num 为本次回复的回复量变量；将其加1，实现额外回复1点
         }
     }
 }
@@ -138,7 +138,7 @@
         filter: true # 任意来源的回复均触发
         forced: true # 强制发动
         content:{
-            trigger.num += 1 # trigger.num 为本次回复的回复量变量；将其加1，实现额外回复1点
+            event.num += 1 # event.num 为本次回复的回复量变量；将其加1，实现额外回复1点
         }
     }
 }
@@ -180,7 +180,7 @@
         filterTargetRange: Infinity # 无距离限制
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            target.recover(6) # 使目标回复6点生命（见 PlayerSkill.md 中 recover 定义）
+            target.recover(6) # 使目标回复6点生命（见 GameSystem/PlayerState.md 中 recover 定义）
         }
     }
 }
@@ -207,7 +207,7 @@
                 target.治疗所有状态效果() # 自然语言描述，待实现为具体函数调用
             }
             else if( choice == "降低饥饿等级1点" ){
-                target.decreaseHunger( 1 ) # 降低目标1点饥饿值（见 PlayerSkill.md 中 decreaseHunger 定义，最低降至1）
+                target.decreaseHunger( 1 ) # 降低目标1点饥饿值（见 GameSystem/PlayerState.md 中 decreaseHunger 定义，最低降至1）
             }
         }
     }
@@ -274,7 +274,7 @@
         filterTargetRange: "短距离" # 目标必须在短距离范围内（即同一个地块内）
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            target.受到伤害(3, player) # 对目标造成3点伤害，伤害来源为玩家
+            target.damage(3, player) # 对目标造成3点伤害，伤害来源为玩家
         }
     }
 }

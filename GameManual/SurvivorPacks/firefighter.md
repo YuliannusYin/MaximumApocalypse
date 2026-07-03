@@ -18,7 +18,7 @@
         filterTargetRange: "短距离" # 目标必须在短距离范围内（即同一个地块内）
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            target.受到伤害(2, player) # 对目标造成2点伤害，伤害来源为玩家。
+            target.damage(2, player) # 对目标造成2点伤害，伤害来源为玩家。
         }
     }
 }
@@ -38,7 +38,7 @@
         filter: true # 任意来源的伤害均触发
         forced: true # 满足触发条件就强制执行，玩家不能选择不发动
         content:{
-            trigger.num-- # trigger.num 为本次伤害的伤害值变量；将其减1，实现受到的伤害减1点
+            event.num-- # event.num 为本次伤害的伤害值变量；将其减1，实现受到的伤害减1点
         }
     }
 }
@@ -67,7 +67,7 @@
             List = event.target # event.target 为经过 filter 筛选后的目标列表
             player.消耗填充物( 1, "打火机" ) # 消耗1点燃料
             for i in List:
-                i.受到伤害(3, player) # 对所有目标造成3点伤害，伤害来源为玩家。
+                i.damage(3, player) # 对所有目标造成3点伤害，伤害来源为玩家。
         }
     }
 }
@@ -115,10 +115,10 @@
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
             player.消耗填充物( 1, "猎枪" ) # 消耗1点弹药
-            target.受到伤害(4, player) # 对主目标造成4点伤害，伤害来源为玩家
+            target.damage(4, player) # 对主目标造成4点伤害，伤害来源为玩家
             List = getTarget(player.所在地图块()) # 获取玩家所在地图块的所有目标
             for i in List:
-                if( i != player ) i.受到伤害(2, player) # 对溅射目标造成2点伤害，伤害来源为玩家
+                if( i != player ) i.damage(2, player) # 对溅射目标造成2点伤害，伤害来源为玩家
         }
     }
 }
@@ -167,7 +167,7 @@
                 trigger: 饥饿状态结算前
                 forced: true
                 filter: true
-                content: trigger.cancel() # 跳过本次饥饿状态结算
+                content: event.cancel() # 跳过本次饥饿状态结算
             }
         }
     }
@@ -186,13 +186,13 @@
         content: {
             # 当触发「潜行检定前」且触发来源为河流地块时，终止河流检定结算（视为自动通过）
             if( trigger == "潜行检定前" && event.name == "河流" ){
-                player.终止技能结算("河流")
+                event.cancel()
             }
             # 当触发「抓取怪物卡前」时，玩家可选择弃置此装备以跳过本次抓怪
             else if( trigger == "抓取怪物卡前" ){
                 if( player.choose(["是", "否"]) == "是" ){
                     player.discard(name = "梯子", position = "装备区")
-                    trigger.cancel()
+                    event.cancel()
                 }
             }
         }
@@ -272,7 +272,7 @@
                     filterTarget: return target != player.所在地图块() # 目标地块不能是当前所在地块
                     filterTargetRange: "中距离" # 目标必须在相邻地块
                 })
-                success = player.moveTo(target) # [修改] 2026-06-30: 修正 sccess→success；调用底层移动函数（见 PlayerSkill.md 中 player.moveTo 定义，会触发离开/进入地块钩子）
+                success = player.moveTo(target) # [修改] 2026-06-30: 修正 sccess→success；调用底层移动函数（见 GameSystem/Movement.md 中 player.moveTo 定义，会触发离开/进入地块钩子）
                 if( !success ){
                     break # 移动失败（如河流潜行未通过）则中止后续移动
                 }
@@ -322,7 +322,7 @@
             player.消耗填充物(1, "打火机") 
             List = event.target # event.target 为经过 filter 筛选后的目标列表
             for i in List:
-                i.受到伤害(5, player)
+                i.damage(5, player)
         }
     }
 }
@@ -343,7 +343,7 @@
         filterTargetRange: "短距离"
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            target.受到伤害(4, player) # 对目标造成4点伤害
+            target.damage(4, player) # 对目标造成4点伤害
         }
     }
 }
