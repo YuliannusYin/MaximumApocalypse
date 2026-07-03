@@ -314,7 +314,7 @@
         技能描述: "进入：抓一张牌"
         trigger: 进入地块时
         filter: 无
-        content: player.draw(1) # 从玩家游戏牌库抓取1张牌
+        content: player.draw(1) # 从玩家游戏牌堆抓取1张牌
     }
 }
 

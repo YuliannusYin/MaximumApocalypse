@@ -29,27 +29,27 @@ Skill{
 
 Skill{
     技能名："摸牌"
-    技能描述："从玩家游戏牌库中抓取一张牌"
+    技能描述："从玩家游戏牌堆中抓取一张牌"
     active: "行动阶段"
     filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 # 行动阶段且有剩余行动次数时可用
     content: {
         player.减少行动次数( 1 ) # 消耗1点行动次数
-        player.draw(1) # 从玩家游戏牌库抓取1张牌到手牌区
+        player.draw(1) # 从玩家游戏牌堆抓取1张牌到手牌区
     }
 }
 
 Skill{
     技能名："制衡"
-    技能描述："你可以弃置两张玩家游戏牌，然后从玩家游戏牌库中抓取一张牌"
+    技能描述："你可以弃置两张玩家游戏牌，然后从玩家游戏牌堆中抓取一张牌"
     active: "行动阶段"
     usable: 1 # 每个回合的行动阶段限用1次
     filter: return player.inPhase == "行动阶段" # 免费行动：不消耗行动次数，仅在行动阶段可用
     selectCard: 2 # 需选择2张牌
-    filterCard: return getSource(card) == player # 只能选来源于“玩家游戏牌库”的牌（即必须是玩家游戏牌）
+    filterCard: return getSource(card) == player # 只能选来源于“玩家游戏牌堆”的牌（即必须是玩家游戏牌）
     position: "手牌区" # 选牌位置限定为手牌区
     content: {
         player.discard(cards)
-        player.draw(1) # 从玩家游戏牌库抓取1张牌
+        player.draw(1) # 从玩家游戏牌堆抓取1张牌
     }
 }
 
@@ -140,6 +140,15 @@ function player.moveTo(target) { # 底层移动函数（不扣行动次数，只
         target.展示(触发效果=true, player) # 玩家展示地块并触发"展示地块时"钩子
     }
 
+    # 8. 如果目标地块上有怪物标记，玩家需要进行潜行检定
+    if( target.hasMonsterMark() ){
+        if( !player.sneakJudge() ){
+            num = target.countMonsterMark()
+            target.removeMonsterMark(num)
+            player.drawMonster(num)
+        }
+    }
+
     return true  # 移动成功
 }
 
@@ -152,11 +161,36 @@ function player.recover(num) { # 恢复生命值方法
 }
 
 function player.increaseHunger(num) { # 增加饥饿值方法
-    max = 6 - player.饥饿值()
-    if( num > max ){
-        num = max
+    while( num > 0){
+        if( player.饥饿值() < 6 ){
+            player.增加饥饿值(1)
+        }
+        else if( player.饥饿值() == 6 ){
+            if( player.角色卡牌.is正面() ) player.角色卡牌.翻面()
+            player.addMarkSkill("饥饿伤害等级", 1)
+        }
+
+        if( player.countMark("饥饿伤害等级") > 0 ){
+            if( player.MarkSkill("饥饿伤害等级") == 1 ){
+                player.damage(2, type = "饥饿伤害")
+            }
+            else if( player.MarkSkill("饥饿伤害等级") == 2 ){
+                player.damage(4, type = "饥饿伤害")
+            }
+            else if( player.MarkSkill("饥饿伤害等级") == 3 ){
+                player.damage(6, type = "饥饿伤害")
+            }
+            else if( player.MarkSkill("饥饿伤害等级") == 4 ){
+                player.damage(8, type = "饥饿伤害")
+            }
+            else if( player.MarkSkill("饥饿伤害等级") == 5 ){
+                game.log( str(get.玩家名()) + "被饿死了" )
+                player.damage(player.最大生命值(), type = "饥饿伤害")
+            }
+        }
+
+        num -= 1
     }
-    player.增加饥饿值(num)
 }
 
 function player.decreaseHunger(num) { # 减少饥饿值方法
@@ -169,4 +203,38 @@ function player.decreaseHunger(num) { # 减少饥饿值方法
         return false
     }
     player.减少饥饿值(num)
+    if( player.countMark("饥饿伤害等级") > 0 ) player.removeMarkSkill("饥饿伤害等级")
+    if( !player.角色卡牌.is正面() ) player.角色卡牌.翻面()
+}
+
+function player.judge() { # 检定方法
+    player.随机投掷两颗大骰子()
+    result = 两颗大骰子的点数之和
+    return result
+}
+
+function player.sneakJudge() { # 潜行检定方法
+    num = countMonster(player.所在地图块()) + countMonsterMark(player.所在地图块())
+    sneakValue = player.潜行值() - num
+    result = player.judge()
+    if( result <= sneakValue ){
+        return true
+    }
+    else{
+        return false
+    }
+}
+
+function player.monsterSpawnJudge() { # 怪物出生检定方法
+    result = player.judge()
+    List = 所有已经展示的，且怪物生成点数等于result的地图块
+    for i in List{
+        if(i.countMonsterMark() < 3) i.addMonsterMark(1)
+        else if(i.countMonsterMark() == 3 && i.hasPlayer() ){
+            List2 = 此地图块上的所有玩家
+            for j in List2{
+                j.drawMonster(1)
+            }
+        }
+    }
 }
