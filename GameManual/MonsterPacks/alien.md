@@ -14,7 +14,7 @@
 
 # 怪物卡进入求生者怪物区时会实体化，实体化后的怪物卡具备以下属性：
 #   怪物级别、怪物类型、最大生命值、当前生命值、攻击伤害、射程、技能
-# 怪物类型统一为"外星人"；部分技能在"造成伤害时"触发，需以伤害来源（trigger.source）是否为外星人怪物作为判定条件
+# 怪物类型统一为"外星人"；部分技能在"造成伤害时"触发，需以伤害来源（event.source）是否为外星人怪物作为判定条件
 # "烧毁"统一按"销毁（移出游戏）"处理，被销毁的牌不进入任何弃牌堆；销毁范围为目标玩家的手牌区与装备区
 # 销毁 API：player.removeCard(...)，支持按名字+位置销毁（如 removeCard(name=, position=)，见 SurvivorPacks/gunslinger.md）与按卡牌对象销毁（如 removeCard(card)，本包随机销毁场景使用）
 
@@ -120,12 +120,12 @@
                     抓取者.chooseToDiscard(1, position = "装备区") # 弃置一张装备区内的装备（进入游戏牌弃牌堆）
                 }
                 else if( choice == "受到6点伤害" ){
-                    抓取者.受到伤害(6, self) # 受到6点来自此怪物的伤害
+                    抓取者.damage(6, self) # 受到6点来自此怪物的伤害
                 }
             }
             else{
                 # 装备区无装备：直接受到6点伤害
-                抓取者.受到伤害(6, self)
+                抓取者.damage(6, self)
             }
         }
     }
@@ -135,9 +135,9 @@
         skillType: "Monster"
         trigger: 造成伤害时 # 钩在伤害结算流程的"source攻击target时"节点，修改伤害值变量
         forced: true
-        filter: return trigger.source.怪物类型 == "外星人" # 仅当伤害来源为外星人类怪物时触发
+        filter: return event.source.怪物类型 == "外星人" # 仅当伤害来源为外星人类怪物时触发
         content: {
-            trigger.num += 1 # 造成的伤害+1
+            event.num += 1 # 造成的伤害+1
         }
     }
 }

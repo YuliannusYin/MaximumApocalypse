@@ -19,7 +19,7 @@
 # 本包新增"普通"怪物级别（弱于"精英"，无技能）；首领/精英/普通三级并存
 # 僵尸女王的触发对场上任意"僵尸"类型怪物生效，含其自身被消灭时的这一次结算
 # "怪物卡进入求生者怪物区后"对应事件流程"怪物卡进入求生者怪物区后"节点；"怪物攻击后"对应怪物行动流程"怪物攻击后"节点
-# "被消灭时"统一映射为 trigger: 怪物死亡时（怪物生命值降为0时触发）；trigger.monster 指代被消灭的怪物，trigger.source 指代消灭者（与 SurvivorPacks/gunslinger.md 搜索尸体 filter: return trigger.source == player 对齐）
+# "被消灭时"统一映射为 trigger: 怪物死亡时（怪物生命值降为0时触发）；event.target 指代被消灭的怪物，event.source 指代消灭者（与 SurvivorPacks/gunslinger.md 搜索尸体 filter: return event.source == player 对齐）
 
 怪物卡{
     名字: 僵尸女王
@@ -35,9 +35,9 @@
         skillType: "Monster"
         trigger: 怪物死亡时
         forced: true # 强制发动
-        filter: return trigger.monster.怪物类型 == "僵尸" # 被消灭的怪物必须是僵尸类型
+        filter: return event.target.怪物类型 == "僵尸" # 被消灭的怪物必须是僵尸类型
         content: {
-            trigger.source.drawMonster(1) # 消灭该怪物的玩家抓取一张怪物卡
+            event.source.drawMonster(1) # 消灭该怪物的玩家抓取一张怪物卡
         }
     }
 }

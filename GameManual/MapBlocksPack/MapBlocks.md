@@ -116,9 +116,8 @@
         trigger: 进入地块前
         filter: 无
         content: {
-            if( !player.潜行检定() ){
-                player.终止技能结算("移动")
-                player.clearSkill("河流")
+            if (!player.sneakJudge()) {
+                event.cancel()
             }
         }
     }
@@ -164,7 +163,7 @@
         content: {
             List = get纠缠玩家的怪物(player) # 获取所有与该玩家交战的怪物
             for i in List:
-                i.受到伤害(2, player) # 对每只交战怪物造成2点伤害（函数对象.受到伤害(伤害值, 伤害来源)）
+                i.damage(2, player) # 对每只交战怪物造成2点伤害（函数对象.damage(伤害值, 伤害来源)）
         }
     }
 }
@@ -291,7 +290,7 @@
         content: {
             if( !player.hasCard(position = "装备区") ){
                 # 无装备可弃 → 直接受到5点无源伤害
-                player.受到伤害(5, 'nosource') #受到5点无源伤害
+                player.damage(5, NULL) #受到5点无源伤害
             } else {
                 # 有装备 → 玩家选择弃置装备或受到伤害
                 List = ["弃置装备", "受到伤害"]
@@ -300,7 +299,7 @@
                     player.chooseToDiscard(1, position = "装备区") #玩家选择弃置一张已装备的装备卡
                 }
                 else if( result == "受到伤害" ){
-                    player.受到伤害(5, 'nosource') #受到5点无源伤害
+                    player.damage(5, NULL) #受到5点无源伤害
                 }
             }
         }
@@ -331,7 +330,7 @@
         filterTarget: return target.hasSkill("隧道") && target != player.所在地图块() # 目标地块必须为隧道、且不能是玩家当前所在地块
         content: {
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            # [修改] 2026-06-30: moveToMapBlock→moveTo，触发进入/离开/展示钩子（见 PlayerSkill.md player.moveTo）
+            # [修改] 2026-06-30: moveToMapBlock→moveTo，触发进入/离开/展示钩子（见 GameSystem/Movement.md player.moveTo）
             player.moveTo( target ) # 将玩家移至目标地块（触发全套地块钩子）
         }
     }

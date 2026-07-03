@@ -119,7 +119,7 @@
         filter: true # 任意来源的伤害均触发
         forced: true # 强制发动
         content:{
-            trigger.num -= 2 # trigger.num 为本次伤害的伤害值变量；将其减2，实现受到的伤害减2点
+            event.num -= 2 # event.num 为本次伤害的伤害值变量；将其减2，实现受到的伤害减2点
             player.addMark('防弹背心使用次数')
             if( player.countMark('防弹背心使用次数') >= 3 ){
                 player.removeCard( name = "防弹背心", position = "装备区" ) # 达到3次后销毁此装备
@@ -174,7 +174,7 @@
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
             player.消耗填充物( 1, "手枪" )
-            target.受到伤害(2, player) # 对目标造成2点伤害，伤害来源为玩家
+            target.damage(2, player) # 对目标造成2点伤害，伤害来源为玩家
         }
     }
 }
@@ -268,7 +268,7 @@
             target.移除任务标记() # 移除地块上的任务标记
             List = getTarget( target ) # 获取地块上的所有目标
             for i in List:
-                i.受到伤害( 8, player ) # 对地块上所有目标造成8点伤害
+                i.damage( 8, player ) # 对地块上所有目标造成8点伤害
         }
     }
 }

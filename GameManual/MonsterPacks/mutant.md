@@ -14,7 +14,7 @@
 # 怪物卡进入求生者怪物区时会实体化，实体化后的怪物卡具备以下属性：
 #   怪物级别、怪物类型、最大生命值、当前生命值、攻击伤害、射程、技能
 # 本包怪物类型统一为"突变体"
-# 中毒效果用 addMarkSkill("poison", 1) 添加一层中毒标记，中毒伤害在该玩家回合的"求生者中毒状态结算"阶段结算（见 D_gameFlow.md 第13-14步）；对应 PlayerSkill.md 中 player.poison() 的 countMark 结算（该文件现有标记名 'posison' 拼写待统一为 'poison'）  # [修改] 2026-07-04: addPoison 改为 addMarkSkill 模式，与 PlayerSkill.md countMark/addMarkSkill 对齐
+# 中毒效果用 addMarkSkill("poison", 1) 添加一层中毒标记，中毒伤害在该玩家回合的"求生者中毒状态结算"阶段结算（见 D_gameFlow.md 第13-14步）；对应 GameSystem/PlayerState.md 中 player.poison() 的 countMark 结算（标记名为 'poison'）
 # "弃掉装备/拾荒卡"为弃置（进入对应弃牌堆），与"销毁（移出游戏）"不同
 # 怪物攻击时的"目标玩家"按射程确定：射程"无"仅攻击纠缠的玩家；射程"短距离"攻击玩家所在地块上的所有玩家；以此类推（见 F_gameRange.md）
 
@@ -66,12 +66,12 @@
                         p.chooseToDiscard(1, position = "装备区") # 弃置一张装备区内的装备（进入游戏牌弃牌堆）
                     }
                     else if( choice == "受到4点伤害" ){
-                        p.受到伤害(4, self) # 受到4点来自此怪物的伤害
+                        p.damage(4, self) # 受到4点来自此怪物的伤害
                     }
                 }
                 else{
                     # 装备区无装备：直接受到4点伤害
-                    p.受到伤害(4, self)
+                    p.damage(4, self)
                 }
         }
     }
@@ -101,12 +101,12 @@
                     抓取者.chooseToDiscard(1, position = "装备区") # 弃置一张装备区内的装备
                 }
                 else if( choice == "受到4点伤害" ){
-                    抓取者.受到伤害(4, self) # 受到4点来自此怪物的伤害
+                    抓取者.damage(4, self) # 受到4点来自此怪物的伤害
                 }
             }
             else{
                 # 装备区无装备：直接受到4点伤害
-                抓取者.受到伤害(4, self)
+                抓取者.damage(4, self)
             }
         }
     }
@@ -136,12 +136,12 @@
                     抓取者.chooseToDiscard(1, position = "手牌区", source = "scavenge") # 弃置一张手牌区中的拾荒牌（进入拾荒弃牌堆）
                 }
                 else if( choice == "受到3点伤害" ){
-                    抓取者.受到伤害(3, self) # 受到3点来自此怪物的伤害
+                    抓取者.damage(3, self) # 受到3点来自此怪物的伤害
                 }
             }
             else{
                 # 手牌区无拾荒牌：直接受到3点伤害
-                抓取者.受到伤害(3, self)
+                抓取者.damage(3, self)
             }
         }
     }

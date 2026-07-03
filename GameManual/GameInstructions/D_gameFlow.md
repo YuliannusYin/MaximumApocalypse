@@ -36,7 +36,7 @@
 
 11. 求生者饥饿状态结算前
 12. 求生者饥饿状态结算：
-    player.increaseHunger(1) #求生者增加一点饥饿值，详情查看玩家技能中的[增加饥饿值方法](../PlayerSkill.md)
+    player.increaseHunger(1) #求生者增加一点饥饿值，详情查看玩家技能中的[增加饥饿值方法](../GameSystem/PlayerState.md)
 
 13. 求生者中毒状态结算前
 14. 求生者中毒状态结算：

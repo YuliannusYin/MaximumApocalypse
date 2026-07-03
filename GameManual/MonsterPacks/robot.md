@@ -17,7 +17,7 @@
 # "被消灭时"统一映射为 trigger: 怪物死亡时（怪物生命值降为0时触发；不含卡牌效果摧毁场景，与 SurvivorPacks/hunter.md 迷彩服弃置怪物的"纯移除不触发怪物死亡时事件"对齐）
 # "射程内的所有玩家/目标"以怪物所纠缠玩家所在位置为中心，按怪物射程确定（见 F_gameRange.md）
 # "弃掉"为弃置（进入对应弃牌堆），与"销毁（移出游戏）"不同
-# 爆破机器人天赋2需依赖"本回合已移动"标记：玩家执行移动（player.moveTo）时添加该标记，回合开始时清除；待实现层在 PlayerSkill.md 的 player.moveTo 函数及回合开始流程中补充此标记机制  # [修改] 2026-07-04: 加"待实现"标注，明确跨层依赖未完成
+# 爆破机器人天赋2需依赖"本回合已移动"标记：玩家执行移动（player.moveTo）时添加该标记，回合开始时清除；待实现层在 GameSystem/Movement.md 的 player.moveTo 函数及回合开始流程中补充此标记机制  # [修改] 2026-07-04: 加"待实现"标注，明确跨层依赖未完成
 
 怪物卡{
     名字: 人工智能核心领袖
@@ -40,7 +40,7 @@
             抓取者.discard(手牌) # 弃置所有手牌（进入游戏牌弃牌堆）
             List = getTargetInRange(self.纠缠对象, "中距离") # 以纠缠玩家所在位置为中心、中距离内的所有玩家
             for p in List:
-                p.受到伤害(4, self) # 造成4点来自此怪物的伤害
+                p.damage(4, self) # 造成4点来自此怪物的伤害
         }
     }
 }
@@ -66,7 +66,7 @@
             抓取者.discard(装备) # 弃置装备区所有牌（进入游戏牌弃牌堆）
             List = getTargetInRange(self.纠缠对象, "中距离")
             for p in List:
-                p.受到伤害(6, self) # 造成6点来自此怪物的伤害
+                p.damage(6, self) # 造成6点来自此怪物的伤害
         }
     }
 }
@@ -87,7 +87,7 @@
         forced: true
         filter: return event.玩家 == self.纠缠对象 # 触发检定的玩家正是被此怪物纠缠的玩家
         content: {
-            trigger.cancel() # 跳过本次潜行检定
+            event.cancel() # 跳过本次潜行检定
             event.玩家.drawMonster(1) # 抓取一张怪物卡
         }
     }
@@ -131,11 +131,11 @@
         skillType: "Monster"
         trigger: 怪物死亡时 # 怪物生命值降为0时触发（以被消灭时其纠缠玩家所在位置为中心）
         forced: true
-        filter: return trigger.monster == self # 仅当此怪物自身被消灭时触发
+        filter: return event.target == self # 仅当此怪物自身被消灭时触发
         content: {
             List = getTargetInRange(self.纠缠对象, "中距离") # 以被消灭时其纠缠玩家所在位置为中心
             for p in List:
-                p.受到伤害(4, self) # 造成4点伤害
+                p.damage(4, self) # 造成4点伤害
         }
     }
 }
@@ -154,9 +154,9 @@
         skillType: "Monster"
         trigger: 怪物死亡时
         forced: true
-        filter: return trigger.monster == self # 仅当此怪物自身被消灭时触发
+        filter: return event.target == self # 仅当此怪物自身被消灭时触发
         content: {
-            self.纠缠对象.受到伤害(2, self) # 对它所纠缠的玩家造成2点伤害
+            self.纠缠对象.damage(2, self) # 对它所纠缠的玩家造成2点伤害
         }
     }
     技能2: {
@@ -165,9 +165,9 @@
         skillType: "Monster"
         trigger: 造成伤害时 # 钩在伤害结算流程，修改伤害值变量
         forced: true
-        filter: return trigger.source == self && trigger.target.countMark("本回合已移动") == 0 # 此怪物造成伤害，且受到伤害的玩家本回合没有移动过
+        filter: return event.source == self && event.target.countMark("本回合已移动") == 0 # 此怪物造成伤害，且受到伤害的玩家本回合没有移动过
         content: {
-            trigger.num *= 2 # 造成的伤害翻倍
+            event.num *= 2 # 造成的伤害翻倍
         }
     }
 }
@@ -188,10 +188,10 @@
         forced: true
         filter: {
             # 受伤的怪物必须是机器人类，且在此方阵机器人的射程范围内（以方阵机器人纠缠玩家所在位置为中心）
-            return trigger.target.怪物类型 == "机器人" && trigger.target in getTargetInRange(self.纠缠对象, "中距离") 
+            return event.target.怪物类型 == "机器人" && event.target in getTargetInRange(self.纠缠对象, "中距离") 
         }
         content: {
-            trigger.num -= 1 # 受到的伤害减少1点
+            event.num -= 1 # 受到的伤害减少1点
         }
     }
 }

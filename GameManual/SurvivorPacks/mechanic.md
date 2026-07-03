@@ -47,7 +47,7 @@
         filterTargetRange: "短距离" # 目标必须在短距离范围内（即同一个地块内）
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            target.受到伤害(2, player) # 对目标造成2点伤害，伤害来源为玩家
+            target.damage(2, player) # 对目标造成2点伤害，伤害来源为玩家
         }
     }
 }
@@ -69,7 +69,7 @@
             player.减少行动次数( 1 ) # 消耗1点行动次数
             List = event.target # event.target 为经过 filter 筛选后的目标列表
             for i in List:
-                    i.受到伤害(5, player) # 对每个目标造成5点伤害，伤害来源为玩家
+                    i.damage(5, player) # 对每个目标造成5点伤害，伤害来源为玩家
         }
     }
 }
@@ -88,7 +88,7 @@
         forced: true # 强制发动
         content:{
             player.discard( name = "感应地雷", position = "装备区" ) # 弃掉此装备
-            trigger.monster.受到伤害(7, player) # 对该怪物造成7点伤害，伤害来源为玩家
+            event.target.damage(7, player) # 对该怪物造成7点伤害，伤害来源为玩家
         }
     }
 }
@@ -106,7 +106,7 @@
         filter: true # 任意来源的伤害均触发
         forced: true # 强制发动
         content:{
-            trigger.num-- # trigger.num 为本次伤害的伤害值变量；将其减1，实现受到的伤害减1点
+            event.num-- # event.num 为本次伤害的伤害值变量；将其减1，实现受到的伤害减1点
         }
     }
 }
@@ -132,7 +132,7 @@
                 trigger: 造成伤害时
                 forced: true
                 filter: true
-                content: trigger.num += 1 # 造成的伤害+1
+                content: event.num += 1 # 造成的伤害+1
             }
         }
     }
@@ -160,7 +160,7 @@
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
             player.消耗填充物( 1, "喷灯" ) # 消耗1点燃料
-            target.受到伤害(5, player) # 对目标造成5点伤害，伤害来源为玩家
+            target.damage(5, player) # 对目标造成5点伤害，伤害来源为玩家
         }
     }
 }
@@ -182,7 +182,7 @@
         filterTarget2Range: Infinity # 无距离限制
         content: {
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            target1.moveTo(target2) # 调用底层移动函数（见 PlayerSkill.md 中 player.moveTo 定义，会触发离开/进入地块钩子）
+            target1.moveTo(target2) # 调用底层移动函数（见 GameSystem/Movement.md 中 player.moveTo 定义，会触发离开/进入地块钩子）
         }
     }
 }
@@ -230,7 +230,7 @@
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
             player.消耗填充物( 1, "手枪" ) # 消耗1枚弹药
-            target.受到伤害(2, player) # 对目标造成2点伤害，伤害来源为玩家
+            target.damage(2, player) # 对目标造成2点伤害，伤害来源为玩家
         }
     }
 }
@@ -293,10 +293,10 @@
         skillType: "装备"
         trigger: 受到伤害时
         # 仅当存在可反击的伤害来源时触发（饥饿等无来源伤害不触发）；排除自伤以防递归循环
-        filter: return trigger.source != null && trigger.source != player
+        filter: return event.source != null && event.source != player
         forced: true # 强制发动
         content:{
-            trigger.source.受到伤害(4, player) # 对伤害来源造成4点伤害，伤害来源为玩家
+            event.source.damage(4, player) # 对伤害来源造成4点伤害，伤害来源为玩家
         }
     }
 }

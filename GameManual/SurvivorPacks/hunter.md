@@ -76,7 +76,7 @@
         filterTargetRange: "长距离" # 目标必须在长距离范围内
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            target.受到伤害( 6, player ) # 对目标造成6点伤害，伤害来源为玩家
+            target.damage( 6, player ) # 对目标造成6点伤害，伤害来源为玩家
         }
     }
 }
@@ -98,7 +98,7 @@
         filterTargetRange: "短距离" # 目标必须在短距离范围内（即同一个地块内）
         content:{
             player.discard( name = "捕熊陷阱", position = "装备区" ) # 弃置此装备
-            target.受到伤害( 4, player ) # 对目标造成4点伤害，伤害来源为玩家
+            target.damage( 4, player ) # 对目标造成4点伤害，伤害来源为玩家
         }
     }
 }
@@ -120,7 +120,7 @@
         filterTargetRange: "中距离" # 目标必须在中距离范围内
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            target.受到伤害( 2, player ) # 对目标造成2点伤害，伤害来源为玩家
+            target.damage( 2, player ) # 对目标造成2点伤害，伤害来源为玩家
         }
     }
 }
@@ -146,7 +146,7 @@
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
             player.消耗填充物( 1, "火焰箭" ) # 消耗1点燃料
-            target.受到伤害( 4, player ) # 对目标造成4点伤害，伤害来源为玩家
+            target.damage( 4, player ) # 对目标造成4点伤害，伤害来源为玩家
         }
     }
 }
@@ -168,7 +168,7 @@
         filterTargetRange: "短距离" # 目标必须在短距离范围内（即同一个地块内）
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            target.受到伤害( 3, player ) # 对目标造成3点伤害，伤害来源为玩家
+            target.damage( 3, player ) # 对目标造成3点伤害，伤害来源为玩家
         }
     }
 }
@@ -202,7 +202,7 @@
                     filterTarget: return target != player.所在地图块() # 目标地块不能是当前所在地块
                     filterTargetRange: "中距离" # 目标必须在相邻地块
                 })
-                success = player.moveTo(target) # 调用底层移动函数（见 PlayerSkill.md 中 player.moveTo 定义，会触发离开/进入地块钩子）
+                success = player.moveTo(target) # 调用底层移动函数（见 GameSystem/Movement.md 中 player.moveTo 定义，会触发离开/进入地块钩子）
                 if( !success ){
                     break # 移动失败（如河流潜行未通过）则中止后续移动
                 }
@@ -234,7 +234,7 @@
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
             player.消耗填充物( 1, "弩" ) # 消耗1点弹药
-            target.受到伤害( 3, player ) # 对目标造成3点伤害，伤害来源为玩家
+            target.damage( 3, player ) # 对目标造成3点伤害，伤害来源为玩家
         }
     }
 }
@@ -255,7 +255,7 @@
         filterTargetRange: "中距离" # 目标必须在中距离范围内
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            target.受到伤害( 1, player ) # 对目标造成1点伤害，伤害来源为玩家
+            target.damage( 1, player ) # 对目标造成1点伤害，伤害来源为玩家
             target.击晕(player, until = "下个回合开始时") # 击晕目标直到你的下个回合开始
         }
     }
@@ -275,7 +275,7 @@
             player.减少行动次数( 1 ) # 消耗1点行动次数
             List = getAllPlayers() # 获取场上所有玩家
             for i in List:
-                i.decreaseHunger( 1 ) # 降低1点饥饿值（见 PlayerSkill.md 中 decreaseHunger 定义，最低降至1）
+                i.decreaseHunger( 1 ) # 降低1点饥饿值（见 GameSystem/PlayerState.md 中 decreaseHunger 定义，最低降至1）
         }
     }
 }
@@ -335,7 +335,7 @@
         filter: return player.inPhase == "行动阶段" && 玩家面前有非首领怪物 # 自然语言描述，待实现为具体函数调用
         content:{
             player.discard( name = "迷彩服", position = "装备区" ) # 弃置此装备
-            player.受到伤害( 3, player ) # 受到3点伤害
+            player.damage( 3, player ) # 受到3点伤害
             player.弃置面前的一张非首领怪物并替换为怪物标记() # 自然语言描述，待实现为具体函数调用；纯移除不触发「杀死怪物时」事件
         }
     }

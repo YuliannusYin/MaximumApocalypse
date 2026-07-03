@@ -22,7 +22,7 @@
                     return failure
                 }
                 player.装备(card)
-            } else if( trigger == "受到伤害时" && trigger.damageType == "饥饿" ){
+            } else if( trigger == "受到伤害时" && event.type == "饥饿伤害" ){
                 card = game.getCard(name = "柯尔特手枪", position = "场上") # 获取场上（所有的装备区、手牌区和牌堆）的【柯尔特手枪】牌
                 if( card == null ){
                     game.log("场上没有【柯尔特手枪】牌")
@@ -56,7 +56,7 @@
         content: {
             player.减少行动次数( 1 ) # 消耗1点行动次数
             target1.消耗填充物( 1, "弹药" )
-            target2.受到伤害(5, player) # 对目标造成5点伤害
+            target2.damage(5, player) # 对目标造成5点伤害
         }
     }
 }
@@ -112,7 +112,7 @@
                 trigger: 造成伤害时
                 forced: true
                 filter: return event.card.填充物类型 == "空尖弹"
-                content: trigger.num += 2 # 空尖弹额外造成2点伤害
+                content: event.num += 2 # 空尖弹额外造成2点伤害
             }
             remove:{
                 trigger: 弹药耗尽时
@@ -145,7 +145,7 @@
             num = player.get总填充物数量( "弹药" ) # 自然语言描述，待实现为具体函数调用
             player.清空填充物( "弹药" ) # 统一为填充物API；自然语言描述，待实现为具体函数调用
             for i in range(num):
-                target.受到伤害( 2, player ) # 对目标造成2点伤害
+                target.damage( 2, player ) # 对目标造成2点伤害
         }
     }
 }
@@ -166,10 +166,10 @@
         filterTargetRange: "中距离"
         content: {
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            target.受到伤害( 5, player ) # 对主目标造成5点伤害
+            target.damage( 5, player ) # 对主目标造成5点伤害
             List = getTarget(target.所在地图块()) # 获取主目标所在地块的所有目标
             for i in List:
-                if( i != target ) i.受到伤害( 3, player ) # 对同地块的其他目标造成3点伤害
+                if( i != target ) i.damage( 3, player ) # 对同地块的其他目标造成3点伤害
         }
     }
 }
@@ -193,7 +193,7 @@
             draw: {
                 trigger: 杀死怪物时
                 forced: true
-                filter: return trigger.source == player
+                filter: return event.source == player
                 content: {
                     牌堆 = game.拾荒牌堆(random = true) # 随机选取一个拾荒牌堆（无地块颜色限制）
                     player.drawScavenge(1, 牌堆) # 从随机拾荒牌堆抓取1张牌
@@ -258,7 +258,7 @@
         filter: true # 任意来源的伤害均触发
         forced: true # 强制发动
         content:{
-            trigger.num-- # 受到的伤害减1点
+            event.num-- # 受到的伤害减1点
         }
     }
 }
@@ -284,7 +284,7 @@
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
             player.消耗填充物( 1, "柯尔特手枪" ) # 消耗1枚弹药
-            target.受到伤害(2, player) # 对目标造成2点伤害
+            target.damage(2, player) # 对目标造成2点伤害
         }
     }
 }
@@ -365,7 +365,7 @@
                 filter: true
                 forced: true
                 content:{
-                    trigger.num += 1 # 你造成的伤害+1
+                    event.num += 1 # 你造成的伤害+1
                 }
             }
         }
@@ -394,7 +394,7 @@
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
             player.消耗填充物( 1, "左轮手枪" ) # 消耗1枚弹药
-            target.受到伤害(3, player) # 对主目标造成3点伤害
+            target.damage(3, player) # 对主目标造成3点伤害
             # 若仍有弹药，询问玩家是否再攻击另一个目标
             if( player.get填充物数量( "左轮手枪" ) > 0 && player.choose(["继续攻击", "停止"]) == "继续攻击" ){
                 target2 = player.chooseTarget({
@@ -403,7 +403,7 @@
                     filterTargetRange: "中距离"
                 })
                 player.消耗填充物( 1, "左轮手枪" ) # 再消耗1枚弹药
-                target2.受到伤害(3, player) # 对第二个目标造成3点伤害
+                target2.damage(3, player) # 对第二个目标造成3点伤害
             }
         }
     }
