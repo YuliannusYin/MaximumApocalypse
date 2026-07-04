@@ -54,7 +54,7 @@
         技能描述: "展示：执行一次免费的拾荒行动"
         trigger: 展示地块时 # 翻开该地块时触发
         filter: 无
-        content: player.drawScavenge(1, 拾荒牌堆颜色) # 从该地块对应颜色的拾荒牌堆中抓取1张牌
+        content: player.drawScavenge(1, game.getScavengePile(拾荒牌堆颜色)) # 从该地块对应颜色的拾荒牌堆中抓取1张牌；pile 参数为 pile 对象（见 DrawFlow.md）
     }
 }
 
@@ -100,7 +100,7 @@
         filter: 无
         content: {
             if( trigger == "展示地块时" ){
-                player.discard("食物") # 弃掉所有食物卡
+                player.discard("食物", type=true) # 弃掉所有食物卡（按类型弃置，见 DiscardFlow.md）
             } else if( trigger == "进入地块时" && player.所在地图块().hasSkill("电厂") ){
                 player.addPoison(1) # 中毒层数+1
             }
@@ -149,7 +149,7 @@
         技能描述: "展示：执行一次免费的拾荒行动"
         trigger: 展示地块时 # 翻开该地块时触发
         filter: 无
-        content: player.drawScavenge(1, 拾荒牌堆颜色) # 从该地块对应颜色的拾荒牌堆中抓取1张牌
+        content: player.drawScavenge(1, game.getScavengePile(拾荒牌堆颜色)) # 从该地块对应颜色的拾荒牌堆中抓取1张牌；pile 参数为 pile 对象（见 DrawFlow.md）
     }
 }
 
@@ -219,7 +219,7 @@
         技能描述: "展示：执行一次免费的拾荒行动"
         trigger: 展示地块时 # 翻开该地块时触发
         filter: 无
-        content: player.drawScavenge(1, 拾荒牌堆颜色) # 从该地块对应颜色的拾荒牌堆中抓取1张牌
+        content: player.drawScavenge(1, game.getScavengePile(拾荒牌堆颜色)) # 从该地块对应颜色的拾荒牌堆中抓取1张牌；pile 参数为 pile 对象（见 DrawFlow.md）
     }
 }
 
@@ -230,7 +230,7 @@
         技能描述: "展示：执行一次免费的拾荒行动"
         trigger: 展示地块时 # 翻开该地块时触发
         filter: 无
-        content: player.drawScavenge(1, 拾荒牌堆颜色) # 从该地块对应颜色的拾荒牌堆中抓取1张牌
+        content: player.drawScavenge(1, game.getScavengePile(拾荒牌堆颜色)) # 从该地块对应颜色的拾荒牌堆中抓取1张牌；pile 参数为 pile 对象（见 DrawFlow.md）
     }
 }
 
@@ -276,7 +276,7 @@
         技能描述: "展示：执行一次免费的拾荒行动"
         trigger: 展示地块时 # 翻开该地块时触发
         filter: 无
-        content: player.drawScavenge(1, 拾荒牌堆颜色) # 从该地块对应颜色的拾荒牌堆中抓取1张牌
+        content: player.drawScavenge(1, game.getScavengePile(拾荒牌堆颜色)) # 从该地块对应颜色的拾荒牌堆中抓取1张牌；pile 参数为 pile 对象（见 DrawFlow.md）
     }
 }
 
@@ -416,11 +416,11 @@
                 for i in List: # 遍历场上所有玩家
                     # 玩家装备区不为空时，随机销毁一张装备
                     if( i.装备区有牌() ){
-                        i.remove( getCard(i, quantity = 1, position = "装备区", random = true) ) # 随机销毁玩家的一张装备
+                        i.removeCard( getCard(i, quantity = 1, position = "装备区", random = true) ) # 随机销毁玩家的一张装备（见 DiscardFlow.md）
                     }
             }
             else if( trigger == "进入地块时" && player.区域内有牌() ){
-                player.remove( getCard(player, quantity = 1, random = true) ) # 随机销毁玩家的一张牌
+                player.removeCard( getCard(player, quantity = 1, random = true) ) # 随机销毁玩家的一张牌（见 DiscardFlow.md）
             }
         }
     }
