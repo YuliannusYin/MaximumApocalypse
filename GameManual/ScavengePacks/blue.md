@@ -213,10 +213,9 @@
         filter: true # 每次拾荒均触发
         forced: true # 强制发动，替代原有拾荒逻辑
         content:{
-            player.cancel('drawScavenge')
+            event.cancel() # 取消原 drawScavenge 流程（替代原有拾荒逻辑）
             # cancel 替代原 drawScavenge 后，「抓取拾荒牌时」事件不再触发，故手电筒拾荒不会抓到「一无所获/伏击！」
-            # 备注：trigger 机制需钩住 PlayerSkill.md 中「拾荒」技能的 content，将原「抓1张」改为「看2留1放1」
-            牌堆 = player.当前拾荒牌堆() # 获取当前拾荒的牌堆
+            牌堆 = event.pile # 获取当前拾荒的牌堆
             顶两张 = 牌堆.查看顶( 2 ) # 查看牌堆顶2张牌（不抓取）
             保留 = player.choose( 顶两张 ) # 玩家选择保留其中1张
             player.获得( 保留 ) # 玩家获得保留的牌

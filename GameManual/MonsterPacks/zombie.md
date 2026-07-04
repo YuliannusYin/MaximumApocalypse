@@ -58,7 +58,7 @@
         forced: true
         filter: true
         content: {
-            抓取者 = event.玩家
+            抓取者 = event.player
             List = get相邻的地块(抓取者.所在地图块()) # 获取抓取者所在地块的所有相邻地块
             for i in List:
                 i.添加怪物标记(1) # 各放置一个怪物标记
@@ -116,7 +116,7 @@
         forced: true
         filter: true
         content: {
-            event.玩家.drawMonster(1) # 抓取此卡的玩家再抓取一张怪物卡
+            event.player.drawMonster(1) # 抓取此卡的玩家再抓取一张怪物卡
         }
     }
 }

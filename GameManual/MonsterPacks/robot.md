@@ -35,7 +35,7 @@
         forced: true # 强制发动
         filter: true
         content: {
-            抓取者 = event.玩家
+            抓取者 = event.player
             手牌 = getCard(抓取者, position = "手牌区") # 获取手牌区所有牌
             抓取者.discard(手牌) # 弃置所有手牌（进入游戏牌弃牌堆）
             List = getTargetInRange(self.纠缠对象, "中距离") # 以纠缠玩家所在位置为中心、中距离内的所有玩家
@@ -61,7 +61,7 @@
         forced: true
         filter: true
         content: {
-            抓取者 = event.玩家
+            抓取者 = event.player
             装备 = getCard(抓取者, position = "装备区") # 获取装备区所有牌
             抓取者.discard(装备) # 弃置装备区所有牌（进入游戏牌弃牌堆）
             List = getTargetInRange(self.纠缠对象, "中距离")
@@ -85,10 +85,10 @@
         skillType: "Monster"
         trigger: 潜行检定前 # 玩家进入有怪物标记的地块、即将进行潜行检定时触发（见 E_gameJudge.md）
         forced: true
-        filter: return event.玩家 == self.纠缠对象 # 触发检定的玩家正是被此怪物纠缠的玩家
+        filter: return event.player == self.纠缠对象 # 触发检定的玩家正是被此怪物纠缠的玩家
         content: {
             event.cancel() # 跳过本次潜行检定
-            event.玩家.drawMonster(1) # 抓取一张怪物卡
+            event.player.drawMonster(1) # 抓取一张怪物卡
         }
     }
 }
@@ -109,7 +109,7 @@
         forced: true
         filter: true
         content: {
-            抓取者 = event.玩家
+            抓取者 = event.player
             List = get相邻的地块(抓取者.所在地图块()) # 获取抓取者所在地块的所有相邻地块
             for i in List:
                 i.添加怪物标记(1) # 各放置一个怪物标记
