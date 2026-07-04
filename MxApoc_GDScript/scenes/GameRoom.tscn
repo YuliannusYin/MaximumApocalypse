@@ -1,0 +1,153 @@
+[gd_scene load_steps=2 format=3 uid="uid://b2g4m3r0om00bbb"]
+
+[ext_resource type="Script" path="res://scripts/game_room.gd" id="1_grm"]
+
+[node name="GameRoom" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_grm")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.12, 0.13, 0.16, 1)
+
+[node name="MarginContainer" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 12
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="TopBar" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="BackButton" type="Button" parent="MarginContainer/VBoxContainer/TopBar"]
+layout_mode = 2
+text = "返回主菜单"
+
+[node name="TitleLabel" type="Label" parent="MarginContainer/VBoxContainer/TopBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "游戏房间"
+
+[node name="Content" type="HSplitContainer" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 8
+
+[node name="LeftPanel" type="PanelContainer" parent="MarginContainer/VBoxContainer/Content"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 0.3
+
+[node name="ScrollContainer" type="ScrollContainer" parent="MarginContainer/VBoxContainer/Content/LeftPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer/Content/LeftPanel/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 12
+
+[node name="MissionSection" type="VBoxContainer" parent="MarginContainer/VBoxContainer/Content/LeftPanel/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="MissionLabel" type="Label" parent="MarginContainer/VBoxContainer/Content/LeftPanel/ScrollContainer/VBoxContainer/MissionSection"]
+layout_mode = 2
+text = "选择任务"
+
+[node name="MissionOption" type="OptionButton" parent="MarginContainer/VBoxContainer/Content/LeftPanel/ScrollContainer/VBoxContainer/MissionSection"]
+layout_mode = 2
+size_flags_horizontal = 3
+item_count = 1
+popup/item_0/text = "随机任务"
+
+[node name="VariantSection" type="VBoxContainer" parent="MarginContainer/VBoxContainer/Content/LeftPanel/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="VariantLabel" type="Label" parent="MarginContainer/VBoxContainer/Content/LeftPanel/ScrollContainer/VBoxContainer/VariantSection"]
+layout_mode = 2
+text = "变体"
+
+[node name="VariantList" type="VBoxContainer" parent="MarginContainer/VBoxContainer/Content/LeftPanel/ScrollContainer/VBoxContainer/VariantSection"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="MiddlePanel" type="PanelContainer" parent="MarginContainer/VBoxContainer/Content"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 0.4
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer/Content/MiddlePanel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="MissionNameLabel" type="Label" parent="MarginContainer/VBoxContainer/Content/MiddlePanel/VBoxContainer"]
+layout_mode = 2
+text = "任务名"
+
+[node name="DifficultyLabel" type="Label" parent="MarginContainer/VBoxContainer/Content/MiddlePanel/VBoxContainer"]
+layout_mode = 2
+text = "难度"
+
+[node name="ScrollContainer" type="ScrollContainer" parent="MarginContainer/VBoxContainer/Content/MiddlePanel/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="DetailRich" type="RichTextLabel" parent="MarginContainer/VBoxContainer/Content/MiddlePanel/VBoxContainer/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+bbcode_enabled = true
+text = "任务详情"
+
+[node name="StartGameButton" type="Button" parent="MarginContainer/VBoxContainer/Content/MiddlePanel/VBoxContainer"]
+layout_mode = 2
+text = "开始游戏"
+disabled = true
+
+[node name="RightPanel" type="PanelContainer" parent="MarginContainer/VBoxContainer/Content"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 0.3
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer/Content/RightPanel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="SeatsHeader" type="HBoxContainer" parent="MarginContainer/VBoxContainer/Content/RightPanel/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="SeatsLabel" type="Label" parent="MarginContainer/VBoxContainer/Content/RightPanel/VBoxContainer/SeatsHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "玩家设置"
+
+[node name="AddSeatButton" type="Button" parent="MarginContainer/VBoxContainer/Content/RightPanel/VBoxContainer/SeatsHeader"]
+layout_mode = 2
+text = "+"
+
+[node name="RemoveSeatButton" type="Button" parent="MarginContainer/VBoxContainer/Content/RightPanel/VBoxContainer/SeatsHeader"]
+layout_mode = 2
+text = "-"
+
+[node name="SeatList" type="VBoxContainer" parent="MarginContainer/VBoxContainer/Content/RightPanel/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 6

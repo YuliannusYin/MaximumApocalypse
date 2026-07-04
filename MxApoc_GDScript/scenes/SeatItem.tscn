@@ -1,0 +1,35 @@
+[gd_scene load_steps=2 format=3 uid="uid://b1s3at1tem00aaa"]
+
+[ext_resource type="Script" path="res://scripts/seat_item.gd" id="1_seat"]
+
+[node name="SeatItem" type="PanelContainer"]
+custom_minimum_size = Vector2(0, 90)
+script = ExtResource("1_seat")
+seat_index = 0
+
+[node name="MarginContainer" type="MarginContainer" parent="."]
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer"]
+theme_override_constants/separation = 6
+
+[node name="SeatHeader" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
+theme_override_constants/separation = 8
+
+[node name="SeatIndexLabel" type="Label" parent="MarginContainer/VBoxContainer/SeatHeader"]
+text = "座位 1"
+
+[node name="TypeOption" type="OptionButton" parent="MarginContainer/VBoxContainer/SeatHeader"]
+size_flags_horizontal = 3
+item_count = 3
+popup/item_0/text = "真人"
+popup/item_1/text = "AI"
+popup/item_2/text = "空"
+
+[node name="SurvivorOption" type="OptionButton" parent="MarginContainer/VBoxContainer"]
+size_flags_horizontal = 3
+item_count = 1
+popup/item_0/text = "未选择"

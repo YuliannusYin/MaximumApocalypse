@@ -10,14 +10,24 @@ config_version=5
 
 [application]
 
-config/name="MxApoc_GDScript"
+config/name="MaximumApocalypse"
+run/main_scene="res://scenes/MainMenu.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
 config/icon="res://icon.svg"
 
+[autoload]
+
+RoomState="*res://scripts/autoload/room_state.gd"
+Settings="*res://scripts/autoload/settings.gd"
+
 [display]
 
+window/size/viewport_width=1430
+window/size/viewport_height=780
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+window/size/viewport=Vector2i(1430, 780)
+window/size/minimum_size=Vector2i(1024, 600)
 
 [physics]
 
