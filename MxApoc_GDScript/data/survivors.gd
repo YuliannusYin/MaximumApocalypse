@@ -13,10 +13,12 @@ static func _ensure_all() -> void:
 	_ALL.append(_make("veteran", "老兵与狗", 22, 7, 6, "把你的爪子拿开", "行动：对老兵造成2点伤害，然后狗直到你的下回合开始免疫伤害。", true,
 		"“老兵与狗”为二位一体特殊角色：作为一个整体同时移动、共用行动次数与回合，但生命值与饥饿值“老兵”与“狗”各自独立计算（老兵HP22/潜行7，狗HP12/潜行9，两角色均存活时潜行取最低值）。公用一个手牌区、游戏牌堆、游戏牌弃牌区，“老兵”与“狗”各自独立有一个装备区。其中一方生命值≤0即永久死亡，另一方仍可继续存活并单独行动。"))
 
+## 获取所有求生者，首次调用时懒加载。
 static func get_all() -> Array[SurvivorData]:
 	_ensure_all()
 	return _ALL
 
+## 按 id 查询求生者；未找到返回 null。
 static func get_by_id(id: String) -> SurvivorData:
 	_ensure_all()
 	for s in _ALL:

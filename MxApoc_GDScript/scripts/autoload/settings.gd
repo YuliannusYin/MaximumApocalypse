@@ -1,11 +1,13 @@
 extends Node
 
+## 全屏状态变更时发射。
 signal fullscreen_changed(is_fullscreen: bool)
 
 const CONFIG_PATH := "user://settings.cfg"
 const SECTION_DISPLAY := "display"
 const KEY_FULLSCREEN := "fullscreen"
 
+## 是否全屏。
 var fullscreen: bool = false
 
 func _ready() -> void:
@@ -18,6 +20,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			toggle_fullscreen()
 			get_viewport().set_input_as_handled()
 
+## 切换全屏状态，应用并持久化，发射 fullscreen_changed。
 func toggle_fullscreen() -> void:
 	fullscreen = not fullscreen
 	_apply()

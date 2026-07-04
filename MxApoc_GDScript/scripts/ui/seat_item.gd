@@ -1,7 +1,9 @@
 class_name SeatItem extends PanelContainer
 
+## 座位序号，0 起。
 @export var seat_index: int = 0
 
+## 座位类型或求生者选择变更时发射。
 signal changed(seat_index: int)
 
 const TYPE_HUMAN := 0
@@ -44,8 +46,9 @@ func _on_selection_changed(_idx: int) -> void:
 func _update_survivor_enabled() -> void:
 	_survivor_option.disabled = (_type_option.selected == TYPE_EMPTY)
 
+## 根据已占用 id 禁用 OptionButton 中对应的求生者项。
+## 当前选择已被其他座位占用时（初始状态或类型切换导致），重置为"未选择"。
 func refresh_survivor_disabled(taken_ids: Array) -> void:
-	# 当前选择已被其他座位占用时（初始状态或类型切换导致），重置为"未选择"
 	var my_id := _get_current_survivor_id()
 	if my_id != "" and my_id in taken_ids:
 		_survivor_option.select(0)
@@ -69,6 +72,7 @@ func _get_current_survivor_id() -> String:
 		return ""
 	return meta.id
 
+## 用 RoomState.seats 项的 {type, survivor} 数据初始化座位 UI。
 func setup(data: Dictionary) -> void:
 	_type_option.set_block_signals(true)
 	_survivor_option.set_block_signals(true)
@@ -91,6 +95,7 @@ func setup(data: Dictionary) -> void:
 	_survivor_option.set_block_signals(false)
 	_update_survivor_enabled()
 
+## 收集当前座位选择，返回 {type: String, survivor: SurvivorData} 字典。
 func collect() -> Dictionary:
 	var type_text := "human"
 	match _type_option.selected:
