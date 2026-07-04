@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3 uid="uid://b2g4m3r0om00bbb"]
 
-[ext_resource type="Script" path="res://scripts/game_room.gd" id="1_grm"]
+[ext_resource type="Script" path="res://scripts/ui/game_room.gd" id="1_grm"]
 
 [node name="GameRoom" type="Control"]
 layout_mode = 3

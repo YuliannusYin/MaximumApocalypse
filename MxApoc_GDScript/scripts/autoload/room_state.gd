@@ -1,19 +1,25 @@
 extends Node
 
+## 当前选中的任务；为 null 表示未选择或随机任务。
 var selected_mission: MissionData = null
+## 是否为随机任务模式（开局时抽取）。
 var selected_mission_is_random: bool = true
+## 变体启用状态，键为变体 id，值为是否启用。
 var variants: Dictionary = {"crisis": false, "famine": false, "shared_fate": false}
+## 座位列表；每项为 {type: String, survivor: SurvivorData} 字典。
 var seats: Array = []
 
 func _ready() -> void:
 	clear()
 
+## 重置房间状态为初始值（1 个真人座，无任务，无变体）。
 func clear() -> void:
 	selected_mission = null
 	selected_mission_is_random = true
 	variants = {"crisis": false, "famine": false, "shared_fate": false}
 	seats = [{"type": "human", "survivor": null}]
 
+## 是否满足开局条件：非空座位均已选择求生者。
 func is_ready_to_start() -> bool:
 	if seats.is_empty():
 		return false
@@ -24,6 +30,7 @@ func is_ready_to_start() -> bool:
 			return false
 	return true
 
+## 生成房间状态的文本快照，供 GameScene 占位展示。
 func snapshot() -> String:
 	var lines := PackedStringArray([])
 	if selected_mission_is_random:

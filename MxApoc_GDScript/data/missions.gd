@@ -80,10 +80,12 @@ static func _ensure_all() -> void:
 		"设置：在地图上放置 3 个目标标记。每个标记必须与其它所有标记至少距离 3 个地图块。在被标记的地图块被玩家进入后，任何玩家需要使用【大炸药】来摧毁该地点和上面的一切。小心别摧毁了你回去的路。把首领卡随机洗入怪物牌堆。在牌堆底额外放一张首领卡。",
 		{"面包车":1, "加油站":2, "旷野":2, "避难所":2, "山":2, "百货商店":2, "机场":1, "隧道":2, "警察局":1, "工厂":1, "森林":2, "医院":1, "军事基地":1, "城市街道":3, "强盗营地":2, "监狱":1, "农场":2, "沙漠":2, "游乐园":1}))
 
+## 获取所有任务，首次调用时懒加载。
 static func get_all() -> Array[MissionData]:
 	_ensure_all()
 	return _ALL
 
+## 按 id 查询任务；未找到返回 null。
 static func get_by_id(id: int) -> MissionData:
 	_ensure_all()
 	for m in _ALL:
@@ -91,6 +93,7 @@ static func get_by_id(id: int) -> MissionData:
 			return m
 	return null
 
+## 随机返回一个任务。
 static func get_random() -> MissionData:
 	_ensure_all()
 	return _ALL[randi() % _ALL.size()]

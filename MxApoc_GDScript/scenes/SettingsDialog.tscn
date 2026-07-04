@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://b38u1nrmbk4ie"]
 
-[ext_resource type="Script" path="res://scripts/settings_dialog.gd" id="1_sd"]
+[ext_resource type="Script" path="res://scripts/ui/settings_dialog.gd" id="1_sd"]
 
 [node name="SettingsDialog" type="AcceptDialog"]
 title = "设置"

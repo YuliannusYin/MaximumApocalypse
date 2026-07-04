@@ -68,6 +68,8 @@ func _restore_state() -> void:
 	_refresh_detail_panel()
 
 func _rebuild_seats() -> void:
+	# 规避Bug: queue_free 是延迟删除,旧子节点仍在树中直到帧结束,
+	# 直接遍历 get_children() 会与 RoomState.seats 索引错位（添加座位时报越界）
 	for child in _seat_list.get_children():
 		_seat_list.remove_child(child)
 		child.queue_free()
