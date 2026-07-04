@@ -1,0 +1,15 @@
+[gd_scene format=3 uid="uid://b38u1nrmbk4ie"]
+
+[ext_resource type="Script" path="res://scripts/settings_dialog.gd" id="1_sd"]
+
+[node name="SettingsDialog" type="AcceptDialog"]
+title = "设置"
+initial_position = 2
+ok_button_text = "关闭"
+script = ExtResource("1_sd")
+
+[node name="FullscreenCheckBox" type="CheckBox" parent="."]
+offset_right = 240.0
+offset_bottom = 40.0
+theme_override_font_sizes/font_size = 18
+text = "全屏模式"
