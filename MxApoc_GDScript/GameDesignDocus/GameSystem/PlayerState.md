@@ -27,11 +27,11 @@ function player.recover(num) {
     }
 
     # 3. 系统加血，受最大生命值上限约束，非钩子节点
-    max = player.最大生命值() - player.生命值()
+    max = player.get_max_hp() - player.get_hp()
     if (event.num > max) {
         event.num = max
     }
-    player.增加生命值(event.num)
+    player.add_hp(event.num)
 
     # 4. 回复生命后 [提案]
     player.trigger("回复生命后", event)
@@ -47,11 +47,11 @@ function player.increaseHunger(num) {
         return
     }
     while (num > 0) {
-        if (player.饥饿值() < 6) {
-            player.增加饥饿值(1)
-        } else if (player.饥饿值() == 6) {
-            if (player.角色卡牌.is正面()) {
-                player.角色卡牌.翻面()
+        if (player.get_hunger() < 6) {
+            player.add_hunger(1)
+        } else if (player.get_hunger() == 6) {
+            if (player.get_role_card().is_front()) {
+                player.get_role_card().flip()
             }
             player.addMarkSkill("饥饿伤害等级", 1)
         }
@@ -67,8 +67,8 @@ function player.increaseHunger(num) {
             } else if (level == 4) {
                 player.damage(8, NULL, "饥饿伤害")
             } else if (level >= 5) {
-                game.log(player.名字 + "被饿死了")
-                player.damage(player.最大生命值(), NULL, "饥饿伤害")
+                game.log(player.name + "被饿死了")
+                player.damage(player.get_max_hp(), NULL, "饥饿伤害")
             }
         }
 
@@ -84,7 +84,7 @@ function player.decreaseHunger(num) {
     if (num <= 0) {
         return
     }
-    max = player.饥饿值() - 1
+    max = player.get_hunger() - 1
     if (num > max) {
         num = max
     }
@@ -92,12 +92,12 @@ function player.decreaseHunger(num) {
         game.log("饥饿值已减少到1，无法继续减少")
         return false
     }
-    player.减少饥饿值(num)
+    player.reduce_hunger(num)
     if (player.countMark("饥饿伤害等级") > 0) {
         player.removeMarkSkill("饥饿伤害等级")
     }
-    if (!player.角色卡牌.is正面()) {
-        player.角色卡牌.翻面()
+    if (!player.get_role_card().is_front()) {
+        player.get_role_card().flip()
     }
 }
 

@@ -69,10 +69,10 @@
             return !player.hasMarkSkill("避难所失效")
         }
         content: {
-            if( trigger == "回合开始时" && player.所在地图块().hasSkill("避难所") ){
+            if( trigger == "回合开始时" && player.get_current_block().hasSkill("避难所") ){
                 # 回合开始时若已在避难所 → 添加「避难所失效」标记（持续到回合结束）→ 本回合后续受击不再免疫
                 player.addMarkSkill(markName = "避难所失效", quantity = 1, Until = "回合结束") # 添加一个“避难所失效”的标记, 标记持续到“回合结束”。
-            } else if( trigger == "受到伤害时" && player.所在地图块().hasSkill("避难所") ){
+            } else if( trigger == "受到伤害时" && player.get_current_block().hasSkill("避难所") ){
                 # 回合开始时不在避难所（无标记）→ 此处受击免疫伤害
                 player.免疫伤害()
             }
@@ -101,7 +101,7 @@
         content: {
             if( trigger == "展示地块时" ){
                 player.discard("食物", type=true) # 弃掉所有食物卡（按类型弃置，见 DiscardFlow.md）
-            } else if( trigger == "进入地块时" && player.所在地图块().hasSkill("电厂") ){
+            } else if( trigger == "进入地块时" && player.get_current_block().hasSkill("电厂") ){
                 player.addPoison(1) # 中毒层数+1
             }
         }
@@ -131,10 +131,10 @@
         active: "行动阶段"
         filter: {
             # 需在行动阶段、有剩余行动次数、当前所在地块为机场、且该地块上无交战怪物时可用
-            return ( player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.所在地图块().hasSkill("机场") && !player.所在地图块().有怪物() ) 
+            return ( player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.get_current_block().hasSkill("机场") && !player.get_current_block().有怪物() ) 
         }
         # 目标地块必须已展示、无怪物标记（未被放置怪物标记）、且不是玩家当前所在地块
-        filterTarget: return target.已展示() && !target.有怪物标记() && target != player.所在地图块() # 目标地块不能是玩家当前所在地块
+        filterTarget: return target.is_revealed() && !target.有怪物标记() && target != player.get_current_block() # 目标地块不能是玩家当前所在地块
         content: {
             player.减少行动次数( 1 ) # 消耗1点行动次数
             player.moveTo( target ) # 将玩家移至目标地块
@@ -179,7 +179,7 @@
             # 展示地块时：若当前处于行动阶段，立即结束行动阶段
             if( trigger == "展示地块时" && player.inPhase == "行动阶段" ){
                 player.结束阶段( "行动阶段" )
-            } else if( trigger == "进入地块时" && player.所在地图块().hasSkill( "监狱" ) ){
+            } else if( trigger == "进入地块时" && player.get_current_block().hasSkill( "监狱" ) ){
                 player.减少行动次数(1) # 进入地块时：减少1点行动次数
             }
         }
@@ -205,9 +205,9 @@
         trigger: 展示地块时 # 翻开该地块时触发
         filter: 无
         content: {
-            List = get相邻的地块(player.所在地图块()) # 获取当前地块所有相邻的地块
+            List = get相邻的地块(player.get_current_block()) # 获取当前地块所有相邻的地块
             for i in List:
-                i.添加怪物标记(1) # 为每个相邻地块添加1个怪物标记
+                i.addMonsterMark(1) # 为每个相邻地块添加1个怪物标记
         }
     }
 }
@@ -241,7 +241,7 @@
         技能描述: "结束：减少一点饥饿值"
         trigger: 回合结束时
         filter: 无
-        content: player.减少饥饿值(1) # 减少1点饥饿值
+        content: player.reduce_hunger(1) # 减少1点饥饿值
     }
 }
 
@@ -325,9 +325,9 @@
         active: "行动阶段"
         filter: {
             # 需在行动阶段、有剩余行动次数、且当前所在地块为隧道时可用
-            return ( player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.所在地图块().hasSkill("隧道") ) 
+            return ( player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.get_current_block().hasSkill("隧道") ) 
         }
-        filterTarget: return target.hasSkill("隧道") && target != player.所在地图块() # 目标地块必须为隧道、且不能是玩家当前所在地块
+        filterTarget: return target.hasSkill("隧道") && target != player.get_current_block() # 目标地块必须为隧道、且不能是玩家当前所在地块
         content: {
             player.减少行动次数( 1 ) # 消耗1点行动次数
             # [修改] 2026-06-30: moveToMapBlock→moveTo，触发进入/离开/展示钩子（见 GameSystem/Movement.md player.moveTo）
@@ -363,7 +363,7 @@
         技能描述: "进入：饥饿等级增加1"
         trigger: 进入地块时
         filter: 无
-        content: player.增加饥饿值(1) # 饥饿等级+1
+        content: player.add_hunger(1) # 饥饿等级+1
     }
 }
 
@@ -394,10 +394,10 @@
         filter: 无
         content: {
             if( trigger == "进入地块时" ){
-                player.增加生命值(1) # 进入时恢复1点生命值
+                player.add_hp(1) # 进入时恢复1点生命值
             }
             else if( trigger == "回合结束时" ){
-                player.增加生命值(2) # 回合结束时恢复2点生命值
+                player.add_hp(2) # 回合结束时恢复2点生命值
             }
         }
     }

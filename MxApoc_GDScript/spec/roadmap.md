@@ -67,7 +67,7 @@ EventTrigger ─┬─→ DamageFlow ──→ PlayerState(increaseHunger/poison
 - **不重构现有 UI 代码**(main_menu/game_room/game_scene/seat_item/settings_dialog)。
 - **不补全数据层**(怪物/拾荒卡/地图块),除非某轮的 stub 影响验收。
 - **不实现 GameScene 真实逻辑**,GameScene 仍只显示 `RoomState.snapshot()`。
-- **不实现待定义方法**(如 `player.增加生命值`、`player.装备` 等),除非本轮范围明确包含。
+- **不实现待定义方法**(如 `player.add_hp`、`player.equip` 等),除非本轮范围明确包含。
 - **不解决 §9.x 歧义**,除非本轮实现受阻。受阻时按 AGENTS.md §3.3 登记/询问。
 
 ---

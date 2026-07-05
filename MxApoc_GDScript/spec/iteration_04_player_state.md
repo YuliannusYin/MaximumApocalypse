@@ -1,6 +1,6 @@
 # 轮次 04:PlayerState 玩家状态流程
 
-> 状态: `[ ] 未开始`
+> 状态: `[x] 已完成`(代码 + 测试,§5 第 11 项 UI 验证待用户)
 >
 > 路线图:[roadmap.md](roadmap.md) | 验收:[verification.md](verification.md) | 规则来源:[GameSystem/PlayerState.md](../GameDesignDocus/GameSystem/PlayerState.md)
 
@@ -33,7 +33,7 @@
 
 ## 2. 前置依赖
 
-- **代码**: 01 轮 EventTrigger、02 轮 Player(生命值/饥饿值/标记/角色卡牌/增加生命值/增加饥饿值/减少饥饿值)、03 轮 damage
+- **代码**: 01 轮 EventTrigger、02 轮 Player(get_hp/get_hunger/get_role_card/add_hp/add_hunger/reduce_hunger)、03 轮 damage
 - **文档**: 已读 `GameSystem/PlayerState.md`
 
 ---
@@ -51,17 +51,17 @@ function player.recover(num) {
     player.trigger("回复生命时", event)
     if (event.cancelled) { return }
     # 3. 系统加血,受最大值约束,非钩子节点
-    max = player.最大生命值() - player.生命值()
+    max = player.get_max_hp() - player.get_hp()
     if (event.num > max) { event.num = max }
-    player.增加生命值(event.num)
+    player.add_hp(event.num)
     # 4. 回复生命后 [提案]
     player.trigger("回复生命后", event)
 }
 ```
 - **触发 4 节点钩子链**(回复生命前/时/系统加血/后),见 [J_gameEventFlow.md §16](../GameDesignDocus/GameInstructions/J_gameEventFlow.md#16-回复生命值流程)
 - `event.num` 可被「回复生命时」钩子修改(surgeon 手术刀·回复、手套 forced:true 加 1)
-- 系统加血受最大值约束(`event.num` 被 clamp 到 `最大生命值 - 生命值`)
-- 调用 `增加生命值(event.num)`(02 轮已实现,不触发钩子、不受上限约束)
+- 系统加血受最大值约束(`event.num` 被 clamp 到 `get_max_hp() - get_hp()`)
+- 调用 `add_hp(event.num)`(02 轮已实现,不触发钩子、不受上限约束)
 - 「回复生命前」/「回复生命后」为 [提案] 名,本轮按伪代码调用 trigger,但无技能挂载测试
 
 ### 3.2 increaseHunger(num) 伪代码
@@ -69,11 +69,11 @@ function player.recover(num) {
 function player.increaseHunger(num) {
     if (num <= 0) { return }
     while (num > 0) {
-        if (player.饥饿值() < 6) {
-            player.增加饥饿值(1)
-        } else if (player.饥饿值() == 6) {
-            if (player.角色卡牌.is正面()) {
-                player.角色卡牌.翻面()
+        if (player.get_hunger() < 6) {
+            player.add_hunger(1)
+        } else if (player.get_hunger() == 6) {
+            if (player.get_role_card().is_front()) {
+                player.get_role_card().flip()
             }
             player.addMarkSkill("饥饿伤害等级", 1)
         }
@@ -85,8 +85,8 @@ function player.increaseHunger(num) {
             else if (level == 3) { player.damage(6, NULL, "饥饿伤害") }
             else if (level == 4) { player.damage(8, NULL, "饥饿伤害") }
             else if (level >= 5) {
-                game.log(player.名字 + "被饿死了")
-                player.damage(player.最大生命值(), NULL, "饥饿伤害")
+                game.log(player.name + "被饿死了")
+                player.damage(player.get_max_hp(), NULL, "饥饿伤害")
             }
         }
         num -= 1
@@ -104,24 +104,24 @@ function player.increaseHunger(num) {
 ```
 function player.decreaseHunger(num) {
     if (num <= 0) { return }
-    max = player.饥饿值() - 1
+    max = player.get_hunger() - 1
     if (num > max) { num = max }
     if (num <= 0) {
         game.log("饥饿值已减少到1，无法继续减少")
         return false
     }
-    player.减少饥饿值(num)
+    player.reduce_hunger(num)
     if (player.countMark("饥饿伤害等级") > 0) {
         player.removeMarkSkill("饥饿伤害等级")
     }
-    if (!player.角色卡牌.is正面()) {
-        player.角色卡牌.翻面()
+    if (!player.get_role_card().is_front()) {
+        player.get_role_card().flip()
     }
 }
 ```
-- 最低降至 1(`max = 饥饿值 - 1`,若 max <= 0 则无法减少)
+- 最低降至 1(`max = get_hunger() - 1`,若 max <= 0 则无法减少)
 - 减少后:清除饥饿伤害标记(若有) + 翻回正面(若反面)
-- 调用 `减少饥饿值(num)`(02 轮已实现,不走 decreaseHunger 流程)
+- 调用 `reduce_hunger(num)`(02 轮已实现,不走 decreaseHunger 流程)
 
 ### 3.4 poison() 伪代码
 ```
@@ -161,7 +161,7 @@ static func _game_log_stub(msg: String) -> void:
 - [J_gameEventFlow.md §16](../GameDesignDocus/GameInstructions/J_gameEventFlow.md#16-回复生命值流程) 新增 4 节点流程(前/时/系统加血/后)
 - [GameSystem/PlayerState.md](../GameDesignDocus/GameSystem/PlayerState.md) recover 伪代码改为触发钩子
 - [K_gameTerminology.md §7.1](../GameDesignDocus/GameInstructions/K_gameTerminology.md#71-伤害类) 「回复生命时」去掉 [提案] 标记,新增「回复生命前」/「回复生命后」为 [提案]
-- [待定义方法.md §9.6](../GameDesignDocus/待定义方法.md#96-player增加生命值n-与-playerrecovernum-的关系) 标记 ✅ 已解决
+- [待定义方法.md §9.6](../GameDesignDocus/待定义方法.md#96-playeradd_hnpn-与-playerrecovernum-的关系) 标记 ✅ 已解决
 
 本轮:
 - recover 按新伪代码实现 4 节点钩子链
@@ -188,23 +188,23 @@ increaseHunger 循环中,若某点伤害触发 playerDeath(本轮 stub 空实现
 
 ### 4.7 命名说明
 - `recover`/`increaseHunger`/`decreaseHunger`/`poison` 为已定义方法,保留英文原名(§3.2)
-- 内部调用 `增加生命值`/`增加饥饿值`/`减少饥饿值`/`角色卡牌`/`addMarkSkill`/`countMark`/`removeMarkSkill` 保留 02 轮命名
+- 内部调用 `add_hp`/`add_hunger`/`reduce_hunger`/`get_role_card`/`addMarkSkill`/`countMark`/`removeMarkSkill` 保留 02 轮命名
 
 ---
 
 ## 5. 实施任务清单
 
-1. [ ] 与用户确认 §4.5(死亡后继续结算);§4.3 已确认 recover 触发 4 节点钩子链
-2. [ ] 在 `scripts/system/player.gd` 实现 `recover`(§3.1)
-3. [ ] 在 `scripts/system/player.gd` 实现 `increaseHunger`(§3.2)
-4. [ ] 在 `scripts/system/player.gd` 实现 `decreaseHunger`(§3.3)
-5. [ ] 在 `scripts/system/player.gd` 实现 `poison`(§3.4)
-6. [ ] 添加 `_game_log_stub`(§4.2)
-7. [ ] 在 `待定义方法.md` §9.x 登记"increaseHunger 中玩家死亡是否中断循环"(§4.5)
-8. [ ] 在 `待定义方法.md` 登记 `game.log` 为待定义(stub)
-9. [ ] 新建 `tests/unit/test_player_state.gd`(§6 验收用例)
-10. [ ] 运行 GUT 测试,全部通过
-11. [ ] 走通 [AGENTS.md](../AGENTS.md) §6.2 关键路径 1-3,确认未破坏 UI
+1. [x] 与用户确认 §4.5(死亡后继续结算);§4.3 已确认 recover 触发 4 节点钩子链
+2. [x] 在 `scripts/system/player.gd` 实现 `recover`(§3.1)
+3. [x] 在 `scripts/system/player.gd` 实现 `increaseHunger`(§3.2)
+4. [x] 在 `scripts/system/player.gd` 实现 `decreaseHunger`(§3.3)
+5. [x] 在 `scripts/system/player.gd` 实现 `poison`(§3.4)
+6. [x] 添加 `_game_log_stub`(§4.2)
+7. [x] 在 `待定义方法.md` §9.18 登记"increaseHunger 中玩家死亡是否中断循环"(§4.5)
+8. [x] 在 `待定义方法.md` §5 / §10.2 登记 `game.log` 为待定义(stub)
+9. [x] 新建 `tests/unit/test_player_state.gd`(§6 验收用例,29/29 通过)
+10. [x] 运行 GUT 测试,全部通过(88/88:test_event_trigger 10 + test_player 28 + test_damage_flow 21 + test_player_state 29)
+11. [ ] 走通 [AGENTS.md](../AGENTS.md) §6.2 关键路径 1-3,确认未破坏 UI(用户手动验证)
 
 ---
 
@@ -218,9 +218,9 @@ increaseHunger 循环中,若某点伤害触发 playerDeath(本轮 stub 空实现
 - `test_recover_exceeds_max_clamped`: HP=5, max=6, `recover(5)` → HP=6(不溢出)
 - `test_recover_full_hp_noop`: HP=6, max=6, `recover(3)` → HP=6(max=0,不增加)
 - `test_recover_zero_or_negative_noop`: `recover(0)` / `recover(-1)` → HP 不变
-- `test_recover_triggers_回复生命时_hook`: 挂"回复生命时"技能(`event.num += 1`), HP=3, max=6, `recover(2)` → HP=6(2+1=3,clamp 到 max-HP=3,实际 +3)
-- `test_recover_triggers_回复生命前_and_后_hooks`: 挂"回复生命前"和"回复生命后"技能(各设 flag), `recover(2)` → 两个 flag 均被设置(验证 [提案] trigger 名也能挂载和触发)
-- `test_recover_cancel_in_回复生命时`: 挂"回复生命时"技能调用 `event.cancel()`, `recover(2)` → HP 不变, "回复生命后" 不触发
+- `test_recover_triggers_recover_during_hook`: 挂"回复生命时"技能(`event.num += 1`), HP=3, max=6, `recover(2)` → HP=6(2+1=3,clamp 到 max-HP=3,实际 +3)
+- `test_recover_triggers_before_and_after_hooks`: 挂"回复生命前"和"回复生命后"技能(各设 flag), `recover(2)` → 两个 flag 均被设置(验证 [提案] trigger 名也能挂载和触发)
+- `test_recover_cancel_in_recover_during`: 挂"回复生命时"技能调用 `event.cancel()`, `recover(2)` → HP 不变, "回复生命后" 不触发
 - `test_recover_negative_after_hook_clamped_to_zero`: 挂"回复生命时"技能 `event.num = -5`, `recover(2)` → HP 不变(clamp 后 max=0,加 0)
 
 ### 6.2 increaseHunger
@@ -230,9 +230,9 @@ increaseHunger 循环中,若某点伤害触发 playerDeath(本轮 stub 空实现
 - `test_increaseHunger_level_2_deals_4_damage`: 已有 1 层标记,hunger=6, `increaseHunger(1)` → countMark==2, HP 扣 4
 - `test_increaseHunger_level_3_deals_6_damage`: 2 层 → 3 层,HP 扣 6
 - `test_increaseHunger_level_4_deals_8_damage`: 3 层 → 4 层,HP 扣 8
-- `test_increaseHunger_level_5_lethal`: 4 层 → 5 层,`damage(最大生命值, NULL, "饥饿伤害")` → playerDeath 被调用(stub)
+- `test_increaseHunger_level_5_lethal`: 4 层 → 5 层,`damage(get_max_hp(), NULL, "饥饿伤害")` → playerDeath 被调用(stub)
 - `test_increaseHunger_multi_point_iteration`: hunger=4, `increaseHunger(3)` → 逐点:hunger=5(无伤害) → hunger=6(无伤害,仍未到6后翻面) → hunger=6 翻面+1层+2伤害
-  - 注意:hunger=4,+1=5(<6,无结算),+1=6(==6,但伪代码 `if 饥饿值()<6` 不满足,走 elif 翻面+标记),+1=6(已翻面,再加标记 level 2,扣 4)
+  - 注意:hunger=4,+1=5(<6,无结算),+1=6(==6,但伪代码 `if get_hunger()<6` 不满足,走 elif 翻面+标记),+1=6(已翻面,再加标记 level 2,扣 4)
   - 实际:increaseHunger(3) 从 hunger=4 开始:第1点→hunger=5,第2点→hunger=6 翻面+1层+扣2,第3点→hunger仍6(elif 分支)+2层+扣4
 - `test_increaseHunger_zero_or_negative_noop`: `increaseHunger(0)` → 无变化
 
@@ -240,7 +240,7 @@ increaseHunger 循环中,若某点伤害触发 playerDeath(本轮 stub 空实现
 - `test_decreaseHunger_normal`: hunger=4, `decreaseHunger(2)` → hunger=2,返回 true
 - `test_decreaseHunger_floor_at_1`: hunger=2, `decreaseHunger(5)` → hunger=1(max=1),返回 true
 - `test_decreaseHunger_already_at_1_returns_false`: hunger=1, `decreaseHunger(1)` → max=0,返回 false,hunger 仍 1
-- `test_decreaseHunger_clears_饥饿伤害标记`: 有 2 层标记,hunger=6, `decreaseHunger(1)` → hunger=5,标记清除(countMark==0)
+- `test_decreaseHunger_clears_hunger_marks`: 有 2 层标记,hunger=6, `decreaseHunger(1)` → hunger=5,标记清除(countMark==0)
 - `test_decreaseHunger_flips_role_card_back`: 角色卡反面, `decreaseHunger(1)` → 角色卡正面
 - `test_decreaseHunger_zero_or_negative_noop`: `decreaseHunger(0)` → 无变化
 
@@ -264,7 +264,7 @@ increaseHunger 循环中,若某点伤害触发 playerDeath(本轮 stub 空实现
 | increaseHunger 死亡后是否继续 | playerDeath 本轮 stub 空实现,循环继续 | §4.5 登记 §9.x 歧义,后续 DeathFlow 轮次明确 |
 | game.log 未实现 | 多处调用 | §4.2 stub 为 push_warning |
 | increaseHunger 逐点结算性能 | 大 num 时多次 damage 调用 | 本轮不优化,严格按伪代码;后续若需优化再讨论 |
-| 饥饿值 > 6 的状态 | 伪代码 `elif 饥饿值()==6` 暗示不会 >6,但若外部直接 `增加饥饿值` 导致 >6,increaseHunger 行为? | 本轮不处理;登记到待定义方法.md(饥饿值上限) |
+| 饥饿值 > 6 的状态 | 伪代码 `elif get_hunger()==6` 暗示不会 >6,但若外部直接 `add_hunger` 导致 >6,increaseHunger 行为? | 本轮不处理;登记到待定义方法.md(饥饿值上限) |
 | decreaseHunger 返回值类型 | 伪代码 `return false`,GDScript 用 bool | §4.6 选项 A |
 
 ---

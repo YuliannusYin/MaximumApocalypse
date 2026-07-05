@@ -1,6 +1,6 @@
 # 轮次 03:DamageFlow 伤害流程
 
-> 状态: `[ ] 未开始`
+> 状态: `[x] 已完成`
 >
 > 路线图:[roadmap.md](roadmap.md) | 验收:[verification.md](verification.md) | 规则来源:[GameSystem/DamageFlow.md](../GameDesignDocus/GameSystem/DamageFlow.md) | 事件流程:[J_gameEventFlow.md §1](../GameDesignDocus/GameInstructions/J_gameEventFlow.md)
 
@@ -11,7 +11,7 @@
 本轮实现伤害流程,这是 PlayerState(increaseHunger/poison) 的前置依赖。包含:
 
 1. **`target.damage(num, source, type=NULL)` 方法**:在 Entity 基类上实现 8 节点钩子链
-2. **Player 补 `减少生命值(n)` 方法**:02 轮未实现,本轮补
+2. **Player 补 `reduce_hp(n)` 方法**:02 轮未实现,本轮补
 3. **Entity 辅助接口**:`is_player()`/`is_monster()`/`_on_death(source)` 的默认实现
 4. **playerDeath/monsterDeath stub**:空实现 + 日志,登记到待定义方法.md
 
@@ -31,7 +31,7 @@
 
 ## 2. 前置依赖
 
-- **代码**: 01 轮 EventTrigger(Entity/Event/Skill)、02 轮 Player(生命值/角色卡牌/标记)
+- **代码**: 01 轮 EventTrigger(Entity/Event/Skill)、02 轮 Player(get_hp/get_role_card/标记)
 - **文档**: 已读 `GameSystem/DamageFlow.md`、`J_gameEventFlow.md §1`
 
 ---
@@ -42,7 +42,7 @@
 ```
 function target.damage(num, source, type = NULL) {
     if (num <= 0) { return }              // 前置检查 1:非正伤害不处理
-    if (target.生命值 <= 0) { return }      // 前置检查 2:已死亡目标不再受伤
+    if (target.get_hp() <= 0) { return }   // 前置检查 2:已死亡目标不再受伤
 
     event = { target, source, num, type, cancelled: false }
 
@@ -61,7 +61,7 @@ function target.damage(num, source, type = NULL) {
 
     if (event.cancelled) { return }          // 取消则不扣血
 
-    target.生命值 -= event.num                // 节点 5(系统扣血,非钩子)
+    target.reduce_hp(event.num)              // 节点 5(系统扣血,非钩子)
 
     if (source != NULL) {
         source.trigger("造成伤害后", event)   // 节点 6
@@ -69,7 +69,7 @@ function target.damage(num, source, type = NULL) {
 
     target.trigger("受到伤害后", event)       // 节点 7(始终触发,含无来源)
 
-    if (target.生命值 <= 0) {                 // 节点 8(死亡判定)
+    if (target.get_hp() <= 0) {              // 节点 8(死亡判定)
         if (target.isPlayer()) {
             target.playerDeath(source)
         } else if (target.isMonster()) {
@@ -80,13 +80,13 @@ function target.damage(num, source, type = NULL) {
 ```
 
 关键点:
-- **前置检查**: `num <= 0` 或 `target.生命值 <= 0` 时直接返回,**不触发任何钩子**
+- **前置检查**: `num <= 0` 或 `target.get_hp() <= 0` 时直接返回,**不触发任何钩子**
 - **source=NULL 分支**: 跳过节点 1/3/6(source 侧),但节点 2/4/5/7/8 正常执行
 - **节点 4 取消点**: `event.cancel()` 后跳过节点 5/6/7/8(不扣血、不触发后置钩子、不判死亡)
 - **event.num 可修改**: 节点 3(source 侧)和节点 4(target 侧)可修改 `event.num`,节点 5 用修改后的值扣血
 - **节点 5 非钩子**: 直接扣血,不对外暴露为事件
 - **节点 7 始终触发**: 含无来源伤害(source=NULL)
-- **节点 8 死亡判定**: `生命值 <= 0` 才触发;isPlayer/isMonster 都 false 时(如地块)不触发死亡流程
+- **节点 8 死亡判定**: `get_hp() <= 0` 才触发;is_player/is_monster 都 false 时(如地块)不触发死亡流程
 
 ---
 
@@ -102,7 +102,7 @@ function target.damage(num, source, type = NULL) {
 func damage(num: int, source: Variant = null, type: String = "") -> void:
     if num <= 0:
         return
-    if 生命值() <= 0:
+    if get_hp() <= 0:
         return
 
     var event := Event.new()
@@ -125,14 +125,14 @@ func damage(num: int, source: Variant = null, type: String = "") -> void:
     if event.cancelled:
         return
 
-    减少生命值(event.num)
+    reduce_hp(event.num)
 
     if source != null:
         source.trigger("造成伤害后", event)
 
     trigger("受到伤害后", event)
 
-    if 生命值() <= 0:
+    if get_hp() <= 0:
         _on_death(source)
 ```
 
@@ -140,11 +140,11 @@ func damage(num: int, source: Variant = null, type: String = "") -> void:
 在 Entity 基类追加:
 ```gdscript
 ## 当前生命值。子类必须重写。
-func 生命值() -> int:
+func get_hp() -> int:
     return 0
 
 ## 直接扣血 n 点(非钩子)。子类必须重写。
-func 减少生命值(n: int) -> void:
+func reduce_hp(n: int) -> void:
     pass
 
 ## 是否为玩家。子类重写。
@@ -165,7 +165,7 @@ func _on_death(source: Variant) -> void:
 在 Player 类追加:
 ```gdscript
 ## 直接扣血 n 点。可降至 0 以下(死亡判定由 damage 处理)。
-func 减少生命值(n: int) -> void:
+func reduce_hp(n: int) -> void:
     if n <= 0:
         return
     _hp -= n
@@ -176,7 +176,7 @@ func is_player() -> bool:
 ## 玩家死亡流程。本轮 stub;真实逻辑见 GameSystem/DeathFlow.md(后续轮次)。
 ## 规则引用: GameSystem/DeathFlow.md
 func playerDeath(source: Variant) -> void:
-    push_warning("playerDeath stub called on %s. source=%s" % [名字, str(source)])
+    push_warning("playerDeath stub called on %s. source=%s" % [name, str(source)])
 
 func _on_death(source: Variant) -> void:
     playerDeath(source)
@@ -188,8 +188,8 @@ func _on_death(source: Variant) -> void:
 |------|------|------|
 | `damage` | 英文原名 | 已定义方法契约(§3.2) |
 | `playerDeath`/`monsterDeath` | 英文原名(camelCase) | 已定义方法契约(§3.2) |
-| `生命值`/`减少生命值` | 中文 | 设计文档中文方法名(§3.6) |
-| `is_player`/`is_monster` | snake_case | 非已定义方法,非中文;按 §4.1 用 snake_case |
+| `get_hp`/`reduce_hp` | snake_case | 状态查询用 `get_` 前缀,原子扣血用 `reduce_` 前缀(AGENTS.md §3.6) |
+| `is_player`/`is_monster` | snake_case | `is_` 前缀的布尔查询(AGENTS.md §3.6) |
 
 设计文档伪代码用 `isPlayer()`,本轮改为 `is_player()`。**此偏差需用户确认。** 若用户要求严格保留 `isPlayer`,则改回。
 
@@ -199,24 +199,24 @@ func _on_death(source: Variant) -> void:
 ### 4.6 目录结构(本轮后)
 ```
 scripts/system/
-├── entity.gd          # 追加 damage/生命值/减少生命值/is_player/is_monster/_on_death
+├── entity.gd          # 追加 damage/get_hp/reduce_hp/is_player/is_monster/_on_death
 ├── event.gd           # 01 轮(无改动)
 ├── skill.gd           # 01 轮(无改动)
 ├── role_card.gd       # 02 轮(无改动)
-└── player.gd          # 追加 减少生命值/is_player/playerDeath/_on_death
+└── player.gd          # 追加 reduce_hp/is_player/playerDeath/_on_death
 ```
 
 ---
 
 ## 5. 实施任务清单
 
-1. [ ] 与用户确认 §4.4 的 `is_player` vs `isPlayer` 命名
-2. [ ] 在 `scripts/system/entity.gd` 追加 `damage`/`生命值`/`减少生命值`/`is_player`/`is_monster`/`_on_death`(§4.1, §4.2)
-3. [ ] 在 `scripts/system/player.gd` 追加 `减少生命值`/`is_player`/`playerDeath`/`_on_death`(§4.3)
-4. [ ] 在 `GameDesignDocus/待定义方法.md` 中登记 `playerDeath`/`monsterDeath` 为 stub 状态
-5. [ ] 新建 `tests/unit/test_damage_flow.gd`(§6 验收用例)
-6. [ ] 运行 GUT 测试,全部通过
-7. [ ] 走通 [AGENTS.md](../AGENTS.md) §6.2 关键路径 1-3,确认未破坏 UI
+1. [x] 与用户确认 §4.4 的 `is_player` vs `isPlayer` 命名(spec/README.md 已确认 snake_case)
+2. [x] 在 `scripts/system/entity.gd` 追加 `damage`/`get_hp`/`reduce_hp`/`is_player`/`is_monster`/`_on_death`(§4.1, §4.2)
+3. [x] 在 `scripts/system/player.gd` 追加 `reduce_hp`/`is_player`/`playerDeath`/`_on_death`(§4.3)
+4. [x] 在 `GameDesignDocus/待定义方法.md` 中登记 `playerDeath`/`monsterDeath` 为 stub 状态(新增 §10.1)
+5. [x] 新建 `tests/unit/test_damage_flow.gd`(§6 验收用例,21 用例)
+6. [x] 运行 GUT 测试,全部通过(59/59 通过,含 01/02 轮回归)
+7. [ ] 走通 [AGENTS.md](../AGENTS.md) §6.2 关键路径 1-3,确认未破坏 UI(待用户手动验证)
 
 ---
 
@@ -239,16 +239,16 @@ scripts/system/
 ### 6.3 source=NULL(无来源伤害)
 - `test_damage_no_source_skips_source_hooks`: `damage(3, null)` → 只触发 target 侧"受到伤害前/时/后",source 侧不触发(因 source 为 null)
 - `test_damage_no_source_reduces_hp`: `damage(3, null)` → HP 正确扣减
-- `test_damage_no_source_triggers_受到伤害前_时_后`: 触发顺序为 `["受到伤害前","受到伤害时","受到伤害后"]`
+- `test_damage_no_source_triggers_target_hooks_only`: 触发顺序为 `["受到伤害前","受到伤害时","受到伤害后"]`
 
 ### 6.4 event.num 修改
-- `test_source_造成伤害时_modifies_num`: source 在"造成伤害时"把 `event.num += 2`;`damage(3, source)` → HP 扣 5
-- `test_target_受到伤害时_modifies_num`: target 在"受到伤害时"把 `event.num -= 1`(减免);`damage(3, source)` → HP 扣 2
+- `test_source_on_dealing_damage_modifies_num`: source 在"造成伤害时"把 `event.num += 2`;`damage(3, source)` → HP 扣 5
+- `test_target_on_taking_damage_modifies_num`: target 在"受到伤害时"把 `event.num -= 1`(减免);`damage(3, source)` → HP 扣 2
 - `test_both_modify_num_additively`: source +2,target -1;`damage(3, source)` → HP 扣 4
 
 ### 6.5 event.cancel()(取消点)
-- `test_cancel_at_受到伤害时_prevents_hp_loss`: target 在"受到伤害时"调用 `event.cancel()`;`damage(3, source)` → HP 不变
-- `test_cancel_skips_后续钩子`: 取消后,"造成伤害后"/"受到伤害后"均不触发
+- `test_cancel_at_taking_damage_prevents_hp_loss`: target 在"受到伤害时"调用 `event.cancel()`;`damage(3, source)` → HP 不变
+- `test_cancel_skips_subsequent_hooks`: 取消后,"造成伤害后"/"受到伤害后"均不触发
 - `test_cancel_does_not_trigger_death`: target HP=1, 取消 `damage(5, source)` → HP 仍 1,不调用 playerDeath
 
 ### 6.6 死亡判定
@@ -257,9 +257,9 @@ scripts/system/
 - `test_damage_exact_lethal_triggers_death`: target HP=3, `damage(3, source)` → HP=0, playerDeath 调用(<=0 触发)
 
 ### 6.7 钩子内 event 字段可读
-- `test_受到伤害时_can_read_source`: target 在"受到伤害时"读取 `event.source`,断言等于传入的 source
-- `test_造成伤害时_can_read_target`: source 在"造成伤害时"读取 `event.target`,断言等于 target
-- `test_受到伤害时_can_read_type`: `damage(3, source, "饥饿伤害")` → target 钩子内 `event.type == "饥饿伤害"`
+- `test_taking_damage_can_read_source`: target 在"受到伤害时"读取 `event.source`,断言等于传入的 source
+- `test_dealing_damage_can_read_target`: source 在"造成伤害时"读取 `event.target`,断言等于 target
+- `test_taking_damage_can_read_type`: `damage(3, source, "饥饿伤害")` → target 钩子内 `event.type == "饥饿伤害"`
 
 ---
 
@@ -270,7 +270,7 @@ scripts/system/
 | `is_player` vs `isPlayer` 命名 | 设计文档用 camelCase,本轮提议 snake_case | §4.4 提议,动笔前确认 |
 | playerDeath/monsterDeath 为 stub | 本轮不实现真实死亡流程 | stub 为 `push_warning` + 空函数;登记到待定义方法.md |
 | Monster 实体未实现 | is_monster 默认 false,无 Monster 测试 | 本轮只测 Player 作为 target;Monster 后续轮次 |
-| `target.生命值 -= event.num` 实现 | 设计文档用属性赋值,本轮用 `减少生命值(n)` 方法 | 方法形式与 02 轮一致;`减少生命值` 不触发钩子(节点 5 非钩子) |
+| `target.get_hp() -= event.num` 实现 | 设计文档用属性赋值,本轮用 `reduce_hp(n)` 方法 | 方法形式与 02 轮一致;`reduce_hp` 不触发钩子(节点 5 非钩子) |
 | Event.source/target 类型 | 01 轮为 Variant,本轮传 Entity/Player | 保持 Variant;02 轮文档已说明 |
 | damage 在 Entity 基类 | Entity 是 RefCounted,无节点树 | 单元测试用 `Player.new()`;后续 GameScene 集成时验证 |
 

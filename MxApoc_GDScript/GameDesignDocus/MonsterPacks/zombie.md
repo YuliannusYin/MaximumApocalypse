@@ -59,9 +59,9 @@
         filter: true
         content: {
             抓取者 = event.player
-            List = get相邻的地块(抓取者.所在地图块()) # 获取抓取者所在地块的所有相邻地块
+            List = get相邻的地块(抓取者.get_current_block()) # 获取抓取者所在地块的所有相邻地块
             for i in List:
-                i.添加怪物标记(1) # 各放置一个怪物标记
+                i.addMonsterMark(1) # 各放置一个怪物标记
             抓取者.drawMonster(1) # 该玩家再抓取一张怪物卡
         }
     }
@@ -151,7 +151,7 @@
             List = getAllPlayers() # 场上所有玩家
             target = List[0]
             for p in List:
-                if( p.生命值() < target.生命值() ) target = p # 找到当前生命值最低的玩家；并列时取最先遍历到的
+                if( p.get_hp() < target.get_hp() ) target = p # 找到当前生命值最低的玩家；并列时取最先遍历到的
             self.修改纠缠对象(target) # 修改纠缠目标为场上血量最低的玩家
         }
     }

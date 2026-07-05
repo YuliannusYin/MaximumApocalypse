@@ -50,8 +50,8 @@
 - GUT 是否为偏好的测试框架 ✅ 已确认
 
 ### iteration_02
-- §9.6:`增加生命值` 不触发钩子、不受上限约束,`recover` 走完整流程 ✅ 已确认
-- §9.7:`增加饥饿值`/`减少饥饿值` 仅数值变更,`increaseHunger`/`decreaseHunger` 走完整流程 ✅ 已确认
+- §9.6:`add_hp` 不触发钩子、不受上限约束,`recover` 走完整流程 ✅ 已确认
+- §9.7:`add_hunger`/`reduce_hunger` 仅数值变更,`increaseHunger`/`decreaseHunger` 走完整流程 ✅ 已确认
 - §9.10:本轮不实现 `addMark`,只用 `addMarkSkill` ✅ 已确认
 - 标记系统不支持 `Until` 参数(后续轮次补) ✅ 已确认
 

@@ -165,13 +165,13 @@ scripts/
 
 ## 5. 实施任务清单
 
-1. [ ] 安装 GUT 插件到 `addons/gut/`,在 `project.godot` 中启用(若未装)
-2. [ ] 新建 `scripts/system/skill.gd`(§4.1)
-3. [ ] 新建 `scripts/system/event.gd`(§4.2)
-4. [ ] 新建 `scripts/system/entity.gd`(§4.3)
-5. [ ] 实现 `entity.trigger(trigger_name, event)`(§4.3 末尾)
-6. [ ] 新建 `tests/unit/test_event_trigger.gd`(§6 验收用例)
-7. [ ] 运行 GUT 测试,全部通过
+1. [x] 安装 GUT 插件到 `addons/gut/`,在 `project.godot` 中启用(若未装)
+2. [x] 新建 `scripts/system/skill.gd`(§4.1)
+3. [x] 新建 `scripts/system/event.gd`(§4.2)
+4. [x] 新建 `scripts/system/entity.gd`(§4.3)
+5. [x] 实现 `entity.trigger(trigger_name, event)`(§4.3 末尾)
+6. [x] 新建 `tests/unit/test_event_trigger.gd`(§6 验收用例)
+7. [x] 运行 GUT 测试,全部通过
 8. [ ] 走通 [AGENTS.md](../AGENTS.md) §6.2 关键路径 1-3,确认未破坏 UI
 9. [ ] 在 `GameDesignDocus/已定义方法.md` 中确认 `entity.trigger` 条目(若需要补充实现说明)
 

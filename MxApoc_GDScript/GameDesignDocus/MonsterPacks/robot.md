@@ -110,9 +110,9 @@
         filter: true
         content: {
             抓取者 = event.player
-            List = get相邻的地块(抓取者.所在地图块()) # 获取抓取者所在地块的所有相邻地块
+            List = get相邻的地块(抓取者.get_current_block()) # 获取抓取者所在地块的所有相邻地块
             for i in List:
-                i.添加怪物标记(1) # 各放置一个怪物标记
+                i.addMonsterMark(1) # 各放置一个怪物标记
         }
     }
 }

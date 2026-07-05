@@ -281,7 +281,7 @@
 > **定义位置**：[GameInstructions/E\_gameJudge.md](E_gameJudge.md)（流程说明）、[GameSystem/Judge.md](../GameSystem/Judge.md)（方法定义）
 > **调用方法**：`player.monsterSpawnJudge()`
 > **触发场景**：玩家回合节点 5「怪物出生时」
-> **检定规则**：投两颗大骰子，匹配已展示地块的怪物生成点数
+> **检定规则**：投两颗大骰子，匹配已展示地块的 monster_spawn_value
 
 | 节点 | trigger 名         | 触发对象   | 说明                                           |
 | -- | ----------------- | ------ | -------------------------------------------- |
@@ -361,19 +361,19 @@
 > **定义位置**：[GameSystem/PlayerState.md](../GameSystem/PlayerState.md)
 > **调用方法**：`player.recover(num)`
 > **取消点**：无（参考 [K\_gameTerminology.md §7.1](K_gameTerminology.md#71-伤害类) 中「回复生命时」标记为「否」）
-> **数值约束**：节点 3 系统加血时受最大生命值上限约束（`min(event.num, 最大生命值 - 生命值)`）
+> **数值约束**：节点 3 系统加血时受最大生命值上限约束（`min(event.num, player.get_max_hp() - player.get_hp())`）
 > **关联技能**：[SurvivorPacks/surgeon.md](../SurvivorPacks/surgeon.md)（手术刀·回复、希波克拉底誓言、缝合）、surgeon 游戏牌「手套」均使用 trigger「回复生命时」修改 `event.num`
 
 | 节点 | trigger 名       | 触发对象   | 说明                                                       |
 | -- | --------------- | ------ | -------------------------------------------------------- |
 | 1  | 回复生命前           | player | 回复前触发                                                    |
 | 2  | 回复生命时           | player | 可修改 `event.num`（如 surgeon 手术刀·回复、手套：`event.num += 1`）    |
-| 3  | （系统加血）          | —      | `player.增加生命值(min(event.num, 最大生命值 - 生命值))`，受最大值约束，非钩子节点 |
+| 3  | （系统加血）          | —      | `player.add_hp(min(event.num, player.get_max_hp() - player.get_hp()))`，受最大值约束，非钩子节点 |
 | 4  | 回复生命后 **\[提案]** | player | 回复完成后触发                                                  |
 
 **event 成员**：`event.player`（回复目标）、`event.num`（可读写）、`event.cancelled`、`event.cancel()`
 
 > **注**：节点 2 为已确认 trigger（surgeon 手术刀·回复、手套均使用，forced:true 强制发动并修改 `event.num`）；节点 1/4 为按命名模式提案，对称包围系统加血节点。
 > **与伤害流程的差异**：无 source 侧（回复无来源概念）；无取消点（K\_gameTerminology.md §7.1 标注为「否」），但保留 `event.cancel()` 接口以备未来扩展。
-> **与** **`player.增加生命值(n)`** **的区别**：`增加生命值` 为底层原子方法，直接修改生命值数值，不触发钩子且不受最大值约束；`recover` 走完整 4 节点流程。详见 [待定义方法.md §9.6](../待定义方法.md#96-player增加生命值n-与-playerrecovernum-的关系)。
+> **与** **`player.add_hp(n)`** **的区别**：`add_hp` 为底层原子方法，直接修改生命值数值，不触发钩子且不受最大值约束；`recover` 走完整 4 节点流程。详见 [待定义方法.md §9.6](../待定义方法.md#96-playeradd_hpn-与-playerrecovernum-的关系)。
 

@@ -4,7 +4,7 @@
 
 # 检定方法：随机投掷两颗大骰子，返回点数之和
 function player.judge() {
-    player.随机投掷两颗大骰子()
+    player.roll_two_dice()
     result = 两颗大骰子的点数之和
     return result
 }
@@ -15,8 +15,8 @@ function player.judge() {
 # 潜行值 = 玩家潜行值 - (所在地块怪物数 + 怪物标记数)
 # 检定结果 <= 潜行值则成功，否则失败
 function player.sneakJudge() {
-    num = countMonster(player.所在地图块()) + countMonsterMark(player.所在地图块())
-    sneakValue = player.潜行值() - num
+    num = countMonster(player.get_current_block()) + countMonsterMark(player.get_current_block())
+    sneakValue = player.get_sneak() - num
     result = player.judge()
     if (result <= sneakValue) {
         return true
@@ -28,10 +28,10 @@ function player.sneakJudge() {
 # ——————————————————————————————————————————————
 
 # 怪物出生检定方法
-# 检定结果对应地图块的怪物生成点数，匹配的地图块执行怪物出生逻辑
+# 检定结果对应地图块的 monster_spawn_value，匹配的地图块执行怪物出生逻辑
 function player.monsterSpawnJudge() {
     result = player.judge()
-    List = 所有已经展示的，且怪物生成点数等于 result 的地图块
+    List = 所有已经展示的，且 monster_spawn_value 等于 result 的地图块
     for i in List {
         if (i.countMonsterMark() < 3) {
             i.addMonsterMark(1)

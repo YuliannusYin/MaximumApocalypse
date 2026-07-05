@@ -31,7 +31,7 @@ function target.playerDeath(source) {
         怪物弃牌堆.add(m)
     }
     if (markCount > 0) {
-        target.所在地图块().addMonsterMark(markCount)
+        target.get_current_block().addMonsterMark(markCount)
     }
 
     # 3b. 将场上所有该角色的求生者游戏牌移出游戏

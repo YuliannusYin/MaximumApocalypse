@@ -238,7 +238,7 @@
         active: "行动阶段"
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0
         selectTarget: 1 # 选择1个目标地块
-        filterTarget: return target.是地图块() && !target.已展示() # 目标必须是未展示的地图块
+        filterTarget: return target.是地图块() && !target.is_revealed() # 目标必须是未展示的地图块
         filterTargetRange: "长距离" # 目标必须在长距离范围内
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
@@ -285,7 +285,7 @@
         active: "行动阶段"
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0
         selectTarget: 1 # 选择1个目标地块
-        filterTarget: return target.是地图块() && target.已展示() # 目标必须是一个地图块且已展示的地图块
+        filterTarget: return target.是地图块() && target.is_revealed() # 目标必须是一个地图块且已展示的地图块
         filterTargetRange: "中距离" # 目标必须在中距离范围内
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数

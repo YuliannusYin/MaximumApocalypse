@@ -20,7 +20,7 @@
             count = 0
             while( count < maxReveal ){
                 target = player.chooseMapBlock({
-                    filterTarget: return target.已展示() == false # 目标地块必须未被展示
+                    filterTarget: return target.is_revealed() == false # 目标地块必须未被展示
                     filterTargetRange: "中距离" # 目标必须在相邻地块
                 })
                 if( target == null ) break # 无可选地块则停止
@@ -199,7 +199,7 @@
                     if( choice == "停止移动" ) break
                 }
                 target = player.chooseMapBlock({
-                    filterTarget: return target != player.所在地图块() # 目标地块不能是当前所在地块
+                    filterTarget: return target != player.get_current_block() # 目标地块不能是当前所在地块
                     filterTargetRange: "中距离" # 目标必须在相邻地块
                 })
                 success = player.moveTo(target) # 调用底层移动函数（见 GameSystem/Movement.md 中 player.moveTo 定义，会触发离开/进入地块钩子）
@@ -319,10 +319,10 @@
         forced: true # 强制发动
         content:{
             if( trigger == "卡牌进入装备区时" ){
-                player.增加潜行值( 2 ) # 自然语言描述，待实现为具体函数调用
+                player.add_sneak( 2 ) # 自然语言描述，待实现为具体函数调用
             }
             else if( trigger == "卡牌离开装备区时" ){
-                player.减少潜行值( 2 ) # 自然语言描述，待实现为具体函数调用
+                player.reduce_sneak( 2 ) # 自然语言描述，待实现为具体函数调用
             }
         }
     }

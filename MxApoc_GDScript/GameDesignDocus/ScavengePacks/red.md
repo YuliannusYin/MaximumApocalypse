@@ -11,7 +11,7 @@
         技能名: "医疗用品（便携）"
         技能描述: "恢复2点生命值"
         active: "行动阶段"
-        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.生命值() < player.最大生命值() 
+        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.get_hp() < player.get_max_hp() 
         filterTarget: return target == player
         content: {
             player.减少行动次数( 1 )
@@ -31,7 +31,7 @@
         技能名: "医疗用品（小型）"
         技能描述: "恢复4点生命值"
         active: "行动阶段"
-        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.生命值() < player.最大生命值() 
+        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.get_hp() < player.get_max_hp() 
         filterTarget: return target == player
         content: {
             player.减少行动次数( 1 )
@@ -51,7 +51,7 @@
         技能名: "医疗用品（大型）"
         技能描述: "恢复6点生命值"
         active: "行动阶段"
-        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.生命值() < player.最大生命值()
+        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.get_hp() < player.get_max_hp()
         filterTarget: return target == player
         content: {
             player.减少行动次数( 1 )

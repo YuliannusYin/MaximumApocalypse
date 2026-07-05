@@ -4,7 +4,7 @@
 # 核心原则：所有地图块技能全部挂载到玩家身上，由 player.trigger() 统一触发
 # 流程：离开地块前 → 离开地块时 → 离开地块后 → 获取目标技能 → 进入地块前（准入检定）→ 移动时 → 清理旧技能 → 进入地块时 → 进入地块后 → 潜行检定
 function player.moveTo(target) {
-    source = player.所在地图块()
+    source = player.get_current_block()
 
     event = {
         player: player,
@@ -46,7 +46,7 @@ function player.moveTo(target) {
 
     # 9. 进入目标地块后
     #    展示未展示的地图块（触发"展示地块时"效果）
-    if (!target.已展示()) {
+    if (!target.is_revealed()) {
         target.展示(触发效果 = true, player)
     }
     player.trigger("进入地块后", event)

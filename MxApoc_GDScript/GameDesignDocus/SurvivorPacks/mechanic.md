@@ -178,7 +178,7 @@
         complexTarget: true # 需选择两类目标（玩家+地图块），使用复合目标模式
         filterTarget1: return target.type == Human # 任一玩家
         filterTarget1Range: Infinity # 无距离限制
-        filterTarget2: return target.已展示() # 任一已展示的地图块
+        filterTarget2: return target.is_revealed() # 任一已展示的地图块
         filterTarget2Range: Infinity # 无距离限制
         content: {
             player.减少行动次数( 1 ) # 消耗1点行动次数
@@ -248,10 +248,10 @@
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
             target = player.chooseMapBlock({
-                filterTarget: return target.已展示() # 任一已展示的地图块
+                filterTarget: return target.is_revealed() # 任一已展示的地图块
                 filterTargetRange: Infinity # 无距离限制
             })
-            target.移除所有怪物标记() # 纯移除，不触发"杀死怪物时"事件；自然语言描述，待实现为具体函数调用
+            target.removeAllMonsterMarks() # 纯移除，不触发"杀死怪物时"事件；自然语言描述，待实现为具体函数调用
         }
     }
 }

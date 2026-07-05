@@ -167,7 +167,7 @@
         content: {
             player.减少行动次数( 1 ) # 消耗1点行动次数
             target.damage( 5, player ) # 对主目标造成5点伤害
-            List = getTarget(target.所在地图块()) # 获取主目标所在地块的所有目标
+            List = getTarget(target.get_current_block()) # 获取主目标所在地块的所有目标
             for i in List:
                 if( i != target ) i.damage( 3, player ) # 对同地块的其他目标造成3点伤害
         }
@@ -312,7 +312,7 @@
                     }
                 }
                 target = player.chooseMapBlock({
-                    filterTarget: return target != player.所在地图块() # 目标地块不能是当前所在地块
+                    filterTarget: return target != player.get_current_block() # 目标地块不能是当前所在地块
                     filterTargetRange: "中距离" # 目标必须在相邻地块
                 })
                 success = player.moveTo(target) # 调用底层移动函数

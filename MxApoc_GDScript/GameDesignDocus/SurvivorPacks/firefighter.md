@@ -116,7 +116,7 @@
             player.减少行动次数( 1 ) # 消耗1点行动次数
             player.消耗填充物( 1, "猎枪" ) # 消耗1点弹药
             target.damage(4, player) # 对主目标造成4点伤害，伤害来源为玩家
-            List = getTarget(player.所在地图块()) # 获取玩家所在地图块的所有目标
+            List = getTarget(player.get_current_block()) # 获取玩家所在地图块的所有目标
             for i in List:
                 if( i != player ) i.damage(2, player) # 对溅射目标造成2点伤害，伤害来源为玩家
         }
@@ -269,7 +269,7 @@
                     }
                 }
                 target = player.chooseMapBlock({
-                    filterTarget: return target != player.所在地图块() # 目标地块不能是当前所在地块
+                    filterTarget: return target != player.get_current_block() # 目标地块不能是当前所在地块
                     filterTargetRange: "中距离" # 目标必须在相邻地块
                 })
                 success = player.moveTo(target) # [修改] 2026-06-30: 修正 sccess→success；调用底层移动函数（见 GameSystem/Movement.md 中 player.moveTo 定义，会触发离开/进入地块钩子）

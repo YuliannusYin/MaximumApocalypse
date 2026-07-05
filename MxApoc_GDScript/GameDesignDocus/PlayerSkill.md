@@ -3,7 +3,7 @@ Skill{
     技能描述："移动到目标地块"
     active: "行动阶段"
     filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 # 行动阶段且有剩余行动次数时可用
-    filterTarget: return target != player.所在地图块() # 目标地块不能是玩家当前所在地块
+    filterTarget: return target != player.get_current_block() # 目标地块不能是玩家当前所在地块
     filterTargetRange: "中距离" # 目标地块必须在中距离范围内（相邻地块）
     content: {
         player.减少行动次数( 1 ) # 消耗1点行动次数
@@ -16,11 +16,11 @@ Skill{
     技能描述："从可以进行拾荒的牌堆中抓取一张牌"
     active: "行动阶段"
     filter: {
-        if( player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.所在地图块().hasColor() ){
+        if( player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.get_current_block().hasColor() ){
             return true # 行动阶段、有剩余行动次数，且当前所在地块存在可拾荒的颜色牌堆时可用
         } else return false # 否则不可用
     }
-    filterTarget: return getColor(target).isIn(getColor(player.所在地图块())) # 目标拾荒牌堆的颜色必须属于玩家所在地块的颜色集合
+    filterTarget: return getColor(target).isIn(getColor(player.get_current_block())) # 目标拾荒牌堆的颜色必须属于玩家所在地块的颜色集合
     content: {
         player.减少行动次数( 1 ) # 消耗1点行动次数
         player.drawScavenge(1, target) # 从目标拾荒牌堆中抓取1张牌
@@ -58,7 +58,7 @@ Skill{
     技能描述："你可以选择一张拾荒牌牌和同地图块内另一玩家，然后你将该拾荒牌牌向该玩家展示，其可以选择一张手中的拾荒牌与你交易。"
     active: "行动阶段"
     usable: 1 # 每个回合的行动阶段限用1次
-    filter: return player.inPhase == "行动阶段" && getPlayerNumber(player.所在地图块()) > 1 # 免费行动：不消耗行动次数；需在行动阶段，且当前地块上有超过1名玩家（即有交易对象）
+    filter: return player.inPhase == "行动阶段" && getPlayerNumber(player.get_current_block()) > 1 # 免费行动：不消耗行动次数；需在行动阶段，且当前地块上有超过1名玩家（即有交易对象）
     selectCard: 1 # 需选择1张牌
     filterCard: return getSource(card) == scavenge # 选中的牌必须来源于拾荒牌堆（即必须是拾荒牌）
     position: "手牌区" # 选牌位置限定为手牌区
@@ -93,7 +93,7 @@ Skill{
     filter: return player.inPhase == "行动阶段" && 玩家装备区里有'燃料' # 自然语言描述，待实现为具体函数调用；免费行动：不消耗行动次数；需在行动阶段，且玩家持有燃料
     filterTargetRange: "短距离" # 目标必须在短距离范围内
     filterTarget: {
-        if( target == player.所在地图块() && player.所在地图块().名字 == "面包车" ){ # 目标是玩家所在地块的面包车
+        if( target == player.get_current_block() && player.get_current_block().名字 == "面包车" ){ # 目标是玩家所在地块的面包车
             return true
         } else if( target.填充物类型 == "燃料" ){ # 目标是填充物类型为"燃料"的装备
             return true

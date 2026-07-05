@@ -14,7 +14,7 @@ function target.damage(num, source, type = NULL ) {
     if (num <= 0) {
         return
     }
-    if (target.生命值 <= 0) {
+    if (target.get_hp() <= 0) {
         return
     }
 
@@ -51,7 +51,7 @@ function target.damage(num, source, type = NULL ) {
     }
 
     # 5. 系统内部执行扣血，不对外暴露成事件钩子
-    target.生命值 -= event.num
+    target.reduce_hp(event.num)
 
     if (source != NULL) {
         # 6. source造成伤害后
@@ -62,7 +62,7 @@ function target.damage(num, source, type = NULL ) {
     target.trigger("受到伤害后", event)
 
     # 8. 如果目标生命值小于等于零，进入死亡流程
-    if (target.生命值 <= 0) {
+    if (target.get_hp() <= 0) {
         if (target.isPlayer()) {
             target.playerDeath(source)
         } else if (target.isMonster()) {

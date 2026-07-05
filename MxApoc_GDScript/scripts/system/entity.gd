@@ -26,6 +26,59 @@ func trigger(trigger_name: String, event: Event) -> void:
 			if event.cancelled:
 				break
 
+## 造成 num 点伤害。source=null 时为无来源伤害(跳过 source 侧钩子)。
+## 8 节点钩子链见 GameSystem/DamageFlow.md。
+func damage(num: int, source: Variant = null, type: String = "") -> void:
+	if num <= 0:
+		return
+	if get_hp() <= 0:
+		return
+
+	var event := Event.new()
+	event.target = self
+	event.source = source
+	event.num = num
+	event.type = type
+
+	if source != null:
+		source.trigger("造成伤害前", event)
+		trigger("受到伤害前", event)
+	else:
+		trigger("受到伤害前", event)
+
+	if source != null:
+		source.trigger("造成伤害时", event)
+	trigger("受到伤害时", event)
+
+	if event.cancelled:
+		return
+
+	reduce_hp(event.num)
+
+	if source != null:
+		source.trigger("造成伤害后", event)
+	trigger("受到伤害后", event)
+
+	if get_hp() <= 0:
+		_on_death(source)
+
+
+## 当前生命值。子类必须重写。
+func get_hp() -> int:
+	return 0
+
+## 直接扣血 n 点(节点 5 非钩子)。子类必须重写。
+func reduce_hp(n: int) -> void:
+	pass
+
+## 是否为玩家。子类重写。
+func is_player() -> bool:
+	return false
+
+## 是否为怪物。子类重写。
+func is_monster() -> bool:
+	return false
+
 func _run_filter(s: Skill, event: Event) -> bool:
 	if s.filter.is_valid():
 		return bool(s.filter.call(event))
@@ -34,3 +87,8 @@ func _run_filter(s: Skill, event: Event) -> bool:
 func _run_content(s: Skill, event: Event) -> void:
 	if s.content.is_valid():
 		s.content.call(event)
+
+## 死亡流程入口。子类重写为 playerDeath/monsterDeath。
+## 本轮 stub:空实现 + 日志。
+func _on_death(source: Variant) -> void:
+	push_warning("Entity._on_death called, but no override. source=%s" % str(source))

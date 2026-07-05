@@ -5,7 +5,7 @@
 # '老兵与狗'公用一个手牌区、游戏牌堆、游戏牌弃牌区，'老兵'与'狗'各自独立有一个装备区。
 # 其中一方生命值≤0即永久死亡，另一方仍可继续存活并单独行动。
 # player 指代'老兵与狗'，用 player.dog 指代狗，用 player.veteran 指代老兵。
-# "狗还活着"判定为 player.dog.生命值() > 0；"狗已死亡"判定为 player.dog.生命值() <= 0。
+# "狗还活着"判定为 player.dog.get_hp() > 0；"狗已死亡"判定为 player.dog.get_hp() <= 0。
 # 装备归属：武器类（M1加兰德步枪、迫击炮、鲁格手枪）与防具类（狗哨、军牌）装备于'老兵'装备区；狗项圈装备于狗的装备区。
 
 # 老兵和狗注意事项
@@ -26,7 +26,7 @@
             技能描述: "行动：对老兵造成2点伤害，然后狗直到你的下回合开始免疫伤害。"
             active: "行动阶段"
             # 行动阶段、有剩余行动次数、且狗还活着时可用（狗需存活才能获得免疫）
-            filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.dog.生命值() > 0
+            filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.dog.get_hp() > 0
             content:{
                 player.减少行动次数( 1 ) # 消耗1点行动次数
                 player.veteran.damage( 2, player ) # 老兵对自己造成2点伤害
@@ -53,7 +53,7 @@
             技能描述: "行动：对中距离内的一个目标造成3点伤害，然后狗受到1点伤害。"
             射程: "中距离"
             active: "行动阶段"
-            filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.dog.生命值() > 0
+            filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.dog.get_hp() > 0
             selectTarget: 1 # 选择1个目标
             filterTarget: return true # 任何目标都可用
             filterTargetRange: "中距离" # 目标必须在中距离范围内
@@ -79,7 +79,7 @@
         skillType: "行动"
         active: "行动阶段"
         # 行动阶段、有剩余行动次数、且狗还活着时可用
-        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.dog.生命值() > 0
+        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.dog.get_hp() > 0
         selectTarget: [1, 3] # 选择1~3个目标
         filterTarget: return true # 任何目标都可用
         filterTargetRange: "中距离" # 目标必须在中距离范围内
@@ -102,7 +102,7 @@
         skillType: "行动"
         active: "行动阶段"
         # 行动阶段、有剩余行动次数、且狗已死亡时可用
-        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.dog.生命值() <= 0
+        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.dog.get_hp() <= 0
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
             player.veteran.addTempSkill( '反击开始_damage', until = "下个回合开始时" ) # 添加临时技能，持续到下个回合开始时失效
@@ -131,11 +131,11 @@
         skillType: "装备"
         active: "行动阶段"
         # 行动阶段、有剩余行动次数、且狗还活着时可用
-        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.dog.生命值() > 0
+        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.dog.get_hp() > 0
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
             target = player.chooseMapBlock({
-                filterTarget: return target.怪物标记数量() > 0 # 目标地块上至少有1个怪物标记
+                filterTarget: return target.countMonsterMark() > 0 # 目标地块上至少有1个怪物标记
                 filterTargetRange: "长距离" # 目标必须在长距离范围内
             })
             target.移除怪物标记( 1 ) # 移除地块上的1个怪物标记；自然语言描述，待实现为具体函数调用
@@ -155,7 +155,7 @@
         skillType: "行动"
         active: "行动阶段"
         # 行动阶段、有剩余行动次数、且狗已死亡时可用
-        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.dog.生命值() <= 0
+        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.dog.get_hp() <= 0
         selectTarget: -1 # 选取所有目标
         filterTarget: return target != player # 排除玩家自身
         filterTargetRange: "中距离" # 目标必须在中距离范围内
@@ -203,7 +203,7 @@
         content:{
             if( trigger == "卡牌进入装备区时" && event.card.名字 == "军牌" ){ # 装备时
                 player.veteran.recover( 2 ) # 老兵恢复2点生命值
-                if( player.dog.生命值() > 0 ) player.dog.recover( 2 ) # 狗存活时也恢复2点生命值
+                if( player.dog.get_hp() > 0 ) player.dog.recover( 2 ) # 狗存活时也恢复2点生命值
             }
             else if( trigger == "受到伤害时" ){
                 event.num-- # 受到的伤害减1点
@@ -261,13 +261,13 @@
             player.减少行动次数( 1 ) # 消耗1点行动次数
             player.消耗填充物( 1, "迫击炮" ) # 消耗1枚弹药
             target = player.chooseMapBlock({
-                filterTarget: return target.已展示() # 任一已展示的地图块
+                filterTarget: return target.is_revealed() # 任一已展示的地图块
                 filterTargetRange: "长距离" # 目标必须在长距离范围内
             })
             # 询问玩家选择效果
             choice = player.choose( ["移除怪物标记", "造成伤害"] )
             if( choice == "移除怪物标记" ){
-                target.移除所有怪物标记() # 移除该地图块上所有怪物标记
+                target.removeAllMonsterMarks() # 移除该地图块上所有怪物标记
             }
             else if( choice == "造成伤害" ){
                 List = getTarget( target ) # 获取该地图块的所有目标
@@ -288,7 +288,7 @@
         skillType: "行动"
         active: "行动阶段"
         # 行动阶段、有剩余行动次数、且狗还活着时可用
-        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.dog.生命值() > 0
+        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.dog.get_hp() > 0
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
             result = player.choose( prompt = "请选择拾荒牌堆颜色：", ["red", "green", "blue"] )
@@ -337,14 +337,14 @@
         skillType: "行动"
         active: "行动阶段"
         # 行动阶段、有剩余行动次数、且狗还活着时可用
-        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.dog.生命值() > 0
+        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.dog.get_hp() > 0
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
             maxReveal = 2 # 最多展示2个相邻地块
             count = 0
             while( count < maxReveal ){
                 target = player.chooseMapBlock({
-                    filterTarget: return target.已展示() == false # 目标地块必须未被展示
+                    filterTarget: return target.is_revealed() == false # 目标地块必须未被展示
                     filterTargetRange: "中距离" # 目标必须在相邻地块
                 })
                 if( target == null ) break # 无可选地块则停止
@@ -369,7 +369,7 @@
         skillType: "行动"
         active: "行动阶段"
         # 行动阶段、有剩余行动次数、且狗还活着时可用
-        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.dog.生命值() > 0
+        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.dog.get_hp() > 0
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
             player.veteran.decreaseHunger( 2 ) # 老兵饥饿等级降低2点（见 GameSystem/PlayerState.md 中 decreaseHunger 定义，最低降至1）
@@ -389,7 +389,7 @@
         skillType: "行动"
         active: "行动阶段"
         # 行动阶段、有剩余行动次数、且狗还活着时可用
-        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.dog.生命值() > 0
+        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.dog.get_hp() > 0
         selectTarget: 1 # 选择1个目标
         filterTarget: return true # 任何目标都可用
         filterTargetRange: "中距离" # 目标必须在中距离范围内
