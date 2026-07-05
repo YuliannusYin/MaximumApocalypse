@@ -85,6 +85,5 @@
 ## 相关文档
 
 - [AGENTS.md](../AGENTS.md) —— AI Agent 项目说明书(行为约束、编码规范)
-- [.trae/rules/code_guide.md](../.trae/rules/code_guide.md) —— 代码编写规范(命名/类型/注释/风格)
 - [GameDesignDocus/已定义方法.md](../GameDesignDocus/已定义方法.md) —— 已定义方法契约清单
 - [GameDesignDocus/待定义方法.md](../GameDesignDocus/待定义方法.md) —— 待定义方法与 §9.x 歧义

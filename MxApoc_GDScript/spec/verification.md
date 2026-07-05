@@ -71,7 +71,7 @@ tests/
 1. **代码**: 实现了本轮范围内所有已定义方法,签名与 `已定义方法.md` 契约一致
 2. **测试**: 配套 `test_<module>.gd` 完成,覆盖 §4 的 3 类用例,且全部通过
 3. **解析**: GDScript 解析无错误(编辑器底部状态栏绿)
-4. **注释**: 按 [code_guide.md](../.trae/rules/code_guide.md) §7 规则,Public API 有 `##` 文档注释,Complex Logic 有 `# 规则引用`
+4. **注释**: 按 [AGENTS.md](../AGENTS.md) §4.5 注释规则,Public API 有 `##` 文档注释,Complex Logic 有 `# 规则引用`
 5. **文档**: 把本轮实现的方法从 `待定义方法.md` 迁移到 `已定义方法.md`(若适用)
 6. **未触碰**: 未重构本轮范围外的代码(AGENTS.md §3.7)
 7. **关键路径**: 走通 AGENTS.md §6.2 的 1-3 步(主菜单→GameRoom→GameScene→返回),确认未破坏现有 UI
