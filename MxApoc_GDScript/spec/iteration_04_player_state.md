@@ -25,7 +25,7 @@
 - `game.log(msg)` —— 用 `print` 或 `push_warning` 替代,登记到待定义方法.md
 
 **本轮不实现**:
-- "回复生命时" trigger(J_gameEventFlow.md 标注 [提案],PlayerState.md 伪代码未触发,本轮不实现)
+- "回复生命前" / "回复生命后" trigger(J_gameEventFlow.md §16 标注 [提案],本轮暂不实现,先按 [提案] 调用 trigger 名,技能可挂载但本轮无测试用例)
 - game 对象其他方法
 - 标记的 Until 参数(02 轮已说明,延续)
 
@@ -44,14 +44,25 @@
 ```
 function player.recover(num) {
     if (num <= 0) { return }
+    event = { player: player, num: num, cancelled: false }
+    # 1. 回复生命前 [提案]
+    player.trigger("回复生命前", event)
+    # 2. 回复生命时(可修改 event.num,如 surgeon 手术刀·回复、手套:event.num += 1)
+    player.trigger("回复生命时", event)
+    if (event.cancelled) { return }
+    # 3. 系统加血,受最大值约束,非钩子节点
     max = player.最大生命值() - player.生命值()
-    if (num > max) { num = max }
-    player.增加生命值(num)
+    if (event.num > max) { event.num = max }
+    player.增加生命值(event.num)
+    # 4. 回复生命后 [提案]
+    player.trigger("回复生命后", event)
 }
 ```
-- **不触发钩子**(伪代码未调用 trigger)
-- 受最大值约束(`num` 被 clamp 到 `最大生命值 - 生命值`)
-- 调用 `增加生命值(num)`(02 轮已实现,不触发钩子、不受上限约束)
+- **触发 4 节点钩子链**(回复生命前/时/系统加血/后),见 [J_gameEventFlow.md §16](../GameDesignDocus/GameInstructions/J_gameEventFlow.md#16-回复生命值流程)
+- `event.num` 可被「回复生命时」钩子修改(surgeon 手术刀·回复、手套 forced:true 加 1)
+- 系统加血受最大值约束(`event.num` 被 clamp 到 `最大生命值 - 生命值`)
+- 调用 `增加生命值(event.num)`(02 轮已实现,不触发钩子、不受上限约束)
+- 「回复生命前」/「回复生命后」为 [提案] 名,本轮按伪代码调用 trigger,但无技能挂载测试
 
 ### 3.2 increaseHunger(num) 伪代码
 ```
@@ -145,13 +156,17 @@ static func _game_log_stub(msg: String) -> void:
 - 调用处用 `_game_log_stub(...)` 替代 `game.log(...)`
 - 登记 `game.log` 为待定义方法,本轮 stub
 
-### 4.3 recover 不触发钩子
-PlayerState.md 伪代码未调用 `trigger`,J_gameEventFlow.md 中"回复生命时"标注 [提案]。本轮:
-- **不实现** "回复生命时" trigger
-- recover 仅做数值变更(经 `增加生命值`)
-- 后续轮次若用户确认"回复生命时"为正式 trigger,再补钩子
+### 4.3 recover 触发 4 节点钩子链
+用户已确认设计文档为半成品,要求本轮补全「回复生命值」流程设计。已同步更新:
+- [J_gameEventFlow.md §16](../GameDesignDocus/GameInstructions/J_gameEventFlow.md#16-回复生命值流程) 新增 4 节点流程(前/时/系统加血/后)
+- [GameSystem/PlayerState.md](../GameDesignDocus/GameSystem/PlayerState.md) recover 伪代码改为触发钩子
+- [K_gameTerminology.md §7.1](../GameDesignDocus/GameInstructions/K_gameTerminology.md#71-伤害类) 「回复生命时」去掉 [提案] 标记,新增「回复生命前」/「回复生命后」为 [提案]
+- [待定义方法.md §9.6](../GameDesignDocus/待定义方法.md#96-player增加生命值n-与-playerrecovernum-的关系) 标记 ✅ 已解决
 
-**此处理需用户确认。** 若用户要求 recover 触发钩子,本轮补。
+本轮:
+- recover 按新伪代码实现 4 节点钩子链
+- 「回复生命时」为已确认 trigger(surgeon 手术刀·回复、手套均使用),本轮须实现并测试
+- 「回复生命前」/「回复生命后」为 [提案] 名,本轮按伪代码调用 trigger,但无技能挂载测试
 
 ### 4.4 increaseHunger 逐点结算
 伪代码用 `while (num > 0)` 循环,每次 +1 并结算。本轮严格按伪代码实现,**不优化**为批量结算。原因:
@@ -179,7 +194,7 @@ increaseHunger 循环中,若某点伤害触发 playerDeath(本轮 stub 空实现
 
 ## 5. 实施任务清单
 
-1. [ ] 与用户确认 §4.3(recover 不触发钩子)与 §4.5(死亡后继续结算)
+1. [ ] 与用户确认 §4.5(死亡后继续结算);§4.3 已确认 recover 触发 4 节点钩子链
 2. [ ] 在 `scripts/system/player.gd` 实现 `recover`(§3.1)
 3. [ ] 在 `scripts/system/player.gd` 实现 `increaseHunger`(§3.2)
 4. [ ] 在 `scripts/system/player.gd` 实现 `decreaseHunger`(§3.3)
@@ -203,7 +218,10 @@ increaseHunger 循环中,若某点伤害触发 playerDeath(本轮 stub 空实现
 - `test_recover_exceeds_max_clamped`: HP=5, max=6, `recover(5)` → HP=6(不溢出)
 - `test_recover_full_hp_noop`: HP=6, max=6, `recover(3)` → HP=6(max=0,不增加)
 - `test_recover_zero_or_negative_noop`: `recover(0)` / `recover(-1)` → HP 不变
-- `test_recover_does_not_trigger_hooks`: 挂"回复生命时"技能(若实现),`recover(2)` 后技能不触发(本轮不实现该 trigger)
+- `test_recover_triggers_回复生命时_hook`: 挂"回复生命时"技能(`event.num += 1`), HP=3, max=6, `recover(2)` → HP=6(2+1=3,clamp 到 max-HP=3,实际 +3)
+- `test_recover_triggers_回复生命前_and_后_hooks`: 挂"回复生命前"和"回复生命后"技能(各设 flag), `recover(2)` → 两个 flag 均被设置(验证 [提案] trigger 名也能挂载和触发)
+- `test_recover_cancel_in_回复生命时`: 挂"回复生命时"技能调用 `event.cancel()`, `recover(2)` → HP 不变, "回复生命后" 不触发
+- `test_recover_negative_after_hook_clamped_to_zero`: 挂"回复生命时"技能 `event.num = -5`, `recover(2)` → HP 不变(clamp 后 max=0,加 0)
 
 ### 6.2 increaseHunger
 - `test_increaseHunger_below_6_only_increases`: hunger=2, `increaseHunger(3)` → hunger=5,无饥饿伤害标记,HP 不变
@@ -242,7 +260,7 @@ increaseHunger 循环中,若某点伤害触发 playerDeath(本轮 stub 空实现
 
 | 项 | 说明 | 处理 |
 |----|------|------|
-| recover 不触发钩子 | J_gameEventFlow.md "回复生命时"标注 [提案] | §4.3 提议不实现,动笔前确认 |
+| recover 钩子链设计 | 用户已确认设计文档为半成品,要求补全 | §4.3 已补全:J_gameEventFlow.md §16 新增 4 节点流程,PlayerState.md 伪代码已更新 |
 | increaseHunger 死亡后是否继续 | playerDeath 本轮 stub 空实现,循环继续 | §4.5 登记 §9.x 歧义,后续 DeathFlow 轮次明确 |
 | game.log 未实现 | 多处调用 | §4.2 stub 为 push_warning |
 | increaseHunger 逐点结算性能 | 大 num 时多次 damage 调用 | 本轮不优化,严格按伪代码;后续若需优化再讨论 |
@@ -253,7 +271,7 @@ increaseHunger 循环中,若某点伤害触发 playerDeath(本轮 stub 空实现
 
 ## 8. 不做的事
 
-- 不实现 "回复生命时" trigger(§4.3)
+- 不为「回复生命前」/「回复生命后」[提案] trigger 编写技能挂载测试用例(§4.3)
 - 不实现 game 对象(仅 stub game.log)
 - 不实现 playerDeath/monsterDeath 真实逻辑(03 轮已 stub)
 - 不优化 increaseHunger 为批量结算(§4.4)

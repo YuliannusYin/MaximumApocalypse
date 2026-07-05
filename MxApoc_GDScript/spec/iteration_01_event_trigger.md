@@ -1,6 +1,6 @@
 # 轮次 01:EventTrigger 事件系统
 
-> 状态: `[ ] 未开始`
+> 状态: `[x] 已完成`
 >
 > 路线图:[roadmap.md](roadmap.md) | 验收:[verification.md](verification.md) | 规则来源:[GameSystem/EventTrigger.md](../GameDesignDocus/GameSystem/EventTrigger.md)
 
@@ -212,8 +212,12 @@ scripts/
 | Skill 字段类型 | `filter`/`content` 用 `Callable` 是否够灵活? 技能数据需要序列化时(存档)Callable 不可序列化 | 本轮先用 Callable,后续若需序列化再重构为脚本子类 |
 | Event.source/target 用 Variant | 类型不安全,但 Entity 类型本轮未定义 | 02 轮 Player 实现后,考虑收紧为 `Entity` 或保留 Variant |
 | get_all_skills() 返回可变引用 | 调用方可直接改 `_skills` 数组 | 本轮可接受;02 轮若需要再返回不可变副本 |
-| GUT 安装方式 | 用户可能偏好其他测试框架 | 动笔前与用户确认 |
+| GUT 安装方式 | 用户可能偏好其他测试框架 | 已确认:GUT v9.7.0(支持 Godot 4.7),git clone 安装 |
 | `、` 分隔符 | 中文顿号,不是英文逗号 | 严格按设计文档,用 `"、"` |
+| GUT 9.6.0 不支持 Godot 4.7 | 初次克隆 main 分支为 9.6.0,导入报错 | 已切换到 v9.7.0 tag,测试通过 |
+| `@export Callable` 不可用 | Godot 4 不支持 Callable 类型的 @export | §4.1 已说明:filter/content 用 `var`,trigger 保持 `@export` |
+| ConfigFile 警告 | `--import` 时报 "ConfigFile parse error at gut_plugin.gd:3" | Godot 4.7 已知非致命警告,不影响命令行测试运行,可忽略 |
+| GDScript lambda 局部变量捕获 | String 等值类型按值捕获,lambda 内赋值不回写 | 测试用 Array 容器中转(见 test_trigger_name_set_before_loop) |
 
 ---
 

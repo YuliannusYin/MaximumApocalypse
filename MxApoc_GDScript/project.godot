@@ -20,6 +20,10 @@ config/icon="res://icon.svg"
 RoomState="*res://scripts/autoload/room_state.gd"
 Settings="*res://scripts/autoload/settings.gd"
 
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/gut/gut_plugin.gd")
+
 [display]
 
 window/size/viewport_width=1430

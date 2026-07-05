@@ -3,16 +3,38 @@
 # ——————————————————————————————————————————————
 
 # 恢复生命值方法
-# 恢复量不会超过最大生命值
+# 走完整 4 节点事件流程（前/时/系统加血/后），见 J_gameEventFlow.md §16
+# 系统加血受最大生命值上限约束；event.num 可被「回复生命时」钩子修改
 function player.recover(num) {
     if (num <= 0) {
         return
     }
-    max = player.最大生命值() - player.生命值()
-    if (num > max) {
-        num = max
+
+    event = {
+        player: player,
+        num: num,
+        cancelled: false,
     }
-    player.增加生命值(num)
+
+    # 1. 回复生命前
+    player.trigger("回复生命前", event)
+
+    # 2. 回复生命时 —— 技能可在此阶段修改 event.num（如 surgeon 手术刀·回复、手套：event.num += 1）
+    player.trigger("回复生命时", event)
+
+    if (event.cancelled) {
+        return
+    }
+
+    # 3. 系统加血，受最大生命值上限约束，非钩子节点
+    max = player.最大生命值() - player.生命值()
+    if (event.num > max) {
+        event.num = max
+    }
+    player.增加生命值(event.num)
+
+    # 4. 回复生命后 [提案]
+    player.trigger("回复生命后", event)
 }
 
 # ——————————————————————————————————————————————

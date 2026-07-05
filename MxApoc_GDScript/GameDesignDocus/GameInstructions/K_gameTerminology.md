@@ -148,7 +148,9 @@
 | 受到伤害前 | target 受到伤害前 | 伤害流程 节点 2 | target | 否 |
 | 受到伤害时 | target 受到伤害时（可修改 event.num / event.cancel()） | 伤害流程 节点 4 | target | **是** |
 | 受到伤害后 | target 受到伤害后 | 伤害流程 节点 7 | target | 否 |
-| 回复生命时 | 玩家回复生命值时 | **[提案]** 回复生命流程 | player | 否 |
+| 回复生命前 | 玩家回复生命值前 | [回复生命值流程](J_gameEventFlow.md#16-回复生命值流程) 节点 1 | player | 否 |
+| 回复生命时 | 玩家回复生命值时（可修改 event.num） | 回复生命值流程 节点 2 | player | 否 |
+| 回复生命后 | 玩家回复生命值后 | 回复生命值流程 节点 4 | player | 否 |
 
 > **注**：source = NULL 时跳过所有 source 侧 trigger（造成伤害前/时/后）。
 

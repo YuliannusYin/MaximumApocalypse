@@ -45,24 +45,24 @@
 以下决策在各 iteration 文档中提出,动笔前需用户确认:
 
 ### iteration_01
-- Skill 结构(filter/content 用 Callable)是否够灵活
-- Event.source/target 用 Variant 是否可接受
-- GUT 是否为偏好的测试框架
+- Skill 结构(filter/content 用 Callable)是否够灵活 ✅ 已确认
+- Event.source/target 用 Variant 是否可接受 ✅ 已确认
+- GUT 是否为偏好的测试框架 ✅ 已确认
 
 ### iteration_02
-- §9.6:`增加生命值` 不触发钩子、不受上限约束,`recover` 走完整流程
-- §9.7:`增加饥饿值`/`减少饥饿值` 仅数值变更,`increaseHunger`/`decreaseHunger` 走完整流程
-- §9.10:本轮不实现 `addMark`,只用 `addMarkSkill`
-- 标记系统不支持 `Until` 参数(后续轮次补)
+- §9.6:`增加生命值` 不触发钩子、不受上限约束,`recover` 走完整流程 ✅ 已确认
+- §9.7:`增加饥饿值`/`减少饥饿值` 仅数值变更,`increaseHunger`/`decreaseHunger` 走完整流程 ✅ 已确认
+- §9.10:本轮不实现 `addMark`,只用 `addMarkSkill` ✅ 已确认
+- 标记系统不支持 `Until` 参数(后续轮次补) ✅ 已确认
 
 ### iteration_03
-- `is_player` vs `isPlayer` 命名(设计文档用 camelCase,本轮提议 snake_case)
-- playerDeath/monsterDeath 为 stub 是否可接受
+- `is_player` vs `isPlayer` 命名(设计文档用 camelCase,本轮提议 snake_case) ✅ 已确认
+- playerDeath/monsterDeath 为 stub 是否可接受 ✅ 已确认
 
 ### iteration_04
-- recover 不触发"回复生命时"钩子(J_gameEventFlow.md 标注 [提案])
+- recover 触发 4 节点钩子链(回复生命前/时/系统加血/后) ✅ 已确认并补全设计文档(J_gameEventFlow.md §16 新增,PlayerState.md 伪代码更新,§9.6 已解决)
 - increaseHunger 中玩家死亡后是否继续结算(本轮 stub 不中断)
-- decreaseHunger 返回 bool
+- decreaseHunger 返回 bool ✅ 已确认
 
 ### iteration_05
 - "大骰子"点数范围(本轮假设 1-6 标准骰子)
