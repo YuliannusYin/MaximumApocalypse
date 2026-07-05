@@ -43,9 +43,9 @@ func snapshot() -> String:
 	var active_variants := PackedStringArray([])
 	for key in variants:
 		if variants[key]:
-			var v := Variants.get_by_id(key)
-			if v != null:
-				active_variants.append(v.display_name)
+			var variant := Variants.get_by_id(key)
+			if variant != null:
+				active_variants.append(variant.display_name)
 	if active_variants.is_empty():
 		lines.append("变体：无")
 	else:

@@ -20,10 +20,6 @@ config/icon="res://icon.svg"
 RoomState="*res://scripts/autoload/room_state.gd"
 Settings="*res://scripts/autoload/settings.gd"
 
-[editor_plugins]
-
-enabled=PackedStringArray("res://addons/gut/gut_plugin.gd")
-
 [display]
 
 window/size/viewport_width=1430
@@ -32,6 +28,10 @@ window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/size/viewport=Vector2i(1430, 780)
 window/size/minimum_size=Vector2i(1024, 600)
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/gut/plugin.cfg")
 
 [physics]
 

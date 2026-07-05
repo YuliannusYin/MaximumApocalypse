@@ -12,8 +12,8 @@ var content: Callable = Callable()
 
 ## 静态构造:便于代码中创建技能实例。
 static func make(p_trigger: String, p_filter: Callable = Callable(), p_content: Callable = Callable()) -> Skill:
-	var s := Skill.new()
-	s.trigger = p_trigger
-	s.filter = p_filter
-	s.content = p_content
-	return s
+	var skill := Skill.new()
+	skill.trigger = p_trigger
+	skill.filter = p_filter
+	skill.content = p_content
+	return skill

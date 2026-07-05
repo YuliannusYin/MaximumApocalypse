@@ -72,43 +72,43 @@ func get_role_card() -> RoleCard:
 
 
 # 规则引用: 待定义方法.md §9.6 —— 直接加血不触发钩子、不受上限约束
-## 直接增加 n 点生命值,不触发"回复生命时"钩子,不受最大值约束。
+## 直接增加 num 点生命值,不触发"回复生命时"钩子,不受最大值约束。
 ## 与 recover 的区别见 待定义方法.md §9.6。
-func add_hp(n: int) -> void:
-	if n <= 0:
+func add_hp(num: int) -> void:
+	if num <= 0:
 		return
-	_hp += n
+	_hp += num
 
 
 # 规则引用: 待定义方法.md §9.7 —— 直接加饥饿值不走 increaseHunger 流程
-## 直接增加 n 点饥饿值,不走 increaseHunger 流程(不翻面、不加饥饿伤害标记)。
+## 直接增加 num 点饥饿值,不走 increaseHunger 流程(不翻面、不加饥饿伤害标记)。
 ## 与 increaseHunger 的区别见 待定义方法.md §9.7。
-func add_hunger(n: int) -> void:
-	if n <= 0:
+func add_hunger(num: int) -> void:
+	if num <= 0:
 		return
-	_hunger += n
+	_hunger += num
 
 
-## 直接减少 n 点饥饿值,不走 decreaseHunger 流程(不清饥饿伤害标记、不翻回)。
+## 直接减少 num 点饥饿值,不走 decreaseHunger 流程(不清饥饿伤害标记、不翻回)。
 ## 最低降至 1。与 decreaseHunger 的区别见 待定义方法.md §9.7。
-func reduce_hunger(n: int) -> void:
-	if n <= 0:
+func reduce_hunger(num: int) -> void:
+	if num <= 0:
 		return
-	_hunger = max(1, _hunger - n)
+	_hunger = max(1, _hunger - num)
 
 
 ## 增加潜行值。
-func add_sneak(n: int) -> void:
-	if n <= 0:
+func add_sneak(num: int) -> void:
+	if num <= 0:
 		return
-	_sneak_value += n
+	_sneak_value += num
 
 
 ## 减少潜行值(可为负)。
-func reduce_sneak(n: int) -> void:
-	if n <= 0:
+func reduce_sneak(num: int) -> void:
+	if num <= 0:
 		return
-	_sneak_value -= n
+	_sneak_value -= num
 
 
 ## 添加 quantity 层标记。quantity 默认 1。
@@ -134,11 +134,11 @@ func hasMarkSkill(mark_name: String) -> bool:
 	return countMark(mark_name) > 0
 
 
-## 直接扣血 n 点。可降至 0 以下(死亡判定由 damage 处理)。
-func reduce_hp(n: int) -> void:
-	if n <= 0:
+## 直接扣血 num 点。可降至 0 以下(死亡判定由 damage 处理)。
+func reduce_hp(num: int) -> void:
+	if num <= 0:
 		return
-	_hp -= n
+	_hp -= num
 
 
 ## 是否为玩家。
@@ -261,14 +261,14 @@ func monsterSpawnJudge(revealed_blocks: Array[MapBlock] = []) -> void:
 		if block.countMonsterMark() < 3:
 			block.addMonsterMark(1)
 		elif block.countMonsterMark() == 3 and block.hasPlayer():
-			for j in block.get_players():
-				j.drawMonster(1)
+			for player in block.get_players():
+				player.drawMonster(1)
 
 
-## 抓 n 张怪物卡。本轮 stub;真实逻辑见 GameSystem/DrawFlow.md(后续轮次)。
+## 抓 num 张怪物卡。本轮 stub;真实逻辑见 GameSystem/DrawFlow.md(后续轮次)。
 ## 规则引用: GameSystem/DrawFlow.md
-func drawMonster(n: int) -> void:
-	push_warning("drawMonster stub called on %s, n=%d" % [name, n])
+func drawMonster(num: int) -> void:
+	push_warning("drawMonster stub called on %s, num=%d" % [name, num])
 
 
 ## 玩家死亡流程。本轮 stub;真实逻辑见 GameSystem/DeathFlow.md(后续轮次)。

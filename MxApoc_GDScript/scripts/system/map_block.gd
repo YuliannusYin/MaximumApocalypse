@@ -21,11 +21,11 @@ func countMonsterMark() -> int:
 	return _monster_marks
 
 
-## 添加 n 个怪物标记。
-func addMonsterMark(n: int) -> void:
-	if n <= 0:
+## 添加 num 个怪物标记。
+func addMonsterMark(num: int) -> void:
+	if num <= 0:
 		return
-	_monster_marks += n
+	_monster_marks += num
 
 
 ## 移除所有怪物标记。
@@ -44,19 +44,19 @@ func countMonster() -> int:
 
 
 ## 添加玩家到地块。
-## p 类型为 Variant 以避免与 Player 的循环依赖。
-func addPlayer(p: Variant) -> void:
-	_players.append(p)
+## entity 类型为 Variant 以避免与 Player 的循环依赖。
+func addPlayer(entity: Variant) -> void:
+	_players.append(entity)
 
 
 ## 移除玩家。
-func removePlayer(p: Variant) -> void:
-	_players.erase(p)
+func removePlayer(entity: Variant) -> void:
+	_players.erase(entity)
 
 
 ## 设置已展示(测试与后续展示机制用)。
-func set_revealed(v: bool) -> void:
-	_revealed = v
+func set_revealed(revealed: bool) -> void:
+	_revealed = revealed
 
 
 ## 地块上的所有玩家(stub,返回 _players 副本)。

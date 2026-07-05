@@ -78,7 +78,7 @@ func test_damage_reduces_target_hp() -> void:
 func test_damage_default_type_empty() -> void:
 	var target := Player.new()
 	var captured_type: Array[String] = []
-	target.add_skill(Skill.make("受到伤害时", Callable(), func(ev: Event) -> void: captured_type.append(ev.type)))
+	target.add_skill(Skill.make("受到伤害时", Callable(), func(event: Event) -> void: captured_type.append(event.type)))
 	var source := Player.new()
 	target.damage(3, source)
 	assert_eq(captured_type, [""], "未传 type 时 event.type == ''")
@@ -121,7 +121,7 @@ func test_source_on_dealing_damage_modifies_num() -> void:
 	var target := Player.new()
 	target.set_hp(10)
 	var source := Player.new()
-	source.add_skill(Skill.make("造成伤害时", Callable(), func(ev: Event) -> void: ev.num += 2))
+	source.add_skill(Skill.make("造成伤害时", Callable(), func(event: Event) -> void: event.num += 2))
 	target.damage(3, source)
 	assert_eq(target.get_hp(), 5, "原 3 + 2 = 5 伤害")
 
@@ -130,7 +130,7 @@ func test_target_on_taking_damage_modifies_num() -> void:
 	var target := Player.new()
 	target.set_hp(10)
 	var source := Player.new()
-	target.add_skill(Skill.make("受到伤害时", Callable(), func(ev: Event) -> void: ev.num -= 1))
+	target.add_skill(Skill.make("受到伤害时", Callable(), func(event: Event) -> void: event.num -= 1))
 	target.damage(3, source)
 	assert_eq(target.get_hp(), 8, "原 3 - 1 = 2 伤害,HP=10-2=8")
 
@@ -139,8 +139,8 @@ func test_both_modify_num_additively() -> void:
 	var target := Player.new()
 	target.set_hp(10)
 	var source := Player.new()
-	source.add_skill(Skill.make("造成伤害时", Callable(), func(ev: Event) -> void: ev.num += 2))
-	target.add_skill(Skill.make("受到伤害时", Callable(), func(ev: Event) -> void: ev.num -= 1))
+	source.add_skill(Skill.make("造成伤害时", Callable(), func(event: Event) -> void: event.num += 2))
+	target.add_skill(Skill.make("受到伤害时", Callable(), func(event: Event) -> void: event.num -= 1))
 	target.damage(3, source)
 	assert_eq(target.get_hp(), 6, "原 3 +2 -1 = 4 伤害,HP=10-4=6")
 
@@ -212,7 +212,7 @@ func test_taking_damage_can_read_source() -> void:
 	var target := Player.new()
 	var source := Player.new()
 	var captured_source: Array[Variant] = []
-	target.add_skill(Skill.make("受到伤害时", Callable(), func(ev: Event) -> void: captured_source.append(ev.source)))
+	target.add_skill(Skill.make("受到伤害时", Callable(), func(event: Event) -> void: captured_source.append(event.source)))
 	target.damage(3, source)
 	assert_eq(captured_source.size(), 1, "钩子触发 1 次")
 	assert_eq(captured_source[0], source, "event.source 等于传入 source")
@@ -222,7 +222,7 @@ func test_dealing_damage_can_read_target() -> void:
 	var target := Player.new()
 	var source := Player.new()
 	var captured_target: Array[Variant] = []
-	source.add_skill(Skill.make("造成伤害时", Callable(), func(ev: Event) -> void: captured_target.append(ev.target)))
+	source.add_skill(Skill.make("造成伤害时", Callable(), func(event: Event) -> void: captured_target.append(event.target)))
 	target.damage(3, source)
 	assert_eq(captured_target.size(), 1, "钩子触发 1 次")
 	assert_eq(captured_target[0], target, "event.target 等于 target")
@@ -232,7 +232,7 @@ func test_taking_damage_can_read_type() -> void:
 	var target := Player.new()
 	var source := Player.new()
 	var captured_type: Array[String] = []
-	target.add_skill(Skill.make("受到伤害时", Callable(), func(ev: Event) -> void: captured_type.append(ev.type)))
+	target.add_skill(Skill.make("受到伤害时", Callable(), func(event: Event) -> void: captured_type.append(event.type)))
 	target.damage(3, source, "饥饿伤害")
 	assert_eq(captured_type, ["饥饿伤害"], "event.type 透传")
 
@@ -244,11 +244,11 @@ func _make_recording_skill(trig: String, label: String) -> Skill:
 
 
 func _make_cancel_skill(trig: String) -> Skill:
-	return Skill.make(trig, Callable(), func(ev: Event) -> void:
-		ev.cancel()
+	return Skill.make(trig, Callable(), func(event: Event) -> void:
+		event.cancel()
 	)
 
 
 func _record_callable(label: String) -> Callable:
-	return func(_ev: Event) -> void:
+	return func(event: Event) -> void:
 		_call_log.append(label)

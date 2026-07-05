@@ -20,11 +20,11 @@
 |------|------|------|
 | [roadmap.md](roadmap.md) | ✅ 已完成 | 5 轮路线图、依赖、风险 |
 | [verification.md](verification.md) | ✅ 已完成 | GUT 验收方法、测试用例要求 |
-| [iteration_01_event_trigger.md](iteration_01_event_trigger.md) | `[ ] 未开始` | EventTrigger 系统:Skill/Event/Entity/`entity.trigger` |
-| [iteration_02_player_entity.md](iteration_02_player_entity.md) | `[ ] 未开始` | Player 实体骨架:HP/饥饿/潜行/标记/角色卡牌 |
-| [iteration_03_damage_flow.md](iteration_03_damage_flow.md) | `[ ] 未开始` | DamageFlow:`target.damage` 8 节点钩子链 |
-| [iteration_04_player_state.md](iteration_04_player_state.md) | `[ ] 未开始` | PlayerState:recover/increaseHunger/decreaseHunger/poison |
-| [iteration_05_judge.md](iteration_05_judge.md) | `[ ] 未开始` | Judge:judge/sneakJudge/monsterSpawnJudge + MapBlock stub |
+| [iteration_01_event_trigger.md](iteration_01_event_trigger.md) | `[x] 已完成` | EventTrigger 系统:Skill/Event/Entity/`entity.trigger` |
+| [iteration_02_player_entity.md](iteration_02_player_entity.md) | `[x] 已完成` | Player 实体骨架:HP/饥饿/潜行/标记/角色卡牌 |
+| [iteration_03_damage_flow.md](iteration_03_damage_flow.md) | `[x] 已完成` | DamageFlow:`target.damage` 8 节点钩子链 |
+| [iteration_04_player_state.md](iteration_04_player_state.md) | `[x] 已完成` | PlayerState:recover/increaseHunger/decreaseHunger/poison |
+| [iteration_05_judge.md](iteration_05_judge.md) | `[x] 已完成` | Judge:judge/sneakJudge/monsterSpawnJudge + MapBlock stub |
 
 ---
 
@@ -85,6 +85,6 @@
 ## 相关文档
 
 - [AGENTS.md](../AGENTS.md) —— AI Agent 项目说明书(行为约束、编码规范)
-- [.trae/rules/comments.md](../.trae/rules/comments.md) —— 注释规则
+- [.trae/rules/code_guide.md](../.trae/rules/code_guide.md) —— 代码编写规范(命名/类型/注释/风格)
 - [GameDesignDocus/已定义方法.md](../GameDesignDocus/已定义方法.md) —— 已定义方法契约清单
 - [GameDesignDocus/待定义方法.md](../GameDesignDocus/待定义方法.md) —— 待定义方法与 §9.x 歧义

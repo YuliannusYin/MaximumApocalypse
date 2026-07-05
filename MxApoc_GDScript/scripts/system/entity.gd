@@ -9,20 +9,20 @@ func get_all_skills() -> Array[Skill]:
 	return _skills
 
 ## 添加技能。
-func add_skill(s: Skill) -> void:
-	_skills.append(s)
+func add_skill(skill: Skill) -> void:
+	_skills.append(skill)
 
 ## 移除技能。
-func remove_skill(s: Skill) -> void:
-	_skills.erase(s)
+func remove_skill(skill: Skill) -> void:
+	_skills.erase(skill)
 
 ## 遍历技能,依次触发匹配 trigger_name 的。规则见 GameSystem/EventTrigger.md。
 func trigger(trigger_name: String, event: Event) -> void:
 	event.trigger_name = trigger_name
-	for s in get_all_skills():
-		var trigger_list := s.trigger.split("、")
-		if trigger_list.has(trigger_name) and _run_filter(s, event):
-			_run_content(s, event)
+	for skill in get_all_skills():
+		var trigger_list := skill.trigger.split("、")
+		if trigger_list.has(trigger_name) and _run_filter(skill, event):
+			_run_content(skill, event)
 			if event.cancelled:
 				break
 
@@ -67,8 +67,8 @@ func damage(num: int, source: Variant = null, type: String = "") -> void:
 func get_hp() -> int:
 	return 0
 
-## 直接扣血 n 点(节点 5 非钩子)。子类必须重写。
-func reduce_hp(n: int) -> void:
+## 直接扣血 num 点(节点 5 非钩子)。子类必须重写。
+func reduce_hp(num: int) -> void:
 	pass
 
 ## 是否为玩家。子类重写。
@@ -79,14 +79,14 @@ func is_player() -> bool:
 func is_monster() -> bool:
 	return false
 
-func _run_filter(s: Skill, event: Event) -> bool:
-	if s.filter.is_valid():
-		return bool(s.filter.call(event))
+func _run_filter(skill: Skill, event: Event) -> bool:
+	if skill.filter.is_valid():
+		return bool(skill.filter.call(event))
 	return true
 
-func _run_content(s: Skill, event: Event) -> void:
-	if s.content.is_valid():
-		s.content.call(event)
+func _run_content(skill: Skill, event: Event) -> void:
+	if skill.content.is_valid():
+		skill.content.call(event)
 
 ## 死亡流程入口。子类重写为 playerDeath/monsterDeath。
 ## 本轮 stub:空实现 + 日志。
