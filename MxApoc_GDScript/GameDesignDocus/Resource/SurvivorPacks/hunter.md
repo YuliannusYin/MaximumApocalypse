@@ -8,6 +8,7 @@
     初始生命值: 24
     潜行值: 9
     饥饿状态潜行值: 8
+    装备栏容量: 4
     技能: {
         技能名: "侦察"
         技能描述: "行动：最多展示两个相邻的地图块，且不触发任何地块触发效果。"
@@ -75,7 +76,6 @@
         filterTarget: return true # 任何目标都可用
         filterTargetRange: "长距离" # 目标必须在长距离范围内
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             target.damage( 6, player ) # 对目标造成6点伤害，伤害来源为玩家
         }
     }
@@ -145,7 +145,7 @@
         filterTargetRange: "中距离" # 目标必须在中距离范围内
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            player.消耗填充物( 1, "火焰箭" ) # 消耗1点燃料
+            player.消耗填充物( player.getEquipment("火焰箭"), 1 ) # 消耗1点燃料
             target.damage( 4, player ) # 对目标造成4点伤害，伤害来源为玩家
         }
     }
@@ -190,7 +190,7 @@
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.get填充物数量( "摩托车" ) > 0
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            player.消耗填充物( 1, "摩托车" ) # 消耗1点燃料
+            player.消耗填充物( player.getEquipment("摩托车"), 1 ) # 消耗1点燃料
             maxSteps = 3 # 最多移动3格
             steps = 0
             while( steps < maxSteps ){
@@ -233,7 +233,7 @@
         filterTargetRange: "中距离" # 目标必须在中距离范围内
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            player.消耗填充物( 1, "弩" ) # 消耗1点弹药
+            player.消耗填充物( player.getEquipment("弩"), 1 ) # 消耗1点弹药
             target.damage( 3, player ) # 对目标造成3点伤害，伤害来源为玩家
         }
     }
@@ -254,7 +254,6 @@
         filterTarget: return target.type == Monster # 目标必须是怪物类型
         filterTargetRange: "中距离" # 目标必须在中距离范围内
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             target.damage( 1, player ) # 对目标造成1点伤害，伤害来源为玩家
             target.击晕(player, until = "下个回合开始时") # 击晕目标直到你的下个回合开始
         }
@@ -272,7 +271,6 @@
         active: "行动阶段"
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             List = getAllPlayers() # 获取场上所有玩家
             for i in List:
                 i.decreaseHunger( 1 ) # 降低1点饥饿值（见 GameSystem/Entities/Player.md 中 decreaseHunger 定义，最低降至1）
@@ -292,7 +290,6 @@
         # 行动阶段、有剩余行动次数、且场上所有弃牌堆中至少有1张装备牌时可用
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && 场上所有弃牌堆中至少有1张装备牌 # 自然语言描述，待实现为具体函数调用
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             List = 所有弃牌堆中的装备牌 # 获取所有弃牌堆中的装备牌（包括所有玩家的弃牌堆和拾荒弃牌堆）, 然后返回装备牌列表
             card = player.chooseCard(List) # 从所有装备牌中选择一张装备牌
             target = player.chooseTarget({
@@ -336,7 +333,7 @@
         content:{
             player.discard( name = "迷彩服", position = "装备区" ) # 弃置此装备
             player.damage( 3, player ) # 受到3点伤害
-            player.弃置面前的一张非首领怪物并替换为怪物标记() # 自然语言描述，待实现为具体函数调用；纯移除不触发「杀死怪物时」事件
+            player.弃置面前的一张非首领怪物并替换为怪物标记() # 自然语言描述，待实现为具体函数调用；纯移除不触发「怪物死亡时」事件
         }
     }
 }
@@ -352,7 +349,6 @@
         active: "行动阶段"
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             result = player.choose(prompt = "请选择拾荒堆颜色：", ["red", "green", "blue"])
             牌堆 = player.获取拾荒牌堆(result) # 按颜色获取对应拾荒牌堆对象
             player.drawScavenge(3, 牌堆) # 抓取最多3张拾荒牌到手牌区（牌堆不足则抓完）

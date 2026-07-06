@@ -7,6 +7,7 @@
     初始生命值: 28
     潜行值: 7
     饥饿状态潜行值: 6
+    装备栏容量: 4
     技能: {
         技能名: "快速拔枪"
         技能描述: "游戏开始时，将牌堆中的装备牌【柯尔特手枪】装备你的装备区。当你受到饥饿伤害时，将装备区或弃牌区中的【柯尔特手枪】重新洗回你的牌堆。"
@@ -54,8 +55,7 @@
         filterTarget2: true # 任何目标都可用
         filterTarget2Range: "长距离"
         content: {
-            player.减少行动次数( 1 ) # 消耗1点行动次数
-            target1.消耗填充物( 1, "弹药" )
+            player.消耗填充物(target1, 1) # 消耗target1（弹药类武器）的1枚弹药
             target2.damage(5, player) # 对目标造成5点伤害
         }
     }
@@ -72,7 +72,6 @@
         active: "行动阶段"
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0
         content: {
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             player.增加最大行动次数( 2 ) # 增加2点最大行动次数
             player.addTempSkill('扣动扳机让我快乐_clear', until = "回合结束时" )
             player.增加行动次数( 2 ) # 增加2点行动次数
@@ -100,7 +99,6 @@
         selectTarget: 1 # 选择1个目标武器
         filterTarget: return target.在玩家装备区内 && target.填充物类型 == "弹药" # 目标必须是玩家装备区内的弹药类武器牌
         content: {
-            player.减少行动次数(1) # 消耗1点行动次数
             player.removeCard( name = "空尖弹", position = "结算区" ) # 销毁本牌
             player.addSkill("空尖弹_damage")
             player.addSkill("空尖弹_remove")
@@ -115,7 +113,7 @@
                 content: event.num += 2 # 空尖弹额外造成2点伤害
             }
             remove:{
-                trigger: 弹药耗尽时
+                trigger: 填充物耗尽时
                 forced: true
                 filter: return event.card.填充物类型 == "空尖弹"
                 content: {
@@ -141,7 +139,6 @@
         selectTarget: 1
         filterTargetRange: "中距离"
         content: {
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             num = player.get总填充物数量( "弹药" ) # 自然语言描述，待实现为具体函数调用
             player.清空填充物( "弹药" ) # 统一为填充物API；自然语言描述，待实现为具体函数调用
             for i in range(num):
@@ -165,7 +162,6 @@
         selectTarget: 1
         filterTargetRange: "中距离"
         content: {
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             target.damage( 5, player ) # 对主目标造成5点伤害
             List = getTarget(target.get_current_block()) # 获取主目标所在地块的所有目标
             for i in List:
@@ -186,12 +182,11 @@
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0
         filterTarget: return target == player # 仅作用于玩家自身
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             player.addTempSkill('搜索尸体_draw', until = "回合结束时" ) # 添加临时技能，持续到回合结束时失效
         }
         subSkill: {
             draw: {
-                trigger: 杀死怪物时
+                trigger: 怪物死亡时
                 forced: true
                 filter: return event.source == player
                 content: {
@@ -218,7 +213,6 @@
         filterTarget: return target.type == Monster # 目标必须是怪物类型
         filterTargetRange: "中距离" # 目标必须在中距离范围内
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             target.击晕(player, until = "下个回合开始时")
             target.修改纠缠对象(player) # 修改怪物的纠缠目标为玩家
         }
@@ -239,8 +233,7 @@
         filterTarget: return target.type == Human && target != player # 目标必须是另一名玩家
         filterTargetRange: Infinity # 无距离限制
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
-            target.立即执行一个行动() # 备注：暂保留自然语言描述
+            target.立即执行一个行动() # 让目标插入一个仅含行动阶段的迷你回合（num=1，默认），见 Player.md#九迷你回合流程
         }
     }
 }
@@ -283,7 +276,7 @@
         filterTargetRange: "中距离"
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            player.消耗填充物( 1, "柯尔特手枪" ) # 消耗1枚弹药
+            player.消耗填充物( player.getEquipment("柯尔特手枪"), 1 ) # 消耗1枚弹药
             target.damage(2, player) # 对目标造成2点伤害
         }
     }
@@ -393,7 +386,7 @@
         filterTargetRange: "中距离"
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            player.消耗填充物( 1, "左轮手枪" ) # 消耗1枚弹药
+            player.消耗填充物( player.getEquipment("左轮手枪"), 1 ) # 消耗1枚弹药
             target.damage(3, player) # 对主目标造成3点伤害
             # 若仍有弹药，询问玩家是否再攻击另一个目标
             if( player.get填充物数量( "左轮手枪" ) > 0 && player.choose(["继续攻击", "停止"]) == "继续攻击" ){
@@ -402,7 +395,7 @@
                     filterTarget: return target2 != target # 不能是同一个目标
                     filterTargetRange: "中距离"
                 })
-                player.消耗填充物( 1, "左轮手枪" ) # 再消耗1枚弹药
+                player.消耗填充物( player.getEquipment("左轮手枪"), 1 ) # 再消耗1枚弹药
                 target2.damage(3, player) # 对第二个目标造成3点伤害
             }
         }

@@ -8,6 +8,7 @@
     初始生命值: 23
     潜行值: 8
     饥饿状态潜行值: 7
+    装备栏容量: 4
     技能: {
         技能名: "缝合"
         技能描述: "行动：使一名玩家回复1点生命。"
@@ -37,7 +38,6 @@
         active: "行动阶段"
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 # 行动阶段且有剩余行动次数时可用
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             player.draw(2) # 从玩家游戏牌堆抓取2张牌到手牌区
             result = player.choose(prompt = "请选择你抓取的拾荒卡颜色：", ["red", "green", "blue"]) # 玩家选择拾荒牌堆颜色（无地块颜色限制）
             牌堆 = player.获取拾荒牌堆(result) # 按颜色获取对应拾荒牌堆对象
@@ -84,8 +84,7 @@
         filterTarget: return target.type == Monster # 目标必须是怪物类型
         filterTargetRange: "中距离" # 目标必须在中距离范围内
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
-            List = event.target # event.target 为经过 filter 筛选后的目标列表
+            List = event.targets # event.targets 为经过 filter 筛选后的目标列表
             for i in List:
                 i.damage(3, player) # 对每个目标造成3点伤害，伤害来源为玩家
         }
@@ -179,7 +178,6 @@
         filterTarget: return target.type == Human # 目标必须是人类类型（包含玩家幸存者，可用于自救或救他人）
         filterTargetRange: Infinity # 无距离限制
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             target.recover(6) # 使目标回复6点生命（见 GameSystem/Entities/Player.md 中 recover 定义）
         }
     }
@@ -227,7 +225,6 @@
         filterTarget: return target.type == Human # 目标必须是人类类型（包含玩家幸存者，可用于对自己使用）
         filterTargetRange: Infinity # 无距离限制
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             # 自然语言描述，待实现为具体函数调用；与「立即执行2个行动」有区别，特指使用2张手牌
             target.立即打出一张牌()
             target.立即打出一张牌()
@@ -249,10 +246,8 @@
         filterTarget: return target.type == Human # 目标必须是人类类型（包含玩家幸存者，可用于对自己使用）
         filterTargetRange: Infinity # 无距离限制
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
-            # 自然语言描述，待实现为具体函数调用（参考「战术领导力」的立即执行一个行动，此处执行2次）
-            target.立即执行一个行动()
-            target.立即执行一个行动()
+            # 让目标插入迷你回合执行 2 次行动，见 Player.md#九迷你回合流程
+            target.立即执行一个行动(2)
         }
     }
 }

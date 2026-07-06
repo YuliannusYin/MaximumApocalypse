@@ -21,6 +21,7 @@
         初始生命值: 22
         潜行值: 7
         饥饿状态潜行值: 6
+        装备栏容量: 4
         技能: {
             技能名: "把你的爪子拿开"
             技能描述: "行动：对老兵造成2点伤害，然后狗直到你的下回合开始免疫伤害。"
@@ -48,6 +49,7 @@
         初始生命值: 12
         潜行值: 9
         饥饿状态潜行值: 8
+        装备栏容量: 0
         技能: {
             技能名: "咬他们"
             技能描述: "行动：对中距离内的一个目标造成3点伤害，然后狗受到1点伤害。"
@@ -84,8 +86,7 @@
         filterTarget: return true # 任何目标都可用
         filterTargetRange: "中距离" # 目标必须在中距离范围内
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
-            List = event.target # event.target 为经过 filter 筛选后的目标列表
+            List = event.targets # event.targets 为经过 filter 筛选后的目标列表
             for i in List:
                 i.damage( 3, player ) # 对每个目标造成3点伤害，伤害来源为'老兵与狗'
         }
@@ -104,7 +105,6 @@
         # 行动阶段、有剩余行动次数、且狗已死亡时可用
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.dog.get_hp() <= 0
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             player.veteran.addTempSkill( '反击开始_damage', until = "下个回合开始时" ) # 添加临时技能，持续到下个回合开始时失效
         }
         subSkill: {
@@ -160,8 +160,7 @@
         filterTarget: return target != player # 排除玩家自身
         filterTargetRange: "中距离" # 目标必须在中距离范围内
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
-            List = event.target # event.target 为经过 filter 筛选后的目标列表
+            List = event.targets # event.targets 为经过 filter 筛选后的目标列表
             for i in List:
                 i.damage( 6, player.veteran ) # 对每个目标造成6点伤害，伤害来源为老兵
         }
@@ -234,7 +233,7 @@
         filterTargetRange: "长距离" # 目标必须在长距离范围内
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            player.消耗填充物( 1, "M1加兰德步枪" ) # 消耗1枚弹药
+            player.消耗填充物( player.getEquipment("M1加兰德步枪"), 1 ) # 消耗1枚弹药
             target.damage( 8, player.veteran )
         }
     }
@@ -259,7 +258,7 @@
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.get填充物数量( "迫击炮" ) > 0
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            player.消耗填充物( 1, "迫击炮" ) # 消耗1枚弹药
+            player.消耗填充物( player.getEquipment("迫击炮"), 1 ) # 消耗1枚弹药
             target = player.chooseMapBlock({
                 filterTarget: return target.is_revealed() # 任一已展示的地图块
                 filterTargetRange: "长距离" # 目标必须在长距离范围内
@@ -290,7 +289,6 @@
         # 行动阶段、有剩余行动次数、且狗还活着时可用
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.dog.get_hp() > 0
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             result = player.choose( prompt = "请选择拾荒牌堆颜色：", ["red", "green", "blue"] )
             牌堆 = player.获取拾荒牌堆( result ) # 按颜色获取对应拾荒牌堆对象（任意颜色，不限于所在地块）
             player.drawScavenge( 3, 牌堆 ) # 抓取3张拾荒牌到手牌区（牌堆不足则抓完）
@@ -321,7 +319,7 @@
         filterTargetRange: "中距离" # 目标必须在中距离范围内
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            player.消耗填充物( 1, "鲁格手枪" ) # 消耗1枚弹药
+            player.消耗填充物( player.getEquipment("鲁格手枪"), 1 ) # 消耗1枚弹药
             target.damage( 4, player.veteran ) # 对目标造成4点伤害，伤害来源为老兵
         }
     }
@@ -339,7 +337,6 @@
         # 行动阶段、有剩余行动次数、且狗还活着时可用
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.dog.get_hp() > 0
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             maxReveal = 2 # 最多展示2个相邻地块
             count = 0
             while( count < maxReveal ){
@@ -371,7 +368,6 @@
         # 行动阶段、有剩余行动次数、且狗还活着时可用
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.dog.get_hp() > 0
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             player.veteran.decreaseHunger( 2 ) # 老兵饥饿等级降低2点（见 GameSystem/Entities/Player.md 中 decreaseHunger 定义，最低降至1）
             player.dog.decreaseHunger( 2 ) # 狗饥饿等级降低2点
         }
@@ -394,7 +390,6 @@
         filterTarget: return true # 任何目标都可用
         filterTargetRange: "中距离" # 目标必须在中距离范围内
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             target.damage( 2, player.dog ) # 对目标造成2点伤害，伤害来源为狗
             target.击晕( player.dog, until = "下个回合开始时" ) # 击晕目标直到你的下个回合开始
         }

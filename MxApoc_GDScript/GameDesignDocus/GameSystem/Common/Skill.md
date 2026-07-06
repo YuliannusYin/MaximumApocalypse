@@ -46,7 +46,7 @@
 | `event` | 事件对象（结构随流程类型变化，见 [EventSystem §2](../Core/EventSystem.md#2-event-对象-schema)） |
 | `trigger` | 当前触发的 trigger 名字符串（复合触发时用于分支判断） |
 | `player` | 技能所属的玩家（主动技能与玩家侧触发技能） |
-| `target` | 选定的目标（主动技能） |
+| `event.targets` | 主动技能经 filter 筛选后的目标列表（复数，主动技能 content 内通过 `event.targets` 访问） |
 
 ### 复合触发示例
 

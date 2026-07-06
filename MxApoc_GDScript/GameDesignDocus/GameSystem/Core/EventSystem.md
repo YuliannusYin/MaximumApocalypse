@@ -48,17 +48,26 @@
 
 ### 2.2 按流程类型的字段
 
+> **target 字段命名约定**：为避免歧义，不同流程使用不同字段名表达「目标」语义：
+> - `event.target`：**实体目标**（伤害流程的受伤实体、死亡流程的死亡实体）
+> - `event.targetBlock`：**地块目标**（移动流程的进入地块）
+> - `event.card`：**当前卡牌**（抓牌流程当前抓到的牌、弃置/销毁流程当前处理的牌）
+> - `event.targets`：**目标列表**（主动技能经 filter 筛选后的目标列表，复数）
+
 | 流程 | event 字段 |
 |------|-----------|
-| 伤害流程 | `target`、`source`（可 NULL）、`num`（可读写）、`type` |
+| 伤害流程 | `target`（受伤实体）、`source`（可 NULL）、`num`（可读写）、`type` |
 | 回复生命 | `player`、`num`（可读写） |
-| 移动流程 | `player`、`source`（离开地块）、`target`（进入地块） |
+| 移动流程 | `player`、`source`（离开地块）、`targetBlock`（进入地块） |
 | 抓游戏牌 | `player`、`num`（可读写）、`cards`（实际抓到的牌列表） |
 | 抓拾荒牌 | `player`、`pile`、`num`（可读写）、`cards`、`card`（当前牌） |
-| 抓怪物卡 | `player`、`num`、`cards`、`target`（当前怪物卡，实体化后） |
+| 抓怪物卡 | `player`、`num`、`cards`、`card`（当前怪物卡，实体化后） |
 | 弃置/销毁牌 | `player`、`card`（当前牌）、`cards`、`num` |
-| 装备进入/离开 | `player`、`card` [提案] |
-| 检定流程 | `player`、`result` [提案] |
+| 怪物死亡 | `target`（死亡的怪物）、`source`（击杀者） |
+| 玩家死亡 | `target`（死亡的玩家）、`source`（击杀者，可 NULL） |
+| 装备进入/离开 | `player`、`card` |
+| 检定流程 | `player`、`sneakValue`（潜行检定阈值）、`result`（结构体 `{ value, success }`）、`skipJudge`（是否跳过投骰） |
+| 主动技能 | `player`、`targets`（filter 筛选后的目标列表，复数） |
 
 ### 2.3 cancel() 语义
 
@@ -96,12 +105,6 @@ content: {
     else if (trigger == "受到伤害时") { ... }
 }
 ```
-
-### 3.4 trigger 别名
-
-| 别名 | 标准名 | 说明 |
-|------|--------|------|
-| 杀死怪物时 | 死亡时（怪物） | 统一映射为「怪物死亡时」 |
 
 ---
 
@@ -163,9 +166,12 @@ content: {
 | 怪物攻击前 | 怪物攻击前 | monster | 否 |
 | 怪物攻击时 | 怪物根据射程对目标发动攻击 | monster | 否 |
 | 怪物攻击后 | 怪物攻击后 | monster | 否 |
-| 死亡前 | 怪物/玩家死亡前 | target | 否 |
-| 死亡时 | 怪物/玩家死亡时 | target | 否 |
-| 死亡后 | 怪物/玩家死亡后 | target | 否 |
+| 怪物死亡前 | 怪物死亡前 | target（怪物） | 否 |
+| 怪物死亡时 | 怪物死亡时（如僵尸女王、爆破机器人、方阵机器人） | target（怪物） | 否 |
+| 怪物死亡后 | 怪物死亡后 | target（怪物） | 否 |
+| 玩家死亡前 | 玩家死亡前 | target（玩家） | 否 |
+| 玩家死亡时 | 玩家死亡时 | target（玩家） | 否 |
+| 玩家死亡后 | 玩家死亡后 | target（玩家） | 否 |
 
 ### 4.5 回合类
 
@@ -190,8 +196,6 @@ content: {
 | 回合结束前 | 玩家回合结束前 | player | 否 |
 | 回合结束时 | 玩家回合结束时 | player | 否 |
 
-> **命名差异**：firefighter 野地夹克 subSkill 使用「饥饿状态结算前」，D_gameFlow.md 使用「求生者饥饿状态结算前」。建议统一为完整形式。
-
 ### 4.6 抓牌类
 
 > 所属流程：[Player.draw](../Entities/Player.md#draw) / [drawScavenge](../Entities/Player.md#drawscavenge) / [drawMonster](../Entities/Player.md#drawmonster)
@@ -211,34 +215,50 @@ content: {
 | 抓取拾荒牌时 | 抓取拾荒牌时（每张牌触发一次） | player | 否 |
 | 抓取拾荒牌后 | 抓取拾荒牌后 | player | 否 |
 
-### 4.7 装备类
+### 4.7 使用卡牌类
 
-> 所属流程：[Player.装备](../Entities/Player.md#装备) / [Player.卸下](../Entities/Player.md#卸下) [提案]
+> 所属流程：[Player.useCard](../Entities/Player.md#usecardcard)
 
 | trigger 名 | 触发时机 | 触发对象 | 取消点 |
 |-----------|---------|---------|--------|
-| 卡牌进入装备区前 | 装备进入装备区前 [提案] | player | 否 |
+| 使用卡牌前 | 从手牌使用卡牌前 | player | **是** |
+| 使用卡牌时 | 从手牌使用卡牌时（装备牌/行动牌分流的最后拦截点） | player | **是** |
+| 使用卡牌后 | 从手牌使用卡牌后（整体触发一次） | player | 否 |
+
+### 4.8 装备类
+
+> 所属流程：[Player.装备](../Entities/Player.md#装备card) / [Player.卸下](../Entities/Player.md#卸下card) / [Player.消耗填充物](../Entities/Player.md#消耗填充物equipment-num)
+
+| trigger 名 | 触发时机 | 触发对象 | 取消点 |
+|-----------|---------|---------|--------|
+| 卡牌进入装备区前 | 装备进入装备区前 | player | **是** |
 | 卡牌进入装备区时 | 装备置入装备区时 | player | 否 |
-| 卡牌进入装备区后 | 装备进入装备区后 [提案] | player | 否 |
-| 卡牌离开装备区前 | 装备离开装备区前 [提案] | player | 否 |
+| 卡牌进入装备区后 | 装备进入装备区后 | player | 否 |
+| 卡牌离开装备区前 | 装备离开装备区前 | player | **是** |
 | 卡牌离开装备区时 | 装备离开装备区时 | player | 否 |
-| 卡牌离开装备区后 | 装备离开装备区后 [提案] | player | 否 |
-| 弹药耗尽时 | 装备填充物耗尽时 [提案] | player | 否 |
+| 卡牌离开装备区后 | 装备离开装备区后 | player | 否 |
+| 消耗填充物前 | 装备填充物消耗前 | player | **是** |
+| 消耗填充物时 | 装备填充物消耗时（可修改 event.num） | player | **是** |
+| 消耗填充物后 | 装备填充物消耗后 | player | 否 |
+| 填充物耗尽时 | 装备填充物耗尽时（衍生） | player | 否 |
 
-### 4.8 检定类
+### 4.9 检定类
 
-> 所属流程：[Player.sneakJudge](../Entities/Player.md#sneakjudge) / [monsterSpawnJudge](../Entities/Player.md#monsterspawnjudge)
+> 所属流程：[Player.sneakJudge](../Entities/Player.md#sneakjudge) / [Player.monsterSpawnJudge](../Entities/Player.md#monsterspawnjudge)
+> **event.result 类型**：结构体 `{ value: 骰子点数, success: 布尔值 }`（怪物出生检定的 success 无意义，恒为 true）
+> **跳过投骰**：技能在「前」节点设置 `event.skipJudge = true` + `event.result = { value, success }` 可跳过投骰并指定结果
+> **修改结果**：技能在「时」节点可直接赋值 `event.result = { value, success }` 覆盖投骰结果
 
 | trigger 名 | 触发时机 | 触发对象 | 取消点 |
 |-----------|---------|---------|--------|
-| 潜行检定前 | 潜行检定前 | player | 否 |
-| 潜行检定时 | 潜行检定执行时 | player | 否 |
-| 潜行检定后 | 潜行检定结果出来后 [提案] | player | 否 |
-| 怪物出生检定前 | 怪物出生检定前 [提案] | player | 否 |
-| 怪物出生检定时 | 怪物出生检定执行时 [提案] | player | 否 |
-| 怪物出生检定后 | 怪物出生检定结果出来后 [提案] | player | 否 |
+| 潜行检定前 | 潜行检定前（可设置 skipJudge 跳过投骰） | player | 否 |
+| 潜行检定时 | 潜行检定执行时（可修改 event.result） | player | 否 |
+| 潜行检定后 | 潜行检定结果出来后 | player | 否 |
+| 怪物出生检定前 | 怪物出生检定前（可设置 skipJudge 跳过投骰） | player | 否 |
+| 怪物出生检定时 | 怪物出生检定执行时（可修改 event.result） | player | 否 |
+| 怪物出生检定后 | 怪物出生检定结果出来后 | player | 否 |
 
-### 4.9 弃牌类
+### 4.10 弃牌类
 
 > 所属流程：[Player.discard](../Entities/Player.md#discard)
 
@@ -248,7 +268,7 @@ content: {
 | 弃置牌时 | 弃置牌时（每张触发一次） | player | 否 |
 | 弃置牌后 | 弃置牌后（整体一次） | player | 否 |
 
-### 4.10 销毁类
+### 4.11 销毁类
 
 > 所属流程：[Player.removeCard](../Entities/Player.md#removecard)
 
@@ -258,11 +278,14 @@ content: {
 | 销毁牌时 | 销毁牌时（每张触发一次） | player | 否 |
 | 销毁牌后 | 销毁牌后（整体一次） | player | 否 |
 
-### 4.11 游戏类
+### 4.12 游戏类
+
+> 所属流程：[Game.startGame](../Game/Game.md#startgame) / [Game.gameOver](../Game/Game.md#gameoverresult)
 
 | trigger 名 | 触发时机 | 触发对象 | 取消点 |
 |-----------|---------|---------|--------|
-| 游戏开始时 | 游戏开始时 [待定义] | player / 地块 | 否 |
+| 游戏开始时 | 游戏开局时（抓初始怪物卡后、第一玩家回合前） | player | 否 |
+| 游戏结束时 | 游戏结束时（gameOver 设置状态后） | player | 否 |
 
 ---
 

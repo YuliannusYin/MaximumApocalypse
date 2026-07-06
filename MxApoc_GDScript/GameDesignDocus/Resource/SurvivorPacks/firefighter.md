@@ -8,6 +8,7 @@
     初始生命值: 32
     潜行值: 6
     饥饿状态潜行值: 5
+    装备栏容量: 4
     技能: {
         技能名: "拳打"
         技能描述: "行动：对一个目标造成2点伤害。"
@@ -64,8 +65,8 @@
         filterTargetRange: "短距离" # 目标必须在短距离范围内（即同一个地块内）
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            List = event.target # event.target 为经过 filter 筛选后的目标列表
-            player.消耗填充物( 1, "打火机" ) # 消耗1点燃料
+            List = event.targets # event.targets 为经过 filter 筛选后的目标列表
+            player.消耗填充物( player.getEquipment("打火机"), 1 ) # 消耗1点燃料
             for i in List:
                 i.damage(3, player) # 对所有目标造成3点伤害，伤害来源为玩家。
         }
@@ -87,7 +88,6 @@
         filterTarget: return target.type == Human # 目标必须是人类类型（包含玩家幸存者，可用于自救或救他人）
         filterTargetRange: "短距离" # 目标必须在短距离范围内（即同一个地块内）
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             target.recover(4)
         }
     }
@@ -114,7 +114,7 @@
         filterTargetRange: "中距离" # 目标必须在中距离范围内（即目标在玩家所在地块及其相邻地块中）
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            player.消耗填充物( 1, "猎枪" ) # 消耗1点弹药
+            player.消耗填充物( player.getEquipment("猎枪"), 1 ) # 消耗1点弹药
             target.damage(4, player) # 对主目标造成4点伤害，伤害来源为玩家
             List = getTarget(player.get_current_block()) # 获取玩家所在地图块的所有目标
             for i in List:
@@ -137,8 +137,7 @@
         filterTarget: return target.type == Monster # 目标必须是怪物类型
         filterTargetRange: "短距离" # 目标必须在短距离范围内（即同一个地块内）
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
-            List = event.target # event.target 为经过 filter 筛选后的目标列表
+            List = event.targets # event.targets 为经过 filter 筛选后的目标列表
             for i in List:
                 i.击晕(player, until = "下个回合开始时")
         }
@@ -157,14 +156,13 @@
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0
         filterTarget: return target == player # 仅作用于玩家自身
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             player.addTempSkill('能量饮料_satiety', until = "下个回合开始时") # 添加临时技能，持续到下个回合开始时失效
             player.draw(1) # 抓取一张牌
         }
         # subSkill 为临时技能定义：当受到饥饿类型伤害时取消该次伤害
         subSkill: {
             satiety: {
-                trigger: 饥饿状态结算前
+                trigger: 求生者饥饿状态结算前
                 forced: true
                 filter: true
                 content: event.cancel() # 跳过本次饥饿状态结算
@@ -184,9 +182,10 @@
         trigger: 潜行检定前、抓取怪物卡前
         filter: true
         content: {
-            # 当触发「潜行检定前」且触发来源为河流地块时，终止河流检定结算（视为自动通过）
+            # 当触发「潜行检定前」且触发来源为河流地块时，跳过投骰并视为自动通过
             if( trigger == "潜行检定前" && event.name == "河流" ){
-                event.cancel()
+                event.skipJudge = true # 跳过投骰
+                event.result = { value: 0, success: true } # 检定结果设为成功（视为自动通过）
             }
             # 当触发「抓取怪物卡前」时，玩家可选择弃置此装备以跳过本次抓怪
             else if( trigger == "抓取怪物卡前" ){
@@ -213,8 +212,7 @@
         filterTarget: return target.type == Monster # 目标必须是怪物类型
         filterTargetRange: "长距离" # 目标必须在长距离范围内
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
-            List = event.target # event.target 为经过 filter 筛选后的目标列表
+            List = event.targets # event.targets 为经过 filter 筛选后的目标列表
             for i in List:
                 i.修改纠缠对象(player)
         }
@@ -232,7 +230,6 @@
         active: "行动阶段"
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             pile = player.getPile("游戏牌堆") # 获取玩家的游戏牌堆
             card = game.getCard(name = "值得信赖的斧子", pile) # 获取玩家游戏牌堆中的【值得信赖的斧子】牌
             if( card == null ){
@@ -258,7 +255,6 @@
         active: "行动阶段"
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             maxSteps = 3 # 最多移动三格
             steps = 0
             while(steps < maxSteps){ 
@@ -318,9 +314,8 @@
         filterTarget: return target != player 
         filterTargetRange: "中距离"
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
-            player.消耗填充物(1, "打火机") 
-            List = event.target # event.target 为经过 filter 筛选后的目标列表
+            player.消耗填充物( player.getEquipment("打火机"), 1 )
+            List = event.targets # event.targets 为经过 filter 筛选后的目标列表
             for i in List:
                 i.damage(5, player)
         }

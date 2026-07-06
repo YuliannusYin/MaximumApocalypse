@@ -85,7 +85,7 @@ Card（卡牌基类，继承 Entity）
 |------|------|------|
 | 填充物类型 | String | 弹药 / 燃料 / 空尖弹 等 |
 | 填充物上限 | Int | 装备卡填充物上限。补满填充物时不超过此值 |
-| 填充物当前量 | Int | 当前填充物数量。耗尽时触发「弹药耗尽时」trigger |
+| 填充物当前量 | Int | 当前填充物数量。耗尽时触发「填充物耗尽时」trigger（见 [Player.消耗填充物](../Entities/Player.md#消耗填充物equipment-num)） |
 
 #### 装备技能挂载
 
@@ -136,8 +136,13 @@ function MonsterCard.实体化(player) {
 ## 卡牌使用流程
 
 > 使用卡牌的规则见 [H_useCard.md](../../GameInstructions/H_useCard.md)。
-> 从手牌中使用一张卡牌需要花费一个行动。即时卡牌作为一个行动使用，按照卡牌文字执行，然后弃掉。
-> 装填武器、吃食物和治疗玩家都需要花费行动。使用拾荒卡后放到拾荒弃牌堆中。
+> 流程方法见 [player.useCard](Player.md#usecardcard)。
+>
+> 从手牌中使用一张卡牌需要花费一个行动。useCard 对装备牌和行动牌统一消耗 1 点行动次数：
+> - **装备牌** → 调用 `player.装备(card)` 进入装备区
+> - **行动牌** → 技能系统独立执行 content 后弃掉（按 `card.source` 分派弃牌堆：scavenge → 拾荒弃牌堆，game → 游戏牌弃牌堆）
+>
+> trigger 节点：使用卡牌前/时/后（见 [EventSystem §4](../Core/EventSystem.md#4-全-trigger-索引)）。
 
 ---
 

@@ -86,7 +86,7 @@ GameSystem/
 
 ### 2. event 对象作为通信载体
 
-流程方法构建 `event` 对象，贯穿所有钩子节点。技能通过 `event` 读写流程参数（如 `event.num` 修改伤害/回复量）、查询上下文（`event.target` / `event.source` / `event.card`）、控制流程（`event.cancel()`）。
+流程方法构建 `event` 对象，贯穿所有钩子节点。技能通过 `event` 读写流程参数（如 `event.num` 修改伤害/回复量）、查询上下文（`event.target` 实体目标 / `event.targetBlock` 地块目标 / `event.card` 当前卡牌 / `event.targets` 主动技能目标列表 / `event.source` 来源）、控制流程（`event.cancel()`）。
 
 完整 event schema 见 [EventSystem.md §2](Core/EventSystem.md#2-event-对象-schema)。
 
@@ -162,8 +162,11 @@ GameSystem/
 | 潜行检定 | [Player.md](Entities/Player.md#sneakjudge) | `player.sneakJudge()` |
 | 怪物出生检定 | [Player.md](Entities/Player.md#monsterspawnjudge) | `player.monsterSpawnJudge()` |
 | 怪物行动 | [Monster.md](Entities/Monster.md#行动流程) | `monster.行动()` |
-| 装备进入装备区 | [Player.md](Entities/Player.md#装备) [提案] | `player.装备(card)` |
-| 装备离开装备区 | [Player.md](Entities/Player.md#卸下) [提案] | `player.卸下(card)` |
+| 使用卡牌 | [Player.md](Entities/Player.md#usecardcard) | `player.useCard(card)` |
+| 装备进入装备区 | [Player.md](Entities/Player.md#装备card) | `player.装备(card)` |
+| 装备离开装备区 | [Player.md](Entities/Player.md#卸下card) | `player.卸下(card)` |
+| 填充物消耗 | [Player.md](Entities/Player.md#消耗填充物equipment-num) | `player.消耗填充物(equipment, num)` |
+| 游戏开始 | [Game.md](Game/Game.md#startgame) | `game.startGame()` |
 | 游戏结束 | [Game.md](Game/Game.md#gameoverresult) | `game.gameOver(result)` |
 
 ---
@@ -183,9 +186,11 @@ GameSystem/
 
 ## 后续待完善
 
-- [ ] 装备进入/离开装备区流程（[Player.装备](Entities/Player.md#装备) / [Player.卸下](Entities/Player.md#卸下)）落地为正式 trigger
-- [ ] 填充物消耗流程（[Player.消耗填充物](Entities/Player.md#消耗填充物)）与「弹药耗尽时」trigger
-- [ ] 游戏开始流程与「游戏开始时」trigger
-- [ ] 检定流程的「后」节点 trigger（潜行检定后 / 怪物出生检定后）
-- [ ] `event.目标玩家` 的单值与列表歧义（怪物攻击多目标场景）
-- [ ] `player.立即执行一个行动` 的语义定义
+- [x] 装备进入/离开装备区流程（[Player.装备](Entities/Player.md#装备) / [Player.卸下](Entities/Player.md#卸下)）落地为正式 trigger：已落地（含系统预校验：同名装备校验 + 装备栏容量校验）
+- [x] 填充物消耗流程（[Player.消耗填充物](Entities/Player.md#消耗填充物)）与「填充物耗尽时」trigger：已落地（前/时/后 + 耗尽时衍生 trigger，签名 `(equipment, num)`，不足时取消并提示）
+- [x] 游戏开始流程与「游戏开始时」trigger：已落地（`game.startGame()` 方法 + 「游戏开始时」/「游戏结束时」对称 trigger，按座位顺序对所有 player 触发）
+- [x] 检定流程的「后」节点 trigger（潜行检定后 / 怪物出生检定后）：已落地（前/时/后三节点 + skipJudge 跳过投骰机制 + event.result 结构体 `{ value, success }`）
+- [ ] `player.立即打出一张牌` 的语义定义（区别于 `player.立即执行一个行动(num)`，特指使用一张手牌；见 [surgeon.md](../Resource/SurvivorPacks/surgeon.md) 注射类固醇）
+- [ ] 各技能中标注「自然语言描述，待实现为具体函数调用」的方法落地为正式 API（如 `player.弃置面前的一张非首领怪物并替换为怪物标记()`、`player.向玩家拉近一格不触发效果(target)`、`player.清空填充物(type)`、`target.治疗所有状态效果()` 等）
+- [x] `event.result`（检定流程）的类型与语义定义：已定义为结构体 `{ value: 骰子点数, success: 布尔值 }`；怪物出生检定的 success 无意义，恒为 true
+- [ ] 「摧毁地图板块」机制定义（[blue.md](../Resource/ScavengePacks/blue.md) 大炸药）：地块上的玩家和怪物如何处理？地块是否从游戏中移除？

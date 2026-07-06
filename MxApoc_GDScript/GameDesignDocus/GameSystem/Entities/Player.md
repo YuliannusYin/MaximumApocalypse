@@ -25,7 +25,7 @@
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | 手牌区 | List\<Card\> | 手牌所在区域。上限 10 张 |
-| 装备区 | List\<EquipmentCard\> | 装备牌所在区域。受装备栏容量限制 |
+| 装备区 | List\<EquipmentCard\> | 装备牌所在区域。受装备栏容量限制（容量由角色卡 `装备栏容量` 字段决定，见 [RoleCard](../Common/RoleCard.md)） |
 | 怪物区 | List\<Monster\> | 玩家面前的怪物卡区域。怪物卡进入此区时与玩家纠缠 |
 | 游戏牌堆 | Pile | 求生者游戏牌堆。抓牌从此处；牌堆空时玩家死亡 |
 | 游戏牌弃牌堆 | Pile | 求生者游戏牌弃牌区域 |
@@ -59,9 +59,11 @@
 - **移动类**：离开地块前/时/后、进入地块前/时/后
 - **回合类**：回合开始前/时、怪物出生前/时、摸牌阶段前、行动阶段前/结束前/结束时、饥饿结算前/时、中毒结算前/时、面前怪物行动前/时、回合结束前/时
 - **抓牌类**：抓取游戏牌前/时/后、抓取拾荒牌前/时/后、抓取怪物卡前/时/后、怪物卡进入求生者怪物区前/时/后
-- **装备类**：卡牌进入装备区前/时/后、卡牌离开装备区前/时/后、弹药耗尽时
+- **使用卡牌类**：使用卡牌前/时/后
+- **装备类**：卡牌进入装备区前/时/后、卡牌离开装备区前/时/后、消耗填充物前/时/后、填充物耗尽时
 - **检定类**：潜行检定前/时/后、怪物出生检定前/时/后
 - **弃牌/销毁类**：弃置牌前/时/后、销毁牌前/时/后
+- **游戏类**：游戏开始时、游戏结束时
 
 ---
 
@@ -356,7 +358,7 @@ function player.drawMonster(n) {
         player: player,
         num: n,
         cards: [],
-        target: NULL,
+        card: NULL,
         cancelled: false,
     }
 
@@ -381,7 +383,7 @@ function player.drawMonster(n) {
 
         # 抓取怪物卡
         card = 怪物牌堆.draw()
-        event.target = card
+        event.card = card
         event.cards.add(card)
 
         # b. 抓取怪物卡时（每张触发）
@@ -404,7 +406,7 @@ function player.drawMonster(n) {
     }
 
     # 3. 抓取怪物卡后（整体触发一次）
-    #    mechanic「感应地雷」在此对 event.target 造成伤害
+    #    mechanic「感应地雷」在此对 event.card 造成伤害
     player.trigger("抓取怪物卡后", event)
 }
 ```
@@ -478,8 +480,13 @@ function player.discard(target, position=NULL, quantity=1, type=NULL) {
         event.card = card
         event.cards.add(card)
 
-        # 从原位置移除
-        player.移除区域牌(card)
+        # 如果牌在装备区，先走卸下流程（触发卡牌离开装备区 trigger，移除技能）
+        # 否则从其他区域（手牌区）移除
+        if (player.装备区.contains(card)) {
+            player.卸下(card)  # 内部从装备区移除 + 移除技能 + 触发离开 trigger
+        } else {
+            player.移除区域牌(card)
+        }
 
         # 进入对应弃牌堆（按 source 自动分派）
         if (card.source == "scavenge") {
@@ -598,7 +605,7 @@ function player.moveTo(target) {
     event = {
         player: player,
         source: source,
-        target: target,
+        targetBlock: target,
         cancelled: false,
     }
 
@@ -674,42 +681,121 @@ function player.judge() {
 #### sneakJudge()
 
 > 潜行检定方法。
+> 走前/时/后三节点 trigger 流程。
 > 潜行值 = 玩家潜行值 - (所在地块怪物数 + 怪物标记数)。
 > 检定结果 ≤ 潜行值则成功，否则失败。
+> 落地 [EventSystem §4.9](../Core/EventSystem.md#49-检定类) 的「潜行检定前/时/后」trigger。
+>
+> **event.result 类型**：结构体 `{ value: 骰子点数, success: 布尔值 }`。
+> **跳过投骰**：技能在「前」节点设置 `event.skipJudge = true` + `event.result = { value, success }` 可跳过投骰并指定结果。
+> **修改结果**：技能在「时」节点可直接赋值 `event.result = { value, success }` 覆盖投骰结果。
+> **失败处理**：由调用方负责（如 [moveTo](#moveto) 节点 10 移除标记并抓怪物）。
+
+**事件钩子顺序**：
+
+| 节点 | trigger 名 | 说明 |
+|------|-----------|------|
+| 1 | 潜行检定前 | 技能可设置 `skipJudge=true` + `result` 跳过投骰 |
+| 2 | （系统投骰） | 若未跳过：投骰并计算 result；若跳过：使用技能指定的 result |
+| 3 | 潜行检定时 | 技能可修改 event.result（如 gray 科学家设为失败） |
+| 4 | 潜行检定后 | 非取消点；可查询 event.result |
 
 ```gdscript
 function player.sneakJudge() {
     num = countMonster(player.get_current_block()) + countMonsterMark(player.get_current_block())
     sneakValue = player.get_sneak() - num
-    result = player.judge()
-    if (result <= sneakValue) {
-        return true
-    } else {
-        return false
+
+    event = {
+        player: player,
+        sneakValue: sneakValue,
+        result: NULL,       # 检定结果，结构体 { value: 骰子点数, success: 布尔值 }
+        skipJudge: false,   # 是否跳过投骰
+        cancelled: false,
     }
+
+    # 1. 潜行检定前
+    #    技能可设置 skipJudge=true + result={...} 跳过投骰
+    #    如 firefighter「梯子」对河流地块：skipJudge=true, result={ value: 0, success: true }
+    #    如 robot「激光无人机」：skipJudge=true, result={ value: 999, success: false }
+    player.trigger("潜行检定前", event)
+
+    # 2. 系统投骰（若未跳过）
+    if (!event.skipJudge) {
+        diceValue = player.judge()
+        success = (diceValue <= event.sneakValue)
+        event.result = { value: diceValue, success: success }
+    }
+    # 若 skipJudge=true，event.result 由「前」节点技能设置
+
+    # 3. 潜行检定时
+    #    技能可修改 event.result（如 gray 科学家设为 { value: 999, success: false }）
+    player.trigger("潜行检定时", event)
+
+    # 4. 潜行检定后（非取消点）
+    player.trigger("潜行检定后", event)
+
+    # 返回检定结果（成功/失败），失败处理由调用方负责
+    return event.result.success
 }
 ```
 
 > **触发场景**：玩家进入有怪物标记的地块时（[moveTo](#moveto) 节点 10）；玩家回合行动阶段前（地块有怪物标记时）。
-> **失败处理**：移除该地图块上的所有怪物标记，每移除一个怪物标记就抓一张怪物卡。
+> **失败处理**：由调用方负责（如 moveTo 节点 10：移除所有怪物标记，每移除一个抓一张怪物卡）。
 
 ---
 
 #### monsterSpawnJudge()
 
 > 怪物出生检定方法。
-> 检定结果对应地图块的 monster_spawn_value，匹配的地图块执行怪物出生逻辑。
+> 走前/时/后三节点 trigger 流程。
+> 检定结果（骰子点数）对应地图块的 monster_spawn_value，匹配的地图块执行怪物出生逻辑。
+> 落地 [EventSystem §4.9](../Core/EventSystem.md#49-检定类) 的「怪物出生检定前/时/后」trigger。
+>
+> **event.result 类型**：结构体 `{ value: 骰子点数, success: 布尔值 }`（success 字段无意义，恒为 true）。
+> **跳过投骰**：技能在「前」节点设置 `event.skipJudge = true` + `event.result = { value, success }` 可跳过投骰并指定骰子点数。
+
+**事件钩子顺序**：
+
+| 节点 | trigger 名 | 说明 |
+|------|-----------|------|
+| 1 | 怪物出生检定前 | 技能可设置 `skipJudge=true` + `result` 跳过投骰 |
+| 2 | （系统投骰） | 若未跳过：投骰并计算 result；若跳过：使用技能指定的 result |
+| 3 | 怪物出生检定时 | 技能可修改 event.result |
+| 4 | 怪物出生检定后 | 非取消点；可查询 event.result |
+| 5 | （结果处理） | 匹配地块：标记 < 3 → +1 标记；标记 = 3 且有玩家 → 每位玩家抓 1 怪物 |
 
 ```gdscript
 function player.monsterSpawnJudge() {
-    result = player.judge()
-    List = 所有已经展示的，且 monster_spawn_value 等于 result 的地图块
-    for i in List {
+    event = {
+        player: player,
+        result: NULL,       # 检定结果，结构体 { value: 骰子点数, success: 布尔值 }（success 无意义）
+        skipJudge: false,
+        cancelled: false,
+    }
+
+    # 1. 怪物出生检定前
+    player.trigger("怪物出生检定前", event)
+
+    # 2. 系统投骰（若未跳过）
+    if (!event.skipJudge) {
+        diceValue = player.judge()
+        event.result = { value: diceValue, success: true }  # success 无意义，恒为 true
+    }
+
+    # 3. 怪物出生检定时
+    player.trigger("怪物出生检定时", event)
+
+    # 4. 怪物出生检定后（非取消点）
+    player.trigger("怪物出生检定后", event)
+
+    # 5. 结果处理：匹配地块的 monster_spawn_value
+    List = 所有已经展示的，且 monster_spawn_value == event.result.value 的地图块
+    for (i in List) {
         if (i.countMonsterMark() < 3) {
             i.addMonsterMark(1)
         } else if (i.countMonsterMark() == 3 && i.hasPlayer()) {
             List2 = 此地图块上的所有玩家
-            for j in List2 {
+            for (j in List2) {
                 j.drawMonster(1)
             }
         }
@@ -718,6 +804,7 @@ function player.monsterSpawnJudge() {
 ```
 
 > **触发场景**：玩家回合节点 5「怪物出生时」。
+> **注**：D_gameFlow.md 中的「怪物出生前/时」是玩家回合阶段级别的 trigger，与此处的检定流程 trigger 不同层级。
 
 ---
 
@@ -726,7 +813,7 @@ function player.monsterSpawnJudge() {
 #### playerDeath(source)
 
 > 实现 [Entity.death](../Core/Entity.md#6-抽象方法子类实现)。
-> 流程：死亡前 → 死亡时 → 死亡后（清理 + 事件）。
+> 流程：玩家死亡前 → 玩家死亡时 → 玩家死亡后（清理 + 事件）。
 > 取消点：无（死亡流程不可取消）。
 > 触发场景：`entity.damage` 流程节点 8 中玩家生命值 ≤ 0；或游戏牌堆无牌时摸牌。
 
@@ -742,13 +829,13 @@ function player.playerDeath(source) {
         source: source,
     }
 
-    # 1. target 死亡前
-    player.trigger("死亡前", event)
+    # 1. target 玩家死亡前
+    player.trigger("玩家死亡前", event)
 
-    # 2. target 死亡时
-    player.trigger("死亡时", event)
+    # 2. target 玩家死亡时
+    player.trigger("玩家死亡时", event)
 
-    # 3. target 死亡后
+    # 3. target 玩家死亡后
 
     # 3a. 把其角色面前的所有怪物置入弃牌堆，替换为等量的怪物标记（最多3个）
     怪物列表 = player.怪物区.getAll()
@@ -780,7 +867,7 @@ function player.playerDeath(source) {
         game.getScavengePile(颜色).shuffle()
     }
 
-    player.trigger("死亡后", event)
+    player.trigger("玩家死亡后", event)
 
     # 检查游戏结束条件
     if (game.allPlayersDead()) {
@@ -791,20 +878,101 @@ function player.playerDeath(source) {
 
 ---
 
-### 七、装备流程 [提案]
+### 七、使用卡牌流程
 
-#### 装备(card)
+#### useCard(card)
 
-> 装备进入装备区流程。
-> 落地 [EventSystem §4.7](../Core/EventSystem.md#47-装备类) 的装备类 trigger。
+> 「玩家从手牌中使用一张卡牌」的流程方法。
+> 对应行动阶段行动选项 #3「从手牌中打出 1 张牌」（见 [D_gameFlow.md](../../GameInstructions/D_gameFlow.md)）。
+> 使用规则见 [H_useCard.md](../../GameInstructions/H_useCard.md)。
+>
+> **统一消耗行动次数**：useCard 对装备牌和行动牌统一消耗 1 点行动次数。卡牌 content 内不再调用 `player.减少行动次数(1)`。
+> **卡牌类型分流**：
+> - 装备牌 → 调用 `player.装备(card)`（§八）进入装备区，不弃掉
+> - 行动牌 → 技能系统独立执行 content（useCard 不直接调用 `card.技能.content()`），执行后弃掉
+> **弃牌堆分流**：行动牌使用后按 `card.source` 字段分派（scavenge → 拾荒弃牌堆，game → 游戏牌弃牌堆），由 `player.discard(card)` 内部处理（见 §三 discard）。
 
 **事件钩子顺序**：
 
 | 节点 | trigger 名 | 说明 |
 |------|-----------|------|
-| 1 | 卡牌进入装备区前 | 可校验装备栏容量 [提案] |
-| 2 | 卡牌进入装备区时 | 装备置入装备区 |
-| 3 | 卡牌进入装备区后 | 装备进入完成 [提案] |
+| 1 | 使用卡牌前 | **取消点**；可校验行动次数、手牌合法性 |
+| 2 | 使用卡牌时 | **取消点**；装备牌/行动牌分流的最后拦截点 |
+| 3 | （系统结算） | 扣 1 点行动次数 → 按类型分流（装备/行动） |
+| 4 | 使用卡牌后 | 整体触发一次 |
+
+```gdscript
+function player.useCard(card) {
+    event = {
+        player: player,
+        card: card,
+        cancelled: false,
+    }
+
+    # 1. 使用卡牌前（取消点）
+    player.trigger("使用卡牌前", event)
+    if (event.cancelled) {
+        return false
+    }
+
+    # 2. 使用卡牌时（取消点）
+    player.trigger("使用卡牌时", event)
+    if (event.cancelled) {
+        return false
+    }
+
+    # 3. 系统结算：统一消耗 1 点行动次数
+    player.减少行动次数(1)
+
+    # 按卡牌类型分流
+    if (card.类型 == "装备") {
+        # 装备牌：进入装备区（内部触发装备流程 trigger）
+        # 装备栏容量校验失败时由 装备() 内部取消并提示
+        player.装备(card)
+    } else {
+        # 行动牌：技能 content 由技能系统独立执行
+        # useCard 不直接调用 card.技能.content()，由技能系统统一调度
+        # [技能系统执行 content]
+        game.skillSystem.execute(card.技能, event)
+
+        # 弃掉这张牌（按 source 字段分流，见 §三 discard）
+        player.discard(card)
+    }
+
+    # 4. 使用卡牌后
+    player.trigger("使用卡牌后", event)
+    return true
+}
+```
+
+> **设计说明**：
+> - 行动牌的技能 content 由技能系统独立执行（`game.skillSystem.execute`），而非 useCard 直接调用。这保持技能执行的统一调度（filter 校验、目标选择等由技能系统处理）。
+> - 装备牌进入装备区时，装备栏容量校验失败由 `player.装备(card)` 内部处理（取消装备并提示），useCard 不重复校验。
+> - 行动牌使用后的弃牌由 `player.discard(card)` 按 `card.source` 自动分派到对应弃牌堆。
+
+---
+
+### 八、装备流程
+
+#### 装备(card)
+
+> 装备进入装备区流程。
+> 落地 [EventSystem §4.8](../Core/EventSystem.md#48-装备类) 的装备类 trigger。
+>
+> **系统预校验**（节点 1 trigger 之后、节点 2 之前，非钩子节点）：
+> 1. **同名装备校验**：装备区有同名装备 → 直接弃置同名装备（走 `player.discard` 流程，内部调用卸下）
+> 2. **装备栏容量校验**：装备后超过装备栏容量 → 玩家选择弃置装备区的装备牌直到能容下；无法容下则取消装备并提示
+>
+> 装备栏容量由角色卡 `装备栏容量` 字段决定（见 [RoleCard](../Common/RoleCard.md)），可被技能（如背包）修改。
+
+**事件钩子顺序**：
+
+| 节点 | trigger 名 | 说明 |
+|------|-----------|------|
+| 1 | 卡牌进入装备区前 | **取消点** |
+| — | （系统预校验） | 同名装备校验 + 装备栏容量校验，非钩子节点 |
+| 2 | 卡牌进入装备区时 | 装备置入装备区 + 技能挂载 |
+| 3 | 卡牌进入装备区后 | 装备进入完成 |
 
 ```gdscript
 function player.装备(card) {
@@ -814,10 +982,29 @@ function player.装备(card) {
         cancelled: false,
     }
 
-    # 1. 卡牌进入装备区前 [提案]
+    # 1. 卡牌进入装备区前（取消点）
     player.trigger("卡牌进入装备区前", event)
     if (event.cancelled) {
-        return
+        return false
+    }
+
+    # 系统预校验（非钩子节点）
+    # a. 同名装备校验：弃置装备区中的同名装备
+    sameNameEquipments = player.装备区.filter(e => e.名字 == card.名字)
+    for (e in sameNameEquipments) {
+        player.discard(e)  # discard 内部检测到牌在装备区时先调用卸下流程
+    }
+
+    # b. 装备栏容量校验：装备后超过容量时，玩家选择弃置装备直到能容下
+    while (player.已用装备栏() + card.大小 > player.装备栏容量) {
+        # 玩家从装备区选择弃置一张装备牌
+        toDiscard = player.chooseCard(position="装备区", quantity=1)
+        if (toDiscard == NULL) {
+            # 玩家无法或不愿弃置更多装备 → 取消装备并提示
+            game.prompt("装备栏容量不足，无法装备")
+            return false
+        }
+        player.discard(toDiscard)
     }
 
     # 2. 卡牌进入装备区时
@@ -825,25 +1012,32 @@ function player.装备(card) {
     player.addSkill(card.技能)  # 装备技能挂载到玩家
     player.trigger("卡牌进入装备区时", event)
 
-    # 3. 卡牌进入装备区后 [提案]
+    # 3. 卡牌进入装备区后
     player.trigger("卡牌进入装备区后", event)
+    return true
 }
 ```
+
+> **设计说明**：
+> - 同名装备校验在装备栏容量校验之前执行：先弃置同名装备腾出空间，再校验容量是否足够。
+> - 装备栏容量校验时，玩家选择弃置装备是交互操作（`player.chooseCard`），玩家可以随时选择不弃置（返回 NULL），此时取消装备。
+> - `player.discard(e)` 内部检测到牌在装备区时，会先调用 `player.卸下(e)` 触发卡牌离开装备区 trigger 并移除技能，再进入弃牌堆（见 §三 discard）。
 
 ---
 
 #### 卸下(card)
 
 > 装备离开装备区流程。
-> 通常作为 `discard(card)` 的一部分被调用。
+> 通常作为 `discard(card)` 的一部分被调用（discard 检测到牌在装备区时先调用卸下）。
+> 卸下只负责从装备区移除 + 移除技能 + 触发 trigger，不负责进入弃牌堆。
 
 **事件钩子顺序**：
 
 | 节点 | trigger 名 | 说明 |
 |------|-----------|------|
-| 1 | 卡牌离开装备区前 | [提案] |
-| 2 | 卡牌离开装备区时 | 装备离开装备区 |
-| 3 | 卡牌离开装备区后 | [提案]；衍生 trigger「弹药耗尽时」 |
+| 1 | 卡牌离开装备区前 | **取消点** |
+| 2 | 卡牌离开装备区时 | 从装备区移除 + 技能移除 |
+| 3 | 卡牌离开装备区后 | 装备离开完成 |
 
 ```gdscript
 function player.卸下(card) {
@@ -853,10 +1047,10 @@ function player.卸下(card) {
         cancelled: false,
     }
 
-    # 1. 卡牌离开装备区前 [提案]
+    # 1. 卡牌离开装备区前（取消点）
     player.trigger("卡牌离开装备区前", event)
     if (event.cancelled) {
-        return
+        return false
     }
 
     # 2. 卡牌离开装备区时
@@ -864,40 +1058,121 @@ function player.卸下(card) {
     player.removeSkill(card.技能)  # 装备技能从玩家移除
     player.trigger("卡牌离开装备区时", event)
 
-    # 3. 卡牌离开装备区后 [提案]
+    # 3. 卡牌离开装备区后
+    # 填充物耗尽时的衍生场景见 §九 填充物流程
     player.trigger("卡牌离开装备区后", event)
+    return true
 }
 ```
 
 ---
 
-### 八、填充物流程 [提案]
+### 九、填充物流程
 
-#### 消耗填充物(equipment, num, type)
+#### 消耗填充物(equipment, num)
 
-> 装备填充物消耗流程（如枪械消耗弹药、打火机消耗燃料）。
-> 落地 [EventSystem §4.7](../Core/EventSystem.md#47-装备类) 的「弹药耗尽时」trigger。
+> 装备填充物消耗流程（如枪械消耗弹药、打火机消耗燃料、摩托车消耗燃料、空尖弹特殊弹药等）。
+> 走前/时/后三节点；扣减后若填充物耗尽则衍生触发「填充物耗尽时」。
+> 落地 [EventSystem §4.8](../Core/EventSystem.md#48-装备类) 的「消耗填充物前/时/后」与「填充物耗尽时」trigger。
+>
+> **签名约束**：`equipment` 为装备对象（非装备名），由调用方先通过 `player.getEquipment(name)` 获取。
+> **填充物不足**：若 `equipment.填充物当前量 < num`，取消执行并提示（不扣减、不触发任何 trigger）。
+
+**事件钩子顺序**：
+
+| 节点 | trigger 名 | 说明 |
+|------|-----------|------|
+| 1 | 消耗填充物前 | **取消点** |
+| 2 | 消耗填充物时 | **取消点**；可修改 event.num |
+| 3 | （系统扣减） | `equipment.填充物当前量 -= event.num` |
+| 4 | 消耗填充物后 | 可访问 event.num、event.equipment |
+| 5 | 填充物耗尽时 | **衍生**：扣减后若 `填充物当前量 <= 0` 则触发（每张牌独立触发） |
 
 ```gdscript
-function player.消耗填充物(equipment, num, type) {
-    # 扣减填充物
-    equipment.填充物当前量 -= num
-
-    # 检测填充物耗尽
-    if (equipment.填充物当前量 <= 0) {
-        event = {
-            player: player,
-            card: equipment,
-            cancelled: false,
-        }
-        player.trigger("弹药耗尽时", event)
+function player.消耗填充物(equipment, num) {
+    # 前置校验：填充物不足时取消执行并提示
+    if (equipment.填充物当前量 < num) {
+        game.prompt(equipment.名字 + "填充物不足，无法消耗")
+        return false
     }
+
+    event = {
+        player: player,
+        equipment: equipment,
+        card: equipment,  # 兼容：event.card 同时指向该装备，便于技能按 event.card 访问
+        num: num,
+        cancelled: false,
+    }
+
+    # 1. 消耗填充物前（取消点）
+    player.trigger("消耗填充物前", event)
+    if (event.cancelled) {
+        return false
+    }
+
+    # 2. 消耗填充物时（取消点：可修改 event.num 或 cancel()）
+    player.trigger("消耗填充物时", event)
+    if (event.cancelled) {
+        return false
+    }
+
+    # 3. 系统扣减（非钩子节点）
+    equipment.填充物当前量 -= event.num
+
+    # 4. 消耗填充物后
+    player.trigger("消耗填充物后", event)
+
+    # 5. 衍生：填充物耗尽时
+    #    扣减后若填充物当前量 <= 0 则触发
+    #    典型场景：gunslinger 空尖弹 subSkill remove 在此弃置武器牌
+    if (equipment.填充物当前量 <= 0) {
+        player.trigger("填充物耗尽时", event)
+    }
+
+    return true
 }
 ```
 
 ---
 
-### 九、底层接口与工具方法
+### 十、迷你回合流程
+
+#### 立即执行一个行动(num=1)
+
+> 让玩家立即插入一个**仅含行动阶段**的迷你回合。
+> 跳过摸牌/饥饿/中毒/面前怪物行动等阶段，仅保留行动阶段。
+> 触发场景：被其他玩家技能指定为目标时——如 gunslinger「战术领导力」、surgeon「希波克拉底誓言」(num=2)、blue「对讲机」。
+> 行动次数：迷你回合内行动次数 = num（默认 1），由调用方指定。
+> 不触发「回合开始前/时」「回合结束前/时」等回合级 trigger，避免与正常回合的回合级 trigger 重复触发（如 MapBlocks 避难所、gunslinger 扣动扳机让我快乐）。
+> 迷你回合内的行动可正常触发其他事件流程（伤害、移动、抓牌等），这些流程的 trigger 正常执行。
+
+```gdscript
+function player.立即执行一个行动(num=1) {
+    # 保存当前阶段（迷你回合结束后恢复）
+    originalPhase = player.inPhase
+
+    # 切换到行动阶段
+    player.inPhase = "行动阶段"
+    player.设置行动次数(num)  # 迷你回合内行动次数
+
+    # 玩家执行 num 次行动（含免费行动），与正常回合行动阶段一致
+    # 系统等待玩家通过 UI 选择 active="行动阶段" 的技能或选择结束行动
+    # 行动次数耗尽或玩家主动结束时返回
+
+    # 恢复原阶段
+    player.inPhase = originalPhase
+}
+```
+
+> **设计说明**：
+> - 迷你回合本质是"额外的行动机会"，不是完整回合，因此跳过所有非行动阶段
+> - 不引入专用的「迷你回合开始/结束」trigger，避免 trigger 数量膨胀；如未来有技能需要钩在迷你回合开始/结束，再行提案
+> - 迷你回合内可使用 `usable: 1` 的免费行动（如制衡、交易），但 usable 计数与正常回合共享（避免同一回合内重复使用）
+> - 嵌套调用不推荐：迷你回合内触发的技能若再次调用 `立即执行一个行动`，可能产生递归，需调用方自行控制
+
+---
+
+### 十一、底层接口与工具方法
 
 #### 生命值/饥饿值/潜行值
 
@@ -932,6 +1207,8 @@ function player.消耗填充物(equipment, num, type) {
 | 方法 | 说明 |
 |------|------|
 | `hasEquipment(name)` | 是否装备了指定装备 |
+| `getEquipment(name)` | 按装备名返回装备区中的装备对象（找不到返回 NULL） |
+| `已用装备栏()` | 返回装备区所有装备牌占用格数之和（`sum(card.大小)`） |
 | `增加装备栏(n)` / `减少装备栏(n)` | 调整装备栏容量 |
 
 #### 行动管理

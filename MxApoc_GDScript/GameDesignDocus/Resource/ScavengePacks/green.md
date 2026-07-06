@@ -14,7 +14,6 @@
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.getNumber( "玩家饥饿值" ) > 1 # 行动阶段、有剩余行动次数、饥饿值大于1时可用（饥饿值最小为1，已为1时不需再使用）
         filterTarget: return target == player # 仅作用于玩家自身
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             player.decreaseHunger( 1 )
         }
     }
@@ -34,7 +33,6 @@
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.getNumber( "玩家饥饿值" ) > 1 # 饥饿值最小为1，已为1时不需再使用
         filterTarget: return target == player # 仅作用于玩家自身
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             player.decreaseHunger( 2 )
         }
     }
@@ -54,7 +52,6 @@
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.getNumber( "玩家饥饿值" ) > 1 # 饥饿值最小为1，已为1时不需再使用
         filterTarget: return target == player # 仅作用于玩家自身
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             player.decreaseHunger( 3 )
         }
     }
@@ -74,7 +71,6 @@
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.getNumber( "玩家饥饿值" ) > 1 # 饥饿值最小为1，已为1时不需再使用
         filterTarget: return target == player # 仅作用于玩家自身
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             player.decreaseHunger( 4 )
         }
     }
@@ -94,7 +90,6 @@
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.getNumber( "玩家饥饿值" ) > 1 # 饥饿值最小为1，已为1时不需再使用
         filterTarget: return target == player # 仅作用于玩家自身
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             player.decreaseHunger( 5 )
         }
     }
@@ -113,7 +108,6 @@
         active: "行动阶段"
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 # 行动阶段、有剩余行动次数时可用（不限定自身饥饿值，因效果作用于全体玩家）
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             List = getAllPlayers() # 获取场上所有玩家
             for i in List:
                 i.decreaseHunger( 1 )
@@ -134,7 +128,6 @@
         active: "行动阶段"
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 # 行动阶段、有剩余行动次数时可用（不限定自身饥饿值，因效果作用于全体玩家）
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             List = getAllPlayers() # 获取场上所有玩家
             for i in List:
                 i.decreaseHunger( 2 )

@@ -41,7 +41,7 @@ Entity 基类负责：
 # 遍历实体上所有匹配 triggerName 的技能，依次执行。
 # entity.getAllSkills() 返回该实体上所有技能（含角色固有技能、装备技能、临时技能等）。
 # 技能 content 执行时，上下文中可访问以下变量：
-#   - event：事件对象（event.num、event.source、event.target、event.type、event.cancel() 等）
+#   - event：事件对象（按流程类型含不同字段：伤害流程 event.target/source/num/type；移动流程 event.targetBlock；抓牌流程 event.card；主动技能 event.targets；详见 EventSystem.md §2.2）
 #   - trigger：当前触发的触发名称字符串（用于 trigger == "xxx" 判断多触发技能的分支）
 # 技能的 trigger 字段可以是单个字符串（如 "造成伤害时"）或 "、" 分隔的多个字符串（如 "游戏开始时、受到伤害时"）。
 function entity.trigger(triggerName, event) {

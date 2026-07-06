@@ -8,6 +8,7 @@
     初始生命值: 26
     潜行值: 8
     饥饿状态潜行值: 7
+    装备栏容量: 4
     技能: {
         技能名: "维修"
         技能描述: "行动：从任一弃牌堆中选择一张装备牌，并把它放置在场上任一玩家的装备区中。"
@@ -66,8 +67,7 @@
         filterTarget: return target.type == Monster # 目标必须是怪物类型
         filterTargetRange: "中距离" # 目标必须在中距离范围内
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
-            List = event.target # event.target 为经过 filter 筛选后的目标列表
+            List = event.targets # event.targets 为经过 filter 筛选后的目标列表
             for i in List:
                     i.damage(5, player) # 对每个目标造成5点伤害，伤害来源为玩家
         }
@@ -88,7 +88,7 @@
         forced: true # 强制发动
         content:{
             player.discard( name = "感应地雷", position = "装备区" ) # 弃掉此装备
-            event.target.damage(7, player) # 对该怪物造成7点伤害，伤害来源为玩家
+            event.card.damage(7, player) # 对该怪物造成7点伤害，伤害来源为玩家
         }
     }
 }
@@ -122,7 +122,6 @@
         active: "行动阶段"
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             List = getAllPlayers() # 获取场上所有玩家
             for i in List:
                 i.addTempSkill('检查武器_damage', until = "回合结束时") # until 绑定到各玩家 i 自身的回合结束时
@@ -159,7 +158,7 @@
         filterTargetRange: "短距离" # 目标必须在短距离范围内（即同一个地块内）
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            player.消耗填充物( 1, "喷灯" ) # 消耗1点燃料
+            player.消耗填充物( player.getEquipment("喷灯"), 1 ) # 消耗1点燃料
             target.damage(5, player) # 对目标造成5点伤害，伤害来源为玩家
         }
     }
@@ -181,7 +180,6 @@
         filterTarget2: return target.is_revealed() # 任一已展示的地图块
         filterTarget2Range: Infinity # 无距离限制
         content: {
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             target1.moveTo(target2) # 调用底层移动函数（见 GameSystem/Entities/Player.md 中 player.moveTo 定义，会触发离开/进入地块钩子）
         }
     }
@@ -202,7 +200,6 @@
         filterTarget: return target.类型 == "装备"
         filterTargetRange: "中距离"
         content: {
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             该武器额外造成1点伤害 # 自然语言描述，待实现为具体函数调用；该武器额外造成1点伤害
         }
     }
@@ -229,7 +226,7 @@
         filterTargetRange: "中距离" # 目标必须在中距离范围内（即目标在玩家所在地块及其相邻地块中）
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            player.消耗填充物( 1, "手枪" ) # 消耗1枚弹药
+            player.消耗填充物( player.getEquipment("手枪"), 1 ) # 消耗1枚弹药
             target.damage(2, player) # 对目标造成2点伤害，伤害来源为玩家
         }
     }
@@ -246,12 +243,11 @@
         active: "行动阶段"
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             target = player.chooseMapBlock({
                 filterTarget: return target.is_revealed() # 任一已展示的地图块
                 filterTargetRange: Infinity # 无距离限制
             })
-            target.removeAllMonsterMarks() # 纯移除，不触发"杀死怪物时"事件；自然语言描述，待实现为具体函数调用
+            target.removeAllMonsterMarks() # 纯移除，不触发"怪物死亡时"事件；自然语言描述，待实现为具体函数调用
         }
     }
 }
@@ -272,7 +268,6 @@
         filterTarget2: return target.type == Human && target != player # 另一名玩家
         filterTarget2Range: "中距离" # 目标必须在中距离范围内
         content: {
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             target2.装备( target1 ) # 将玩家选定的装备牌装备给目标玩家（装备函数应处理从原装备区移除）
             player.draw(1) # 抓取一张牌
         }
@@ -316,7 +311,6 @@
         filterTarget: return target.类型 == "装备" && target.填充物类型 != null # 射程内的任一可装填武器
         filterTargetRange: "短距离" # 目标必须在短距离范围内（即同一个地块内）
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             target.补满填充物() # 完全装填该武器
         }
     }

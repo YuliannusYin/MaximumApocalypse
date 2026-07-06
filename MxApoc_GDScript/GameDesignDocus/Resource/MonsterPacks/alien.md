@@ -49,9 +49,9 @@
         forced: true
         filter: true
         content: {
-            目标玩家 = event.目标玩家 # 受到本次怪物攻击的玩家
-            card = getCard(目标玩家, quantity = 1, position = ["手牌区", "装备区"], random = true) # 从其手牌区与装备区中随机选取一张牌
-            目标玩家.removeCard(card) # 销毁该牌（移出游戏）
+            for 目标玩家 in event.目标玩家: # event.目标玩家 为受到本次怪物攻击的玩家列表（按射程确定）
+                card = getCard(目标玩家, quantity = 1, position = ["手牌区", "装备区"], random = true) # 从其手牌区与装备区中随机选取一张牌
+                目标玩家.removeCard(card) # 销毁该牌（移出游戏）
         }
     }
 }
@@ -88,10 +88,10 @@
         forced: true
         filter: true
         content: {
-            目标玩家 = event.目标玩家
-            cards = getCard(目标玩家, quantity = 2, position = ["手牌区", "装备区"], random = true) # 随机选取两张牌（区域内牌不足则全部销毁）
-            for c in cards:
-                目标玩家.removeCard(c) # 销毁（移出游戏）
+            for 目标玩家 in event.目标玩家:
+                cards = getCard(目标玩家, quantity = 2, position = ["手牌区", "装备区"], random = true) # 随机选取两张牌（区域内牌不足则全部销毁）
+                for c in cards:
+                    目标玩家.removeCard(c) # 销毁（移出游戏）
         }
     }
 }
@@ -182,9 +182,9 @@
         forced: true
         filter: true
         content: {
-            目标玩家 = event.目标玩家
-            card = getCard(目标玩家, quantity = 1, position = ["手牌区", "装备区"], random = true)
-            目标玩家.removeCard(card) # 销毁（移出游戏）
+            for 目标玩家 in event.目标玩家:
+                card = getCard(目标玩家, quantity = 1, position = ["手牌区", "装备区"], random = true)
+                目标玩家.removeCard(card) # 销毁（移出游戏）
         }
     }
 }
@@ -205,9 +205,9 @@
         forced: true
         filter: true
         content: {
-            目标玩家 = event.目标玩家
-            card = getCard(目标玩家, quantity = 1, position = ["手牌区", "装备区"], random = true)
-            目标玩家.removeCard(card) # 销毁（移出游戏）
+            for 目标玩家 in event.目标玩家:
+                card = getCard(目标玩家, quantity = 1, position = ["手牌区", "装备区"], random = true)
+                目标玩家.removeCard(card) # 销毁（移出游戏）
         }
     }
     技能2: {

@@ -1,4 +1,4 @@
-# Monster 怪物类
+﻿# Monster 怪物类
 
 > 继承：[Entity](../Core/Entity.md)
 > 职责：怪物实体的属性、行动/攻击流程与死亡流程。
@@ -46,9 +46,9 @@
 | 怪物攻击时 | 根据射程对目标发动攻击 |
 | 怪物攻击后 | 攻击后 |
 | 怪物行动后 | 单个怪物行动结束 |
-| 死亡前 | 怪物死亡前 |
-| 死亡时 | 怪物死亡时（如僵尸女王、爆破机器人、方阵机器人） |
-| 死亡后 | 怪物死亡后 |
+| 怪物死亡前 | 怪物死亡前 |
+| 怪物死亡时 | 怪物死亡时（如僵尸女王、爆破机器人、方阵机器人） |
+| 怪物死亡后 | 怪物死亡后 |
 
 ---
 
@@ -135,14 +135,14 @@ function monster.攻击() {
 }
 ```
 
-> **event.目标玩家 的单值与列表歧义**：射程为「无」时单值，其他射程为列表。详见待定义方法文档。
+> **event.目标玩家 列表约定**：统一为 `List<Player>`。射程「无」时列表只含 1 个元素（纠缠玩家），其他射程时含多个元素。技能 content 内统一用 `for 目标玩家 in event.目标玩家` 遍历（参见 alien「外星收割者-烧毁」、mutant「狂暴的突变体」）。
 
 ---
 
 ### monsterDeath(source)
 
 > 实现 [Entity.death](../Core/Entity.md#6-抽象方法子类实现)。
-> 流程：死亡前 → 死亡时（触发怪物死亡事件） → 死亡后（移除怪物卡）。
+> 流程：怪物死亡前 → 怪物死亡时（触发怪物死亡事件） → 怪物死亡后（移除怪物卡）。
 > 取消点：无（死亡流程不可取消）。
 > 触发场景：`entity.damage` 流程节点 8 中怪物生命值 ≤ 0。
 
@@ -154,10 +154,10 @@ function monster.monsterDeath(source) {
     }
 
     # 1. 怪物死亡前
-    monster.trigger("死亡前", event)
+    monster.trigger("怪物死亡前", event)
 
     # 2. 怪物死亡时 —— 触发怪物死亡事件（如僵尸女王的技能在此触发）
-    monster.trigger("死亡时", event)
+    monster.trigger("怪物死亡时", event)
 
     # 3. 怪物死亡后
     # 将怪物卡从求生者怪物区移除，进入怪物卡弃牌堆
@@ -165,11 +165,10 @@ function monster.monsterDeath(source) {
     纠缠玩家.怪物区.remove(monster)
     怪物弃牌堆.add(monster)
 
-    monster.trigger("死亡后", event)
+    monster.trigger("怪物死亡后", event)
 }
 ```
 
-> **trigger 别名**：「杀死怪物时」统一映射为「怪物死亡时」。
 > **注意**：地图块/技能效果「弃置怪物」（如 hunter 迷彩服）为纯移除，**不**触发怪物死亡流程。
 
 ---

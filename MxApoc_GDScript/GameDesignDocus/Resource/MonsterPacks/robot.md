@@ -87,8 +87,8 @@
         forced: true
         filter: return event.player == self.纠缠对象 # 触发检定的玩家正是被此怪物纠缠的玩家
         content: {
-            event.cancel() # 跳过本次潜行检定
-            event.player.drawMonster(1) # 抓取一张怪物卡
+            event.skipJudge = true # 跳过投骰
+            event.result = { value: 999, success: false } # 检定结果设为失败（走失败处理：移除标记+抓等量怪物）
         }
     }
 }

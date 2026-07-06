@@ -14,17 +14,21 @@
 - [3. 玩家抓取怪物流程](#3-玩家抓取怪物流程)
 - [4. 怪物死亡流程](#4-怪物死亡流程)
 - [5. 玩家死亡流程](#5-玩家死亡流程)
-- [6. 装备进入装备区流程](#6-装备进入装备区流程提案)
-- [7. 装备离开装备区流程](#7-装备离开装备区流程提案)
-- [8. 玩家回合流程](#8-玩家回合流程)
-- [9. 怪物行动流程](#9-怪物行动流程)
-- [10. 抓取拾荒牌流程](#10-抓取拾荒牌流程提案)
-- [11. 潜行检定流程](#11-潜行检定流程)
-- [12. 怪物出生检定流程](#12-怪物出生检定流程)
-- [13. 抓取游戏牌流程](#13-抓取游戏牌流程)
-- [14. 弃置牌流程](#14-弃置牌流程)
-- [15. 销毁牌流程](#15-销毁牌流程)
-- [16. 回复生命值流程](#16-回复生命值流程)
+- [6. 使用卡牌流程](#6-使用卡牌流程)
+- [7. 装备进入装备区流程](#7-装备进入装备区流程)
+- [8. 装备离开装备区流程](#8-装备离开装备区流程)
+- [9. 填充物消耗流程](#9-填充物消耗流程)
+- [10. 玩家回合流程](#10-玩家回合流程)
+- [11. 怪物行动流程](#11-怪物行动流程)
+- [12. 抓取拾荒牌流程](#12-抓取拾荒牌流程提案)
+- [13. 潜行检定流程](#13-潜行检定流程)
+- [14. 怪物出生检定流程](#14-怪物出生检定流程)
+- [15. 抓取游戏牌流程](#15-抓取游戏牌流程)
+- [16. 弃置牌流程](#16-弃置牌流程)
+- [17. 销毁牌流程](#17-销毁牌流程)
+- [18. 回复生命值流程](#18-回复生命值流程)
+- [19. 游戏开始流程](#19-游戏开始流程)
+- [20. 游戏结束流程](#20-游戏结束流程)
 
 ***
 
@@ -74,7 +78,7 @@
 
 - `展示地块时`：节点 9 中地块首次翻开时触发（地块技能）
 
-**event 成员**：`event.player`、`event.source`（离开的地块）、`event.target`（进入的地块）、`event.cancelled`、`event.cancel()`
+**event 成员**：`event.player`、`event.source`（离开的地块）、`event.targetBlock`（进入的地块）、`event.cancelled`、`event.cancel()`
 
 ***
 
@@ -94,9 +98,9 @@
 | 3  | 怪物卡进入求生者怪物区前 | player | 每张触发；怪物卡实体化前                                       |
 | 4  | 怪物卡进入求生者怪物区时 | player | 每张触发；实体化后置入怪物区                                     |
 | 5  | 怪物卡进入求生者怪物区后 | player | 每张触发；如 zombie(一大波僵尸、僵尸步行者)、alien/robot/mutant 多处技能 |
-| 6  | 抓取怪物卡后       | player | 整体触发一次；如 mechanic「感应地雷」(对 event.target 造成伤害)       |
+| 6  | 抓取怪物卡后       | player | 整体触发一次；如 mechanic「感应地雷」(对 event.card 造成伤害)       |
 
-**event 成员**：`event.player`（抓取者）、`event.target`（当前怪物卡，实体化后的怪物对象）、`event.num`（可读写）、`event.cards`（实际抓到的怪物卡列表）、`event.cancelled`、`event.cancel()`
+**event 成员**：`event.player`（抓取者）、`event.card`（当前怪物卡，实体化后的怪物对象）、`event.num`（可读写）、`event.cards`（实际抓到的怪物卡列表）、`event.cancelled`、`event.cancel()`
 
 > **注**：节点 2-5 每张怪物卡触发一次（逐张走完整流程后抓下一张）；节点 6 整体触发一次。节点 1 的取消点对应 firefighter「梯子」技能（原 J 骨架误记为「感应地雷」，感应地雷实际属于 mechanic，trigger 为节点 6）。
 
@@ -111,14 +115,13 @@
 
 | 节点 | trigger 名 | 触发对象       | 说明                                         |
 | -- | --------- | ---------- | ------------------------------------------ |
-| 1  | 死亡前       | target（怪物） | 死亡前最后时机                                    |
-| 2  | 死亡时       | target（怪物） | 触发怪物死亡事件；如 zombie（僵尸女王）、robot（爆破机器人、方阵机器人） |
+| 1  | 怪物死亡前       | target（怪物） | 死亡前最后时机                                    |
+| 2  | 怪物死亡时       | target（怪物） | 触发怪物死亡事件；如 zombie（僵尸女王）、robot（爆破机器人、方阵机器人） |
 | 3  | （清理）      | —          | 将怪物卡从纠缠玩家怪物区移除，置入怪物弃牌堆                     |
-| 4  | 死亡后       | target（怪物） | 死亡完成                                       |
+| 4  | 怪物死亡后       | target（怪物） | 死亡完成                                       |
 
 **event 成员**：`event.target`（死亡的怪物）、`event.source`（击杀者）
 
-> **trigger 别名**：「杀死怪物时」统一映射为「怪物死亡时」（见 [SurvivorPacks/gunslinger.md](../Resource/SurvivorPacks/gunslinger.md) 搜索尸体技能，与 [MonsterPacks/zombie.md](../Resource/MonsterPacks/zombie.md) 注释对齐）。
 > **注意**：地图块/技能效果「弃置怪物」（如 hunter 迷彩服）为纯移除，不触发怪物死亡流程。
 
 ***
@@ -132,57 +135,103 @@
 
 | 节点 | trigger 名 | 触发对象       | 说明                                                   |
 | -- | --------- | ---------- | ---------------------------------------------------- |
-| 1  | 死亡前       | target（玩家） | 死亡前最后时机                                              |
-| 2  | 死亡时       | target（玩家） | 死亡事件触发                                               |
+| 1  | 玩家死亡前       | target（玩家） | 死亡前最后时机                                              |
+| 2  | 玩家死亡时       | target（玩家） | 死亡事件触发                                               |
 | 3  | （清理怪物区）   | —          | 怪物区怪物 → 弃牌堆，等量怪物标记（最多3个）放回地块                         |
 | 4  | （清理游戏牌）   | —          | 所有求生者游戏牌移出游戏（手牌+装备+牌堆+弃牌堆）                           |
 | 5  | （清理拾荒卡）   | —          | 拾荒卡按颜色洗回对应拾荒牌堆，各色分别洗牌                                |
-| 6  | 死亡后       | target（玩家） | 死亡完成                                                 |
+| 6  | 玩家死亡后       | target（玩家） | 死亡完成                                                 |
 | 7  | （全灭判定）    | —          | `game.allPlayersDead()` 为真 → `game.gameOver("lose")` |
 
 **event 成员**：`event.target`（死亡的玩家）、`event.source`（击杀者，可为 NULL）
 
 ***
 
-## 6. 装备进入装备区流程 **\[提案]**
+## 6. 使用卡牌流程
 
-> **定义位置**：尚未定义；trigger 名从技能 trigger 字段提取
-> **调用方法**：`player.装备(card)`（待定义）
-> **关联技能**：[SurvivorPacks/gunslinger.md](../Resource/SurvivorPacks/gunslinger.md)、[SurvivorPacks/hunter.md](../Resource/SurvivorPacks/hunter.md)、[ScavengePacks/blue.md](../Resource/ScavengePacks/blue.md)、[SurvivorPacks/veteran.md](../Resource/SurvivorPacks/veteran.md) 均含 trigger「卡牌进入装备区时」
+> **定义位置**：[GameSystem/Entities/Player.md](../GameSystem/Entities/Player.md) §七 useCard
+> **调用方法**：`player.useCard(card)`
+> **使用规则**：[H_useCard.md](H_useCard.md)
+> **取消点**：节点 1/2 均可调用 `event.cancel()`
+> **行动次数**：useCard 统一消耗 1 点行动次数（装备牌和行动牌均消耗）
+> **卡牌分流**：装备牌 → 调用 `player.装备(card)` 进入装备区；行动牌 → 技能系统独立执行 content 后弃掉
 
-| 节点 | trigger 名          | 触发对象   | 说明                  |
-| -- | ------------------ | ------ | ------------------- |
-| 1  | 卡牌进入装备区前 **\[提案]** | player | 装备进入前；可校验装备栏容量      |
-| 2  | 卡牌进入装备区时           | player | 装备置入装备区；已确认 trigger |
-| 3  | 卡牌进入装备区后 **\[提案]** | player | 装备进入完成              |
+| 节点 | trigger 名 | 触发对象 | 说明 |
+|------|-----------|---------|------|
+| 1 | 使用卡牌前 | player | **取消点**；可校验行动次数、手牌合法性 |
+| 2 | 使用卡牌时 | player | **取消点**；装备牌/行动牌分流的最后拦截点 |
+| 3 | （系统结算） | — | 扣 1 点行动次数 → 按类型分流（装备/行动），非钩子节点 |
+| 4 | 使用卡牌后 | player | 整体触发一次 |
 
-**event 成员**：`event.card`（进入的装备卡，**\[提案]**）、`event.player`（**\[提案]**）
+**event 成员**：`event.player`、`event.card`、`event.cancelled`、`event.cancel()`
 
-> **注**：节点 2 为已确认 trigger（多张装备技能使用）；节点 1/3 为按命名模式提案。
+> **装备牌分流**：节点 3 中装备牌调用 `player.装备(card)`（见 [§7 装备进入装备区流程](#7-装备进入装备区流程)），装备栏容量校验失败时由 `装备()` 内部取消并提示。
+> **行动牌分流**：节点 3 中行动牌的技能 content 由技能系统独立执行（useCard 不直接调用 `card.技能.content()`），执行后调用 `player.discard(card)` 弃掉（按 `card.source` 分派弃牌堆，见 [§16 弃置牌流程](#16-弃置牌流程)）。
 
 ***
 
-## 7. 装备离开装备区流程 **\[提案]**
+## 7. 装备进入装备区流程
 
-> **定义位置**：尚未定义；trigger 名从技能 trigger 字段提取
-> **调用方法**：待定义（可能为 `player.卸下(card)` 或 `player.discard(card)` 的一部分）
-> **关联技能**：[SurvivorPacks/gunslinger.md](../Resource/SurvivorPacks/gunslinger.md)、[SurvivorPacks/hunter.md](../Resource/SurvivorPacks/hunter.md)、[ScavengePacks/blue.md](../Resource/ScavengePacks/blue.md) 均含 trigger「卡牌离开装备区时」
+> **定义位置**：[GameSystem/Entities/Player.md](../GameSystem/Entities/Player.md) §八 装备(card)
+> **调用方法**：`player.装备(card)`
+> **取消点**：节点 1 可调用 `event.cancel()`
+> **系统预校验**（节点 1 之后、节点 2 之前，非钩子节点）：同名装备校验（弃置同名装备）+ 装备栏容量校验（玩家选择弃置装备直到能容下，无法容下则取消装备并提示）
 
-| 节点 | trigger 名          | 触发对象   | 说明                  |
-| -- | ------------------ | ------ | ------------------- |
-| 1  | 卡牌离开装备区前 **\[提案]** | player | 装备离开前               |
-| 2  | 卡牌离开装备区时           | player | 装备离开装备区；已确认 trigger |
-| 3  | 卡牌离开装备区后 **\[提案]** | player | 装备离开完成              |
+| 节点 | trigger 名 | 触发对象 | 说明 |
+|------|-----------|---------|------|
+| 1 | 卡牌进入装备区前 | player | **取消点** |
+| — | （系统预校验） | — | 同名装备校验 + 装备栏容量校验，非钩子节点 |
+| 2 | 卡牌进入装备区时 | player | 装备置入装备区 + 技能挂载 |
+| 3 | 卡牌进入装备区后 | player | 装备进入完成 |
 
-**event 成员**：`event.card`（离开的装备卡，**\[提案]**）、`event.player`（**\[提案]**）
+**event 成员**：`event.player`、`event.card`、`event.cancelled`、`event.cancel()`
 
-> **衍生 trigger**：
+> **关联技能**：[SurvivorPacks/gunslinger.md](../Resource/SurvivorPacks/gunslinger.md)、[SurvivorPacks/hunter.md](../Resource/SurvivorPacks/hunter.md)、[ScavengePacks/blue.md](../Resource/ScavengePacks/blue.md)（背包增加装备栏）、[SurvivorPacks/veteran.md](../Resource/SurvivorPacks/veteran.md) 均含 trigger「卡牌进入装备区时」
+
+***
+
+## 8. 装备离开装备区流程
+
+> **定义位置**：[GameSystem/Entities/Player.md](../GameSystem/Entities/Player.md) §八 卸下(card)
+> **调用方法**：`player.卸下(card)`
+> **取消点**：节点 1 可调用 `event.cancel()`
+> **调用场景**：`player.discard(card)` 检测到牌在装备区时先调用卸下；装备流程中同名装备校验也通过 discard 调用卸下
+
+| 节点 | trigger 名 | 触发对象 | 说明 |
+|------|-----------|---------|------|
+| 1 | 卡牌离开装备区前 | player | **取消点** |
+| 2 | 卡牌离开装备区时 | player | 从装备区移除 + 技能移除 |
+| 3 | 卡牌离开装备区后 | player | 装备离开完成 |
+
+**event 成员**：`event.player`、`event.card`、`event.cancelled`、`event.cancel()`
+
+***
+
+## 9. 填充物消耗流程
+
+> **定义位置**：[GameSystem/Entities/Player.md](../GameSystem/Entities/Player.md) §九 消耗填充物(equipment, num)
+> **调用方法**：`player.消耗填充物(equipment, num)`（equipment 为装备对象，需先通过 `player.getEquipment(name)` 获取）
+> **取消点**：节点 1、2 可调用 `event.cancel()`
+> **填充物不足**：`equipment.填充物当前量 < num` 时取消执行并提示（不扣减、不触发任何 trigger）
+> **调用场景**：装备技能消耗弹药/燃料时调用（如手枪、打火机、摩托车、空尖弹特殊弹药等）
+
+| 节点 | trigger 名 | 触发对象 | 说明 |
+|------|-----------|---------|------|
+| 1 | 消耗填充物前 | player | **取消点** |
+| 2 | 消耗填充物时 | player | **取消点**；可修改 event.num |
+| 3 | （系统扣减） | — | `equipment.填充物当前量 -= event.num` |
+| 4 | 消耗填充物后 | player | 消耗完成 |
+| 5 | 填充物耗尽时 | player | **衍生**：扣减后若 `填充物当前量 <= 0` 则触发 |
+
+**event 成员**：`event.player`、`event.equipment`、`event.card`（同 event.equipment）、`event.num`、`event.cancelled`、`event.cancel()`
+
+> **典型应用**：
 >
-> - `弹药耗尽时`：装备填充物耗尽时触发（见 [SurvivorPacks/gunslinger.md](../Resource/SurvivorPacks/gunslinger.md) 空尖弹 subSkill remove）。需在 `player.消耗填充物` 中检测并触发。
+> - `填充物耗尽时`：gunslinger 空尖弹 subSkill remove 在此弃置武器牌（见 [SurvivorPacks/gunslinger.md](../Resource/SurvivorPacks/gunslinger.md)）
 
 ***
 
-## 8. 玩家回合流程
+## 10. 玩家回合流程
 
 > **定义位置**：[D\_gameFlow.md](D_gameFlow.md)（完整规则）
 > **本文档仅列 trigger 名 + 节点说明**，详细阶段说明见源文件
@@ -193,7 +242,7 @@
 | 2  | 回合开始前      | 回合开始前触发                                                       |
 | 3  | 回合开始时      | 回合开始；如 MapBlocks（避难所、电厂）                                      |
 | 4  | 怪物出生前      | 怪物出生检定前                                                       |
-| 5  | 怪物出生时      | 进行怪物出生检定（见 [怪物出生检定流程](#12-怪物出生检定流程)）                          |
+| 5  | 怪物出生时      | 进行怪物出生检定（见 [怪物出生检定流程](#14-怪物出生检定流程)）                          |
 | 6  | 摸牌阶段前      | 摸牌前                                                           |
 | 7  | （摸牌阶段）     | 从游戏牌堆抓 1 张牌；牌堆空 → 玩家死亡                                        |
 | 8  | 行动阶段前      | 行动阶段前；含潜行检定（地块有怪物标记时）                                         |
@@ -205,17 +254,15 @@
 | 14 | 求生者中毒状态结算前 | 中毒结算前                                                         |
 | 15 | 求生者中毒状态结算时 | `player.poison()`（有中毒标记时）                                     |
 | 16 | 面前怪物行动前    | 面前怪物行动前                                                       |
-| 17 | 面前怪物行动时    | 面前怪物按进入顺序行动（见 [怪物行动流程](#9-怪物行动流程)）                            |
+| 17 | 面前怪物行动时    | 面前怪物按进入顺序行动（见 [怪物行动流程](#11-怪物行动流程)）                            |
 | 18 | 回合结束前      | 回合结束前；如 gunslinger（扣动扳机让我快乐 subSkill）、MapBlocks（游乐园、警察局、城市街道） |
 | 19 | 回合结束时      | 回合结束；如 MapBlocks（游乐园）                                         |
 | 20 | （退出玩家回合）   | 非钩子节点                                                         |
 | 21 | （胜利判定）     | 回合结束时检查胜利条件（见 [G\_gameOver.md](G_gameOver.md)）                |
 
-> **trigger 命名差异**：firefighter 野地夹克 subSkill 使用「饥饿状态结算前」，D\_gameFlow\.md 使用「求生者饥饿状态结算前」。建议统一为 D\_gameFlow 的完整形式。
-
 ***
 
-## 9. 怪物行动流程
+## 11. 怪物行动流程
 
 > **定义位置**：[I\_monsterAction.md](I_monsterAction.md)（完整规则）
 > **触发场景**：玩家回合节点 17「面前怪物行动时」；按怪物卡进入怪物区的先后顺序行动
@@ -229,13 +276,13 @@
 | 5  | 怪物攻击后     | monster | 攻击后；如 zombie（僵尸潜行者）                                              |
 | 6  | 怪物行动后     | monster | 单个怪物行动结束                                                         |
 
-**event 成员**：`event.目标玩家`（受攻击玩家，按射程可为列表，见待定义方法 §9.11 event.目标玩家的单值与列表歧义）
+**event 成员**：`event.目标玩家`（受攻击玩家列表，统一为 `List<Player>`；射程「无」时列表只含 1 个元素，其他射程时含多个元素；技能 content 内用 `for 目标玩家 in event.目标玩家` 遍历）
 
 > **注**：「怪物行动前/时/后」与玩家回合流程中的「面前怪物行动前/时」是不同层级的 trigger。前者是单个怪物级别的 trigger，后者是玩家回合阶段级别的 trigger。
 
 ***
 
-## 10. 抓取拾荒牌流程
+## 12. 抓取拾荒牌流程
 
 > **定义位置**：[GameSystem/Entities/Player.md](../GameSystem/Entities/Player.md)
 > **调用方法**：`player.drawScavenge(n, pile)`
@@ -256,47 +303,50 @@
 
 ***
 
-## 11. 潜行检定流程
+## 13. 潜行检定流程
 
 > **定义位置**：[E\_gameJudge.md](E_gameJudge.md)（流程说明）、[GameSystem/Entities/Player.md](../GameSystem/Entities/Player.md)（方法定义）
 > **调用方法**：`player.sneakJudge()`
 > **触发场景**：玩家进入有怪物标记的地块时（[移动流程](#2-玩家移动流程) 节点 10）；玩家回合行动阶段前（地块有怪物标记时）
 > **检定公式**：潜行值 = 玩家潜行值 - (地块怪物数 + 怪物标记数)；检定结果 ≤ 潜行值则成功
+> **event.result 类型**：结构体 `{ value: 骰子点数, success: 布尔值 }`
 
-| 节点 | trigger 名       | 触发对象   | 说明                                                      |
-| -- | --------------- | ------ | ------------------------------------------------------- |
-| 1  | 潜行检定前           | player | 检定前；如 robot（激光无人机）、firefighter（猎犬）、gray（科学家，可修改检定结果为失败） |
-| 2  | 潜行检定时           | player | 检定执行；如 gray（科学家）                                        |
-| 3  | 潜行检定后 **\[提案]** | player | 检定结果出来后                                                 |
-| 4  | （结果处理）          | —      | 成功：无事发生；失败：移除所有怪物标记，每移除一个抓一张怪物卡                         |
+| 节点 | trigger 名 | 触发对象 | 说明 |
+|------|-----------|---------|------|
+| 1 | 潜行检定前 | player | 技能可设置 `skipJudge=true` + `result={...}` 跳过投骰；如 robot（激光无人机）、firefighter（猎犬，河流地块自动通过） |
+| 2 | （系统投骰） | — | 若未跳过：投骰并计算 result；若跳过：使用技能指定的 result |
+| 3 | 潜行检定时 | player | 技能可修改 event.result；如 gray（科学家，设为失败） |
+| 4 | 潜行检定后 | player | 非取消点；可查询 event.result |
 
-**event 成员**：`event.player`、`event.result`（检定结果，**\[提案]**）、`event.cancel()`（**\[提案]**，可取消检定）
+**event 成员**：`event.player`、`event.sneakValue`（检定阈值）、`event.result`（结构体 `{ value, success }`）、`event.skipJudge`（布尔值，是否跳过投骰）
 
-> **注**：节点 1/2 为已确认 trigger；节点 3 为按命名模式提案。
+> **失败处理**：由调用方负责（如 moveTo 节点 10：移除所有怪物标记，每移除一个抓一张怪物卡）。sneakJudge() 返回 `event.result.success`。
 
 ***
 
-## 12. 怪物出生检定流程
+## 14. 怪物出生检定流程
 
 > **定义位置**：[E\_gameJudge.md](E_gameJudge.md)（流程说明）、[GameSystem/Entities/Player.md](../GameSystem/Entities/Player.md)（方法定义）
 > **调用方法**：`player.monsterSpawnJudge()`
 > **触发场景**：玩家回合节点 5「怪物出生时」
 > **检定规则**：投两颗大骰子，匹配已展示地块的 monster_spawn_value
+> **event.result 类型**：结构体 `{ value: 骰子点数, success: 布尔值 }`（success 无意义，恒为 true）
 
-| 节点 | trigger 名         | 触发对象   | 说明                                           |
-| -- | ----------------- | ------ | -------------------------------------------- |
-| 1  | 怪物出生检定前 **\[提案]** | player | 检定前                                          |
-| 2  | 怪物出生检定时 **\[提案]** | player | 检定执行                                         |
-| 3  | 怪物出生检定后 **\[提案]** | player | 检定结果出来后                                      |
-| 4  | （结果处理）            | —      | 匹配地块：标记 < 3 → +1 标记；标记 = 3 且有玩家 → 每位玩家抓 1 怪物 |
+| 节点 | trigger 名 | 触发对象 | 说明 |
+|------|-----------|---------|------|
+| 1 | 怪物出生检定前 | player | 技能可设置 `skipJudge=true` + `result={...}` 跳过投骰 |
+| 2 | （系统投骰） | — | 若未跳过：投骰并计算 result；若跳过：使用技能指定的 result |
+| 3 | 怪物出生检定时 | player | 技能可修改 event.result |
+| 4 | 怪物出生检定后 | player | 非取消点；可查询 event.result |
+| 5 | （结果处理） | — | 匹配地块：标记 < 3 → +1 标记；标记 = 3 且有玩家 → 每位玩家抓 1 怪物 |
 
-**event 成员**：`event.player`、`event.result`（检定结果，**\[提案]**）
+**event 成员**：`event.player`、`event.result`（结构体 `{ value, success }`，success 无意义）、`event.skipJudge`（布尔值，是否跳过投骰）
 
-> **注**：本流程的所有 trigger 名均为提案，尚未在技能中出现。D\_gameFlow\.md 中的「怪物出生前/时」是玩家回合阶段级别的 trigger，与此处的检定流程 trigger 不同层级。
+> **注**：D_gameFlow.md 中的「怪物出生前/时」是玩家回合阶段级别的 trigger，与此处的检定流程 trigger 不同层级。
 
 ***
 
-## 13. 抓取游戏牌流程
+## 15. 抓取游戏牌流程
 
 > **定义位置**：[GameSystem/Entities/Player.md](../GameSystem/Entities/Player.md)
 > **调用方法**：`player.draw(n)`
@@ -316,7 +366,7 @@
 
 ***
 
-## 14. 弃置牌流程
+## 16. 弃置牌流程
 
 > **定义位置**：[GameSystem/Entities/Player.md](../GameSystem/Entities/Player.md)
 > **调用方法**：`player.discard(target, position=NULL, quantity=1, type=NULL)`
@@ -336,13 +386,13 @@
 
 ***
 
-## 15. 销毁牌流程
+## 17. 销毁牌流程
 
 > **定义位置**：[GameSystem/Entities/Player.md](../GameSystem/Entities/Player.md)
 > **调用方法**：`player.removeCard(target, position=NULL, quantity=1)`
 > **取消点**：节点 1「销毁牌前」可调用 `event.cancel()`
 > **与弃置的区别**：销毁的牌不进入弃牌堆，而是移出游戏（调用 `game.removeCard(card)`）
-> **命名统一**：原 MapBlocks(坠毁点) 的 `player.remove(card)` 已统一为 `player.removeCard(card)`（见待定义方法 §9.5 player.removeCard 与 player.remove 的命名不一致）
+> **命名统一**：原 MapBlocks(坠毁点) 的 `player.remove(card)` 已统一为 `player.removeCard(card)`
 
 | 节点 | trigger 名 | 触发对象   | 说明                                  |
 | -- | --------- | ------ | ----------------------------------- |
@@ -356,7 +406,7 @@
 
 ***
 
-## 16. 回复生命值流程
+## 18. 回复生命值流程
 
 > **定义位置**：[GameSystem/Entities/Player.md](../GameSystem/Entities/Player.md)
 > **调用方法**：`player.recover(num)`
@@ -375,5 +425,49 @@
 
 > **注**：节点 2 为已确认 trigger（surgeon 手术刀·回复、手套均使用，forced:true 强制发动并修改 `event.num`）；节点 1/4 为按命名模式提案，对称包围系统加血节点。
 > **与伤害流程的差异**：无 source 侧（回复无来源概念）；无取消点（K\_gameTerminology.md §7.1 标注为「否」），但保留 `event.cancel()` 接口以备未来扩展。
-> **与** **`player.add_hp(n)`** **的区别**：`add_hp` 为底层原子方法，直接修改生命值数值，不触发钩子且不受最大值约束；`recover` 走完整 4 节点流程。详见待定义方法 §9.6 player.add_hp(n) 与 player.recover(num) 的关系。
+> **与** **`player.add_hp(n)`** **的区别**：`add_hp` 为底层原子方法，直接修改生命值数值，不触发钩子且不受最大值约束；`recover` 走完整 4 节点流程。
+
+***
+
+## 19. 游戏开始流程
+
+> **定义位置**：[GameSystem/Game/Game.md](../GameSystem/Game/Game.md) §方法 startGame()
+> **调用方法**：`game.startGame()`
+> **前置条件**：游戏初始化（[C_gameSetup.md](C_gameSetup.md) 步骤 1-6）已完成
+> **取消点**：无（全局事件，不提供取消）
+> **trigger 触发对象**：所有 player（按座位顺序依次触发）。Game 类不继承 Entity，无自身 trigger。
+
+| 节点 | trigger 名 | 触发对象 | 说明 |
+|------|-----------|---------|------|
+| 1 | （抓初始手牌） | — | 每个玩家抓 4 张牌（可选一次重调，按座位顺序） |
+| 2 | （抓初始怪物卡） | — | 每个玩家抓 1 张怪物卡（按座位顺序） |
+| 3 | 游戏开始时 | player | 按座位顺序对所有 player 触发；典型场景：gunslinger「快速拔枪」从牌堆中装备【柯尔特手枪】 |
+| 4 | （进入第一回合） | — | `game.当前回合玩家 = game.所有玩家[0]`，开始第一玩家回合 |
+
+**event 成员**：`event.player`、`event.cancelled`（无 cancel() 调用，全局事件不取消）
+
+> **典型应用**：
+>
+> - `游戏开始时`：gunslinger「快速拔枪」从游戏牌堆中找到【柯尔特手枪】装备到装备区（见 [SurvivorPacks/gunslinger.md](../Resource/SurvivorPacks/gunslinger.md)）
+> - trigger 字段支持复合触发：`trigger: 游戏开始时、受到伤害时`，content 内用 `if (trigger == "游戏开始时")` 判断分支
+
+***
+
+## 20. 游戏结束流程
+
+> **定义位置**：[GameSystem/Game/Game.md](../GameSystem/Game/Game.md) §方法 gameOver(result)
+> **调用方法**：`game.gameOver(result)`（result = "win" / "lose"）
+> **触发场景**：所有玩家死亡（lose）；或胜利条件达成（win，见 [G_gameOver.md](G_gameOver.md)）
+> **取消点**：无（游戏结束不可逆）
+> **trigger 触发对象**：所有 player（按座位顺序依次触发）
+
+| 节点 | trigger 名 | 触发对象 | 说明 |
+|------|-----------|---------|------|
+| 1 | （设置状态） | — | `game.游戏阶段 = "gameOver"`；`game.游戏结果 = result`；输出胜负日志 |
+| 2 | （日志输出） | — | "win" → "求生者成功逃离启示录的废土！"；"lose" → "所有求生者死亡，游戏失败。" |
+| 3 | 游戏结束时 | player | 按座位顺序对所有 player 触发；event.result 携带 "win" / "lose" |
+
+**event 成员**：`event.player`、`event.result`（"win" / "lose"）、`event.cancelled`（无 cancel() 调用，游戏结束不可逆）
+
+> **注**：当前无技能使用「游戏结束时」trigger，作为对称设计与未来扩展点保留。技能可按 `event.result` 分支处理胜负场景。
 

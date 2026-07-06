@@ -15,7 +15,6 @@
         selectTarget: 1 # 选择1个目标武器
         filterTarget: return target.在玩家装备区内 && target.填充物类型 == "弹药" && target.当前填充数 < target.填充物上限  # 目标必须是玩家装备区内填充物类型为"弹药"且未满的装备
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             target.添加填充物( 2, "弹药" ) # [修改] 2026-07-01: 填装弹药→添加填充物，与 GameSystem/Common/Skill.md 加油技能 API 统一
         }
     }
@@ -36,7 +35,6 @@
         selectTarget: 1 # 选择1个目标武器
         filterTarget: return target.在玩家装备区内 && target.填充物类型 == "弹药" && target.当前填充数 < target.填充物上限
         content:{
-            player.减少行动次数( 1 )
             target.添加填充物( 3, "弹药" )
         }
     }
@@ -57,7 +55,6 @@
         selectTarget: 1 # 选择1个目标武器
         filterTarget: return target.在玩家装备区内 && target.填充物类型 == "弹药" && target.当前填充数 < target.填充物上限
         content:{
-            player.减少行动次数( 1 )
             target.添加填充物( 4, "弹药" )
         }
     }
@@ -78,7 +75,6 @@
         selectTarget: 1 # 选择1个目标武器
         filterTarget: return target.在玩家装备区内 && target.填充物类型 == "弹药" && target.当前填充数 < target.填充物上限
         content:{
-            player.减少行动次数( 1 )
             target.添加填充物( 5, "弹药" )
         }
     }
@@ -99,7 +95,6 @@
         selectTarget: 1 # 选择1个目标武器
         filterTarget: return target.在玩家装备区内 && target.填充物类型 == "弹药" && target.当前填充数 < target.填充物上限
         content:{
-            player.减少行动次数( 1 )
             target.添加填充物( max, "弹药" )
         }
     }
@@ -145,7 +140,7 @@
         filterTargetRange: Infinity # 无距离限制
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            # 备注：「立即执行一个行动」语义待定——是给目标 +1 行动次数，还是让其免费执行一个技能？暂保留自然语言描述
+            # 让目标插入一个仅含行动阶段的迷你回合（num=1，默认），见 Player.md#九迷你回合流程
             target.立即执行一个行动()
         }
     }
@@ -173,7 +168,7 @@
         filterTargetRange: "中距离" # 目标必须在中距离范围内
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            player.消耗填充物( 1, "手枪" )
+            player.消耗填充物( player.getEquipment("手枪"), 1 )
             target.damage(2, player) # 对目标造成2点伤害，伤害来源为玩家
         }
     }
@@ -263,7 +258,6 @@
         filterTarget: return target.是地图块() && !target.有怪物标记() # 目标必须是一个没有怪物标记的地图块
         filterTargetRange: "长距离" # 目标必须在长距离范围内
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             target.移除任务标记() # 移除地块上的任务标记
             List = getTarget( target ) # 获取地块上的所有目标
             for i in List:
@@ -288,7 +282,6 @@
         filterTarget: return target.是地图块() && target.is_revealed() # 目标必须是一个地图块且已展示的地图块
         filterTargetRange: "中距离" # 目标必须在中距离范围内
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             # 备注：「摧毁地图板块」机制待定——地块上的玩家和怪物如何处理？地块是否从游戏中移除？暂保留自然语言描述
             target.removeMapBlock() # 移除目标地块
         }

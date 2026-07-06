@@ -78,7 +78,7 @@ GameSystem/（源定义）  ←──实现──→  GameInstructions/（规则
 
 核心设计模式：
 - **钩子驱动**：所有流程采用「XX前 / XX时 / XX后」三段式钩子 + 取消点
-- **event 对象**：流程间通信载体（`event.num` / `event.target` / `event.cancel()`）
+- **event 对象**：流程间通信载体（按流程含 `event.target` / `event.targetBlock` / `event.card` / `event.targets` / `event.num` / `event.cancel()` 等字段，详见 [GameSystem/Core/EventSystem.md §2.2](GameSystem/Core/EventSystem.md#22-按流程类型的字段)）
 - **技能统一挂载**：所有技能挂到 Entity.skills，由 `entity.trigger()` 统一遍历
 - **地块技能挂载到玩家**：玩家进入地块时地块技能挂载到 Player，离开时清理
 

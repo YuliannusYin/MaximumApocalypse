@@ -49,7 +49,6 @@
         active: "行动阶段"
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 # 行动阶段、有剩余行动次数时可用
         content:{
-            player.减少行动次数( 1 ) # 消耗1点行动次数
             List = player.获取角色游戏牌弃牌堆()
             if( List.length == 0){
                 game.log("玩家没有弃牌堆中的牌")
@@ -99,7 +98,7 @@
         forced: true # 强制发动
         filter: return player.hasEquipment( "科学家" ) # 仅当玩家装备了科学家时触发
         content:{
-            player.修改本次潜行检定结果为失败() # 自然语言描述：设置本次潜行检定结果为失败，待实现为具体函数调用
+            event.result = { value: 999, success: false } # 设置本次潜行检定结果为失败（覆盖投骰结果）
         }
     }
 }

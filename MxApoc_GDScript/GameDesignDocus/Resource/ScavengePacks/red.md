@@ -14,7 +14,6 @@
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.get_hp() < player.get_max_hp() 
         filterTarget: return target == player
         content: {
-            player.减少行动次数( 1 )
             player.recover(2)
         }
     }
@@ -34,7 +33,6 @@
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.get_hp() < player.get_max_hp() 
         filterTarget: return target == player
         content: {
-            player.减少行动次数( 1 )
             player.recover(4)
         }
     }
@@ -54,7 +52,6 @@
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.get_hp() < player.get_max_hp()
         filterTarget: return target == player
         content: {
-            player.减少行动次数( 1 )
             player.recover(6)
         }
     }
@@ -73,7 +70,6 @@
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0
         filterTarget: return target == player
         content: {
-            player.减少行动次数( 1 )
             player.清除所有的异常状态效果()
         }
     }
