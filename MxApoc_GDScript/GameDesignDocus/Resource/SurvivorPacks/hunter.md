@@ -202,7 +202,7 @@
                     filterTarget: return target != player.get_current_block() # 目标地块不能是当前所在地块
                     filterTargetRange: "中距离" # 目标必须在相邻地块
                 })
-                success = player.moveTo(target) # 调用底层移动函数（见 GameSystem/Movement.md 中 player.moveTo 定义，会触发离开/进入地块钩子）
+                success = player.moveTo(target) # 调用底层移动函数（见 GameSystem/Entities/Player.md 中 player.moveTo 定义，会触发离开/进入地块钩子）
                 if( !success ){
                     break # 移动失败（如河流潜行未通过）则中止后续移动
                 }
@@ -275,7 +275,7 @@
             player.减少行动次数( 1 ) # 消耗1点行动次数
             List = getAllPlayers() # 获取场上所有玩家
             for i in List:
-                i.decreaseHunger( 1 ) # 降低1点饥饿值（见 GameSystem/PlayerState.md 中 decreaseHunger 定义，最低降至1）
+                i.decreaseHunger( 1 ) # 降低1点饥饿值（见 GameSystem/Entities/Player.md 中 decreaseHunger 定义，最低降至1）
         }
     }
 }

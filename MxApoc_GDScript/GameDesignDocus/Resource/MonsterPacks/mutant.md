@@ -14,7 +14,7 @@
 # 怪物卡进入求生者怪物区时会实体化，实体化后的怪物卡具备以下属性：
 #   怪物级别、怪物类型、最大生命值、当前生命值、攻击伤害、射程、技能
 # 本包怪物类型统一为"突变体"
-# 中毒效果用 addMarkSkill("poison", 1) 添加一层中毒标记，中毒伤害在该玩家回合的"求生者中毒状态结算"阶段结算（见 D_gameFlow.md 第13-14步）；对应 GameSystem/PlayerState.md 中 player.poison() 的 countMark 结算（标记名为 'poison'）
+# 中毒效果用 addMarkSkill("poison", 1) 添加一层中毒标记，中毒伤害在该玩家回合的"求生者中毒状态结算"阶段结算（见 GameInstructions/D_gameFlow.md 第13-14步）；对应 GameSystem/Entities/Player.md 中 player.poison() 的 countMark 结算（标记名为 'poison'）
 # "弃掉装备/拾荒卡"为弃置（进入对应弃牌堆），与"销毁（移出游戏）"不同
 # 怪物攻击时的"目标玩家"按射程确定：射程"无"仅攻击纠缠的玩家；射程"短距离"攻击玩家所在地块上的所有玩家；以此类推（见 F_gameRange.md）
 

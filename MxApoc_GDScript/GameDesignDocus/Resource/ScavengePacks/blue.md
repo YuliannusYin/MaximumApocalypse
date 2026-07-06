@@ -16,7 +16,7 @@
         filterTarget: return target.在玩家装备区内 && target.填充物类型 == "弹药" && target.当前填充数 < target.填充物上限  # 目标必须是玩家装备区内填充物类型为"弹药"且未满的装备
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            target.添加填充物( 2, "弹药" ) # [修改] 2026-07-01: 填装弹药→添加填充物，与 PlayerSkill.md 加油技能 API 统一
+            target.添加填充物( 2, "弹药" ) # [修改] 2026-07-01: 填装弹药→添加填充物，与 GameSystem/Common/Skill.md 加油技能 API 统一
         }
     }
 }

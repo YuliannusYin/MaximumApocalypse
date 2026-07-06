@@ -372,7 +372,7 @@
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.dog.get_hp() > 0
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            player.veteran.decreaseHunger( 2 ) # 老兵饥饿等级降低2点（见 GameSystem/PlayerState.md 中 decreaseHunger 定义，最低降至1）
+            player.veteran.decreaseHunger( 2 ) # 老兵饥饿等级降低2点（见 GameSystem/Entities/Player.md 中 decreaseHunger 定义，最低降至1）
             player.dog.decreaseHunger( 2 ) # 狗饥饿等级降低2点
         }
     }

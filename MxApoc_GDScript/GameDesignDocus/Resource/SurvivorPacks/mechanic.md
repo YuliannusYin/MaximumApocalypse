@@ -182,7 +182,7 @@
         filterTarget2Range: Infinity # 无距离限制
         content: {
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            target1.moveTo(target2) # 调用底层移动函数（见 GameSystem/Movement.md 中 player.moveTo 定义，会触发离开/进入地块钩子）
+            target1.moveTo(target2) # 调用底层移动函数（见 GameSystem/Entities/Player.md 中 player.moveTo 定义，会触发离开/进入地块钩子）
         }
     }
 }

@@ -17,7 +17,7 @@
 # "被消灭时"统一映射为 trigger: 怪物死亡时（怪物生命值降为0时触发；不含卡牌效果摧毁场景，与 SurvivorPacks/hunter.md 迷彩服弃置怪物的"纯移除不触发怪物死亡时事件"对齐）
 # "射程内的所有玩家/目标"以怪物所纠缠玩家所在位置为中心，按怪物射程确定（见 F_gameRange.md）
 # "弃掉"为弃置（进入对应弃牌堆），与"销毁（移出游戏）"不同
-# 爆破机器人天赋2需依赖"本回合已移动"标记：玩家执行移动（player.moveTo）时添加该标记，回合开始时清除；待实现层在 GameSystem/Movement.md 的 player.moveTo 函数及回合开始流程中补充此标记机制  # [修改] 2026-07-04: 加"待实现"标注，明确跨层依赖未完成
+# 爆破机器人天赋2需依赖"本回合已移动"标记：玩家执行移动（player.moveTo）时添加该标记，回合开始时清除；待实现层在 GameSystem/Entities/Player.md 的 player.moveTo 函数及回合开始流程中补充此标记机制  # [修改] 2026-07-04: 加"待实现"标注，明确跨层依赖未完成
 
 怪物卡{
     名字: 人工智能核心领袖
@@ -83,7 +83,7 @@
         技能名: "激光无人机-监视"
         技能描述: "被此怪物卡纠缠的玩家无法进行潜行检定，直接抓取怪物卡。"
         skillType: "Monster"
-        trigger: 潜行检定前 # 玩家进入有怪物标记的地块、即将进行潜行检定时触发（见 E_gameJudge.md）
+        trigger: 潜行检定前 # 玩家进入有怪物标记的地块、即将进行潜行检定时触发（见 GameInstructions/E_gameJudge.md）
         forced: true
         filter: return event.player == self.纠缠对象 # 触发检定的玩家正是被此怪物纠缠的玩家
         content: {

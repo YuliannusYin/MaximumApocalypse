@@ -54,7 +54,7 @@
         技能描述: "展示：执行一次免费的拾荒行动"
         trigger: 展示地块时 # 翻开该地块时触发
         filter: 无
-        content: player.drawScavenge(1, game.getScavengePile(拾荒牌堆颜色)) # 从该地块对应颜色的拾荒牌堆中抓取1张牌；pile 参数为 pile 对象（见 DrawFlow.md）
+        content: player.drawScavenge(1, game.getScavengePile(拾荒牌堆颜色)) # 从该地块对应颜色的拾荒牌堆中抓取1张牌；pile 参数为 pile 对象（见 GameSystem/Entities/Player.md）
     }
 }
 
@@ -100,7 +100,7 @@
         filter: 无
         content: {
             if( trigger == "展示地块时" ){
-                player.discard("食物", type=true) # 弃掉所有食物卡（按类型弃置，见 DiscardFlow.md）
+                player.discard("食物", type=true) # 弃掉所有食物卡（按类型弃置，见 GameSystem/Entities/Player.md）
             } else if( trigger == "进入地块时" && player.get_current_block().hasSkill("电厂") ){
                 player.addPoison(1) # 中毒层数+1
             }
@@ -149,7 +149,7 @@
         技能描述: "展示：执行一次免费的拾荒行动"
         trigger: 展示地块时 # 翻开该地块时触发
         filter: 无
-        content: player.drawScavenge(1, game.getScavengePile(拾荒牌堆颜色)) # 从该地块对应颜色的拾荒牌堆中抓取1张牌；pile 参数为 pile 对象（见 DrawFlow.md）
+        content: player.drawScavenge(1, game.getScavengePile(拾荒牌堆颜色)) # 从该地块对应颜色的拾荒牌堆中抓取1张牌；pile 参数为 pile 对象（见 GameSystem/Entities/Player.md）
     }
 }
 
@@ -219,7 +219,7 @@
         技能描述: "展示：执行一次免费的拾荒行动"
         trigger: 展示地块时 # 翻开该地块时触发
         filter: 无
-        content: player.drawScavenge(1, game.getScavengePile(拾荒牌堆颜色)) # 从该地块对应颜色的拾荒牌堆中抓取1张牌；pile 参数为 pile 对象（见 DrawFlow.md）
+        content: player.drawScavenge(1, game.getScavengePile(拾荒牌堆颜色)) # 从该地块对应颜色的拾荒牌堆中抓取1张牌；pile 参数为 pile 对象（见 GameSystem/Entities/Player.md）
     }
 }
 
@@ -230,7 +230,7 @@
         技能描述: "展示：执行一次免费的拾荒行动"
         trigger: 展示地块时 # 翻开该地块时触发
         filter: 无
-        content: player.drawScavenge(1, game.getScavengePile(拾荒牌堆颜色)) # 从该地块对应颜色的拾荒牌堆中抓取1张牌；pile 参数为 pile 对象（见 DrawFlow.md）
+        content: player.drawScavenge(1, game.getScavengePile(拾荒牌堆颜色)) # 从该地块对应颜色的拾荒牌堆中抓取1张牌；pile 参数为 pile 对象（见 GameSystem/Entities/Player.md）
     }
 }
 
@@ -276,7 +276,7 @@
         技能描述: "展示：执行一次免费的拾荒行动"
         trigger: 展示地块时 # 翻开该地块时触发
         filter: 无
-        content: player.drawScavenge(1, game.getScavengePile(拾荒牌堆颜色)) # 从该地块对应颜色的拾荒牌堆中抓取1张牌；pile 参数为 pile 对象（见 DrawFlow.md）
+        content: player.drawScavenge(1, game.getScavengePile(拾荒牌堆颜色)) # 从该地块对应颜色的拾荒牌堆中抓取1张牌；pile 参数为 pile 对象（见 GameSystem/Entities/Player.md）
     }
 }
 
@@ -330,7 +330,7 @@
         filterTarget: return target.hasSkill("隧道") && target != player.get_current_block() # 目标地块必须为隧道、且不能是玩家当前所在地块
         content: {
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            # [修改] 2026-06-30: moveToMapBlock→moveTo，触发进入/离开/展示钩子（见 GameSystem/Movement.md player.moveTo）
+            # [修改] 2026-06-30: moveToMapBlock→moveTo，触发进入/离开/展示钩子（见 GameSystem/Entities/Player.md player.moveTo）
             player.moveTo( target ) # 将玩家移至目标地块（触发全套地块钩子）
         }
     }
@@ -416,11 +416,11 @@
                 for i in List: # 遍历场上所有玩家
                     # 玩家装备区不为空时，随机销毁一张装备
                     if( i.装备区有牌() ){
-                        i.removeCard( getCard(i, quantity = 1, position = "装备区", random = true) ) # 随机销毁玩家的一张装备（见 DiscardFlow.md）
+                        i.removeCard( getCard(i, quantity = 1, position = "装备区", random = true) ) # 随机销毁玩家的一张装备（见 GameSystem/Entities/Player.md）
                     }
             }
             else if( trigger == "进入地块时" && player.区域内有牌() ){
-                player.removeCard( getCard(player, quantity = 1, random = true) ) # 随机销毁玩家的一张牌（见 DiscardFlow.md）
+                player.removeCard( getCard(player, quantity = 1, random = true) ) # 随机销毁玩家的一张牌（见 GameSystem/Entities/Player.md）
             }
         }
     }

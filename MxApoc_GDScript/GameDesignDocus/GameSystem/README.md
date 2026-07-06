@@ -175,8 +175,9 @@ GameSystem/
 | [GameInstructions/](../GameInstructions/) | 玩家可读的规则说明文档（A-L 编号）。本文档是其底层实现参考：[J_gameEventFlow.md](../GameInstructions/J_gameEventFlow.md) 汇总事件流程，[K_gameTerminology.md](../GameInstructions/K_gameTerminology.md) 收录术语与 trigger 索引，本文档为两者源定义 |
 | [Resource/](../Resource/) | 卡牌/地图块/任务等数据定义。SurvivorPacks / ScavengePacks / MonsterPacks / MissionPacks / MapBlocksPack 中的技能 content 在本文档定义的流程中被调用 |
 | [AGENTS.md](../../AGENTS.md) | 项目总体说明书 |
+| [GameDesignDocus/README.md](../README.md) | 文档总入口（导航与阅读路线图） |
 
-> **注**：当前 Resource/ 下仍保留原有9个系统流程文件（PlayerState/DamageFlow/DeathFlow/DrawFlow/DiscardFlow/Movement/Judge/EventTrigger/PlayerSkill），与本 GameSystem/ 内容重叠。GameSystem/ 为重构后的新架构，待定稿后统一修复 GameInstructions/ 与 Resource/ 的链接引用，并清理 Resource/ 下的冗余文件。
+> **注**：原 Resource/ 下的 9 个系统流程文件（PlayerState/DamageFlow/DeathFlow/DrawFlow/DiscardFlow/Movement/Judge/EventTrigger/PlayerSkill）已迁移至本 GameSystem/ 并删除，GameInstructions/ 与 Resource/ 中的引用已更新为新路径。
 
 ---
 
@@ -188,4 +189,3 @@ GameSystem/
 - [ ] 检定流程的「后」节点 trigger（潜行检定后 / 怪物出生检定后）
 - [ ] `event.目标玩家` 的单值与列表歧义（怪物攻击多目标场景）
 - [ ] `player.立即执行一个行动` 的语义定义
-- [ ] 修复 GameInstructions/ 与 Resource/ 对 GameSystem/ 的路径引用

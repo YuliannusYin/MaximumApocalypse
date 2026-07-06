@@ -19,7 +19,7 @@
         filterTargetRange: "短距离" # 目标必须在短距离范围内（即同一个地块内）
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            target.recover(1) # 使目标回复1点生命（见 GameSystem/PlayerState.md 中 recover 定义）
+            target.recover(1) # 使目标回复1点生命（见 GameSystem/Entities/Player.md 中 recover 定义）
         }
     }
 }
@@ -180,7 +180,7 @@
         filterTargetRange: Infinity # 无距离限制
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            target.recover(6) # 使目标回复6点生命（见 GameSystem/PlayerState.md 中 recover 定义）
+            target.recover(6) # 使目标回复6点生命（见 GameSystem/Entities/Player.md 中 recover 定义）
         }
     }
 }
@@ -207,7 +207,7 @@
                 target.治疗所有状态效果() # 自然语言描述，待实现为具体函数调用
             }
             else if( choice == "降低饥饿等级1点" ){
-                target.decreaseHunger( 1 ) # 降低目标1点饥饿值（见 GameSystem/PlayerState.md 中 decreaseHunger 定义，最低降至1）
+                target.decreaseHunger( 1 ) # 降低目标1点饥饿值（见 GameSystem/Entities/Player.md 中 decreaseHunger 定义，最低降至1）
             }
         }
     }

@@ -30,7 +30,7 @@
 
 ## 1. source攻击target流程（伤害结算）
 
-> **定义位置**：[GameSystem/DamageFlow.md](../GameSystem/DamageFlow.md)
+> **定义位置**：[GameSystem/Core/Entity.md](../GameSystem/Core/Entity.md)
 > **调用方法**：`target.damage(num, source, type=NULL)`
 > **取消点**：节点 4「受到伤害时」可调用 `event.cancel()`
 > **特殊规则**：source = NULL 时跳过所有 source 侧钩子（节点 1/3/6），仅触发 target 侧
@@ -52,7 +52,7 @@
 
 ## 2. 玩家移动流程
 
-> **定义位置**：[GameSystem/Movement.md](../GameSystem/Movement.md)
+> **定义位置**：[GameSystem/Entities/Player.md](../GameSystem/Entities/Player.md)
 > **调用方法**：`player.moveTo(target)`
 > **取消点**：节点 5「进入地块前」可调用 `event.cancel()`，取消时回滚目标地块技能
 > **核心原则**：所有地块技能挂载到玩家身上，由 `player.trigger()` 统一触发
@@ -80,7 +80,7 @@
 
 ## 3. 玩家抓取怪物流程
 
-> **定义位置**：[GameSystem/DrawFlow.md](../GameSystem/DrawFlow.md)
+> **定义位置**：[GameSystem/Entities/Player.md](../GameSystem/Entities/Player.md)
 > **调用方法**：`player.drawMonster(n)`
 > **取消点**：节点 1「抓取怪物卡前」可调用 `event.cancel()`（firefighter「梯子」在此取消跳过抓怪）
 > **牌堆耗尽**：怪物牌堆空时重洗怪物弃牌堆；重洗后仍为空 → `game.gameOver("lose")`（见 [C\_gameSetup.md](C_gameSetup.md)）
@@ -104,7 +104,7 @@
 
 ## 4. 怪物死亡流程
 
-> **定义位置**：[GameSystem/DeathFlow.md](../GameSystem/DeathFlow.md)
+> **定义位置**：[GameSystem/Entities/Monster.md](../GameSystem/Entities/Monster.md)
 > **调用方法**：`target.monsterDeath(source)`
 > **取消点**：无（死亡流程不可取消）
 > **触发场景**：`target.damage` 流程节点 8 中怪物生命值 ≤ 0
@@ -118,14 +118,14 @@
 
 **event 成员**：`event.target`（死亡的怪物）、`event.source`（击杀者）
 
-> **trigger 别名**：「杀死怪物时」统一映射为「怪物死亡时」（见 [SurvivorPacks/gunslinger.md](../SurvivorPacks/gunslinger.md) 搜索尸体技能，与 [MonsterPacks/zombie.md](../MonsterPacks/zombie.md) 注释对齐）。
+> **trigger 别名**：「杀死怪物时」统一映射为「怪物死亡时」（见 [SurvivorPacks/gunslinger.md](../Resource/SurvivorPacks/gunslinger.md) 搜索尸体技能，与 [MonsterPacks/zombie.md](../Resource/MonsterPacks/zombie.md) 注释对齐）。
 > **注意**：地图块/技能效果「弃置怪物」（如 hunter 迷彩服）为纯移除，不触发怪物死亡流程。
 
 ***
 
 ## 5. 玩家死亡流程
 
-> **定义位置**：[GameSystem/DeathFlow.md](../GameSystem/DeathFlow.md)
+> **定义位置**：[GameSystem/Entities/Player.md](../GameSystem/Entities/Player.md)
 > **调用方法**：`target.playerDeath(source)`
 > **取消点**：无（死亡流程不可取消）
 > **触发场景**：`target.damage` 流程节点 8 中玩家生命值 ≤ 0；或游戏牌堆无牌时摸牌（见 [G\_gameOver.md](G_gameOver.md)）
@@ -148,7 +148,7 @@
 
 > **定义位置**：尚未定义；trigger 名从技能 trigger 字段提取
 > **调用方法**：`player.装备(card)`（待定义）
-> **关联技能**：[SurvivorPacks/gunslinger.md](../SurvivorPacks/gunslinger.md)、[SurvivorPacks/hunter.md](../SurvivorPacks/hunter.md)、[ScavengePacks/blue.md](../ScavengePacks/blue.md)、[SurvivorPacks/veteran.md](../SurvivorPacks/veteran.md) 均含 trigger「卡牌进入装备区时」
+> **关联技能**：[SurvivorPacks/gunslinger.md](../Resource/SurvivorPacks/gunslinger.md)、[SurvivorPacks/hunter.md](../Resource/SurvivorPacks/hunter.md)、[ScavengePacks/blue.md](../Resource/ScavengePacks/blue.md)、[SurvivorPacks/veteran.md](../Resource/SurvivorPacks/veteran.md) 均含 trigger「卡牌进入装备区时」
 
 | 节点 | trigger 名          | 触发对象   | 说明                  |
 | -- | ------------------ | ------ | ------------------- |
@@ -166,7 +166,7 @@
 
 > **定义位置**：尚未定义；trigger 名从技能 trigger 字段提取
 > **调用方法**：待定义（可能为 `player.卸下(card)` 或 `player.discard(card)` 的一部分）
-> **关联技能**：[SurvivorPacks/gunslinger.md](../SurvivorPacks/gunslinger.md)、[SurvivorPacks/hunter.md](../SurvivorPacks/hunter.md)、[ScavengePacks/blue.md](../ScavengePacks/blue.md) 均含 trigger「卡牌离开装备区时」
+> **关联技能**：[SurvivorPacks/gunslinger.md](../Resource/SurvivorPacks/gunslinger.md)、[SurvivorPacks/hunter.md](../Resource/SurvivorPacks/hunter.md)、[ScavengePacks/blue.md](../Resource/ScavengePacks/blue.md) 均含 trigger「卡牌离开装备区时」
 
 | 节点 | trigger 名          | 触发对象   | 说明                  |
 | -- | ------------------ | ------ | ------------------- |
@@ -178,13 +178,13 @@
 
 > **衍生 trigger**：
 >
-> - `弹药耗尽时`：装备填充物耗尽时触发（见 [SurvivorPacks/gunslinger.md](../SurvivorPacks/gunslinger.md) 空尖弹 subSkill remove）。需在 `player.消耗填充物` 中检测并触发。
+> - `弹药耗尽时`：装备填充物耗尽时触发（见 [SurvivorPacks/gunslinger.md](../Resource/SurvivorPacks/gunslinger.md) 空尖弹 subSkill remove）。需在 `player.消耗填充物` 中检测并触发。
 
 ***
 
 ## 8. 玩家回合流程
 
-> **定义位置**：[GameInstructions/D\_gameFlow.md](D_gameFlow.md)（完整规则）
+> **定义位置**：[D\_gameFlow.md](D_gameFlow.md)（完整规则）
 > **本文档仅列 trigger 名 + 节点说明**，详细阶段说明见源文件
 
 | 节点 | trigger 名  | 说明                                                            |
@@ -217,7 +217,7 @@
 
 ## 9. 怪物行动流程
 
-> **定义位置**：[GameInstructions/I\_monsterAction.md](I_monsterAction.md)（完整规则）
+> **定义位置**：[I\_monsterAction.md](I_monsterAction.md)（完整规则）
 > **触发场景**：玩家回合节点 17「面前怪物行动时」；按怪物卡进入怪物区的先后顺序行动
 
 | 节点 | trigger 名 | 触发对象    | 说明                                                               |
@@ -229,7 +229,7 @@
 | 5  | 怪物攻击后     | monster | 攻击后；如 zombie（僵尸潜行者）                                              |
 | 6  | 怪物行动后     | monster | 单个怪物行动结束                                                         |
 
-**event 成员**：`event.目标玩家`（受攻击玩家，按射程可为列表，见 [待定义方法.md §9.11](../待定义方法.md#911-event目标玩家-的单值与列表歧义)）
+**event 成员**：`event.目标玩家`（受攻击玩家，按射程可为列表，见待定义方法 §9.11 event.目标玩家的单值与列表歧义）
 
 > **注**：「怪物行动前/时/后」与玩家回合流程中的「面前怪物行动前/时」是不同层级的 trigger。前者是单个怪物级别的 trigger，后者是玩家回合阶段级别的 trigger。
 
@@ -237,11 +237,11 @@
 
 ## 10. 抓取拾荒牌流程
 
-> **定义位置**：[GameSystem/DrawFlow.md](../GameSystem/DrawFlow.md)
+> **定义位置**：[GameSystem/Entities/Player.md](../GameSystem/Entities/Player.md)
 > **调用方法**：`player.drawScavenge(n, pile)`
 > **取消点**：节点 1「抓取拾荒牌前」可调用 `event.cancel()`（手电筒在此取消并替代为「看2留1放1」）
 > **牌堆耗尽**：牌堆为空时停止抓取（不重洗弃牌堆，见 [C\_gameSetup.md](C_gameSetup.md)）
-> **关联技能**：[ScavengePacks/blue.md](../ScavengePacks/blue.md)（手电筒 trigger「抓取拾荒牌前」）、[ScavengePacks/red.md](../ScavengePacks/red.md)（燃料 trigger「抓取拾荒牌时」）、[ScavengePacks/gray.md](../ScavengePacks/gray.md)（一无所获、伏击！trigger「抓取拾荒牌时」）
+> **关联技能**：[ScavengePacks/blue.md](../Resource/ScavengePacks/blue.md)（手电筒 trigger「抓取拾荒牌前」）、[ScavengePacks/red.md](../Resource/ScavengePacks/red.md)（燃料 trigger「抓取拾荒牌时」）、[ScavengePacks/gray.md](../Resource/ScavengePacks/gray.md)（一无所获、伏击！trigger「抓取拾荒牌时」）
 
 | 节点 | trigger 名 | 触发对象   | 说明                                                       |
 | -- | --------- | ------ | -------------------------------------------------------- |
@@ -258,7 +258,7 @@
 
 ## 11. 潜行检定流程
 
-> **定义位置**：[GameInstructions/E\_gameJudge.md](E_gameJudge.md)（流程说明）、[GameSystem/Judge.md](../GameSystem/Judge.md)（方法定义）
+> **定义位置**：[E\_gameJudge.md](E_gameJudge.md)（流程说明）、[GameSystem/Entities/Player.md](../GameSystem/Entities/Player.md)（方法定义）
 > **调用方法**：`player.sneakJudge()`
 > **触发场景**：玩家进入有怪物标记的地块时（[移动流程](#2-玩家移动流程) 节点 10）；玩家回合行动阶段前（地块有怪物标记时）
 > **检定公式**：潜行值 = 玩家潜行值 - (地块怪物数 + 怪物标记数)；检定结果 ≤ 潜行值则成功
@@ -278,7 +278,7 @@
 
 ## 12. 怪物出生检定流程
 
-> **定义位置**：[GameInstructions/E\_gameJudge.md](E_gameJudge.md)（流程说明）、[GameSystem/Judge.md](../GameSystem/Judge.md)（方法定义）
+> **定义位置**：[E\_gameJudge.md](E_gameJudge.md)（流程说明）、[GameSystem/Entities/Player.md](../GameSystem/Entities/Player.md)（方法定义）
 > **调用方法**：`player.monsterSpawnJudge()`
 > **触发场景**：玩家回合节点 5「怪物出生时」
 > **检定规则**：投两颗大骰子，匹配已展示地块的 monster_spawn_value
@@ -298,7 +298,7 @@
 
 ## 13. 抓取游戏牌流程
 
-> **定义位置**：[GameSystem/DrawFlow.md](../GameSystem/DrawFlow.md)
+> **定义位置**：[GameSystem/Entities/Player.md](../GameSystem/Entities/Player.md)
 > **调用方法**：`player.draw(n)`
 > **取消点**：节点 1「抓取游戏牌前」、节点 2「抓取游戏牌时」均可调用 `event.cancel()`
 > **死亡规则**：逐张抓取，每张抓取前检查牌堆；牌堆为空时尝试抓取 → 调用 `player.playerDeath(NULL)` 并 return（跳过节点 4）
@@ -318,7 +318,7 @@
 
 ## 14. 弃置牌流程
 
-> **定义位置**：[GameSystem/DiscardFlow.md](../GameSystem/DiscardFlow.md)
+> **定义位置**：[GameSystem/Entities/Player.md](../GameSystem/Entities/Player.md)
 > **调用方法**：`player.discard(target, position=NULL, quantity=1, type=NULL)`
 > **取消点**：节点 1「弃置牌前」可调用 `event.cancel()`
 > **重载签名**：target 支持 card 对象 / cards 列表 / name 字符串 / type 字符串（type 参数非空时按 `card.类型` 弃置）
@@ -338,11 +338,11 @@
 
 ## 15. 销毁牌流程
 
-> **定义位置**：[GameSystem/DiscardFlow.md](../GameSystem/DiscardFlow.md)
+> **定义位置**：[GameSystem/Entities/Player.md](../GameSystem/Entities/Player.md)
 > **调用方法**：`player.removeCard(target, position=NULL, quantity=1)`
 > **取消点**：节点 1「销毁牌前」可调用 `event.cancel()`
 > **与弃置的区别**：销毁的牌不进入弃牌堆，而是移出游戏（调用 `game.removeCard(card)`）
-> **命名统一**：原 MapBlocks(坠毁点) 的 `player.remove(card)` 已统一为 `player.removeCard(card)`（见 [待定义方法.md §9.5](../待定义方法.md#95-playerremovecard-与-playerremove-的命名不一致)）
+> **命名统一**：原 MapBlocks(坠毁点) 的 `player.remove(card)` 已统一为 `player.removeCard(card)`（见待定义方法 §9.5 player.removeCard 与 player.remove 的命名不一致）
 
 | 节点 | trigger 名 | 触发对象   | 说明                                  |
 | -- | --------- | ------ | ----------------------------------- |
@@ -358,11 +358,11 @@
 
 ## 16. 回复生命值流程
 
-> **定义位置**：[GameSystem/PlayerState.md](../GameSystem/PlayerState.md)
+> **定义位置**：[GameSystem/Entities/Player.md](../GameSystem/Entities/Player.md)
 > **调用方法**：`player.recover(num)`
 > **取消点**：无（参考 [K\_gameTerminology.md §7.1](K_gameTerminology.md#71-伤害类) 中「回复生命时」标记为「否」）
 > **数值约束**：节点 3 系统加血时受最大生命值上限约束（`min(event.num, player.get_max_hp() - player.get_hp())`）
-> **关联技能**：[SurvivorPacks/surgeon.md](../SurvivorPacks/surgeon.md)（手术刀·回复、希波克拉底誓言、缝合）、surgeon 游戏牌「手套」均使用 trigger「回复生命时」修改 `event.num`
+> **关联技能**：[SurvivorPacks/surgeon.md](../Resource/SurvivorPacks/surgeon.md)（手术刀·回复、希波克拉底誓言、缝合）、surgeon 游戏牌「手套」均使用 trigger「回复生命时」修改 `event.num`
 
 | 节点 | trigger 名       | 触发对象   | 说明                                                       |
 | -- | --------------- | ------ | -------------------------------------------------------- |
@@ -375,5 +375,5 @@
 
 > **注**：节点 2 为已确认 trigger（surgeon 手术刀·回复、手套均使用，forced:true 强制发动并修改 `event.num`）；节点 1/4 为按命名模式提案，对称包围系统加血节点。
 > **与伤害流程的差异**：无 source 侧（回复无来源概念）；无取消点（K\_gameTerminology.md §7.1 标注为「否」），但保留 `event.cancel()` 接口以备未来扩展。
-> **与** **`player.add_hp(n)`** **的区别**：`add_hp` 为底层原子方法，直接修改生命值数值，不触发钩子且不受最大值约束；`recover` 走完整 4 节点流程。详见 [待定义方法.md §9.6](../待定义方法.md#96-playeradd_hpn-与-playerrecovernum-的关系)。
+> **与** **`player.add_hp(n)`** **的区别**：`add_hp` 为底层原子方法，直接修改生命值数值，不触发钩子且不受最大值约束；`recover` 走完整 4 节点流程。详见待定义方法 §9.6 player.add_hp(n) 与 player.recover(num) 的关系。
 

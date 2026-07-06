@@ -23,7 +23,7 @@
 
 | 术语 | 英文 | 定义与关键规则 |
 |------|------|---------------|
-| 地图块 | MapBlock | 游戏地图的基本单元。每个地块有名字、技能、怪物生成点数等属性。详见 [MapBlocksPack/MapBlocks.md](../MapBlocksPack/MapBlocks.md) |
+| 地图块 | MapBlock | 游戏地图的基本单元。每个地块有名字、技能、怪物生成点数等属性。详见 [MapBlocksPack/MapBlocks.md](../Resource/MapBlocksPack/MapBlocks.md) |
 | 相邻地块 | adjacent block | 上下左右相邻的地块（不含对角线）。移动、射程计算基于相邻关系 |
 | 已展示 / 未展示 | revealed / unrevealed | 地图块的两种状态。玩家首次进入时翻开（展示），触发「展示地块时」效果 |
 | 怪物标记 | monster mark | 地块上的怪物标记，最多 3 个。标记 = 3 且有玩家时，玩家抓怪物卡而非加标记 |
@@ -44,7 +44,7 @@
 |------|------|---------------|
 | 生命值 | HP | 玩家当前生命值。≤ 0 时玩家死亡。详见 [G_gameOver.md](G_gameOver.md) |
 | 最大生命值 | max HP | 生命值上限。恢复生命值不超过此值 |
-| 饥饿值 | hunger | 1-6。每回合 +1。达到 6 后翻面角色卡并叠加饥饿伤害标记。详见 [GameSystem/PlayerState.md](../GameSystem/PlayerState.md) |
+| 饥饿值 | hunger | 1-6。每回合 +1。达到 6 后翻面角色卡并叠加饥饿伤害标记。详见 [GameSystem/Entities/Player.md](../GameSystem/Entities/Player.md) |
 | 潜行值 | stealth | 用于潜行检定。潜行值 = 基础潜行值 - (地块怪物数 + 怪物标记数) |
 | 行动次数 | action count | 每回合 4 次。移动/抓牌/出牌/拾荒/执行卡牌行动各消耗 1 次 |
 | 最大行动次数 | max action count | 行动次数上限。部分技能可临时增加 |
@@ -56,7 +56,7 @@
 | 怪物区 | monster zone | 玩家面前的怪物卡区域。怪物卡进入此区时与玩家纠缠 |
 | 游戏牌堆 | game deck | 求生者游戏牌堆。抓牌从此处；牌堆空时玩家死亡 |
 | 游戏牌弃牌堆 | game discard pile | 求生者游戏牌弃牌区域 |
-| 立即执行一个行动 | immediate action | **待定义**。让目标玩家立即执行一个行动（语义待定，见 [待定义方法.md §9.1](../待定义方法.md#91-player立即执行一个行动-的语义)） |
+| 立即执行一个行动 | immediate action | **待定义**。让目标玩家立即执行一个行动（语义待定，见待定义方法 §9.1 player.立即执行一个行动 的语义） |
 
 ---
 
@@ -71,7 +71,7 @@
 | 装备牌 | equipment card | 装备到装备区的卡牌。占用装备栏格数 |
 | 装备栏 | equipment slot | 装备区容量。每张装备卡占用 1 格或以上（由 `card.大小` 决定） |
 | 填充物 | charge | 装备卡上的弹药/燃料等消耗品。如手枪的弹药、打火机的燃料 |
-| 填充物类型 | charge type | 弹药/燃料/空尖弹等。详见 [ScavengePacks/blue.md](../ScavengePacks/blue.md) |
+| 填充物类型 | charge type | 弹药/燃料/空尖弹等。详见 [ScavengePacks/blue.md](../Resource/ScavengePacks/blue.md) |
 | 填充物上限 | charge capacity | 装备卡填充物上限。补满填充物时不超过此值 |
 | 首领卡 | boss card | 特殊怪物卡。任务特殊设置中洗入怪物牌堆 |
 | 卡牌大小 | card size | 装备卡占用装备栏的格数 |
@@ -88,7 +88,7 @@
 | 怪物射程 | monster range | 无 / 短距离 / 中距离 / 长距离 / Infinity。决定怪物攻击范围 |
 | 怪物攻击伤害 | monster attack damage | 怪物攻击造成的伤害值 |
 | 怪物标记 | monster mark | 区别于「怪物卡」。地块上的标记，触发抓怪物卡流程 |
-| 击晕 | stun | 怪物状态之一。击晕的怪物跳过行动。详见 [SurvivorPacks/](../SurvivorPacks/) 各技能 |
+| 击晕 | stun | 怪物状态之一。击晕的怪物跳过行动。详见 [SurvivorPacks/](../Resource/SurvivorPacks/) 各技能 |
 
 ---
 
@@ -136,7 +136,7 @@
 
 > 事件 trigger 是技能 hook 到游戏流程的钩子名。
 > trigger 字段支持「、」分隔的复合触发（如 `trigger: 游戏开始时、受到伤害时`）。
-> 触发机制详见 [GameSystem/EventTrigger.md](../GameSystem/EventTrigger.md)，完整流程详见 [J_gameEventFlow.md](J_gameEventFlow.md)。
+> 触发机制详见 [GameSystem/Core/EventSystem.md](../GameSystem/Core/EventSystem.md)，完整流程详见 [J_gameEventFlow.md](J_gameEventFlow.md)。
 
 ### 7.1 伤害类
 
@@ -282,7 +282,7 @@
 | 弃置怪物 | `player.弃置面前的一张非首领怪物并替换为怪物标记()` | 怪物弃牌堆 + 加怪物标记 | **否**（纯移除，不触发「怪物死亡时」） |
 | 击杀 | 通过 `damage` 流程使生命值 ≤ 0 | 怪物弃牌堆 | **是**（触发「怪物死亡时」） |
 
-> 详见 [待定义方法.md §9.15](../待定义方法.md#915-杀死怪物时触发时机)
+> 详见待定义方法 §9.15 杀死怪物时触发时机
 
 ### 8.2 翻面
 
@@ -301,7 +301,7 @@
 
 | 机制 | 定义 |
 |------|------|
-| 重调 | `player.洗牌(pile)` 重新洗牌指定牌堆。详见 [SurvivorPacks/gunslinger.md](../SurvivorPacks/gunslinger.md) 快速拔枪 |
+| 重调 | `player.洗牌(pile)` 重新洗牌指定牌堆。详见 [SurvivorPacks/gunslinger.md](../Resource/SurvivorPacks/gunslinger.md) 快速拔枪 |
 
 ### 8.5 移出游戏
 
@@ -313,7 +313,7 @@
 
 | 机制 | 定义 |
 |------|------|
-| 复合触发 | 技能 trigger 字段支持「、」分隔的多个触发名。如 `trigger: 游戏开始时、受到伤害时`。技能 content 内可通过 `trigger == "xxx"` 判断分支。详见 [GameSystem/EventTrigger.md](../GameSystem/EventTrigger.md) |
+| 复合触发 | 技能 trigger 字段支持「、」分隔的多个触发名。如 `trigger: 游戏开始时、受到伤害时`。技能 content 内可通过 `trigger == "xxx"` 判断分支。详见 [GameSystem/Core/EventSystem.md](../GameSystem/Core/EventSystem.md) |
 
 ### 8.7 取消点
 
