@@ -25,6 +25,7 @@
 | [iteration_03_damage_flow.md](iteration_03_damage_flow.md) | `[x] 已完成` | DamageFlow:`target.damage` 8 节点钩子链 |
 | [iteration_04_player_state.md](iteration_04_player_state.md) | `[x] 已完成` | PlayerState:recover/increaseHunger/decreaseHunger/poison |
 | [iteration_05_judge.md](iteration_05_judge.md) | `[x] 已完成` | Judge:judge/sneakJudge/monsterSpawnJudge + MapBlock stub |
+| [iteration_06_card.md](iteration_06_card.md) | `[ ] 未开始` | Card 实体 + DrawFlow + DiscardFlow:CardData/Card 双层类 + Pile + Game 骨架 + 5 个已定义方法真实逻辑 |
 
 ---
 
@@ -34,6 +35,8 @@
 01 EventTrigger ─┬─→ 02 Player 实体 ─┬─→ 03 DamageFlow ──→ 04 PlayerState
                   │                    │
                   └────────────────────┴─→ 05 Judge(地图块 stub)
+                                          │
+                                          └─→ 06 Card + DrawFlow + DiscardFlow(Card/Pile/Game + 5 个已定义方法)
 ```
 
 每轮前置依赖见各 iteration 文档 §2。
@@ -69,6 +72,20 @@
 - countMonster/countMonsterMark 改为 MapBlock 方法(设计文档用全局函数)
 - monsterSpawnJudge 接受 revealed_blocks 参数(设计文档无参)
 - sneakJudge 仅返回 bool,不实现失败分支(失败分支由调用方处理)
+
+### iteration_06
+- 本轮范围:Card + DrawFlow + DiscardFlow(一次性大轮次)✅ 已确认
+- 类结构:Card + CardData 双层(都有子类)✅ 已确认
+- 数据层:不落地,代码内联 ✅ 已确认
+- §9.14 `card.在玩家装备区内`:本轮不解决(stub)✅ 已确认
+- 拾荒弃牌堆:不分色单一堆(修订 DiscardFlow.md)✅ 已确认
+- game 对象:新建最小骨架(持有全局牌堆)✅ 已确认
+- 装备区/怪物区:Array[Card](非 Pile)✅ 已确认
+- §4.1 类层级(Card→ItemCard→ScavengeCard/SurvivorGameCard;Card→MonsterCard)⏳ 待确认
+- §4.2 API 命名(get_*/add_filler/refill_filler 等英文译名)⏳ 待确认
+- §4.4 Pile 接口设计 ⏳ 待确认
+- §4.5 Game 对象接口设计 ⏳ 待确认
+- §4.6 Player 卡牌区域与 getCards 搜索范围 ⏳ 待确认
 
 ---
 
