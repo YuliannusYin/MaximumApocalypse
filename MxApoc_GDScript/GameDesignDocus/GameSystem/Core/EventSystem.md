@@ -1,0 +1,278 @@
+# 事件触发系统
+
+> 游戏所有流程的钩子编排机制。
+> trigger 方法定义在 [Entity.md](Entity.md#1-事件触发) 的 `entity.trigger()`。
+> 本文聚焦：机制原理、event 对象规范、命名规范、全 trigger 索引。
+
+---
+
+## 1. 机制原理
+
+### 1.1 触发流程
+
+`entity.trigger(triggerName, event)` 的工作步骤：
+
+1. 设置 `event.triggerName = triggerName`
+2. 调用 `entity.getAllSkills()` 获取实体身上的所有技能
+3. 遍历每个技能 `s`：
+   - 将 `s.trigger` 字段按「、」分割为 triggerList（支持复合触发）
+   - 若 `triggerList.contains(triggerName)` 且 `s.filter(event)` 返回 true：
+     - 执行 `s.content(event)`
+     - 若 `event.cancelled` 为 true，break 跳出循环
+
+### 1.2 技能的 trigger 字段
+
+- **单触发**：`trigger: "造成伤害时"`
+- **复合触发**：`trigger: "游戏开始时、受到伤害时"`（「、」分隔，content 内用 `trigger == "xxx"` 判断分支）
+
+### 1.3 技能执行上下文
+
+技能 `content` 执行时可访问：
+
+| 变量 | 说明 |
+|------|------|
+| `event` | 事件对象（见 [§2 event schema](#2-event-对象-schema)） |
+| `trigger` | 当前触发的 trigger 名字符串（用于多触发技能分支判断） |
+
+---
+
+## 2. event 对象 schema
+
+### 2.1 通用字段
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `triggerName` | String | 由 `trigger()` 设置，当前触发的 trigger 名 |
+| `cancelled` | Bool | 是否已取消。技能调用 `event.cancel()` 后置 true |
+| `cancel()` | Method | 取消当前事件。调用后流程立即终止（移动流程会回滚地块技能） |
+
+### 2.2 按流程类型的字段
+
+| 流程 | event 字段 |
+|------|-----------|
+| 伤害流程 | `target`、`source`（可 NULL）、`num`（可读写）、`type` |
+| 回复生命 | `player`、`num`（可读写） |
+| 移动流程 | `player`、`source`（离开地块）、`target`（进入地块） |
+| 抓游戏牌 | `player`、`num`（可读写）、`cards`（实际抓到的牌列表） |
+| 抓拾荒牌 | `player`、`pile`、`num`（可读写）、`cards`、`card`（当前牌） |
+| 抓怪物卡 | `player`、`num`、`cards`、`target`（当前怪物卡，实体化后） |
+| 弃置/销毁牌 | `player`、`card`（当前牌）、`cards`、`num` |
+| 装备进入/离开 | `player`、`card` [提案] |
+| 检定流程 | `player`、`result` [提案] |
+
+### 2.3 cancel() 语义
+
+- 调用 `event.cancel()` 后，`event.cancelled = true`
+- `trigger()` 循环立即 break，不再执行后续技能
+- 流程方法检测到 `event.cancelled` 后 return，跳过后续节点
+- **已执行的钩子不回滚**，例外：移动流程会回滚地块技能挂载（见 [Player.md moveTo](../Entities/Player.md#moveto) 节点 5）
+
+---
+
+## 3. 命名规范
+
+### 3.1 trigger 命名模式
+
+采用「**XX前 / XX时 / XX后**」三段式，对称包围系统结算节点：
+
+- `XX前`：系统结算前，可取消
+- `XX时`：系统结算时，可修改 event.num 等参数，部分为取消点
+- `XX后`：系统结算后，仅通知
+
+### 3.2 取消点约定
+
+- 并非所有「时」节点都是取消点
+- 取消点在「时」节点：如「受到伤害时」「抓取游戏牌时」「进入地块前」（注意「前」也可作取消点）
+- 取消点完整列表见 [§4 全 trigger 索引](#4-全-trigger-索引) 的「取消点」列
+
+### 3.3 复合触发
+
+`trigger` 字段支持「、」分隔的多个触发名，content 内通过 `trigger == "xxx"` 判断分支。例：
+
+```
+trigger: 回合开始时、受到伤害时
+content: {
+    if (trigger == "回合开始时") { ... }
+    else if (trigger == "受到伤害时") { ... }
+}
+```
+
+### 3.4 trigger 别名
+
+| 别名 | 标准名 | 说明 |
+|------|--------|------|
+| 杀死怪物时 | 死亡时（怪物） | 统一映射为「怪物死亡时」 |
+
+---
+
+## 4. 全 trigger 索引
+
+> 按领域分组。标注 **[提案]** 的 trigger 名为尚未在伪代码流程中落地的提案性命名。
+
+### 4.1 伤害类
+
+> 所属流程：[Entity.damage](Entity.md#3-伤害流程通用)
+
+| trigger 名 | 触发时机 | 触发对象 | 取消点 |
+|-----------|---------|---------|--------|
+| 造成伤害前 | source 造成伤害前 | source | 否 |
+| 造成伤害时 | source 造成伤害时（可修改 event.num） | source | 否 |
+| 造成伤害后 | source 造成伤害后 | source | 否 |
+| 受到伤害前 | target 受到伤害前 | target | 否 |
+| 受到伤害时 | target 受到伤害时（可修改 event.num / cancel()） | target | **是** |
+| 受到伤害后 | target 受到伤害后 | target | 否 |
+
+> source = NULL 时跳过所有 source 侧 trigger。
+
+### 4.2 回复类
+
+> 所属流程：[Player.recover](../Entities/Player.md#recover)
+
+| trigger 名 | 触发时机 | 触发对象 | 取消点 |
+|-----------|---------|---------|--------|
+| 回复生命前 | 玩家回复生命值前 | player | 否 |
+| 回复生命时 | 玩家回复生命值时（可修改 event.num） | player | 否 |
+| 回复生命后 | 玩家回复生命值后 [提案] | player | 否 |
+
+### 4.3 移动类
+
+> 所属流程：[Player.moveTo](../Entities/Player.md#moveto)
+
+| trigger 名 | 触发时机 | 触发对象 | 取消点 |
+|-----------|---------|---------|--------|
+| 离开地块前 | 玩家离开当前地块前 | player | 否 |
+| 离开地块时 | 玩家离开当前地块时 | player | 否 |
+| 离开地块后 | 玩家离开当前地块后 | player | 否 |
+| 进入地块前 | 玩家进入目标地块前（准入检定） | player | **是** |
+| 进入地块时 | 玩家进入目标地块时（一次性效果） | player | 否 |
+| 进入地块后 | 玩家进入目标地块后 | player | 否 |
+| 展示地块时 | 地块首次翻开时（衍生） | 地块技能 | 否 |
+
+### 4.4 怪物类
+
+> 所属流程：[Player.drawMonster](../Entities/Player.md#drawmonster)、[Monster 行动流程](../Entities/Monster.md#行动流程)、[Monster.monsterDeath](../Entities/Monster.md#monsterdeath)
+
+| trigger 名 | 触发时机 | 触发对象 | 取消点 |
+|-----------|---------|---------|--------|
+| 怪物卡进入求生者怪物区前 | 怪物卡实体化前 | player | 否 |
+| 怪物卡进入求生者怪物区时 | 怪物卡置入怪物区时 | player | 否 |
+| 怪物卡进入求生者怪物区后 | 怪物卡已进入怪物区 | player | 否 |
+| 怪物行动前 | 单个怪物行动前 | monster | 否 |
+| 怪物行动时 | 单个怪物开始行动 | monster | 否 |
+| 怪物行动后 | 单个怪物行动结束 | monster | 否 |
+| 怪物攻击前 | 怪物攻击前 | monster | 否 |
+| 怪物攻击时 | 怪物根据射程对目标发动攻击 | monster | 否 |
+| 怪物攻击后 | 怪物攻击后 | monster | 否 |
+| 死亡前 | 怪物/玩家死亡前 | target | 否 |
+| 死亡时 | 怪物/玩家死亡时 | target | 否 |
+| 死亡后 | 怪物/玩家死亡后 | target | 否 |
+
+### 4.5 回合类
+
+> 所属流程：玩家回合流程（[D_gameFlow.md](../../GameInstructions/D_gameFlow.md)）
+
+| trigger 名 | 触发时机 | 触发对象 | 取消点 |
+|-----------|---------|---------|--------|
+| 回合开始前 | 玩家回合开始前 | player | 否 |
+| 回合开始时 | 玩家回合开始时 | player | 否 |
+| 怪物出生前 | 怪物出生检定前 | player | 否 |
+| 怪物出生时 | 怪物出生检定时 | player | 否 |
+| 摸牌阶段前 | 摸牌阶段前 | player | 否 |
+| 行动阶段前 | 行动阶段前 | player | 否 |
+| 行动阶段结束前 | 行动阶段结束前 | player | 否 |
+| 行动阶段结束时 | 行动阶段结束时 | player | 否 |
+| 求生者饥饿状态结算前 | 饥饿结算前 | player | 否 |
+| 求生者饥饿状态结算时 | 饥饿结算时 | player | 否 |
+| 求生者中毒状态结算前 | 中毒结算前 | player | 否 |
+| 求生者中毒状态结算时 | 中毒结算时 | player | 否 |
+| 面前怪物行动前 | 面前怪物行动前 | player | 否 |
+| 面前怪物行动时 | 面前怪物行动时 | player | 否 |
+| 回合结束前 | 玩家回合结束前 | player | 否 |
+| 回合结束时 | 玩家回合结束时 | player | 否 |
+
+> **命名差异**：firefighter 野地夹克 subSkill 使用「饥饿状态结算前」，D_gameFlow.md 使用「求生者饥饿状态结算前」。建议统一为完整形式。
+
+### 4.6 抓牌类
+
+> 所属流程：[Player.draw](../Entities/Player.md#draw) / [drawScavenge](../Entities/Player.md#drawscavenge) / [drawMonster](../Entities/Player.md#drawmonster)
+
+| trigger 名 | 触发时机 | 触发对象 | 取消点 |
+|-----------|---------|---------|--------|
+| 抓取游戏牌前 | 抓取游戏牌前 | player | **是** |
+| 抓取游戏牌时 | 抓取游戏牌时（可修改 event.num） | player | **是** |
+| 抓取游戏牌后 | 抓取游戏牌后 | player | 否 |
+| 抓取怪物卡前 | 抓取怪物卡前 | player | **是** |
+| 抓取怪物卡时 | 抓取怪物卡时（每张触发一次） | player | 否 |
+| 怪物卡进入求生者怪物区前 | 见 4.4 | player | 否 |
+| 怪物卡进入求生者怪物区时 | 见 4.4 | player | 否 |
+| 怪物卡进入求生者怪物区后 | 见 4.4 | player | 否 |
+| 抓取怪物卡后 | 抓取怪物卡后（整体触发一次） | player | 否 |
+| 抓取拾荒牌前 | 抓取拾荒牌前 | player | **是** |
+| 抓取拾荒牌时 | 抓取拾荒牌时（每张牌触发一次） | player | 否 |
+| 抓取拾荒牌后 | 抓取拾荒牌后 | player | 否 |
+
+### 4.7 装备类
+
+> 所属流程：[Player.装备](../Entities/Player.md#装备) / [Player.卸下](../Entities/Player.md#卸下) [提案]
+
+| trigger 名 | 触发时机 | 触发对象 | 取消点 |
+|-----------|---------|---------|--------|
+| 卡牌进入装备区前 | 装备进入装备区前 [提案] | player | 否 |
+| 卡牌进入装备区时 | 装备置入装备区时 | player | 否 |
+| 卡牌进入装备区后 | 装备进入装备区后 [提案] | player | 否 |
+| 卡牌离开装备区前 | 装备离开装备区前 [提案] | player | 否 |
+| 卡牌离开装备区时 | 装备离开装备区时 | player | 否 |
+| 卡牌离开装备区后 | 装备离开装备区后 [提案] | player | 否 |
+| 弹药耗尽时 | 装备填充物耗尽时 [提案] | player | 否 |
+
+### 4.8 检定类
+
+> 所属流程：[Player.sneakJudge](../Entities/Player.md#sneakjudge) / [monsterSpawnJudge](../Entities/Player.md#monsterspawnjudge)
+
+| trigger 名 | 触发时机 | 触发对象 | 取消点 |
+|-----------|---------|---------|--------|
+| 潜行检定前 | 潜行检定前 | player | 否 |
+| 潜行检定时 | 潜行检定执行时 | player | 否 |
+| 潜行检定后 | 潜行检定结果出来后 [提案] | player | 否 |
+| 怪物出生检定前 | 怪物出生检定前 [提案] | player | 否 |
+| 怪物出生检定时 | 怪物出生检定执行时 [提案] | player | 否 |
+| 怪物出生检定后 | 怪物出生检定结果出来后 [提案] | player | 否 |
+
+### 4.9 弃牌类
+
+> 所属流程：[Player.discard](../Entities/Player.md#discard)
+
+| trigger 名 | 触发时机 | 触发对象 | 取消点 |
+|-----------|---------|---------|--------|
+| 弃置牌前 | 弃置牌前（整体一次） | player | **是** |
+| 弃置牌时 | 弃置牌时（每张触发一次） | player | 否 |
+| 弃置牌后 | 弃置牌后（整体一次） | player | 否 |
+
+### 4.10 销毁类
+
+> 所属流程：[Player.removeCard](../Entities/Player.md#removecard)
+
+| trigger 名 | 触发时机 | 触发对象 | 取消点 |
+|-----------|---------|---------|--------|
+| 销毁牌前 | 销毁牌前（整体一次） | player | **是** |
+| 销毁牌时 | 销毁牌时（每张触发一次） | player | 否 |
+| 销毁牌后 | 销毁牌后（整体一次） | player | 否 |
+
+### 4.11 游戏类
+
+| trigger 名 | 触发时机 | 触发对象 | 取消点 |
+|-----------|---------|---------|--------|
+| 游戏开始时 | 游戏开始时 [待定义] | player / 地块 | 否 |
+
+---
+
+## 5. 与其他文档的关系
+
+| 文档 | 关系 |
+|------|------|
+| [Entity.md](Entity.md) | `entity.trigger()` 方法定义处 |
+| [Player.md](../Entities/Player.md) | Player 类的流程方法定义各 trigger 的触发节点 |
+| [Monster.md](../Entities/Monster.md) | Monster 类的死亡/行动/攻击 trigger |
+| [Skill.md](../Common/Skill.md) | Skill 结构的 `trigger` 字段引用本文的 trigger 名 |
+| [J_gameEventFlow.md](../../GameInstructions/J_gameEventFlow.md) | GameInstructions 侧的事件流程汇总，本文为其源定义 |
+| [K_gameTerminology.md](../../GameInstructions/K_gameTerminology.md) | 术语表的 trigger 索引，本文为其权威来源 |
