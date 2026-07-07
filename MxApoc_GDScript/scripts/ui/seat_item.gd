@@ -34,9 +34,9 @@ func _populate_survivors() -> void:
 	_survivor_option.set_item_metadata(0, null)
 	var survivors := Survivors.get_all()
 	for i in range(survivors.size()):
-		var s = survivors[i]
-		_survivor_option.add_item(s.display_name, i + 1)
-		_survivor_option.set_item_metadata(i + 1, s)
+		var survivor = survivors[i]
+		_survivor_option.add_item(survivor.display_name, i + 1)
+		_survivor_option.set_item_metadata(i + 1, survivor)
 	_survivor_option.select(0)
 
 func _on_selection_changed(_idx: int) -> void:

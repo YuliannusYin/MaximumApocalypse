@@ -36,23 +36,23 @@ func _populate_missions() -> void:
 	_mission_option.set_item_metadata(0, null)
 	var missions := Missions.get_all()
 	for i in range(missions.size()):
-		var m = missions[i]
-		_mission_option.add_item("%s（%s）" % [m.name, m.difficulty], i + 1)
-		_mission_option.set_item_metadata(i + 1, m)
+		var mission = missions[i]
+		_mission_option.add_item("%s（%s）" % [mission.name, mission.difficulty], i + 1)
+		_mission_option.set_item_metadata(i + 1, mission)
 
 func _populate_variants() -> void:
 	for child in _variant_list.get_children():
 		child.queue_free()
 	_variant_checkboxes.clear()
 	var variants := Variants.get_all()
-	for v in variants:
+	for variant in variants:
 		var cb := CheckBox.new()
-		cb.text = v.display_name
-		cb.tooltip_text = v.desc
-		var vid := v.id
+		cb.text = variant.display_name
+		cb.tooltip_text = variant.desc
+		var vid := variant.id
 		cb.toggled.connect(func(toggled: bool): _on_variant_toggled(vid, toggled))
 		_variant_list.add_child(cb)
-		_variant_checkboxes[v.id] = cb
+		_variant_checkboxes[variant.id] = cb
 
 func _restore_state() -> void:
 	if RoomState.selected_mission_is_random:
@@ -155,21 +155,21 @@ func _refresh_detail_panel() -> void:
 		_difficulty_label.text = ""
 		_detail_rich.text = "[i]随机任务（开局时抽取）[/i]"
 		return
-	var m = RoomState.selected_mission
-	if m == null:
+	var mission = RoomState.selected_mission
+	if mission == null:
 		_mission_name_label.text = "未选择"
 		_difficulty_label.text = ""
 		_detail_rich.text = ""
 		return
-	_mission_name_label.text = m.name
-	_difficulty_label.text = "难度：%s" % m.difficulty
-	var fuel_text = m.fuel if m.fuel != "" else "(未指定)"
+	_mission_name_label.text = mission.name
+	_difficulty_label.text = "难度：%s" % mission.difficulty
+	var fuel_text = mission.fuel if mission.fuel != "" else "(未指定)"
 	var bbcode := ""
 	bbcode += "[b]燃料：[/b]%s\n" % fuel_text
-	bbcode += "[b]怪物包：[/b]%s\n\n" % m.monster_pack
-	bbcode += "[b]任务介绍：[/b]\n%s\n\n" % m.intro
-	bbcode += "[b]任务目标：[/b]\n%s\n\n" % m.objective
-	bbcode += "[b]特殊设置：[/b]\n%s" % m.special_setup
+	bbcode += "[b]怪物包：[/b]%s\n\n" % mission.monster_pack
+	bbcode += "[b]任务介绍：[/b]\n%s\n\n" % mission.intro
+	bbcode += "[b]任务目标：[/b]\n%s\n\n" % mission.objective
+	bbcode += "[b]特殊设置：[/b]%s" % mission.special_setup
 	_detail_rich.text = bbcode
 
 func _update_start_button() -> void:

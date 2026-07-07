@@ -7,7 +7,7 @@
 
 3. 怪物攻击前
 4. 怪物攻击时
-    此时怪物会根据射程对目标发动攻击。 # 查看[怪物射程](GameManual\GameInstructions\F_gameRange.md)
+    此时怪物会根据射程对目标发动攻击。 # 查看[怪物射程](F_gameRange.md)
 5. 怪物攻击后
 
 6. 怪物行动后

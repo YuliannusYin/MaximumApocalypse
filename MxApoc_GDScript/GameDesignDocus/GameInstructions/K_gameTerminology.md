@@ -16,6 +16,8 @@
 - [6. 距离与射程](#6-距离与射程)
 - [7. 事件 trigger](#7-事件-trigger)
 - [8. 特殊机制](#8-特殊机制)
+  - [8.8 游戏状态机](#88-游戏状态机)
+  - [8.9 任务系统](#89-任务系统)
 
 ---
 
@@ -23,16 +25,20 @@
 
 | 术语 | 英文 | 定义与关键规则 |
 |------|------|---------------|
-| 地图块 | MapBlock | 游戏地图的基本单元。每个地块有名字、技能、怪物生成点数等属性。详见 [MapBlocksPack/MapBlocks.md](../MapBlocksPack/MapBlocks.md) |
-| 相邻地块 | adjacent block | 上下左右相邻的地块（不含对角线）。移动、射程计算基于相邻关系 |
+| 地图块 | MapBlock | 游戏地图的基本单元。每个地块有名字、坐标、技能、怪物生成点数等属性。详见 [MapBlocksPack/MapBlocks.md](../Resource/MapBlocksPack/MapBlocks.md) |
+| 地块坐标 | block coordinate | 地块在地图网格中的位置 `{ x, y }`。x=列（横向），y=行（纵向）。对应任务地图要求 `map[y][x]` |
+| 相邻地块 | adjacent block | 上下左右四向相邻的地块（不含对角线）。移动、射程计算基于相邻关系。通过 `block.getAdjacentBlocks()` 查询 |
+| 曼哈顿距离 | Manhattan distance | 两地块间的距离 `|x1-x2| + |y1-y2|`。用于射程判定（短/中/长距离）。通过 `block.distanceTo(other)` 计算 |
 | 已展示 / 未展示 | revealed / unrevealed | 地图块的两种状态。玩家首次进入时翻开（展示），触发「展示地块时」效果 |
+| 存活 / 已摧毁 | alive / destroyed | 地块状态。被大炸药等效果摧毁的地块变为"已摧毁"，从 `game.地图区域` 移除。通过 `block.isAlive()` / `block.isDestroyed()` 查询 |
 | 怪物标记 | monster mark | 地块上的怪物标记，最多 3 个。标记 = 3 且有玩家时，玩家抓怪物卡而非加标记 |
-| 任务标记 | objective mark | 任务特殊设置中的标记，表示任务目标位置。详见各任务卡 |
+| 目标标记 | objective mark | 任务特殊设置中的标记，挂载到地块上。玩家进入地块时触发标记效果（一次性）。可声明「初始怪物标记数」（预置怪物标记）与「移除条件」（怪物标记减少时检查，满足则自动移除）。详见 [MapBlock](../GameSystem/Entities/MapBlock.md#目标标记结构objectivemark) |
 | 面包车 | van | 多数任务的出生点与游戏结束点。需添加足够燃料且所有存活玩家返回才能胜利 |
 | 出生点 | spawn point | 玩家初始位置。任务地图配置中编号为 0 的地块 |
 | 游戏结束点 | game end point | 部分任务的特殊结束地块（如军事基地）。任务地图配置中编号为 2 |
-| 标记地块 | marked block | 任务地图配置中编号为 3 的地块，放置任务标记 |
+| 标记地块 | marked block | 任务地图配置中编号为 3 的地块，从地块池随机抽取 + 添加目标标记 + 按「初始怪物标记数」预置怪物标记 |
 | 无地块 | no block | 任务地图配置中编号为 -1，表示该位置无地图块 |
+| 地块池 | block pool | 地图构建时的地块候选池。从「任务地图块配置」按数量展开，`1` 和 `3` 位置从中随机抽取 |
 | 怪物生成点数 | monster spawn value | 地块属性之一。怪物出生检定时，投骰结果匹配的地块生成怪物 |
 | 拾荒颜色 | scavenge color | 地块属性之一。该地块可拾荒的牌堆颜色集合（红/绿/蓝子集） |
 
@@ -44,7 +50,7 @@
 |------|------|---------------|
 | 生命值 | HP | 玩家当前生命值。≤ 0 时玩家死亡。详见 [G_gameOver.md](G_gameOver.md) |
 | 最大生命值 | max HP | 生命值上限。恢复生命值不超过此值 |
-| 饥饿值 | hunger | 1-6。每回合 +1。达到 6 后翻面角色卡并叠加饥饿伤害标记。详见 [GameSystem/PlayerState.md](../GameSystem/PlayerState.md) |
+| 饥饿值 | hunger | 1-6。每回合 +1。达到 6 后翻面角色卡并叠加饥饿伤害标记。详见 [GameSystem/Entities/Player.md](../GameSystem/Entities/Player.md) |
 | 潜行值 | stealth | 用于潜行检定。潜行值 = 基础潜行值 - (地块怪物数 + 怪物标记数) |
 | 行动次数 | action count | 每回合 4 次。移动/抓牌/出牌/拾荒/执行卡牌行动各消耗 1 次 |
 | 最大行动次数 | max action count | 行动次数上限。部分技能可临时增加 |
@@ -56,7 +62,8 @@
 | 怪物区 | monster zone | 玩家面前的怪物卡区域。怪物卡进入此区时与玩家纠缠 |
 | 游戏牌堆 | game deck | 求生者游戏牌堆。抓牌从此处；牌堆空时玩家死亡 |
 | 游戏牌弃牌堆 | game discard pile | 求生者游戏牌弃牌区域 |
-| 立即执行一个行动 | immediate action | **待定义**。让目标玩家立即执行一个行动（语义待定，见 [待定义方法.md §9.1](../待定义方法.md#91-player立即执行一个行动-的语义)） |
+| 立即执行一个行动 | immediate action | 让目标玩家立即插入一个仅含行动阶段的「迷你回合」（跳过摸牌/饥饿/中毒/怪物行动等阶段）。调用 `player.立即执行一个行动(num=1)`，num 为迷你回合内行动次数。详见 [Player.md §十一](../GameSystem/Entities/Player.md#十一迷你回合流程) |
+| 回合阶段 | inPhase | 玩家当前所处的回合阶段字符串。可选值：`"回合外"`（默认） / `"回合开始"` / `"怪物出生"` / `"摸牌阶段"` / `"行动阶段"` / `"饥饿结算"` / `"中毒结算"` / `"怪物行动"` / `"回合结束"`。技能 filter 通过 `inPhase` 判断当前可用 trigger。值在 [Player.开始回合()](../GameSystem/Entities/Player.md#十回合流程) 各阶段切换 |
 
 ---
 
@@ -71,7 +78,7 @@
 | 装备牌 | equipment card | 装备到装备区的卡牌。占用装备栏格数 |
 | 装备栏 | equipment slot | 装备区容量。每张装备卡占用 1 格或以上（由 `card.大小` 决定） |
 | 填充物 | charge | 装备卡上的弹药/燃料等消耗品。如手枪的弹药、打火机的燃料 |
-| 填充物类型 | charge type | 弹药/燃料/空尖弹等。详见 [ScavengePacks/blue.md](../ScavengePacks/blue.md) |
+| 填充物类型 | charge type | 弹药/燃料/空尖弹等。详见 [ScavengePacks/blue.md](../Resource/ScavengePacks/blue.md) |
 | 填充物上限 | charge capacity | 装备卡填充物上限。补满填充物时不超过此值 |
 | 首领卡 | boss card | 特殊怪物卡。任务特殊设置中洗入怪物牌堆 |
 | 卡牌大小 | card size | 装备卡占用装备栏的格数 |
@@ -88,7 +95,7 @@
 | 怪物射程 | monster range | 无 / 短距离 / 中距离 / 长距离 / Infinity。决定怪物攻击范围 |
 | 怪物攻击伤害 | monster attack damage | 怪物攻击造成的伤害值 |
 | 怪物标记 | monster mark | 区别于「怪物卡」。地块上的标记，触发抓怪物卡流程 |
-| 击晕 | stun | 怪物状态之一。击晕的怪物跳过行动。详见 [SurvivorPacks/](../SurvivorPacks/) 各技能 |
+| 击晕 | stun | 怪物状态之一。击晕的怪物跳过行动。详见 [SurvivorPacks/](../Resource/SurvivorPacks/) 各技能 |
 
 ---
 
@@ -136,7 +143,7 @@
 
 > 事件 trigger 是技能 hook 到游戏流程的钩子名。
 > trigger 字段支持「、」分隔的复合触发（如 `trigger: 游戏开始时、受到伤害时`）。
-> 触发机制详见 [GameSystem/EventTrigger.md](../GameSystem/EventTrigger.md)，完整流程详见 [J_gameEventFlow.md](J_gameEventFlow.md)。
+> 触发机制详见 [GameSystem/Core/EventSystem.md](../GameSystem/Core/EventSystem.md)，完整流程详见 [J_gameEventFlow.md](J_gameEventFlow.md)。
 
 ### 7.1 伤害类
 
@@ -148,7 +155,9 @@
 | 受到伤害前 | target 受到伤害前 | 伤害流程 节点 2 | target | 否 |
 | 受到伤害时 | target 受到伤害时（可修改 event.num / event.cancel()） | 伤害流程 节点 4 | target | **是** |
 | 受到伤害后 | target 受到伤害后 | 伤害流程 节点 7 | target | 否 |
-| 回复生命时 | 玩家回复生命值时 | **[提案]** 回复生命流程 | player | 否 |
+| 回复生命前 | 玩家回复生命值前 | [回复生命值流程](J_gameEventFlow.md#18-回复生命值流程) 节点 1 | player | 否 |
+| 回复生命时 | 玩家回复生命值时（可修改 event.num） | 回复生命值流程 节点 2 | player | 否 |
+| 回复生命后 | 玩家回复生命值后 | 回复生命值流程 节点 4 | player | 否 |
 
 > **注**：source = NULL 时跳过所有 source 侧 trigger（造成伤害前/时/后）。
 
@@ -171,22 +180,24 @@
 | 怪物卡进入求生者怪物区前 | 怪物卡实体化前 | [抓取怪物流程](J_gameEventFlow.md#3-玩家抓取怪物流程) 节点 3 | player | 否 |
 | 怪物卡进入求生者怪物区时 | 怪物卡置入怪物区时 | 抓取怪物流程 节点 4 | player | 否 |
 | 怪物卡进入求生者怪物区后 | 怪物卡已进入怪物区 | 抓取怪物流程 节点 5 | player | 否 |
-| 怪物行动前 | 单个怪物行动前 | [怪物行动流程](J_gameEventFlow.md#9-怪物行动流程) 节点 1 | monster | 否 |
+| 怪物行动前 | 单个怪物行动前 | [怪物行动流程](J_gameEventFlow.md#11-怪物行动流程) 节点 1 | monster | 否 |
 | 怪物行动时 | 单个怪物开始行动 | 怪物行动流程 节点 2 | monster | 否 |
 | 怪物行动后 | 单个怪物行动结束 | 怪物行动流程 节点 6 | monster | 否 |
 | 怪物攻击前 | 怪物攻击前 | 怪物行动流程 节点 3 | monster | 否 |
 | 怪物攻击时 | 怪物根据射程对目标发动攻击 | 怪物行动流程 节点 4 | monster | 否 |
 | 怪物攻击后 | 怪物攻击后 | 怪物行动流程 节点 5 | monster | 否 |
-| 死亡前 | 怪物/玩家死亡前 | [死亡流程](J_gameEventFlow.md#4-怪物死亡流程) 节点 1 | target | 否 |
-| 死亡时 | 怪物/玩家死亡时 | 死亡流程 节点 2 | target | 否 |
-| 死亡后 | 怪物/玩家死亡后 | 死亡流程 节点 4/6 | target | 否 |
-| 杀死怪物时 | **别名**，统一映射为「怪物死亡时」 | 死亡流程 节点 2 | target | 否 |
+| 怪物死亡前 | 怪物死亡前 | [怪物死亡流程](J_gameEventFlow.md#4-怪物死亡流程) 节点 1 | target（怪物） | 否 |
+| 怪物死亡时 | 怪物死亡时 | [怪物死亡流程](J_gameEventFlow.md#4-怪物死亡流程) 节点 2 | target（怪物） | 否 |
+| 怪物死亡后 | 怪物死亡后 | [怪物死亡流程](J_gameEventFlow.md#4-怪物死亡流程) 节点 4 | target（怪物） | 否 |
+| 玩家死亡前 | 玩家死亡前 | [玩家死亡流程](J_gameEventFlow.md#5-玩家死亡流程) 节点 1 | target（玩家） | 否 |
+| 玩家死亡时 | 玩家死亡时 | [玩家死亡流程](J_gameEventFlow.md#5-玩家死亡流程) 节点 2 | target（玩家） | 否 |
+| 玩家死亡后 | 玩家死亡后 | [玩家死亡流程](J_gameEventFlow.md#5-玩家死亡流程) 节点 6 | target（玩家） | 否 |
 
 ### 7.4 回合类
 
 | trigger 名 | 触发时机 | 所属流程 | 触发对象 | 取消点 |
 |-----------|---------|---------|---------|--------|
-| 回合开始前 | 玩家回合开始前 | [玩家回合流程](J_gameEventFlow.md#8-玩家回合流程) 节点 2 | player | 否 |
+| 回合开始前 | 玩家回合开始前 | [玩家回合流程](J_gameEventFlow.md#10-玩家回合流程) 节点 2 | player | 否 |
 | 回合开始时 | 玩家回合开始时 | 回合流程 节点 3 | player | 否 |
 | 怪物出生前 | 怪物出生检定前 | 回合流程 节点 4 | player | 否 |
 | 怪物出生时 | 怪物出生检定时 | 回合流程 节点 5 | player | 否 |
@@ -203,13 +214,11 @@
 | 回合结束前 | 玩家回合结束前 | 回合流程 节点 18 | player | 否 |
 | 回合结束时 | 玩家回合结束时 | 回合流程 节点 19 | player | 否 |
 
-> **命名差异**：firefighter 野地夹克 subSkill 使用「饥饿状态结算前」，D_gameFlow.md 使用「求生者饥饿状态结算前」。建议统一为完整形式。
-
 ### 7.5 抓牌类
 
 | trigger 名 | 触发时机 | 所属流程 | 触发对象 | 取消点 |
 |-----------|---------|---------|---------|--------|
-| 抓取游戏牌前 | 抓取游戏牌前 | [抓取游戏牌流程](J_gameEventFlow.md#13-抓取游戏牌流程) 节点 1 | player | **是** |
+| 抓取游戏牌前 | 抓取游戏牌前 | [抓取游戏牌流程](J_gameEventFlow.md#15-抓取游戏牌流程) 节点 1 | player | **是** |
 | 抓取游戏牌时 | 抓取游戏牌时（可修改 event.num） | 抓取游戏牌流程 节点 2 | player | **是** |
 | 抓取游戏牌后 | 抓取游戏牌后 | 抓取游戏牌流程 节点 4 | player | 否 |
 | 抓取怪物卡前 | 抓取怪物卡前 | [抓取怪物流程](J_gameEventFlow.md#3-玩家抓取怪物流程) 节点 1 | player | **是** |
@@ -218,54 +227,77 @@
 | 怪物卡进入求生者怪物区时 | 怪物卡进入求生者怪物区时（每张触发） | 抓取怪物流程 节点 4 | player | 否 |
 | 怪物卡进入求生者怪物区后 | 怪物卡进入求生者怪物区后（每张触发） | 抓取怪物流程 节点 5 | player | 否 |
 | 抓取怪物卡后 | 抓取怪物卡后（整体触发一次） | 抓取怪物流程 节点 6 | player | 否 |
-| 抓取拾荒牌前 | 抓取拾荒牌前 | [抓取拾荒牌流程](J_gameEventFlow.md#10-抓取拾荒牌流程) 节点 1 | player | **是** |
+| 抓取拾荒牌前 | 抓取拾荒牌前 | [抓取拾荒牌流程](J_gameEventFlow.md#12-抓取拾荒牌流程) 节点 1 | player | **是** |
 | 抓取拾荒牌时 | 抓取拾荒牌时（每张牌触发一次） | 抓取拾荒牌流程 节点 3 | player | 否 |
 | 抓取拾荒牌后 | 抓取拾荒牌后 | 抓取拾荒牌流程 节点 4 | player | 否 |
 
-### 7.6 装备类
+### 7.6 使用卡牌类
 
 | trigger 名 | 触发时机 | 所属流程 | 触发对象 | 取消点 |
 |-----------|---------|---------|---------|--------|
-| 卡牌进入装备区前 | 装备进入装备区前 **[提案]** | [装备进入流程](J_gameEventFlow.md#6-装备进入装备区流程提案) 节点 1 | player | 否 |
+| 使用卡牌前 | 从手牌使用卡牌前 | [使用卡牌流程](J_gameEventFlow.md#6-使用卡牌流程) 节点 1 | player | **是** |
+| 使用卡牌时 | 从手牌使用卡牌时（装备牌/行动牌分流的最后拦截点） | 使用卡牌流程 节点 2 | player | **是** |
+| 使用卡牌后 | 从手牌使用卡牌后（整体触发一次） | 使用卡牌流程 节点 4 | player | 否 |
+
+### 7.7 装备类
+
+| trigger 名 | 触发时机 | 所属流程 | 触发对象 | 取消点 |
+|-----------|---------|---------|---------|--------|
+| 卡牌进入装备区前 | 装备进入装备区前 | [装备进入流程](J_gameEventFlow.md#7-装备进入装备区流程) 节点 1 | player | **是** |
 | 卡牌进入装备区时 | 装备置入装备区时 | 装备进入流程 节点 2 | player | 否 |
-| 卡牌进入装备区后 | 装备进入装备区后 **[提案]** | 装备进入流程 节点 3 | player | 否 |
-| 卡牌离开装备区前 | 装备离开装备区前 **[提案]** | [装备离开流程](J_gameEventFlow.md#7-装备离开装备区流程提案) 节点 1 | player | 否 |
+| 卡牌进入装备区后 | 装备进入装备区后 | 装备进入流程 节点 3 | player | 否 |
+| 卡牌离开装备区前 | 装备离开装备区前 | [装备离开流程](J_gameEventFlow.md#8-装备离开装备区流程) 节点 1 | player | **是** |
 | 卡牌离开装备区时 | 装备离开装备区时 | 装备离开流程 节点 2 | player | 否 |
-| 卡牌离开装备区后 | 装备离开装备区后 **[提案]** | 装备离开流程 节点 3 | player | 否 |
-| 弹药耗尽时 | 装备填充物耗尽时 | **[待定义]** 需在 `player.消耗填充物` 中检测 | player | 否 |
+| 卡牌离开装备区后 | 装备离开装备区后 | 装备离开流程 节点 3 | player | 否 |
+| 消耗填充物前 | 装备填充物消耗前 | [填充物消耗流程](J_gameEventFlow.md#9-填充物消耗流程) 节点 1 | player | **是** |
+| 消耗填充物时 | 装备填充物消耗时（可修改 event.num） | 填充物消耗流程 节点 2 | player | **是** |
+| 消耗填充物后 | 装备填充物消耗后 | 填充物消耗流程 节点 4 | player | 否 |
+| 填充物耗尽时 | 装备填充物耗尽时（衍生） | 填充物消耗流程 节点 5 | player | 否 |
 
-### 7.7 检定类
-
-| trigger 名 | 触发时机 | 所属流程 | 触发对象 | 取消点 |
-|-----------|---------|---------|---------|--------|
-| 潜行检定前 | 潜行检定前 | [潜行检定流程](J_gameEventFlow.md#11-潜行检定流程) 节点 1 | player | 否 |
-| 潜行检定时 | 潜行检定执行时 | 潜行检定流程 节点 2 | player | 否 |
-| 潜行检定后 | 潜行检定结果出来后 **[提案]** | 潜行检定流程 节点 3 | player | 否 |
-| 怪物出生检定前 | 怪物出生检定前 **[提案]** | [怪物出生检定流程](J_gameEventFlow.md#12-怪物出生检定流程) 节点 1 | player | 否 |
-| 怪物出生检定时 | 怪物出生检定执行时 **[提案]** | 怪物出生检定流程 节点 2 | player | 否 |
-| 怪物出生检定后 | 怪物出生检定结果出来后 **[提案]** | 怪物出生检定流程 节点 3 | player | 否 |
-
-### 7.8 游戏类
+### 7.8 检定类
 
 | trigger 名 | 触发时机 | 所属流程 | 触发对象 | 取消点 |
 |-----------|---------|---------|---------|--------|
-| 游戏开始时 | 游戏开始时 | **[待定义]** 游戏开始流程 | player / 地块 | 否 |
+| 潜行检定前 | 潜行检定前（可设置 skipJudge 跳过投骰） | [潜行检定流程](J_gameEventFlow.md#13-潜行检定流程) 节点 1 | player | 否 |
+| 潜行检定时 | 潜行检定执行时（可修改 event.result） | 潜行检定流程 节点 3 | player | 否 |
+| 潜行检定后 | 潜行检定结果出来后 | 潜行检定流程 节点 4 | player | 否 |
+| 怪物出生检定前 | 怪物出生检定前（可设置 skipJudge 跳过投骰） | [怪物出生检定流程](J_gameEventFlow.md#14-怪物出生检定流程) 节点 1 | player | 否 |
+| 怪物出生检定时 | 怪物出生检定执行时（可修改 event.result） | 怪物出生检定流程 节点 3 | player | 否 |
+| 怪物出生检定后 | 怪物出生检定结果出来后 | 怪物出生检定流程 节点 4 | player | 否 |
 
-### 7.9 弃牌类
+### 7.9 游戏类
 
 | trigger 名 | 触发时机 | 所属流程 | 触发对象 | 取消点 |
 |-----------|---------|---------|---------|--------|
-| 弃置牌前 | 弃置牌前（整体一次） | [弃置牌流程](J_gameEventFlow.md#14-弃置牌流程) 节点 1 | player | **是** |
+| 游戏开始时 | 游戏开局时（抓初始怪物卡后、第一玩家回合前） | [游戏开始流程](J_gameEventFlow.md#19-游戏开始流程) 节点 3 | player | 否 |
+| 游戏结束时 | 游戏结束时（gameOver 设置状态后） | [游戏结束流程](J_gameEventFlow.md#20-游戏结束流程) 节点 3 | player | 否 |
+
+### 7.10 弃牌类
+
+| trigger 名 | 触发时机 | 所属流程 | 触发对象 | 取消点 |
+|-----------|---------|---------|---------|--------|
+| 弃置牌前 | 弃置牌前（整体一次） | [弃置牌流程](J_gameEventFlow.md#16-弃置牌流程) 节点 1 | player | **是** |
 | 弃置牌时 | 弃置牌时（每张触发一次） | 弃置牌流程 节点 2 | player | 否 |
 | 弃置牌后 | 弃置牌后（整体一次） | 弃置牌流程 节点 3 | player | 否 |
 
-### 7.10 销毁类
+### 7.11 销毁类
 
 | trigger 名 | 触发时机 | 所属流程 | 触发对象 | 取消点 |
 |-----------|---------|---------|---------|--------|
-| 销毁牌前 | 销毁牌前（整体一次） | [销毁牌流程](J_gameEventFlow.md#15-销毁牌流程) 节点 1 | player | **是** |
+| 销毁牌前 | 销毁牌前（整体一次） | [销毁牌流程](J_gameEventFlow.md#17-销毁牌流程) 节点 1 | player | **是** |
 | 销毁牌时 | 销毁牌时（每张触发一次） | 销毁牌流程 节点 2 | player | 否 |
 | 销毁牌后 | 销毁牌后（整体一次） | 销毁牌流程 节点 3 | player | 否 |
+
+### 7.12 地图类
+
+| trigger 名 | 触发时机 | 所属流程 | 触发对象 | 取消点 |
+|-----------|---------|---------|---------|--------|
+| 摧毁地块前 | 地块被摧毁前 | [摧毁地块流程](J_gameEventFlow.md#21-摧毁地块流程) 节点 1 | 所有 player | **是** |
+| 摧毁地块时 | 地块摧毁系统结算时（玩家已弹出、怪物标记已消灭） | 摧毁地块流程 节点 4 | 所有 player | 否 |
+| 摧毁地块后 | 地块摧毁完成后（地块已从地图区域移除） | 摧毁地块流程 节点 6 | 所有 player | 否 |
+| 触发目标标记时 | 玩家进入地块且触发未触发的目标标记后 | [移动流程](J_gameEventFlow.md#2-玩家移动流程) 节点 11 | player | 否 |
+
+> **注**：摧毁地块类 trigger 由 [Game.destroyMapBlock](../GameSystem/Game/Game.md#destroymapblockblock-source) 触发，对所有 player 按座位顺序触发。event 字段：`source`（摧毁者，可 NULL）、`block`（被摧毁的地块）。
 
 ---
 
@@ -280,8 +312,6 @@
 | 弃置怪物 | `player.弃置面前的一张非首领怪物并替换为怪物标记()` | 怪物弃牌堆 + 加怪物标记 | **否**（纯移除，不触发「怪物死亡时」） |
 | 击杀 | 通过 `damage` 流程使生命值 ≤ 0 | 怪物弃牌堆 | **是**（触发「怪物死亡时」） |
 
-> 详见 [待定义方法.md §9.15](../待定义方法.md#915-杀死怪物时触发时机)
-
 ### 8.2 翻面
 
 | 机制 | 定义 |
@@ -293,13 +323,13 @@
 
 | 机制 | 定义 |
 |------|------|
-| 同生共死 | 可选难度规则。开启后任何玩家死亡即所有求生者输掉游戏。详见 [G_gameOver.md](G_gameOver.md) |
+| 同生共死 | 可选难度规则。开启后任何玩家死亡即所有求生者输掉游戏。由 `game.同生共死模式` 字段控制（默认 false）。在 [Player.playerDeath](../GameSystem/Entities/Player.md#playerdeath) 末尾全灭判定之前检查：为真时立即 `game.gameOver("lose")`。详见 [L_gameVariants.md](L_gameVariants.md) |
 
 ### 8.4 重调
 
 | 机制 | 定义 |
 |------|------|
-| 重调 | `player.洗牌(pile)` 重新洗牌指定牌堆。详见 [SurvivorPacks/gunslinger.md](../SurvivorPacks/gunslinger.md) 快速拔枪 |
+| 重调 | `player.洗牌(pile)` 重新洗牌指定牌堆。详见 [SurvivorPacks/gunslinger.md](../Resource/SurvivorPacks/gunslinger.md) 快速拔枪 |
 
 ### 8.5 移出游戏
 
@@ -311,10 +341,46 @@
 
 | 机制 | 定义 |
 |------|------|
-| 复合触发 | 技能 trigger 字段支持「、」分隔的多个触发名。如 `trigger: 游戏开始时、受到伤害时`。技能 content 内可通过 `trigger == "xxx"` 判断分支。详见 [GameSystem/EventTrigger.md](../GameSystem/EventTrigger.md) |
+| 复合触发 | 技能 trigger 字段支持「、」分隔的多个触发名。如 `trigger: 游戏开始时、受到伤害时`。技能 content 内可通过 `trigger == "xxx"` 判断分支。详见 [GameSystem/Core/EventSystem.md](../GameSystem/Core/EventSystem.md) |
 
 ### 8.7 取消点
 
 | 机制 | 定义 |
 |------|------|
 | 取消点 | 流程中可调用 `event.cancel()` 取消当前事件的节点。取消后流程立即终止，已执行的钩子不回滚（除移动流程会回滚地块技能）。各流程的取消点见 [第 7 章](#7-事件-trigger) 各表「取消点」列 |
+
+### 8.8 游戏状态机
+
+> 详见 [GameSystem/Core/GameStateMachine.md](../GameSystem/Core/GameStateMachine.md)。
+
+| 术语 | 英文 | 定义与关键规则 |
+|------|------|---------------|
+| 游戏状态机 | game state machine | 独立类 `GameStateMachine`，由 Game 持有。负责游戏级状态管理、回合队列管理、胜利/失败条件检查。不继承 Entity（无技能、无 trigger） |
+| 游戏阶段 | game phase | 状态机的状态字段，三值：`"setup"`（初始化）/ `"playing"`（游戏中）/ `"gameOver"`（已结束）。合法转换：`setup → playing → gameOver`，其他转换非法（抛异常） |
+| 游戏结果 | game result | `"win"` / `"lose"` / NULL（进行中）。`gameOver` 状态下访问 |
+| 回合队列 | turn queue | `Queue<Player>`，待执行的回合队列。队首为下一个行动玩家。标准情况下按座位顺序填充所有存活玩家；额外回合通过 `insertExtraTurn(player)` 插入队首 |
+| 跳过标记 | skip set | `Set<Player>`，需要跳过下个回合的玩家集合。跳过是一次性的，轮到时跳过并移除标记。通过 `skipTurn(player)` 添加 |
+| 额外回合 | extra turn | 通过 `insertExtraTurn(player)` 插入队首的额外回合。当前玩家回合结束后立即执行。典型场景：部分技能效果让玩家获得额外回合 |
+| 跳过回合 | skip turn | 通过 `skipTurn(player)` 标记玩家跳过下个回合。轮到该玩家时跳过并移除标记。典型场景：怪物击晕等效果 |
+| 当前回合玩家 | current player | 当前正在行动的玩家。`"setup"` / `"gameOver"` 状态下为 NULL。由 `nextTurn()` 通过 `获取下一个玩家()` 设置 |
+| 委托模式 | delegation pattern | Game 类的状态相关方法（`startGame` / `gameOver` / `getCurrentPlayer` / `nextTurn`）委托给状态机实现。Game 类仅保留全局区域与跨玩家操作 |
+| 代理字段 | proxy field | Game 类的 `游戏阶段` / `游戏结果` / `当前回合玩家` 字段通过代理访问状态机内部字段，向后兼容已有引用 |
+| 胜利条件检查 | win condition check | 仅在玩家回合结束时（`player.开始回合()` 返回后）由 `checkWinCondition()` 检查：任务完成（`game.检查任务胜利条件()`）+ 面包车燃料足够 + 所有存活玩家在面包车 + 面包车无怪物和怪物标记。若 `启动面包车所需燃料 == NULL`，跳过后 3 项面包车相关检查，仅依赖任务胜利条件 |
+| 失败条件检查 | lose condition check | 即时检查，由各流程触发后直接调用 `gameOver("lose")`。失败条件：所有玩家死亡 / 怪物牌堆重洗后仍空 / 同生共死变体下任一玩家死亡（`game.同生共死模式` 为真）/ 任务特定失败（如任务 8 潜行失败且无日记本） |
+
+### 8.9 任务系统
+
+> 详见 [Game.md 任务配置结构](../GameSystem/Game/Game.md#任务配置结构missionconfig) 与 [Player.md §十四 任务系统方法](../GameSystem/Entities/Player.md#十四任务系统方法)。
+
+| 术语 | 英文 | 定义与关键规则 |
+|------|------|---------------|
+| 任务配置 | mission config | `game.任务配置` 字段，由任务包加载。含 `启动面包车所需燃料` / `检查胜利条件()` / `任务状态` 三个字段。详见 [Game.md](../GameSystem/Game/Game.md#任务配置结构missionconfig) |
+| 启动面包车所需燃料 | fuel required | 启动面包车所需的燃料值。Int 或 NULL：NULL 表示该任务不通过启动面包车胜利（如任务 4/8/9/11），此时 [checkWinCondition](../GameSystem/Core/GameStateMachine.md#checkwincondition) 跳过面包车相关检查，仅依赖 `检查胜利条件()` |
+| 检查胜利条件 | check win condition | `game.任务配置.检查胜利条件()` 函数，由任务包提供。返回 true 表示任务特定胜利条件已满足。由 `game.检查任务胜利条件()` 调用，作为 `checkWinCondition()` 的第一项条件 |
+| 任务状态 | mission state | `game.任务配置.任务状态` 字典（`Dict<String, Any>`），存储任务特定运行时状态。各任务自行约定键名，如任务 8 的 `"已记录科学家信息"` / `"已解救科学家"` / `"科学家装备牌"` |
+| 任务物品 | mission item | 任务特定物品（如「满是灰尘的日记本」），作为普通拾荒卡存储在玩家**手牌区**，计入手牌上限。通过 `player.收集物品(卡牌名, 数量)` 直接生成新卡加入手牌区（不消耗拾荒牌堆） |
+| 持有物品查询 | has item | `player.hasItem(卡牌名)` 方法，搜索玩家手牌区 + 装备区判断是否持有指定物品 |
+| 首领卡抽取 | draw boss card | `player.drawBossCard()` 方法，从怪物牌堆中筛选 `怪物级别 == "首领"` 的卡抽取（牌堆中没有则从怪物弃牌堆找）。抽取后复用 [drawMonster(1)](../GameSystem/Entities/Player.md#drawmonstern) 完整流程，确保 trigger 正常触发 |
+| 解救科学家 | rescue scientist | `player.获得解救科学家的选项()` 方法，让玩家选择是否花费 1 行动解救科学家。科学家作为装备牌装备到玩家面前（任务 8 特殊设置"把科学家拾荒卡放到一边"，预存储在 `任务状态["科学家装备牌"]`） |
+| 记录科学家信息 | record scientist info | `player.记录科学家信息()` 方法，在 `任务状态` 中标记 `"已记录科学家信息" = true`（任务 8 胜利条件之一：潜行失败但有日记本时记录信息） |
+| 拾荒卡创建 | create scavenge card | `game.createScavengeCard(卡牌名)` 工厂方法，根据卡牌名从 ScavengePacks 定义克隆一张新卡（不消耗任何牌堆）。供 `player.收集物品` 调用 |
