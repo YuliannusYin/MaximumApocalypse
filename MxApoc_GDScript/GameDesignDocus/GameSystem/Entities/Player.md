@@ -45,6 +45,7 @@
 | 中毒标记 (`poison`) | 回合结算时受到等量伤害（无来源伤害） |
 | 饥饿伤害等级 | 角色卡翻面后的标记。等级 1-5 分别造成 2/4/6/8/致死伤害 |
 | 避难所失效 | 避难所技能的临时标记，持续到回合结束 |
+| 本回合已移动 | 玩家本回合内执行过 `moveTo` 后添加。爆破机器人天赋 2 等技能依赖此标记判断。回合开始时清除 |
 | 其他临时标记 | 各技能/地块添加的标记 |
 
 > 标记管理通过 `countMark` / `addMarkSkill` / `removeMarkSkill` / `hasMarkSkill` 等方法。
@@ -107,7 +108,7 @@ function player.recover(num) {
     }
     player.add_hp(event.num)
 
-    # 4. 回复生命后 [提案]
+    # 4. 回复生命后
     player.trigger("回复生命后", event)
 }
 ```
@@ -635,6 +636,8 @@ function player.moveTo(target) {
 
     # 6. 移动时（坐标变更）
     player.moveToMapBlock(target)
+    # 添加「本回合已移动」标记（爆破机器人天赋 2 等技能依赖此标记）
+    player.addMarkSkill("本回合已移动")
 
     # 7. 清理旧地块技能（移动成功后再清理 source 的技能，确保回滚时玩家仍保留旧技能）
     source.清除技能(player)
@@ -823,6 +826,10 @@ function player.monsterSpawnJudge() {
 > 流程：玩家死亡前 → 玩家死亡时 → 玩家死亡后（清理 + 事件）。
 > 取消点：无（死亡流程不可取消）。
 > 触发场景：`entity.damage` 流程节点 8 中玩家生命值 ≤ 0；或游戏牌堆无牌时摸牌。
+>
+> **游戏结束检查**（玩家死亡后，按顺序）：
+> 1. **同生共死模式**：`game.同生共死模式` 为真 → 立即 `game.gameOver("lose")`（任一玩家死亡即所有求生者输掉游戏，见 [L_gameVariants.md](../../GameInstructions/L_gameVariants.md)）
+> 2. **全灭判定**：`game.allPlayersDead()` 为真 → `game.gameOver("lose")`
 
 **清理内容**：
 - a. 怪物区怪物 → 弃牌堆，等量怪物标记（最多3个）放回地块
@@ -877,6 +884,12 @@ function player.playerDeath(source) {
     player.trigger("玩家死亡后", event)
 
     # 检查游戏结束条件
+    # 1. 同生共死模式：任一玩家死亡即所有求生者输掉游戏（在全灭判定之前检查）
+    if (game.同生共死模式) {
+        game.gameOver("lose")
+        return
+    }
+    # 2. 全灭判定：所有玩家死亡
     if (game.allPlayersDead()) {
         game.gameOver("lose")
     }
@@ -1369,6 +1382,8 @@ function player.立即执行一个行动(num=1) {
 | `add_hp(n)` / `reduce_hp(n)` | 继承自 Entity（底层原子方法） |
 | `get_hunger()` / `add_hunger(n)` / `reduce_hunger(n)` | 饥饿值读写 |
 | `get_sneak()` | 获取潜行值（含饥饿状态修正） |
+| `add_sneak(n)` | 增加潜行值（底层原子方法，不触发钩子）。用于装备技能调整潜行值（如 hunter 迷彩服） |
+| `reduce_sneak(n)` | 减少潜行值（底层原子方法，不触发钩子）。用于装备离开装备区时还原潜行值 |
 
 #### 区域管理
 
@@ -1379,6 +1394,7 @@ function player.立即执行一个行动(num=1) {
 | `getCards(source=, position=, name=, quantity=)` | 按条件查询玩家区域中的牌 |
 | `getAllGameCards()` | 返回所有求生者游戏牌（手牌+装备+牌堆+弃牌堆） |
 | `移除区域牌(card)` | 从所在区域移除一张牌（内部方法） |
+| `hasNonLeaderMonster()` | 玩家面前是否有非首领怪物（filter 用，如 hunter 迷彩服·弃置） |
 
 #### 标记管理
 
@@ -1397,6 +1413,9 @@ function player.立即执行一个行动(num=1) {
 | `getEquipment(name)` | 按装备名返回装备区中的装备对象（找不到返回 NULL） |
 | `已用装备栏()` | 返回装备区所有装备牌占用格数之和（`sum(card.大小)`） |
 | `增加装备栏(n)` / `减少装备栏(n)` | 调整装备栏容量 |
+| `hasFillableWeapon()` | 装备区是否有可以填充弹药的武器（`填充物类型 == "弹药"`，filter 用，如 gunslinger 空尖弹） |
+| `get总填充物数量(type)` | 返回装备区所有指定类型（如"弹药"）填充物的当前总量之和 |
+| `清空填充物(type)` | 清空装备区所有指定类型填充物，返回被清空的总量（如 gunslinger 齐射） |
 
 #### 行动管理
 
@@ -1406,7 +1425,7 @@ function player.立即执行一个行动(num=1) {
 | `减少行动次数(n)` | 消耗行动次数 |
 | `getNumber(key)` | 获取数值型状态（如"玩家剩余行动次数"） |
 | `等待玩家行动()` | 占位方法，由 UI 层驱动玩家在行动阶段执行行动（[开始回合](#十回合流程) 节点 9 调用） |
-| `清除回合临时标记()` | 清除持续到回合结束的临时标记（如"避难所失效"） |
+| `清除回合临时标记()` | 清除持续到回合结束的临时标记（如"避难所失效"、"本回合已移动"等） |
 | `isAlive()` | 玩家是否存活（生命值 > 0） |
 
 #### 选择器（玩家交互）
@@ -1417,6 +1436,313 @@ function player.立即执行一个行动(num=1) {
 | `chooseCard(n, position=, source=)` | 从指定区域选择 n 张牌 |
 | `chooseMapBlock(options)` | 选择一个地图块 |
 | `showCard(card, target)` | 向目标玩家展示一张牌 |
+
+---
+
+### 十三、技能辅助方法
+
+> 以下方法为卡牌包技能 content 中调用的复合流程方法，由各 Resource 卡牌包技能引用。
+
+#### 弃置面前的一张非首领怪物并替换为怪物标记()
+
+> 弃置玩家面前的一张非首领怪物卡，将其置入怪物弃牌堆，并在玩家所在地块添加 1 个怪物标记。
+> **纯移除**：不触发「怪物死亡时」事件（与 hunter 迷彩服·弃置一致）。
+> 调用场景：[hunter.md 迷彩服·弃置](../../Resource/SurvivorPacks/hunter.md)。
+
+```gdscript
+function player.弃置面前的一张非首领怪物并替换为怪物标记() {
+    # 选择一张非首领怪物
+    candidates = []
+    for (monster in player.怪物区) {
+        if (monster.怪物级别 != "首领") {
+            candidates.add(monster)
+        }
+    }
+    if (candidates.isEmpty()) {
+        return
+    }
+    monster = player.choose([
+        类型: "monster",
+        列表: candidates,
+    ])
+    # 从怪物区移除（纯移除，不触发怪物死亡流程）
+    player.怪物区.remove(monster)
+    # 置入怪物弃牌堆
+    game.怪物弃牌堆.add(monster.原卡牌)
+    # 在玩家所在地块添加 1 个怪物标记
+    block = player.get_current_block()
+    block.addMonsterMark(1)
+}
+```
+
+---
+
+#### 向玩家拉近一格不触发效果(target)
+
+> 把当前玩家向 target 拉近 1 格，不触发任何地块钩子（直接变更坐标，跳过离开/进入地块钩子和展示效果）。
+> 调用场景：[surgeon.md 注射类固醇](../../Resource/SurvivorPacks/surgeon.md)（实际为医疗兵「拉近」技能）。
+>
+> **移动规则**：
+> - 计算从当前玩家到 target 的最短路径（曼哈顿距离）
+> - 沿路径移动 1 格（朝 target 方向）
+> - 不触发 `离开地块前/时/后`、`进入地块前/时/后`、`展示地块时` 等任何 trigger
+> - 不清理旧地块技能、不获取新地块技能（地块技能保持不变）
+> - 不添加「本回合已移动」标记（非主动移动）
+
+```gdscript
+function player.向玩家拉近一格不触发效果(target) {
+    source = player.get_current_block()
+    targetBlock = target.get_current_block()
+    # 计算朝 target 方向的下一个地块
+    nextBlock = game.getStepToward(source, targetBlock)
+    if (nextBlock == NULL) {
+        return  # 已经在 target 所在地块或无路径
+    }
+    # 直接变更坐标（不触发任何钩子）
+    player.moveToMapBlock(nextBlock)
+}
+```
+
+> **注**：`game.getStepToward(source, target)` 返回从 source 朝 target 方向的相邻存活地块。实现见 [Game.md](../Game/Game.md)。
+
+---
+
+#### 治疗所有状态效果()
+
+> 清除玩家身上所有状态标记（中毒、饥饿伤害等级等技能添加的状态效果）。
+> 调用场景：[surgeon.md 医疗包](../../Resource/SurvivorPacks/surgeon.md)。
+
+```gdscript
+function player.治疗所有状态效果() {
+    # 清除中毒标记
+    player.removeMarkSkill("poison")
+    # 清除饥饿伤害等级（不翻回角色卡正面，需另行 recover）
+    player.removeMarkSkill("饥饿伤害等级")
+    # 清除其他技能添加的状态标记（如「避难所失效」等）
+    # 注：仅清除状态类标记，不清除「本回合已移动」等流程性标记
+    player.清除所有状态标记()
+}
+```
+
+> **与 `清除回合临时标记()` 的区别**：`治疗所有状态效果` 清除的是**负面状态**（中毒、饥饿伤害等），通常由医疗技能使用；`清除回合临时标记` 清除的是**回合内临时标记**（本回合已移动、避难所失效等），在回合开始时自动调用。
+
+---
+
+#### 立即打出一张牌()
+
+> 让玩家立即打出一张手牌，**不消耗行动次数**，不走 [useCard](#七使用卡牌流程) 完整流程。
+> 与 [立即执行一个行动(num)](#十一迷你回合流程) 的区别：
+> - `立即执行一个行动`：给玩家额外的行动次数，玩家可自由选择移动/抓牌/出牌/拾荒等任意行动
+> - `立即打出一张牌`：仅限使用一张手牌（装备牌或行动牌），不消耗行动次数
+>
+> 调用场景：[surgeon.md 注射类固醇](../../Resource/SurvivorPacks/surgeon.md)（让目标玩家立即打出 2 张牌）。
+
+```gdscript
+function player.立即打出一张牌() {
+    if (player.手牌区.isEmpty()) {
+        return
+    }
+    # 保存当前 inPhase
+    savedPhase = player.inPhase
+    player.inPhase = "行动阶段"
+
+    # 玩家选择一张手牌打出（不消耗行动次数）
+    card = player.chooseCard(1, position="手牌区")
+    if (card == NULL) {
+        player.inPhase = savedPhase
+        return
+    }
+
+    # 直接执行卡牌效果（不走 useCard 完整流程，不消耗行动次数）
+    if (card.类型 == "装备") {
+        player.装备(card)
+    } else {
+        # 行动牌：执行技能 content 后弃掉
+        card.技能.content()
+        player.discard(card)
+    }
+
+    # 恢复 inPhase
+    player.inPhase = savedPhase
+}
+```
+
+> **注**：此方法不触发「使用卡牌前/时/后」trigger（不走 useCard 流程）。如需触发使用卡牌事件，应使用 `player.useCard(card)` 并后续通过 `player.增加行动次数(1)` 补回消耗。
+
+---
+
+### 十四、任务系统方法
+
+> 以下方法为任务包目标标记效果与任务特殊设置中调用的任务系统方法。
+> 任务物品存储：用户决策为「手牌区，计入手牌上限」（任务物品作为普通拾荒卡存在于手牌区）。
+> 任务胜利条件：用户决策为「任务包提供函数」（`game.任务配置.检查胜利条件()`）。
+> 详见 [Game.md 任务配置结构](../Game/Game.md#任务配置结构missionconfig)。
+
+#### 收集物品(卡牌名, 数量)
+
+> 直接生成指定数量的拾荒卡加入玩家手牌区。**不消耗任何牌堆**中的牌，通过 [game.createScavengeCard](../Game/Game.md#createscavengecardcardname) 克隆新卡。
+> 任务物品计入手牌上限（手牌区上限 10 张），但本方法不强制校验上限——任务物品是任务进度关键道具，必须能获得；若超上限由玩家在后续回合中弃牌处理。
+> 调用场景：[basic-mission_5.md](../../Resource/MissionPacks/basic-mission_5.md)（收集日记本）、[basic-mission_10.md](../../Resource/MissionPacks/basic-mission_10.md)（收集多余零件/医疗用品）等。
+
+```gdscript
+function player.收集物品(卡牌名, 数量) {
+    for (i = 0; i < 数量; i++) {
+        card = game.createScavengeCard(卡牌名)
+        if (card == NULL) {
+            return
+        }
+        player.手牌区.add(card)
+    }
+    game.log(player.名字 + " 获得了 " + 数量 + " 张 " + 卡牌名)
+}
+```
+
+> **设计说明**：
+> - 直接生成新卡而不从拾荒牌堆抽取，是因为任务物品通过目标标记效果获得（非随机拾荒），牌堆中同名卡仍可被正常拾荒（任务设计已考虑）
+> - 不校验手牌上限：任务物品是任务进度关键道具，强制加入；玩家若手牌超上限，需在后续回合主动弃牌（与现有手牌上限机制一致：抓牌/拾荒阶段校验上限，其他时机不校验）
+
+---
+
+#### hasItem(卡牌名)
+
+> 判断玩家是否持有指定名字的物品（搜索手牌区 + 装备区）。
+> 调用场景：[basic-mission_8.md](../../Resource/MissionPacks/basic-mission_8.md)（检查玩家是否有日记本）。
+
+```gdscript
+function player.hasItem(卡牌名) {
+    # 搜索手牌区
+    for (card in player.手牌区) {
+        if (card.名字 == 卡牌名) {
+            return true
+        }
+    }
+    # 搜索装备区
+    for (card in player.装备区) {
+        if (card.名字 == 卡牌名) {
+            return true
+        }
+    }
+    return false
+}
+```
+
+> **搜索范围**：手牌区 + 装备区。不搜索游戏牌堆/弃牌堆/怪物区。
+
+---
+
+#### drawBossCard()
+
+> 从怪物牌堆中筛选首领卡抽取。**筛选逻辑**：遍历怪物牌堆找到 `怪物级别 == "首领"` 的卡；牌堆中没有则从怪物弃牌堆中查找；都没有则日志提示并返回。
+> 抽取后复用 [drawMonster(1)](#drawmonstern) 的完整流程（包括实体化、trigger 触发等），确保首领卡进入怪物区时正常触发「怪物卡进入求生者怪物区前/时/后」等 trigger。
+> 调用场景：[basic-mission_5.md](../../Resource/MissionPacks/basic-mission_5.md)、[basic-mission_7.md](../../Resource/MissionPacks/basic-mission_7.md)、[basic-mission_8.md](../../Resource/MissionPacks/basic-mission_8.md)（目标标记效果中抓首领牌）。
+
+```gdscript
+function player.drawBossCard() {
+    # 1. 从怪物牌堆中筛选首领卡
+    bossCard = NULL
+    for (i = 0; i < 怪物牌堆.size(); i++) {
+        if (怪物牌堆[i].怪物级别 == "首领") {
+            bossCard = 怪物牌堆.remove(i)
+            break
+        }
+    }
+
+    # 2. 牌堆中没有首领卡，从怪物弃牌堆中查找
+    if (bossCard == NULL) {
+        for (i = 0; i < 怪物弃牌堆.size(); i++) {
+            if (怪物弃牌堆[i].怪物级别 == "首领") {
+                bossCard = 怪物弃牌堆.remove(i)
+                break
+            }
+        }
+    }
+
+    # 3. 都没有首领卡
+    if (bossCard == NULL) {
+        game.log("牌堆与弃牌堆中均无首领卡！")
+        return
+    }
+
+    # 4. 把首领卡放到怪物牌堆顶部，复用 drawMonster(1) 的完整流程
+    #    确保 trigger（抓取怪物卡前/时/后、怪物卡进入求生者怪物区前/时/后）正常触发
+    怪物牌堆.pushTop(bossCard)
+    player.drawMonster(1)
+}
+```
+
+> **设计说明**：
+> - 复用 `drawMonster(1)` 而非直接实体化，是为了让首领卡进入怪物区时正常触发所有相关 trigger（如 alien 首领的"进入怪物区后"效果、mechanic 感应地雷等）
+> - 筛选保留牌堆其他卡顺序：仅移除首领卡，其他卡相对顺序不变
+> - 从弃牌堆查找的场景：任务 4 特殊设置"把首领卡洗入怪物牌堆底"，若首领卡已被击杀进入弃牌堆，玩家再次触发 drawBossCard 时从弃牌堆找回
+
+---
+
+#### 获得解救科学家的选项()
+
+> 让玩家选择是否花费 1 行动解救科学家。科学家作为装备牌装备到玩家面前。
+> 调用场景：[basic-mission_8.md](../../Resource/MissionPacks/basic-mission_8.md)（潜行检定成功后）。
+>
+> **科学家装备牌来源**：任务 8 特殊设置"把科学家拾荒卡放到一边"，意味着科学家卡不在拾荒牌堆中，而是预存储在 `game.任务配置.任务状态["科学家装备牌"]` 中。
+> **装备目标**：调用本方法的玩家（即触发目标标记的玩家）。
+
+```gdscript
+function player.获得解救科学家的选项() {
+    # 1. 询问玩家是否解救
+    choice = player.choose(["花费 1 行动解救科学家", "不解救"])
+    if (choice == "不解救") {
+        game.log(player.名字 + " 选择不解救科学家。")
+        return
+    }
+
+    # 2. 检查行动次数
+    if (player.行动次数 < 1) {
+        game.prompt(player.名字 + " 行动次数不足，无法解救科学家。")
+        return
+    }
+
+    # 3. 从任务配置获取科学家装备牌
+    科学家 = game.任务配置.任务状态["科学家装备牌"]
+    if (科学家 == NULL) {
+        game.log("科学家已被解救！")
+        return
+    }
+
+    # 4. 扣除 1 行动
+    player.减少行动次数(1)
+
+    # 5. 装备到玩家面前（科学家作为装备牌，触发装备流程 trigger）
+    player.装备(科学家)
+
+    # 6. 更新任务状态
+    game.任务配置.任务状态["科学家装备牌"] = NULL
+    game.任务配置.任务状态["已解救科学家"] = true
+    game.log(player.名字 + " 解救了科学家，装备到面前！")
+}
+```
+
+> **设计说明**：
+> - 科学家作为装备牌，装备时触发完整的「卡牌进入装备区前/时/后」trigger
+> - 装备栏容量校验由 `player.装备(科学家)` 内部处理；若容量不足，玩家需先弃置装备（`装备()` 方法内会提示）
+> - 科学家装备牌的技能（如任务 9 中"带到坠毁点上传病毒"）由任务包定义，装备后挂载到玩家身上
+
+---
+
+#### 记录科学家信息()
+
+> 记录科学家弥留之际的信息（任务 8 胜利条件之一）。
+> 调用场景：[basic-mission_8.md](../../Resource/MissionPacks/basic-mission_8.md)（潜行检定失败但有日记本时）。
+> 实现：在 `game.任务配置.任务状态` 中标记 `"已记录科学家信息" = true`，供任务胜利条件函数检查。
+
+```gdscript
+function player.记录科学家信息() {
+    game.任务配置.任务状态["已记录科学家信息"] = true
+    game.log(player.名字 + " 在日记本上记录了科学家弥留之际的信息。")
+}
+```
+
+> **设计说明**：
+> - 任务状态存储在 `game.任务配置.任务状态` 字典中，由任务包各方法写入
+> - 任务 8 的胜利条件函数会检查 `任务状态["已记录科学家信息"]` 是否为 true，以及所有存活玩家是否在军事基地
 
 ---
 

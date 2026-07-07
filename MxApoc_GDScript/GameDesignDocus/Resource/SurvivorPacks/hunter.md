@@ -14,7 +14,7 @@
         技能描述: "行动：最多展示两个相邻的地图块，且不触发任何地块触发效果。"
         active: "行动阶段"
         # 行动阶段、有剩余行动次数、且所在地块存在相邻未展示地块时可用
-        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && 玩家所在地块有相邻且未展示的地图块 # 自然语言描述，待实现为具体函数调用
+        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.get_current_block().hasAdjacentUnrevealedBlock()
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
             maxReveal = 2 # 最多展示两个相邻地块
@@ -288,9 +288,9 @@
         skillType: "行动"
         active: "行动阶段"
         # 行动阶段、有剩余行动次数、且场上所有弃牌堆中至少有1张装备牌时可用
-        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && 场上所有弃牌堆中至少有1张装备牌 # 自然语言描述，待实现为具体函数调用
+        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && game.hasEquipmentInDiscardPiles()
         content:{
-            List = 所有弃牌堆中的装备牌 # 获取所有弃牌堆中的装备牌（包括所有玩家的弃牌堆和拾荒弃牌堆）, 然后返回装备牌列表
+            List = game.getAllDiscardPileEquipments() # 获取所有弃牌堆中的装备牌（包括所有玩家的弃牌堆和拾荒弃牌堆）
             card = player.chooseCard(List) # 从所有装备牌中选择一张装备牌
             target = player.chooseTarget({
                 selectTarget: 1 # 选择场上任一玩家
@@ -316,10 +316,10 @@
         forced: true # 强制发动
         content:{
             if( trigger == "卡牌进入装备区时" ){
-                player.add_sneak( 2 ) # 自然语言描述，待实现为具体函数调用
+                player.add_sneak( 2 )
             }
             else if( trigger == "卡牌离开装备区时" ){
-                player.reduce_sneak( 2 ) # 自然语言描述，待实现为具体函数调用
+                player.reduce_sneak( 2 )
             }
         }
     }
@@ -329,11 +329,11 @@
         skillType: "装备"
         active: "行动阶段"
         # 免费行动：不消耗行动次数；需你面前有非首领怪物
-        filter: return player.inPhase == "行动阶段" && 玩家面前有非首领怪物 # 自然语言描述，待实现为具体函数调用
+        filter: return player.inPhase == "行动阶段" && player.hasNonLeaderMonster()
         content:{
             player.discard( name = "迷彩服", position = "装备区" ) # 弃置此装备
             player.damage( 3, player ) # 受到3点伤害
-            player.弃置面前的一张非首领怪物并替换为怪物标记() # 自然语言描述，待实现为具体函数调用；纯移除不触发「怪物死亡时」事件
+            player.弃置面前的一张非首领怪物并替换为怪物标记() # 纯移除不触发「怪物死亡时」事件
         }
     }
 }

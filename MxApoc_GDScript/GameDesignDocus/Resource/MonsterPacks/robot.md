@@ -17,7 +17,8 @@
 # "被消灭时"统一映射为 trigger: 怪物死亡时（怪物生命值降为0时触发；不含卡牌效果摧毁场景，与 SurvivorPacks/hunter.md 迷彩服弃置怪物的"纯移除不触发怪物死亡时事件"对齐）
 # "射程内的所有玩家/目标"以怪物所纠缠玩家所在位置为中心，按怪物射程确定（见 F_gameRange.md）
 # "弃掉"为弃置（进入对应弃牌堆），与"销毁（移出游戏）"不同
-# 爆破机器人天赋2需依赖"本回合已移动"标记：玩家执行移动（player.moveTo）时添加该标记，回合开始时清除；待实现层在 GameSystem/Entities/Player.md 的 player.moveTo 函数及回合开始流程中补充此标记机制  # [修改] 2026-07-04: 加"待实现"标注，明确跨层依赖未完成
+# 爆破机器人天赋2需依赖"本回合已移动"标记：玩家执行移动（player.moveTo）时添加该标记，回合开始时清除
+#   → 已落地：[Player.md moveTo 节点 6](../GameSystem/Entities/Player.md#movetotarget) 添加标记；[Player.md 开始回合 节点 1](../GameSystem/Entities/Player.md#十回合流程) 通过 `清除回合临时标记()` 清除
 
 怪物卡{
     名字: 人工智能核心领袖

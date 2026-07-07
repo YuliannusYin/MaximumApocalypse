@@ -328,6 +328,8 @@ function gsm.skipTurn(player) {
 
 > 检查胜利条件。仅在玩家回合结束时（`player.开始回合()` 返回后）调用。
 > 胜利条件见 [G_gameOver.md](../../GameInstructions/G_gameOver.md)。
+>
+> **燃料值为 NULL 的处理**：若 `game.任务配置.启动面包车所需燃料 == NULL`，表示该任务不通过启动面包车胜利（如任务 4/8/9/11），此时跳过面包车相关检查（条件 2/3/4），仅依赖 `game.检查任务胜利条件()`。
 
 ```gdscript
 function gsm.checkWinCondition() {
@@ -338,6 +340,12 @@ function gsm.checkWinCondition() {
     # 1. 玩家完成了任务（由任务系统检查）
     if (!game.检查任务胜利条件()) {
         return false
+    }
+
+    # 若该任务不通过面包车胜利（燃料值为 NULL），跳过条件 2/3/4
+    if (game.任务配置.启动面包车所需燃料 == NULL) {
+        gsm.gameOver("win")
+        return true
     }
 
     # 2. 往「面包车」添加了所需要的燃料值
@@ -369,7 +377,7 @@ function gsm.checkWinCondition() {
 
 > **检查时机**：仅在 `gsm.nextTurn()` 中 `player.开始回合()` 返回后调用。
 > **注意**：玩家依然会在回合结束前受到伤害（如中毒结算、面前怪物行动），胜利检查在所有伤害结算之后。
-> **任务胜利条件**：`game.检查任务胜利条件()` 由任务系统定义，检查任务特定目标（如任务 12 检查 3 个标记地块是否全部被摧毁）。
+> **任务胜利条件**：`game.检查任务胜利条件()` 委托给 `game.任务配置.检查胜利条件()`，由任务包定义具体逻辑（如任务 5 检查"炸弹已拆除"、任务 8 检查"已记录科学家信息 + 所有玩家在军事基地"、任务 12 检查 3 个标记地块是否全部被摧毁等）。详见 [Game.md 任务配置结构](../Game/Game.md#任务配置结构missionconfig)。
 
 ---
 
@@ -444,10 +452,10 @@ function gsm.getTurnNumber() {
 
 | 失败条件 | 触发位置 | 检查方式 |
 |---------|---------|---------|
-| 所有玩家死亡 | 玩家死亡流程后 | `game.allPlayersDead()` → `gsm.gameOver("lose")` |
+| 所有玩家死亡 | [Player.playerDeath](../Entities/Player.md#playerdeath) 末尾 | `game.allPlayersDead()` 为真 → `gsm.gameOver("lose")` |
 | 怪物牌堆重洗后仍空 | [Player.drawMonster](../Entities/Player.md#drawmonster) 节点 2a | 直接 `gsm.gameOver("lose")` |
-| 同生共死变体：任一玩家死亡 | 玩家死亡流程后 | `game.同生共死模式` 为真 → `gsm.gameOver("lose")` |
-| 任务特定失败条件 | 任务系统定义 | 任务系统检查后调用 `gsm.gameOver("lose")` |
+| 同生共死变体：任一玩家死亡 | [Player.playerDeath](../Entities/Player.md#playerdeath) 末尾 | `game.同生共死模式` 为真 → `gsm.gameOver("lose")`（在全灭判定之前检查） |
+| 任务特定失败条件 | 任务系统定义 | 任务系统检查后调用 `gsm.gameOver("lose")`（如任务 8 潜行失败且无日记本） |
 
 ---
 
@@ -458,12 +466,13 @@ function gsm.getTurnNumber() {
 
 | 胜利条件 | 检查方式 |
 |---------|---------|
-| 玩家完成了任务 | `game.检查任务胜利条件()`（任务系统定义） |
-| 面包车燃料足够 | `面包车.当前燃料 >= game.任务配置.启动面包车所需燃料` |
-| 所有存活玩家在面包车 | 遍历 `game.所有玩家` 检查位置 |
-| 面包车无怪物和怪物标记 | `!面包车.hasMonsterMark() && 面包车.countMonster() == 0` |
+| 玩家完成了任务 | `game.检查任务胜利条件()`（委托给 `game.任务配置.检查胜利条件()`） |
+| 面包车燃料足够 | `面包车.当前燃料 >= game.任务配置.启动面包车所需燃料`（燃料值为 NULL 时跳过此条件及以下条件） |
+| 所有存活玩家在面包车 | 遍历 `game.所有玩家` 检查位置（燃料值为 NULL 时跳过） |
+| 面包车无怪物和怪物标记 | `!面包车.hasMonsterMark() && 面包车.countMonster() == 0`（燃料值为 NULL 时跳过） |
 
 > **注意**：在玩家的回合结束时，胜利条件才触发（玩家依然会在回合结束前受到伤害）。
+> **燃料值为 NULL**：表示该任务不通过启动面包车胜利（如任务 4/8/9/11），此时仅检查任务胜利条件。
 
 ---
 

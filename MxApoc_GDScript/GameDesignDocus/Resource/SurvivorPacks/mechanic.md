@@ -14,10 +14,10 @@
         技能描述: "行动：从任一弃牌堆中选择一张装备牌，并把它放置在场上任一玩家的装备区中。"
         active: "行动阶段"
         # 行动阶段、有剩余行动次数、且场上所有弃牌堆中至少有1张装备牌时可用
-        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && 场上所有弃牌堆中至少有1张装备牌 # 自然语言描述，待实现为具体函数调用
+        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && game.hasEquipmentInDiscardPiles()
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
-            List = 所有弃牌堆中的装备牌 # 获取所有弃牌堆中的装备牌（包括所有玩家的弃牌堆和拾荒弃牌堆），返回装备牌列表；自然语言描述，待实现为具体函数调用
+            List = game.getAllDiscardPileEquipments() # 获取所有弃牌堆中的装备牌（包括所有玩家的弃牌堆和拾荒弃牌堆）
             card = player.chooseCard(List) # 从所有装备牌中选择一张装备牌
             target = player.chooseTarget({
                 selectTarget: 1 # 选择场上任一玩家
@@ -200,7 +200,18 @@
         filterTarget: return target.类型 == "装备"
         filterTargetRange: "中距离"
         content: {
-            该武器额外造成1点伤害 # 自然语言描述，待实现为具体函数调用；该武器额外造成1点伤害
+            # 给目标武器添加「升级伤害+1」标记
+            target.addMarkSkill("升级伤害+1")
+            # 将 subSkill 挂载到玩家身上，武器造成伤害时 event.num += 1
+            player.addSkill("升级_damage")
+        }
+        subSkill: {
+            damage: {
+                trigger: 造成伤害时
+                forced: true
+                filter: return event.card != NULL && event.card.hasMarkSkill("升级伤害+1")
+                content: event.num += 1  # 升级额外造成1点伤害
+            }
         }
     }
 }
@@ -247,7 +258,7 @@
                 filterTarget: return target.is_revealed() # 任一已展示的地图块
                 filterTargetRange: Infinity # 无距离限制
             })
-            target.removeAllMonsterMarks() # 纯移除，不触发"怪物死亡时"事件；自然语言描述，待实现为具体函数调用
+            target.removeAllMonsterMarks() # 纯移除，不触发"怪物死亡时"事件
         }
     }
 }

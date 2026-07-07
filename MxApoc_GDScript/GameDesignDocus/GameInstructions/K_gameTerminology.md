@@ -17,6 +17,7 @@
 - [7. 事件 trigger](#7-事件-trigger)
 - [8. 特殊机制](#8-特殊机制)
   - [8.8 游戏状态机](#88-游戏状态机)
+  - [8.9 任务系统](#89-任务系统)
 
 ---
 
@@ -322,7 +323,7 @@
 
 | 机制 | 定义 |
 |------|------|
-| 同生共死 | 可选难度规则。开启后任何玩家死亡即所有求生者输掉游戏。详见 [G_gameOver.md](G_gameOver.md) |
+| 同生共死 | 可选难度规则。开启后任何玩家死亡即所有求生者输掉游戏。由 `game.同生共死模式` 字段控制（默认 false）。在 [Player.playerDeath](../GameSystem/Entities/Player.md#playerdeath) 末尾全灭判定之前检查：为真时立即 `game.gameOver("lose")`。详见 [L_gameVariants.md](L_gameVariants.md) |
 
 ### 8.4 重调
 
@@ -364,5 +365,22 @@
 | 当前回合玩家 | current player | 当前正在行动的玩家。`"setup"` / `"gameOver"` 状态下为 NULL。由 `nextTurn()` 通过 `获取下一个玩家()` 设置 |
 | 委托模式 | delegation pattern | Game 类的状态相关方法（`startGame` / `gameOver` / `getCurrentPlayer` / `nextTurn`）委托给状态机实现。Game 类仅保留全局区域与跨玩家操作 |
 | 代理字段 | proxy field | Game 类的 `游戏阶段` / `游戏结果` / `当前回合玩家` 字段通过代理访问状态机内部字段，向后兼容已有引用 |
-| 胜利条件检查 | win condition check | 仅在玩家回合结束时（`player.开始回合()` 返回后）由 `checkWinCondition()` 检查 4 个条件：任务完成 + 面包车燃料足够 + 所有存活玩家在面包车 + 面包车无怪物和怪物标记 |
-| 失败条件检查 | lose condition check | 即时检查，由各流程触发后直接调用 `gameOver("lose")`。失败条件：所有玩家死亡 / 怪物牌堆重洗后仍空 / 同生共死变体下任一玩家死亡 / 任务特定失败 |
+| 胜利条件检查 | win condition check | 仅在玩家回合结束时（`player.开始回合()` 返回后）由 `checkWinCondition()` 检查：任务完成（`game.检查任务胜利条件()`）+ 面包车燃料足够 + 所有存活玩家在面包车 + 面包车无怪物和怪物标记。若 `启动面包车所需燃料 == NULL`，跳过后 3 项面包车相关检查，仅依赖任务胜利条件 |
+| 失败条件检查 | lose condition check | 即时检查，由各流程触发后直接调用 `gameOver("lose")`。失败条件：所有玩家死亡 / 怪物牌堆重洗后仍空 / 同生共死变体下任一玩家死亡（`game.同生共死模式` 为真）/ 任务特定失败（如任务 8 潜行失败且无日记本） |
+
+### 8.9 任务系统
+
+> 详见 [Game.md 任务配置结构](../GameSystem/Game/Game.md#任务配置结构missionconfig) 与 [Player.md §十四 任务系统方法](../GameSystem/Entities/Player.md#十四任务系统方法)。
+
+| 术语 | 英文 | 定义与关键规则 |
+|------|------|---------------|
+| 任务配置 | mission config | `game.任务配置` 字段，由任务包加载。含 `启动面包车所需燃料` / `检查胜利条件()` / `任务状态` 三个字段。详见 [Game.md](../GameSystem/Game/Game.md#任务配置结构missionconfig) |
+| 启动面包车所需燃料 | fuel required | 启动面包车所需的燃料值。Int 或 NULL：NULL 表示该任务不通过启动面包车胜利（如任务 4/8/9/11），此时 [checkWinCondition](../GameSystem/Core/GameStateMachine.md#checkwincondition) 跳过面包车相关检查，仅依赖 `检查胜利条件()` |
+| 检查胜利条件 | check win condition | `game.任务配置.检查胜利条件()` 函数，由任务包提供。返回 true 表示任务特定胜利条件已满足。由 `game.检查任务胜利条件()` 调用，作为 `checkWinCondition()` 的第一项条件 |
+| 任务状态 | mission state | `game.任务配置.任务状态` 字典（`Dict<String, Any>`），存储任务特定运行时状态。各任务自行约定键名，如任务 8 的 `"已记录科学家信息"` / `"已解救科学家"` / `"科学家装备牌"` |
+| 任务物品 | mission item | 任务特定物品（如「满是灰尘的日记本」），作为普通拾荒卡存储在玩家**手牌区**，计入手牌上限。通过 `player.收集物品(卡牌名, 数量)` 直接生成新卡加入手牌区（不消耗拾荒牌堆） |
+| 持有物品查询 | has item | `player.hasItem(卡牌名)` 方法，搜索玩家手牌区 + 装备区判断是否持有指定物品 |
+| 首领卡抽取 | draw boss card | `player.drawBossCard()` 方法，从怪物牌堆中筛选 `怪物级别 == "首领"` 的卡抽取（牌堆中没有则从怪物弃牌堆找）。抽取后复用 [drawMonster(1)](../GameSystem/Entities/Player.md#drawmonstern) 完整流程，确保 trigger 正常触发 |
+| 解救科学家 | rescue scientist | `player.获得解救科学家的选项()` 方法，让玩家选择是否花费 1 行动解救科学家。科学家作为装备牌装备到玩家面前（任务 8 特殊设置"把科学家拾荒卡放到一边"，预存储在 `任务状态["科学家装备牌"]`） |
+| 记录科学家信息 | record scientist info | `player.记录科学家信息()` 方法，在 `任务状态` 中标记 `"已记录科学家信息" = true`（任务 8 胜利条件之一：潜行失败但有日记本时记录信息） |
+| 拾荒卡创建 | create scavenge card | `game.createScavengeCard(卡牌名)` 工厂方法，根据卡牌名从 ScavengePacks 定义克隆一张新卡（不消耗任何牌堆）。供 `player.收集物品` 调用 |

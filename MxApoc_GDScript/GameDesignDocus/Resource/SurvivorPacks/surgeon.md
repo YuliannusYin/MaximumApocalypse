@@ -64,7 +64,7 @@
         content:{
             player.减少行动次数( 1 ) # 消耗1点行动次数
             # 把目标玩家向你拉近1格，不触发任何地块钩子（直接变更坐标，跳过离开/进入地块钩子和展示效果）
-            target.向玩家拉近一格不触发效果(player) # 自然语言描述，待实现为具体函数调用
+            target.向玩家拉近一格不触发效果(player)
         }
     }
 }
@@ -202,7 +202,7 @@
             player.减少行动次数( 1 ) # 消耗1点行动次数
             choice = player.choose(["治疗所有状态效果", "降低饥饿等级1点"])
             if( choice == "治疗所有状态效果" ){
-                target.治疗所有状态效果() # 自然语言描述，待实现为具体函数调用
+                target.治疗所有状态效果()
             }
             else if( choice == "降低饥饿等级1点" ){
                 target.decreaseHunger( 1 ) # 降低目标1点饥饿值（见 GameSystem/Entities/Player.md 中 decreaseHunger 定义，最低降至1）
@@ -225,7 +225,8 @@
         filterTarget: return target.type == Human # 目标必须是人类类型（包含玩家幸存者，可用于对自己使用）
         filterTargetRange: Infinity # 无距离限制
         content:{
-            # 自然语言描述，待实现为具体函数调用；与「立即执行2个行动」有区别，特指使用2张手牌
+            # 让目标玩家立即打出2张牌（不消耗行动次数，不走 useCard 完整流程）
+            # 与「立即执行2个行动」有区别：特指使用2张手牌
             target.立即打出一张牌()
             target.立即打出一张牌()
         }

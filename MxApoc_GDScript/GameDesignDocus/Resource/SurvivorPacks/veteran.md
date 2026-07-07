@@ -138,7 +138,7 @@
                 filterTarget: return target.countMonsterMark() > 0 # 目标地块上至少有1个怪物标记
                 filterTargetRange: "长距离" # 目标必须在长距离范围内
             })
-            target.移除怪物标记( 1 ) # 移除地块上的1个怪物标记；自然语言描述，待实现为具体函数调用
+            target.removeMonsterMark( 1 ) # 移除地块上的1个怪物标记
             player.dog.damage( 2, player )
         }
     }

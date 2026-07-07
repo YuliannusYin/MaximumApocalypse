@@ -79,11 +79,12 @@ function entity.trigger(triggerName, event) {
 
 ### 3. 伤害流程（通用）
 
-#### entity.damage(num, source, type = NULL)
+#### entity.damage(num, source, type = NULL, card = NULL)
 
 > 「target 受到来自于 source 的 num 点类型为 type 的伤害」的流程方法。
 > target 与 source 均为 Entity 子类实例（Player 或 Monster）。
 > source = NULL 时表示无来源伤害（如饥饿伤害、中毒伤害），跳过所有 source 侧钩子。
+> card = NULL 时表示非武器伤害（如赤手空拳、地块伤害）；card 为武器牌时供「造成伤害时」filter 判断（如 gunslinger 空尖弹、mechanic 升级）。
 > 流程节点 8 触发死亡判定，调用 target 的 `death(source)`（多态：Player 走 playerDeath，Monster 走 monsterDeath）。
 
 **事件钩子顺序**：
@@ -92,17 +93,17 @@ function entity.trigger(triggerName, event) {
 |------|-----------|---------|------|
 | 1 | 造成伤害前 | source | source != NULL 时触发 |
 | 2 | 受到伤害前 | target | 始终触发（含无来源伤害） |
-| 3 | 造成伤害时 | source | source != NULL 时触发；可修改 `event.num`（伤害加成） |
+| 3 | 造成伤害时 | source | source != NULL 时触发；可修改 `event.num`（伤害加成）；可通过 `event.card` 判断武器 |
 | 4 | 受到伤害时 | target | **取消点**；可修改 `event.num`（伤害减免）或调用 `event.cancel()` |
 | 5 | （系统扣血） | — | `target.生命值 -= event.num`，非钩子节点 |
 | 6 | 造成伤害后 | source | source != NULL 时触发 |
 | 7 | 受到伤害后 | target | 始终触发（含无来源伤害） |
 | 8 | （死亡判定） | — | `target.生命值 <= 0` → 调用 `target.death(source)` |
 
-**event 成员**：`event.target`、`event.source`（可为 NULL）、`event.num`（可读写）、`event.type`、`event.cancelled`、`event.cancel()`
+**event 成员**：`event.target`、`event.source`（可为 NULL）、`event.num`（可读写）、`event.type`、`event.card`（可为 NULL，造成伤害的武器牌）、`event.cancelled`、`event.cancel()`
 
 ```gdscript
-function entity.damage(num, source, type = NULL) {
+function entity.damage(num, source, type = NULL, card = NULL) {
     if (num <= 0) {
         return
     }
@@ -116,6 +117,7 @@ function entity.damage(num, source, type = NULL) {
         source: source,
         num: num,
         type: type,
+        card: card,  # 造成伤害的武器牌（可为 NULL）
         cancelled: false,
     }
 

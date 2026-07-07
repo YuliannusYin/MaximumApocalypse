@@ -118,12 +118,14 @@ function block.展示(触发效果, player) {
 |------|------|
 | `addMonsterMark(n)` | 增加 n 个怪物标记（上限 3）。**不触发**目标标记移除条件检查 |
 | `removeMonsterMark(n)` | 移除 n 个怪物标记。移除后检查地块上所有目标标记的 `移除条件`，满足时自动调用 `removeObjectiveMark(mark)` |
+| `removeAllMonsterMarks()` | 移除地块上**所有**怪物标记（设为 0）。**纯移除**，不触发「怪物死亡时」事件。移除后同样检查目标标记移除条件。调用场景：[mechanic.md 无人机攻击](../../Resource/SurvivorPacks/mechanic.md)、[veteran.md 搜索犬](../../Resource/SurvivorPacks/veteran.md) |
 | `countMonsterMark()` | 返回当前怪物标记数 |
 | `hasMonsterMark()` | 是否有怪物标记（countMonsterMark() > 0） |
 | `countMonster()` | 返回地块上当前纠缠玩家的怪物总数（怪物卡数） |
 | `hasPlayer()` | 是否有玩家在此地块 |
 | `hasColor()` | 是否可拾荒（拾荒颜色集合非空） |
 | `hasSkill(name)` | 是否具备指定名字的地块技能 |
+| `hasAdjacentUnrevealedBlock()` | 是否存在相邻且未展示的存活地块（filter 用，如 hunter 侦察）。实现：遍历 `getAdjacentBlocks()` 检查 `!b.is_revealed()` |
 
 #### 怪物标记规则
 

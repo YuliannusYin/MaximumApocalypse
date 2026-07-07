@@ -51,7 +51,7 @@
 | 7  | 受到伤害后     | target | 始终触发（含无来源伤害）                                                     |
 | 8  | （死亡判定）    | —      | `target.生命值 <= 0` → 进入 [玩家死亡流程](#5-玩家死亡流程) 或 [怪物死亡流程](#4-怪物死亡流程) |
 
-**event 成员**：`event.target`、`event.source`（可为 NULL）、`event.num`（可读写）、`event.type`、`event.cancelled`、`event.cancel()`
+**event 成员**：`event.target`、`event.source`（可为 NULL）、`event.num`（可读写）、`event.type`、`event.card`（可为 NULL，造成伤害的武器牌，供「造成伤害时」filter 判断）、`event.cancelled`、`event.cancel()`
 
 ***
 
@@ -428,11 +428,11 @@
 | 1  | 回复生命前           | player | 回复前触发                                                    |
 | 2  | 回复生命时           | player | 可修改 `event.num`（如 surgeon 手术刀·回复、手套：`event.num += 1`）    |
 | 3  | （系统加血）          | —      | `player.add_hp(min(event.num, player.get_max_hp() - player.get_hp()))`，受最大值约束，非钩子节点 |
-| 4  | 回复生命后 **\[提案]** | player | 回复完成后触发                                                  |
+| 4  | 回复生命后           | player | 回复完成后触发                                                  |
 
 **event 成员**：`event.player`（回复目标）、`event.num`（可读写）、`event.cancelled`、`event.cancel()`
 
-> **注**：节点 2 为已确认 trigger（surgeon 手术刀·回复、手套均使用，forced:true 强制发动并修改 `event.num`）；节点 1/4 为按命名模式提案，对称包围系统加血节点。
+> **注**：节点 2 为 surgeon 手术刀·回复、手套使用的 trigger（forced:true 强制发动并修改 `event.num`）；节点 1/4 按命名模式对称包围系统加血节点，目前无具体技能引用，保留为通用 trigger。
 > **与伤害流程的差异**：无 source 侧（回复无来源概念）；无取消点（K\_gameTerminology.md §7.1 标注为「否」），但保留 `event.cancel()` 接口以备未来扩展。
 > **与** **`player.add_hp(n)`** **的区别**：`add_hp` 为底层原子方法，直接修改生命值数值，不触发钩子且不受最大值约束；`recover` 走完整 4 节点流程。
 

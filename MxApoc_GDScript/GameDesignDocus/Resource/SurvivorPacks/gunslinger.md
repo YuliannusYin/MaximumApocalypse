@@ -95,7 +95,7 @@
         技能描述: "行动：销毁本牌然后将一张弹药类武器填装满【空尖弹】弹药，这种弹药会让武器牌额外造成两点伤害。武器弹药耗尽时弃置武器牌。"
         skillType: "行动"
         active: "行动阶段"
-        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && 玩家装备区有可以填充弹药的武器 # [修改] 2026-07-02: 自然语言描述，待实现为具体函数调用
+        filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0 && player.hasFillableWeapon()
         selectTarget: 1 # 选择1个目标武器
         filterTarget: return target.在玩家装备区内 && target.填充物类型 == "弹药" # 目标必须是玩家装备区内的弹药类武器牌
         content: {
@@ -139,10 +139,10 @@
         selectTarget: 1
         filterTargetRange: "中距离"
         content: {
-            num = player.get总填充物数量( "弹药" ) # 自然语言描述，待实现为具体函数调用
-            player.清空填充物( "弹药" ) # 统一为填充物API；自然语言描述，待实现为具体函数调用
+            num = player.get总填充物数量( "弹药" )
+            player.清空填充物( "弹药" )
             for i in range(num):
-                target.damage( 2, player ) # 对目标造成2点伤害
+                target.damage( 2, player ) # 对目标造成2点伤害，伤害来源为玩家
         }
     }
 }

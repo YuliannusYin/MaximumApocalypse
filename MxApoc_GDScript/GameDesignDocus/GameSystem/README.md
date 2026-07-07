@@ -122,7 +122,7 @@ GameSystem/
 
 | 文件 | 职责 |
 |------|------|
-| [Player.md](Entities/Player.md) | Player 类：状态管理（recover/饥饿/poison）、抓牌（draw/drawScavenge/drawMonster）、弃牌与销毁、移动、检定、死亡、装备、填充物、回合流程（开始回合 21 节点） |
+| [Player.md](Entities/Player.md) | Player 类：状态管理（recover/饥饿/poison）、抓牌（draw/drawScavenge/drawMonster）、弃牌与销毁、移动、检定、死亡、装备、填充物、回合流程（开始回合 21 节点）、任务系统方法（收集物品/hasItem/drawBossCard/解救科学家/记录科学家信息） |
 | [Monster.md](Entities/Monster.md) | Monster 类：属性、行动/攻击流程、monsterDeath、实体化 |
 | [Card.md](Entities/Card.md) | Card 基类 + ScavengeCard / SurvivorGameCard / EquipmentCard / MonsterCard 子类定义 |
 | [MapBlock.md](Entities/MapBlock.md) | MapBlock 类：属性、展示、怪物标记管理、地块技能挂载 |
@@ -194,14 +194,3 @@ GameSystem/
 
 ## 后续待完善
 
-- [x] 装备进入/离开装备区流程（[Player.装备](Entities/Player.md#装备) / [Player.卸下](Entities/Player.md#卸下)）落地为正式 trigger：已落地（含系统预校验：同名装备校验 + 装备栏容量校验）
-- [x] 填充物消耗流程（[Player.消耗填充物](Entities/Player.md#消耗填充物)）与「填充物耗尽时」trigger：已落地（前/时/后 + 耗尽时衍生 trigger，签名 `(equipment, num)`，不足时取消并提示）
-- [x] 游戏开始流程与「游戏开始时」trigger：已落地（`game.startGame()` 方法 + 「游戏开始时」/「游戏结束时」对称 trigger，按座位顺序对所有 player 触发）
-- [x] 检定流程的「后」节点 trigger（潜行检定后 / 怪物出生检定后）：已落地（前/时/后三节点 + skipJudge 跳过投骰机制 + event.result 结构体 `{ value, success }`）
-- [ ] `player.立即打出一张牌` 的语义定义（区别于 `player.立即执行一个行动(num)`，特指使用一张手牌；见 [surgeon.md](../Resource/SurvivorPacks/surgeon.md) 注射类固醇）
-- [ ] 各技能中标注「自然语言描述，待实现为具体函数调用」的方法落地为正式 API（如 `player.弃置面前的一张非首领怪物并替换为怪物标记()`、`player.向玩家拉近一格不触发效果(target)`、`player.清空填充物(type)`、`target.治疗所有状态效果()` 等）
-- [x] `event.result`（检定流程）的类型与语义定义：已定义为结构体 `{ value: 骰子点数, success: 布尔值 }`；怪物出生检定的 success 无意义，恒为 true
-- [x] 「摧毁地图板块」机制定义：已落地（`game.destroyMapBlock(block, source)` 方法 + 摧毁地块前/时/后 trigger，玩家弹出到相邻存活地块，怪物标记消灭，地块从地图区域移除）
-- [x] 游戏地图系统设计：已落地（MapBlock 添加坐标/地块状态/目标标记字段 + 相邻查询/距离计算/射程范围查询/目标标记管理方法；Game 添加 buildMap/getBlockByCoord/getBlocksByName/destroyMapBlock 方法；任务包格式规范化含特殊位置地块名指定与目标标记定义）
-- [x] 目标标记机制扩展：已落地（ObjectiveMark 添加「初始怪物标记数」与「移除条件」字段，支持任务 9/11 标记地块预置怪物标记与清除条件移除；MapBlock 添加 removeAllObjectiveMarks 方法供炸药调用；5 个任务包 5/7/8/9/11 目标标记定义补全；炸药技能术语统一为「目标标记」）
-- [x] 游戏状态机系统：已落地（独立 GameStateMachine 类管理 setup/playing/gameOver 三状态 + 回合队列支持额外回合/跳过回合 + 胜利条件回合结束检查 + 失败条件即时检查；Game 类通过委托模式与代理字段集成状态机；Player.开始回合() 实现线性 21 节点回合流程）
