@@ -16,19 +16,23 @@ GameDesignDocus/
 ├── GameInstructions/   # 游戏规则说明（面向玩家/设计师）
 │   玩家可读的规则文档，A-L 字母编号，按主题分章
 │
-└── Resource/            # 数据定义（卡牌/地图块/任务包）
-    各类卡牌、地图块、任务的具体数据定义与技能伪代码
+├── Resource/            # 数据定义（卡牌/地图块/任务包）
+│   各类卡牌、地图块、任务的具体数据定义与技能伪代码
+│
+└── Engineering/         # 工程设计（面向开发者）
+    Godot 工程结构、标识符映射、数据格式规范
 ```
 
 ---
 
-## 三个子目录
+## 四个子目录
 
 | 目录 | 定位 | 读者 | 入口 |
 |------|------|------|------|
 | [GameSystem/](GameSystem/README.md) | 底层系统设计：类继承、字段、方法、事件机制、伪代码流程 | 开发者 | [GameSystem/README.md](GameSystem/README.md) |
 | [GameInstructions/](GameInstructions/README.md) | 游戏规则说明：从概述到术语的完整规则文档 | 设计师 / 玩家 | [GameInstructions/README.md](GameInstructions/README.md) |
 | [Resource/](Resource/README.md) | 数据定义：求生者/拾荒/怪物/任务/地图块的具体内容 | 设计师 / 开发者 | [Resource/README.md](Resource/README.md) |
+| [Engineering/](Engineering/GodotProjectStructure.md) | 工程设计：Godot 项目结构、中英文标识符映射、JSON 数据格式规范 | 开发者 | [Engineering/GodotProjectStructure.md](Engineering/GodotProjectStructure.md) |
 
 ---
 
@@ -62,19 +66,28 @@ GameDesignDocus/
 1. [Resource/README.md](Resource/README.md) — 数据格式与包索引
 2. 按需查阅各子包（如 [SurvivorPacks/firefighter.md](Resource/SurvivorPacks/firefighter.md)）
 
+### 工程实现准备
+
+1. [Engineering/GodotProjectStructure.md](Engineering/GodotProjectStructure.md) — Godot 项目目录结构与编码规范
+2. [Engineering/IdentifierMapping.md](Engineering/IdentifierMapping.md) — 中英文标识符完整映射表
+3. [Engineering/DataFormat.md](Engineering/DataFormat.md) — markdown → JSON 数据格式规范
+
 ---
 
-## 三目录关系
+## 四目录关系
 
 ```
 GameSystem/（源定义）  ←──实现──→  GameInstructions/（规则说明）
        ↑
        └── 数据引用 ──→  Resource/（卡牌/地图块/任务数据）
+       
+Engineering/（工程设计）──→ GameSystem/ + Resource/ 的代码实现规范
 ```
 
 - **GameSystem/** 是底层源定义：类结构、方法签名、流程节点都在此定义
 - **GameInstructions/** 是玩家可读的规则说明：同一套流程，但以自然语言描述，附带 trigger 名索引
 - **Resource/** 是数据层：卡牌技能的 `content` 伪代码在 GameSystem/ 定义的流程中被调用
+- **Engineering/** 是工程规范：定义 Godot 项目结构、中英文标识符映射、JSON 数据格式，指导从设计文档到代码的落地
 
 核心设计模式：
 - **钩子驱动**：所有流程采用「XX前 / XX时 / XX后」三段式钩子 + 取消点
