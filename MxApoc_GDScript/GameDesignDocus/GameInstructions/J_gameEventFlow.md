@@ -29,6 +29,7 @@
 - [18. 回复生命值流程](#18-回复生命值流程)
 - [19. 游戏开始流程](#19-游戏开始流程)
 - [20. 游戏结束流程](#20-游戏结束流程)
+- [21. 摧毁地块流程](#21-摧毁地块流程)
 
 ***
 
@@ -73,12 +74,16 @@
 | 8  | 进入地块时      | 一次性进入效果（军事基地造成伤害、监狱减行动、旷野抓怪物等）            |
 | 9  | 进入地块后      | 展示未展示的地块（触发「展示地块时」）；player.trigger        |
 | 10 | （潜行检定）     | 目标地块有怪物标记时进行潜行检定，失败 → 移除标记并抓怪物            |
+| 11 | 触发目标标记时    | 玩家进入地块且触发未触发的目标标记后；`target.triggerObjectiveMarks(player)`，每张未触发标记调用一次标记效果 |
 
 **衍生 trigger**：
 
 - `展示地块时`：节点 9 中地块首次翻开时触发（地块技能）
+- `触发目标标记时`：节点 11 中触发目标标记后触发（player.trigger）；典型场景：任务目标收集、日志记录（见 [任务包](../Resource/MissionPacks/) basic-mission_10、basic-mission_12）
 
 **event 成员**：`event.player`、`event.source`（离开的地块）、`event.targetBlock`（进入的地块）、`event.cancelled`、`event.cancel()`
+
+> **节点 11 衍生 event**（触发目标标记时）：`event.player`、`event.block`、`event.mark`（ObjectiveMark 结构）、`event.cancelled`
 
 ***
 
@@ -233,32 +238,36 @@
 
 ## 10. 玩家回合流程
 
-> **定义位置**：[D\_gameFlow.md](D_gameFlow.md)（完整规则）
-> **本文档仅列 trigger 名 + 节点说明**，详细阶段说明见源文件
+> **规则定义**：[D\_gameFlow.md](D_gameFlow.md)（玩家可读规则）
+> **实现位置**：[Player.开始回合()](../GameSystem/Entities/Player.md#十回合流程)（线性 21 节点流程，由 [GameStateMachine.nextTurn()](../GameSystem/Core/GameStateMachine.md#nextturn) 调用）
+> **本文档仅列 trigger 名 + 节点说明**，详细阶段说明与伪代码见源文件
 
 | 节点 | trigger 名  | 说明                                                            |
 | -- | ---------- | ------------------------------------------------------------- |
-| 1  | （进入玩家回合）   | 非钩子节点                                                         |
+| 1  | （进入玩家回合）   | 非钩子节点。重置行动次数与回合临时标记，`inPhase = "回合开始"`                        |
 | 2  | 回合开始前      | 回合开始前触发                                                       |
 | 3  | 回合开始时      | 回合开始；如 MapBlocks（避难所、电厂）                                      |
-| 4  | 怪物出生前      | 怪物出生检定前                                                       |
+| 4  | 怪物出生前      | 怪物出生检定前。`inPhase = "怪物出生"`                                    |
 | 5  | 怪物出生时      | 进行怪物出生检定（见 [怪物出生检定流程](#14-怪物出生检定流程)）                          |
-| 6  | 摸牌阶段前      | 摸牌前                                                           |
+| 6  | 摸牌阶段前      | 摸牌前。`inPhase = "摸牌阶段"`                                        |
 | 7  | （摸牌阶段）     | 从游戏牌堆抓 1 张牌；牌堆空 → 玩家死亡                                        |
-| 8  | 行动阶段前      | 行动阶段前；含潜行检定（地块有怪物标记时）                                         |
+| 8  | 行动阶段前      | 行动阶段前；含潜行检定（地块有怪物标记时，检定在 trigger 之前执行）。`inPhase = "行动阶段"`     |
 | 9  | （行动阶段）     | 执行 4 个行动 + 免费行动（制衡、交易）                                        |
 | 10 | 行动阶段结束前    | 行动阶段结束前；如 gunslinger（扣动扳机让我快乐 subSkill）                       |
 | 11 | 行动阶段结束时    | 行动阶段结束                                                        |
-| 12 | 求生者饥饿状态结算前 | 饥饿结算前；如 firefighter（野地夹克 subSkill）                            |
+| 12 | 求生者饥饿状态结算前 | 饥饿结算前；如 firefighter（野地夹克 subSkill）。`inPhase = "饥饿结算"`         |
 | 13 | 求生者饥饿状态结算时 | `player.increaseHunger(1)`                                    |
-| 14 | 求生者中毒状态结算前 | 中毒结算前                                                         |
+| 14 | 求生者中毒状态结算前 | 中毒结算前。`inPhase = "中毒结算"`                                      |
 | 15 | 求生者中毒状态结算时 | `player.poison()`（有中毒标记时）                                     |
-| 16 | 面前怪物行动前    | 面前怪物行动前                                                       |
+| 16 | 面前怪物行动前    | 面前怪物行动前。`inPhase = "怪物行动"`                                    |
 | 17 | 面前怪物行动时    | 面前怪物按进入顺序行动（见 [怪物行动流程](#11-怪物行动流程)）                            |
-| 18 | 回合结束前      | 回合结束前；如 gunslinger（扣动扳机让我快乐 subSkill）、MapBlocks（游乐园、警察局、城市街道） |
+| 18 | 回合结束前      | 回合结束前；如 gunslinger（扣动扳机让我快乐 subSkill）、MapBlocks（游乐园、警察局、城市街道）。`inPhase = "回合结束"` |
 | 19 | 回合结束时      | 回合结束；如 MapBlocks（游乐园）                                         |
-| 20 | （退出玩家回合）   | 非钩子节点                                                         |
-| 21 | （胜利判定）     | 回合结束时检查胜利条件（见 [G\_gameOver.md](G_gameOver.md)）                |
+| 20 | （退出玩家回合）   | 非钩子节点。`inPhase = "回合外"`                                       |
+| 21 | （胜利判定）     | 由 [GameStateMachine.checkWinCondition()](../GameSystem/Core/GameStateMachine.md#checkwincondition) 在 `开始回合()` 返回后执行，不在玩家流程内 |
+
+> **死亡中断**：玩家可能在节点 7（牌堆空）、13（饥饿伤害致死）、15（中毒伤害致死）、17（怪物攻击致死）后死亡，死亡后立即 return，后续节点不再执行。
+> **trigger 触发对象**：所有 trigger 均为 `player.trigger`（玩家身上的技能，含已挂载的地块技能）。
 
 ***
 
@@ -431,9 +440,9 @@
 
 ## 19. 游戏开始流程
 
-> **定义位置**：[GameSystem/Game/Game.md](../GameSystem/Game/Game.md) §方法 startGame()
-> **调用方法**：`game.startGame()`
-> **前置条件**：游戏初始化（[C_gameSetup.md](C_gameSetup.md) 步骤 1-6）已完成
+> **定义位置**：[GameSystem/Core/GameStateMachine.md](../GameSystem/Core/GameStateMachine.md) §方法 startGame()（Game 类委托调用）
+> **调用方法**：`game.startGame()` → `状态机.startGame()`
+> **前置条件**：游戏初始化（[C_gameSetup.md](C_gameSetup.md) 步骤 1-6）已完成；`游戏状态 == "setup"`
 > **取消点**：无（全局事件，不提供取消）
 > **trigger 触发对象**：所有 player（按座位顺序依次触发）。Game 类不继承 Entity，无自身 trigger。
 
@@ -455,9 +464,9 @@
 
 ## 20. 游戏结束流程
 
-> **定义位置**：[GameSystem/Game/Game.md](../GameSystem/Game/Game.md) §方法 gameOver(result)
-> **调用方法**：`game.gameOver(result)`（result = "win" / "lose"）
-> **触发场景**：所有玩家死亡（lose）；或胜利条件达成（win，见 [G_gameOver.md](G_gameOver.md)）
+> **定义位置**：[GameSystem/Core/GameStateMachine.md](../GameSystem/Core/GameStateMachine.md) §方法 gameOver(result)（Game 类委托调用）
+> **调用方法**：`game.gameOver(result)` → `状态机.gameOver(result)`（result = "win" / "lose"）
+> **触发场景**：所有玩家死亡（lose）；或胜利条件达成（win，见 [G_gameOver.md](G_gameOver.md)）；或怪物牌堆重洗后仍空（lose）
 > **取消点**：无（游戏结束不可逆）
 > **trigger 触发对象**：所有 player（按座位顺序依次触发）
 
@@ -470,4 +479,41 @@
 **event 成员**：`event.player`、`event.result`（"win" / "lose"）、`event.cancelled`（无 cancel() 调用，游戏结束不可逆）
 
 > **注**：当前无技能使用「游戏结束时」trigger，作为对称设计与未来扩展点保留。技能可按 `event.result` 分支处理胜负场景。
+
+***
+
+## 21. 摧毁地块流程
+
+> **定义位置**：[GameSystem/Game/Game.md](../GameSystem/Game/Game.md) §方法 destroyMapBlock(block, source)
+> **调用方法**：`game.destroyMapBlock(block, source)`（source 可为 NULL，如无来源效果摧毁地块）
+> **触发场景**：大炸药（[ScavengePacks/blue.md](../Resource/ScavengePacks/blue.md)）摧毁已展示存活地块；任务 12 中摧毁标记地块达成胜利条件
+> **取消点**：节点 1「摧毁地块前」可调用 `event.cancel()`（取消后地块不被摧毁，已触发的前置钩子不回滚）
+> **trigger 触发对象**：所有 player（按座位顺序依次触发，Game 类不继承 Entity，通过遍历 `game.所有玩家` 调用 `player.trigger()` 实现）
+> **核心原则**：地块摧毁是非可逆事件；流程顺序为「前取消点 → 玩家弹出 → 怪物标记消灭 → 时节点 → 状态变更 → 后节点」
+
+| 节点 | trigger 名  | 触发对象      | 说明                                                                                                |
+| -- | ---------- | --------- | ------------------------------------------------------------------------------------------------- |
+| 1  | 摧毁地块前      | 所有 player | **取消点**；如任务特殊规则可在此阻止关键地块被摧毁（`event.cancel()`）。source 为 NULL 时也触发                                     |
+| 2  | （玩家弹出）     | —         | 处理地块上的玩家：依次查询 `block.getPlayers()`；有相邻存活地块 → 玩家选择 `target = player.chooseMapBlock(adjacentBlocks)` 后弹出；无相邻存活地块 → `player.damage(5, NULL, "地块摧毁")`。弹出**不触发完整移动钩子**（非主动移动），仅清理旧地块技能、设置坐标、获取新地块技能（若新地块未展示则展示并触发效果） |
+| 3  | （怪物标记消灭）   | —         | `block.怪物标记数 = 0`，地块上的怪物标记全部消灭（不触发怪物死亡流程，纯标记清理）                                                    |
+| 4  | 摧毁地块时      | 所有 player | 系统结算点；此时玩家已弹出、怪物标记已消灭，但地块状态仍为"存活"。可在此读取地块信息做最后处理                                                  |
+| 5  | （状态变更）     | —         | `block.地块状态 = "已摧毁"`；`game.地图区域.remove(block)`，地块从地图区域移除                                           |
+| 6  | 摧毁地块后      | 所有 player | 地块摧毁完成；典型用途：检查任务胜利条件（如任务 12 检查 3 个标记地块是否全部被摧毁）                                                     |
+
+**event 成员**：`event.source`（摧毁者，可为 NULL）、`event.block`（被摧毁的地块）、`event.cancelled`、`event.cancel()`
+
+> **玩家弹出规则细节**（节点 2）：
+>
+> - 弹出**不调用** `player.moveTo(target)`，避免触发完整的离开/进入地块钩子（防止重复触发地块技能、潜行检定等）
+> - 弹出流程：
+>   1. `block.清除技能(player)` — 清理被摧毁地块上的技能
+>   2. `player.moveToMapBlock(target)` — 仅更新坐标
+>   3. `target.获取地块技能(player)` — 挂载新地块技能
+>   4. 若 `!target.is_revealed()` → `target.展示(触发效果=true, player)` — 展示新地块并触发展示效果
+> - 若相邻存活地块为空，玩家受到 5 点无来源伤害（`player.damage(5, NULL, "地块摧毁")`）
+>
+> **典型应用**：
+>
+> - `大炸药`（[ScavengePacks/blue.md](../Resource/ScavengePacks/blue.md)）：行动阶段消耗 1 行动次数，摧毁中距离内的已展示存活地块
+> - 任务 12「烧死那群机器人」（[MissionPacks/basic-mission_12.md](../Resource/MissionPacks/basic-mission_12.md)）：3 个标记地块需用大炸药摧毁，全部摧毁后达成胜利条件之一
 

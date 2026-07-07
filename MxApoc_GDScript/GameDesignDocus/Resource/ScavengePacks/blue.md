@@ -249,7 +249,7 @@
     名字：炸药
     技能: {
         技能名: "炸药"
-        技能描述: "行动：移除一个没有怪物标记的地块上的任务标记，并对地块上的所有目标造成8点伤害。"
+        技能描述: "行动：移除一个没有怪物标记的地块上的所有目标标记，并对地块上的所有目标造成8点伤害。"
         射程: "长距离"
         skillType: "行动"
         active: "行动阶段"
@@ -258,8 +258,8 @@
         filterTarget: return target.是地图块() && !target.有怪物标记() # 目标必须是一个没有怪物标记的地图块
         filterTargetRange: "长距离" # 目标必须在长距离范围内
         content:{
-            target.移除任务标记() # 移除地块上的任务标记
-            List = getTarget( target ) # 获取地块上的所有目标
+            target.removeAllObjectiveMarks() # 移除地块上的所有目标标记
+            List = getTarget( target ) # 获取地块上的所有目标（玩家和怪物）
             for i in List:
                 i.damage( 8, player ) # 对地块上所有目标造成8点伤害
         }
@@ -279,11 +279,13 @@
         active: "行动阶段"
         filter: return player.inPhase == "行动阶段" && player.getNumber( "玩家剩余行动次数" ) > 0
         selectTarget: 1 # 选择1个目标地块
-        filterTarget: return target.是地图块() && target.is_revealed() # 目标必须是一个地图块且已展示的地图块
-        filterTargetRange: "中距离" # 目标必须在中距离范围内
+        filterTarget: return target.是地图块() && target.is_revealed() && target.isAlive() # 目标必须是已展示且存活的地块
+        filterTargetRange: "中距离" # 目标必须在中距离范围内（1-2 格）
         content:{
-            # 备注：「摧毁地图板块」机制待定——地块上的玩家和怪物如何处理？地块是否从游戏中移除？暂保留自然语言描述
-            target.removeMapBlock() # 移除目标地块
+            # 摧毁目标地块：触发摧毁地块前/时/后 trigger
+            # 地块上的玩家弹出到相邻存活地块，怪物标记消灭，地块从地图区域移除
+            # 详见 GameSystem/Game/Game.md 的 destroyMapBlock 方法
+            game.destroyMapBlock(target, player)
         }
     }
 }

@@ -3,6 +3,7 @@
 > 职责：游戏全局状态管理与跨玩家/跨区域操作。
 > Game 类**不继承** Entity（无技能、无 trigger），是全局管理器。
 > 游戏初始化与开局流程见 [C_gameSetup.md](../../GameInstructions/C_gameSetup.md)。
+> 状态管理（游戏阶段/游戏结果/当前回合玩家/回合队列）已委托给 [GameStateMachine](../Core/GameStateMachine.md)。
 
 ---
 
@@ -18,17 +19,25 @@
 | 绿色拾荒牌堆 | Pile | green 拾荒牌堆 |
 | 蓝色拾荒牌堆 | Pile | blue 拾荒牌堆。最安全 |
 | 拾荒弃牌堆 | Pile | 所有颜色的拾荒牌弃置后都进入此弃牌堆（不分颜色） |
-| 地图区域 | List\<MapBlock\> | 所有地图块 |
+| 地图区域 | List\<MapBlock\> | 所有存活的地块。地块被摧毁后从列表中移除 |
+| 地图宽度 | Int | 地图网格的列数（x 方向），由任务地图要求二维数组确定 |
+| 地图高度 | Int | 地图网格的行数（y 方向），由任务地图要求二维数组确定 |
 | 卡牌结算区 | List\<Card\> | 卡牌结算时的临时区域 |
 | 所有玩家 | List\<Player\> | 本局游戏的所有玩家（按座位顺序） |
 
-### 游戏状态
+### 状态机
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| 当前回合玩家 | Player | 当前正在行动的玩家 |
-| 游戏阶段 | String | 当前游戏阶段（"setup" / "playing" / "gameOver"） |
-| 游戏结果 | String | "win" / "lose" / NULL（进行中） |
+| 状态机 | GameStateMachine | 游戏状态机实例。管理游戏阶段、游戏结果、当前回合玩家、回合队列等。详见 [GameStateMachine.md](../Core/GameStateMachine.md) |
+
+> **代理字段**（向后兼容）：以下字段通过代理访问状态机，已有引用无需修改：
+>
+> | 代理字段 | 实际访问 | 类型 | 说明 |
+> |---------|---------|------|------|
+> | `game.游戏阶段` | `game.状态机.游戏状态` | String | `"setup"` / `"playing"` / `"gameOver"` |
+> | `game.游戏结果` | `game.状态机.游戏结果` | String | `"win"` / `"lose"` / NULL（进行中） |
+> | `game.当前回合玩家` | `game.状态机.当前回合玩家` | Player | 当前正在行动的玩家。`"setup"` / `"gameOver"` 状态下为 NULL |
 
 ---
 
@@ -37,57 +46,17 @@
 ### startGame()
 
 > 游戏开局流程：在游戏初始化完成后执行（初始化见 [C_gameSetup.md](../../GameInstructions/C_gameSetup.md) 步骤 1-6）。
-> 依次执行：抓初始手牌（含可选重调）→ 抓初始怪物卡 → 触发「游戏开始时」trigger → 进入第一玩家回合。
+> **委托给** [GameStateMachine.startGame()](../Core/GameStateMachine.md#startgame)，依次执行：状态转换 setup → playing → 抓初始手牌（含可选重调）→ 抓初始怪物卡 → 触发「游戏开始时」trigger → 进入第一玩家回合。
 > 落地 [EventSystem §4.12](../Core/EventSystem.md#412-游戏类) 的「游戏开始时」trigger。
->
-> **trigger 触发对象**：所有 player（按座位顺序依次触发）。Game 类不继承 Entity，无自身 trigger。
-> **触发时机**：在抓初始怪物卡后、第一玩家回合开始前。
 
 ```gdscript
 function game.startGame() {
-    game.游戏阶段 = "playing"
-
-    # 1. 每个玩家抓 4 张初始手牌（按座位顺序）
-    for (player in game.所有玩家) {
-        player.draw(4)
-        # 可选一次重调：把最多 4 张刚抓的牌洗回牌堆，抓等量牌
-        # 由 UI 交互决定，玩家可选择不重调
-        if (player.choose(["进行重调", "不进行重调"]) == "进行重调") {
-            maxReturn = min(4, player.手牌区.size())
-            toReturn = player.chooseCard(maxReturn, position="手牌区")
-            if (toReturn.length > 0) {
-                for (card in toReturn) {
-                    player.手牌区.remove(card)
-                    player.游戏牌堆.add(card)
-                }
-                player.游戏牌堆.shuffle()
-                player.draw(toReturn.length)
-            }
-        }
-    }
-
-    # 2. 每个玩家抓 1 张初始怪物卡（按座位顺序）
-    for (player in game.所有玩家) {
-        player.drawMonster(1)
-    }
-
-    # 3. 触发「游戏开始时」trigger（按座位顺序对所有 player 触发）
-    #    典型场景：gunslinger「快速拔枪」从牌堆中装备【柯尔特手枪】
-    for (player in game.所有玩家) {
-        event = {
-            player: player,
-            cancelled: false,
-        }
-        player.trigger("游戏开始时", event)
-    }
-
-    # 4. 进入第一玩家回合
-    game.当前回合玩家 = game.所有玩家[0]
-    game.当前回合玩家.开始回合()
+    game.状态机.startGame()
 }
 ```
 
-> **注**：游戏初始化（步骤 1-6：加载角色/牌堆/地图/玩家位置/区域）由上层调用方完成，不在 startGame() 内。startGame() 仅负责开局流程（步骤 7-9）。
+> **注**：完整实现见 [GameStateMachine.startGame()](../Core/GameStateMachine.md#startgame)。
+> 游戏初始化（步骤 1-6：加载角色/牌堆/地图/玩家位置/区域）由上层调用方完成，不在 startGame() 内。startGame() 仅负责开局流程（步骤 7-9）。
 > **手牌上限**：每名玩家手牌上限 10，初始 4 张不会触顶。重调不会触顶（最多 4 张换 4 张）。
 
 ---
@@ -95,37 +64,21 @@ function game.startGame() {
 ### gameOver(result)
 
 > 游戏结束流程。
+> **委托给** [GameStateMachine.gameOver(result)](../Core/GameStateMachine.md#gameoverresult)，依次执行：状态转换 playing → gameOver → 设置结果 → 触发「游戏结束时」trigger。
 > 触发场景：所有玩家死亡（lose）；或胜利条件达成（win）。
 > 落地 [EventSystem §4.12](../Core/EventSystem.md#412-游戏类) 的「游戏结束时」trigger。
->
-> **trigger 触发对象**：所有 player（按座位顺序依次触发）。
-> **触发时机**：在 game.游戏阶段 / game.游戏结果 设置后，玩家可访问 event.result 判断胜负。
 
 ```gdscript
 function game.gameOver(result) {
-    game.游戏阶段 = "gameOver"
-    game.游戏结果 = result
-
-    if (result == "win") {
-        game.log("求生者成功逃离启示录的废土！")
-    } else if (result == "lose") {
-        game.log("所有求生者死亡，游戏失败。")
-    }
-
-    # 触发「游戏结束时」trigger（按座位顺序对所有 player 触发）
-    #    event.result 携带 "win" / "lose"，技能可按 result 分支
-    for (player in game.所有玩家) {
-        event = {
-            player: player,
-            result: result,
-            cancelled: false,
-        }
-        player.trigger("游戏结束时", event)
-    }
+    game.状态机.gameOver(result)
 }
 ```
 
+> **注**：完整实现见 [GameStateMachine.gameOver(result)](../Core/GameStateMachine.md#gameoverresult)。
+
 ### 游戏失败条件
+
+> 失败条件为**即时检查**，由各流程触发后调用 `game.gameOver("lose")`。详见 [GameStateMachine.md 游戏失败条件](../Core/GameStateMachine.md#游戏失败条件)。
 
 - **所有玩家死亡** → `game.allPlayersDead()` 为真 → `game.gameOver("lose")`
 - **怪物牌堆重洗后仍空**（所有怪物卡都在场上）→ `game.gameOver("lose")`（见 [Player.drawMonster](../Entities/Player.md#drawmonster) 节点 2a）
@@ -133,6 +86,7 @@ function game.gameOver(result) {
 
 ### 游戏胜利条件
 
+> 胜利条件为**回合结束时检查**，在 [GameStateMachine.checkWinCondition()](../Core/GameStateMachine.md#checkwincondition) 中实现。
 > 详见 [G_gameOver.md](../../GameInstructions/G_gameOver.md)。
 > 在玩家的回合结束时，胜利条件才触发（玩家依然会在回合结束前受到伤害）。
 
@@ -213,14 +167,250 @@ function game.log(message) {
 
 ---
 
+### 地图管理
+
+#### buildMap(missionConfig)
+
+> 根据任务包配置构建游戏地图。
+> 触发场景：[C_gameSetup.md](../../GameInstructions/C_gameSetup.md) 步骤 4「根据任务说明构建地图」。
+>
+> **构建逻辑**（模板+指定+随机）：
+> 1. 读取任务包的「任务地图要求」二维数组，确定地图宽高
+> 2. 读取任务包的「任务地图块配置」地块列表，构建地块池（按数量展开）
+> 3. 遍历二维数组，按编码实例化地块：
+>    - `-1`（无地块）→ 跳过
+>    - `0`（出生点）→ 使用任务包指定的地块名实例化
+>    - `1`（未知随机地块）→ 从地块池中随机抽取一个实例化
+>    - `2`（游戏结束点）→ 使用任务包指定的地块名实例化
+>    - `3`（标记地块）→ 从地块池中随机抽取一个实例化，并添加目标标记
+> 4. 每个实例化的地块设置坐标 `(x, y)`，添加到 `game.地图区域`
+>
+> **任务地图要求编码**：
+> - `-1` = 无地块
+> - `0` = 出生点（任务包指定地块名，如"购物中心"）
+> - `1` = 未知随机地块（从地块池随机抽取）
+> - `2` = 游戏结束点（任务包指定地块名，如"面包车"）
+> - `3` = 标记地块（从地块池随机抽取 + 添加目标标记 + 预置怪物标记）
+
+```gdscript
+function game.buildMap(missionConfig) {
+    mapTemplate = missionConfig.任务地图要求.默认地图  # 二维数组
+    game.地图高度 = mapTemplate.length       # 行数
+    game.地图宽度 = mapTemplate[0].length    # 列数
+
+    # 构建地块池：从任务地图块配置中按数量展开
+    # 例：面包车 ×1、加油站 ×2 → ["面包车", "加油站", "加油站"]
+    blockPool = []
+    for (entry in missionConfig.任务地图块配置) {
+        for (i = 0; i < entry.数量; i++) {
+            blockPool.add(entry.地图块名)
+        }
+    }
+
+    # 遍历二维数组，按编码实例化地块
+    for (y = 0; y < game.地图高度; y++) {
+        for (x = 0; x < game.地图宽度; x++) {
+            code = mapTemplate[y][x]
+
+            if (code == -1) {
+                # 无地块，跳过
+                continue
+            }
+
+            if (code == 0) {
+                # 出生点：使用任务包指定的地块名
+                blockName = missionConfig.任务地图要求.出生点地块名
+                block = createMapBlock(blockName)
+            } else if (code == 1) {
+                # 未知随机地块：从地块池随机抽取
+                index = random(0, blockPool.length - 1)
+                blockName = blockPool.remove(index)  # 抽取并移除
+                block = createMapBlock(blockName)
+            } else if (code == 2) {
+                # 游戏结束点：使用任务包指定的地块名
+                blockName = missionConfig.任务地图要求.结束点地块名
+                block = createMapBlock(blockName)
+            } else if (code == 3) {
+                # 标记地块：从地块池随机抽取 + 添加目标标记 + 预置怪物标记
+                index = random(0, blockPool.length - 1)
+                blockName = blockPool.remove(index)
+                block = createMapBlock(blockName)
+                # 添加任务定义的目标标记
+                mark = missionConfig.任务地图要求.获取下一个目标标记()
+                block.addObjectiveMark(mark)
+                # 预置怪物标记（如任务9 每个2个、任务11 每个3个）
+                if (mark.初始怪物标记数 > 0) {
+                    block.addMonsterMark(mark.初始怪物标记数)
+                }
+            }
+
+            # 设置坐标并添加到地图区域
+            block.setCoordinate(x, y)
+            game.地图区域.add(block)
+        }
+    }
+}
+```
+
+> **地块实例化**：`createMapBlock(blockName)` 根据 MapBlocksPack 中的地块定义创建 MapBlock 实例（名字、技能、怪物生成点数、拾荒颜色等）。
+> **地块池耗尽**：如果地块池不够（`1` 和 `3` 位置过多），抛出配置错误。
+> **目标标记**：任务包通过 `获取下一个目标标记()` 返回 ObjectiveMark 结构（标记ID、描述、效果函数、初始怪物标记数、移除条件），详见 [Resource/README.md 任务包格式](../../Resource/README.md#任务包missionpacks)。
+> **预置怪物标记**：标记地块可根据目标标记的 `初始怪物标记数` 字段预置怪物标记（任务 9/11）。预置的怪物标记与怪物出生检定添加的标记共用同一字段，上限 3。
+
+---
+
+#### getBlockByCoord(x, y)
+
+> 通过坐标查询存活的地块。
+> 触发场景：[MapBlock.getAdjacentBlocks](../Entities/MapBlock.md#相邻地块查询)、距离计算、射程判定等。
+
+```gdscript
+function game.getBlockByCoord(x, y) {
+    for (block in game.地图区域) {
+        if (block.isAlive() && block.坐标.x == x && block.坐标.y == y) {
+            return block
+        }
+    }
+    return NULL
+}
+```
+
+> 已摧毁的地块已从 `game.地图区域` 移除，不会被查询到。坐标越界时返回 NULL。
+
+---
+
+#### getBlocksByName(name)
+
+> 按名字查询所有同名的存活地块。
+> 触发场景：隧道技能（移动到另一个已展示的隧道地块）、机场技能等。
+
+```gdscript
+function game.getBlocksByName(name) {
+    result = []
+    for (block in game.地图区域) {
+        if (block.isAlive() && block.名字 == name) {
+            result.add(block)
+        }
+    }
+    return result
+}
+```
+
+---
+
+#### getAdjacentAliveBlocks(block)
+
+> 返回地块的四向相邻存活地块。
+> 用于地块摧毁时玩家弹出目标选择。
+
+```gdscript
+function game.getAdjacentAliveBlocks(block) {
+    return block.getAdjacentBlocks()
+}
+```
+
+> 实际逻辑由 [MapBlock.getAdjacentBlocks](../Entities/MapBlock.md#相邻地块查询) 实现。
+
+---
+
+#### destroyMapBlock(block, source)
+
+> 摧毁地块流程。
+> 触发场景：[blue.md 大炸药](../../Resource/ScavengePacks/blue.md)「行动：摧毁一个地图板块」。
+> 落地 [EventSystem §4.13](../Core/EventSystem.md#413-地图类) 的「摧毁地块前/时/后」trigger。
+>
+> **处理逻辑**：
+> 1. 触发「摧毁地块前」（取消点，可阻止摧毁）
+> 2. 地块上的玩家弹出到相邻存活地块（玩家选择方向）
+> 3. 消灭地块上的所有怪物标记
+> 4. 触发「摧毁地块时」（系统结算）
+> 5. 地块状态变更为「已摧毁」，从 `game.地图区域` 移除
+> 6. 触发「摧毁地块后」
+>
+> **trigger 触发对象**：所有 player（按座位顺序）。Game 类不继承 Entity，无自身 trigger。
+>
+> **玩家弹出规则**：
+> - 玩家选择一个相邻存活地块（`player.chooseMapBlock(adjacentBlocks)`）
+> - 弹出不消耗行动次数，不触发完整移动钩子（非主动移动）
+> - 清理旧地块技能 → 底层坐标变更 → 获取新地块技能 → 展示未展示的地块
+> - 无相邻存活地块时，玩家受到 5 点无源伤害（紧急逃生失败）
+
+```gdscript
+function game.destroyMapBlock(block, source) {
+    event = {
+        source: source,    # 摧毁者（玩家，可 NULL）
+        block: block,      # 被摧毁的地块
+        cancelled: false,
+    }
+
+    # 1. 摧毁地块前（取消点）
+    #    技能可调用 event.cancel() 阻止摧毁
+    for (player in game.所有玩家) {
+        player.trigger("摧毁地块前", event)
+    }
+    if (event.cancelled) {
+        return false
+    }
+
+    # 2. 处理地块上的玩家（弹出到相邻存活地块）
+    players = block.getPlayers()
+    for (player in players) {
+        adjacentBlocks = block.getAdjacentBlocks()
+        if (adjacentBlocks.isEmpty()) {
+            # 无相邻存活地块，玩家受到 5 点无源伤害（紧急逃生失败）
+            game.log(player.名字 + "无处可逃，受到 5 点伤害")
+            player.damage(5, NULL, "地块摧毁")
+        } else {
+            # 玩家选择一个相邻存活地块
+            target = player.chooseMapBlock(adjacentBlocks)
+            # 清理旧地块技能
+            block.清除技能(player)
+            # 底层坐标变更（不触发完整移动钩子，非主动移动）
+            player.moveToMapBlock(target)
+            # 获取新地块技能
+            target.获取地块技能(player)
+            # 如果目标地块未展示，展示（触发「展示地块时」效果）
+            if (!target.is_revealed()) {
+                target.展示(触发效果 = true, player)
+            }
+        }
+    }
+
+    # 3. 消灭地块上的所有怪物标记
+    block.怪物标记数 = 0
+
+    # 4. 摧毁地块时（系统结算：玩家已弹出、怪物标记已消灭）
+    for (player in game.所有玩家) {
+        player.trigger("摧毁地块时", event)
+    }
+
+    # 5. 地块状态变更，从地图区域移除
+    block.地块状态 = "已摧毁"
+    game.地图区域.remove(block)
+
+    # 6. 摧毁地块后（通知）
+    for (player in game.所有玩家) {
+        player.trigger("摧毁地块后", event)
+    }
+
+    return true
+}
+```
+
+> **注**：地块上的怪物卡（纠缠玩家的怪物）不随地块摧毁而死亡，怪物纠缠的是玩家而非地块。玩家弹出后，怪物继续纠缠该玩家。
+> **地块技能清理**：玩家弹出时清理旧地块技能（`block.清除技能(player)`），获取新地块技能（`target.获取地块技能(player)`）。
+> **目标标记**：地块被摧毁时，其上的目标标记一并销毁（未触发的标记不会再触发）。
+
+---
+
 ### 其他管理方法
 
 | 方法 | 说明 |
 |------|------|
 | `getAllPlayers()` | 返回所有玩家列表 |
 | `getAlivePlayers()` | 返回所有存活玩家 |
-| `getCurrentPlayer()` | 返回当前回合玩家 |
-| `nextTurn()` | 进入下一玩家回合（按座位顺序） |
+| `getCurrentPlayer()` | 返回当前回合玩家。**委托给** [GameStateMachine.getCurrentPlayer()](../Core/GameStateMachine.md#查询方法) |
+| `nextTurn()` | 进入下一玩家回合。**委托给** [GameStateMachine.nextTurn()](../Core/GameStateMachine.md#nextturn)，按座位顺序循环并处理跳过/额外回合 |
 
 ---
 
@@ -245,6 +435,7 @@ function game.log(message) {
 
 | 关系 | 说明 |
 |------|------|
+| [GameStateMachine](../Core/GameStateMachine.md) | Game 持有状态机实例；startGame/gameOver/getCurrentPlayer/nextTurn 委托给状态机；游戏阶段/游戏结果/当前回合玩家为代理字段 |
 | [Player](../Entities/Player.md) | Game 管理所有玩家；玩家死亡触发全灭判定 |
 | [Monster](../Entities/Monster.md) | Game 管理怪物牌堆/弃牌堆 |
 | [Card](../Entities/Card.md) | Game 管理各类牌堆；removeCard 移出游戏 |

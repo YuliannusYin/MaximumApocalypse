@@ -67,6 +67,8 @@
 | 玩家死亡 | `target`（死亡的玩家）、`source`（击杀者，可 NULL） |
 | 装备进入/离开 | `player`、`card` |
 | 检定流程 | `player`、`sneakValue`（潜行检定阈值）、`result`（结构体 `{ value, success }`）、`skipJudge`（是否跳过投骰） |
+| 摧毁地块流程 | `source`（摧毁者，可 NULL）、`block`（被摧毁的地块） |
+| 触发目标标记 | `player`、`block`、`mark`（ObjectiveMark 结构，见 [MapBlock](../Entities/MapBlock.md#目标标记结构objectivemark)） |
 | 主动技能 | `player`、`targets`（filter 筛选后的目标列表，复数） |
 
 ### 2.3 cancel() 语义
@@ -286,6 +288,20 @@ content: {
 |-----------|---------|---------|--------|
 | 游戏开始时 | 游戏开局时（抓初始怪物卡后、第一玩家回合前） | player | 否 |
 | 游戏结束时 | 游戏结束时（gameOver 设置状态后） | player | 否 |
+
+### 4.13 地图类
+
+> 所属流程：[Game.destroyMapBlock](../Game/Game.md#destroymapblockblock-source) / [Player.moveTo](../Entities/Player.md#moveto) 节点 11
+
+| trigger 名 | 触发时机 | 触发对象 | 取消点 |
+|-----------|---------|---------|--------|
+| 摧毁地块前 | 地块被摧毁前 | 所有 player（按座位顺序） | **是** |
+| 摧毁地块时 | 地块摧毁系统结算时（玩家已弹出、怪物标记已消灭、状态未变更） | 所有 player | 否 |
+| 摧毁地块后 | 地块摧毁完成后（地块已从地图区域移除） | 所有 player | 否 |
+| 触发目标标记时 | 玩家进入地块且触发未触发的目标标记后 | player | 否 |
+
+> **摧毁地块类 trigger**：Game 类不继承 Entity，通过遍历 `game.所有玩家` 调用 `player.trigger()` 实现。event 字段：`source`（摧毁者，可 NULL）、`block`（被摧毁的地块）。
+> **触发目标标记时**：在 [Player.moveTo](../Entities/Player.md#moveto) 节点 11 中触发。event 字段：`player`、`block`、`mark`（ObjectiveMark 结构）。标记效果在 trigger 之前由系统结算执行，trigger 仅作通知。
 
 ---
 

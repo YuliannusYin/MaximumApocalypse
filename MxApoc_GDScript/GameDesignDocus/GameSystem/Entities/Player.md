@@ -18,7 +18,7 @@
 | 潜行值 | Int | 用于潜行检定。基础潜行值 - (地块怪物数 + 怪物标记数) |
 | 行动次数 | Int | 每回合 4 次。移动/抓牌/出牌/拾荒/执行卡牌行动各消耗 1 次 |
 | 最大行动次数 | Int | 行动次数上限。部分技能可临时增加 |
-| inPhase | String | 当前所处回合阶段（"行动阶段" 等），技能 filter 用 |
+| inPhase | String | 当前所处回合阶段，技能 filter 用。可选值：`"回合外"`（默认） / `"回合开始"` / `"怪物出生"` / `"摸牌阶段"` / `"行动阶段"` / `"饥饿结算"` / `"中毒结算"` / `"怪物行动"` / `"回合结束"`。值在 [开始回合](#十回合流程) 各阶段切换 |
 
 ### 区域字段
 
@@ -64,6 +64,7 @@
 - **检定类**：潜行检定前/时/后、怪物出生检定前/时/后
 - **弃牌/销毁类**：弃置牌前/时/后、销毁牌前/时/后
 - **游戏类**：游戏开始时、游戏结束时
+- **地图类**：摧毁地块前/时/后、触发目标标记时
 
 ---
 
@@ -597,6 +598,7 @@ function player.removeCard(target, position=NULL, quantity=1) {
 | 8 | 进入地块时 | 一次性进入效果（军事基地造成伤害、监狱减行动、旷野抓怪物等） |
 | 9 | 进入地块后 | 展示未展示的地块（触发「展示地块时」）；player.trigger |
 | 10 | （潜行检定） | 目标地块有怪物标记时进行潜行检定，失败 → 移除标记并抓怪物 |
+| 11 | （触发目标标记） | 如果目标地块有未触发的目标标记，触发标记效果（一次性） |
 
 ```gdscript
 function player.moveTo(target) {
@@ -655,6 +657,11 @@ function player.moveTo(target) {
             player.drawMonster(num)
         }
     }
+
+    # 11. 触发目标标记（如果有且未触发）
+    #     目标标记效果由任务包定义，一次性触发
+    #     落地 EventSystem §4.13 的「触发目标标记时」trigger
+    target.triggerObjectiveMarks(player)
 
     return true
 }
@@ -1135,7 +1142,187 @@ function player.消耗填充物(equipment, num) {
 
 ---
 
-### 十、迷你回合流程
+### 十、回合流程
+
+#### 开始回合()
+
+> 玩家回合的完整流程方法，由 [GameStateMachine.nextTurn()](../Core/GameStateMachine.md#nextturn) 调用。
+> 实现玩家回合流程 21 节点（详见 [D_gameFlow.md](../../GameInstructions/D_gameFlow.md) 与 [J_gameEventFlow.md §10](../../GameInstructions/J_gameEventFlow.md#10-玩家回合流程)）。
+> 节点 21「胜利判定」由状态机在 `开始回合()` 返回后调用 `checkWinCondition()` 执行，不在本方法内。
+>
+> **设计原则**：线性流程，按节点顺序依次执行；每个阶段切换 `player.inPhase`，技能可通过 `inPhase` 过滤当前可用 trigger。
+> **死亡中断**：玩家可能在摸牌阶段（牌堆空）、饥饿结算（饥饿伤害致死）、中毒结算、面前怪物行动等阶段死亡，死亡后立即 return，后续节点不再执行。
+> **trigger 触发对象**：均为 player 自身（player.trigger）。
+
+**事件钩子顺序**（与 [J_gameEventFlow.md §10](../../GameInstructions/J_gameEventFlow.md#10-玩家回合流程) 一致）：
+
+| 节点 | trigger 名 | inPhase | 说明 |
+|------|-----------|---------|------|
+| 1 | （进入玩家回合） | `"回合开始"` | 重置行动次数与回合临时标记，非钩子节点 |
+| 2 | 回合开始前 | `"回合开始"` | 回合开始前 trigger |
+| 3 | 回合开始时 | `"回合开始"` | 如 MapBlocks（避难所、电厂） |
+| 4 | 怪物出生前 | `"怪物出生"` | 怪物出生检定前 trigger |
+| 5 | 怪物出生时 | `"怪物出生"` | 调用 [monsterSpawnJudge()](#monsterspawnjudge) 进行怪物出生检定 |
+| 6 | 摸牌阶段前 | `"摸牌阶段"` | 摸牌前 trigger |
+| 7 | （摸牌阶段） | `"摸牌阶段"` | `player.draw(1)`，牌堆空 → 玩家死亡 |
+| 8 | 行动阶段前 | `"行动阶段"` | 含潜行检定（地块有怪物标记时，检定在 trigger 之前执行） |
+| 9 | （行动阶段） | `"行动阶段"` | 执行 4 个行动 + 免费行动（制衡、交易） |
+| 10 | 行动阶段结束前 | `"行动阶段"` | 如 gunslinger（扣动扳机让我快乐 subSkill） |
+| 11 | 行动阶段结束时 | `"行动阶段"` | 行动阶段结束 |
+| 12 | 求生者饥饿状态结算前 | `"饥饿结算"` | 如 firefighter（野地夹克 subSkill） |
+| 13 | 求生者饥饿状态结算时 | `"饥饿结算"` | `player.increaseHunger(1)` |
+| 14 | 求生者中毒状态结算前 | `"中毒结算"` | 中毒结算前 |
+| 15 | 求生者中毒状态结算时 | `"中毒结算"` | `player.poison()`（有中毒标记时） |
+| 16 | 面前怪物行动前 | `"怪物行动"` | 面前怪物行动前 |
+| 17 | 面前怪物行动时 | `"怪物行动"` | 面前怪物按进入顺序行动（见 [I_monsterAction.md](../../GameInstructions/I_monsterAction.md)） |
+| 18 | 回合结束前 | `"回合结束"` | 如 gunslinger、MapBlocks（游乐园、警察局、城市街道） |
+| 19 | 回合结束时 | `"回合结束"` | 如 MapBlocks（游乐园） |
+| 20 | （退出玩家回合） | `"回合外"` | 重置 inPhase，非钩子节点 |
+| 21 | （胜利判定） | — | 由 [GameStateMachine.checkWinCondition()](../Core/GameStateMachine.md#checkwincondition) 在 `开始回合()` 返回后执行 |
+
+**event 成员**：`event.player`（始终为该玩家）、`event.cancelled`、`event.cancel()`（多数节点非取消点，仅在少数节点有意义）
+
+```gdscript
+function player.开始回合() {
+    event = {
+        player: player,
+        cancelled: false,
+    }
+
+    # === 节点 1：进入玩家回合（非钩子节点） ===
+    player.inPhase = "回合开始"
+    # 重置本回合相关状态
+    player.设置行动次数(player.最大行动次数)
+    player.清除回合临时标记()  # 如"避难所失效"等持续到回合结束的标记
+
+    # === 节点 2：回合开始前 ===
+    player.trigger("回合开始前", event)
+
+    # === 节点 3：回合开始时 ===
+    #    如 MapBlocks（避难所、电厂）
+    player.trigger("回合开始时", event)
+
+    # === 节点 4：怪物出生前 ===
+    player.inPhase = "怪物出生"
+    player.trigger("怪物出生前", event)
+
+    # === 节点 5：怪物出生时 ===
+    #    进行怪物出生检定（见 §五 monsterSpawnJudge）
+    player.trigger("怪物出生时", event)
+    player.monsterSpawnJudge()
+
+    # === 节点 6：摸牌阶段前 ===
+    player.inPhase = "摸牌阶段"
+    player.trigger("摸牌阶段前", event)
+
+    # === 节点 7：摸牌阶段（非钩子节点） ===
+    #    从求生者的游戏牌堆抓取一张牌；牌堆空 → 玩家死亡（由 draw 内部触发 playerDeath）
+    player.draw(1)
+
+    # 玩家可能在摸牌阶段死亡（牌堆空），死亡后流程中止
+    if (!player.isAlive()) {
+        return
+    }
+
+    # === 节点 8：行动阶段前 ===
+    player.inPhase = "行动阶段"
+    # 如果玩家所在地块上有怪物标记，玩家需要进行潜行检定
+    # （与 moveTo 节点 10 一致的失败处理：移除标记 + 抓怪物）
+    block = player.get_current_block()
+    if (block.hasMonsterMark()) {
+        if (!player.sneakJudge()) {
+            num = block.countMonsterMark()
+            block.removeMonsterMark(num)
+            player.drawMonster(num)
+        }
+    }
+    player.trigger("行动阶段前", event)
+
+    # === 节点 9：行动阶段（非钩子节点） ===
+    #    执行 4 个行动 + 免费行动（制衡、交易）
+    #    系统等待玩家通过 UI 选择 active="行动阶段" 的技能或选择结束行动
+    #    行动次数耗尽或玩家主动结束时进入下一节点
+    player.等待玩家行动()
+
+    # === 节点 10：行动阶段结束前 ===
+    #    如 gunslinger（扣动扳机让我快乐 subSkill）
+    player.trigger("行动阶段结束前", event)
+
+    # === 节点 11：行动阶段结束时 ===
+    player.trigger("行动阶段结束时", event)
+
+    # === 节点 12：求生者饥饿状态结算前 ===
+    player.inPhase = "饥饿结算"
+    #    如 firefighter（野地夹克 subSkill）
+    player.trigger("求生者饥饿状态结算前", event)
+
+    # === 节点 13：求生者饥饿状态结算时 ===
+    player.trigger("求生者饥饿状态结算时", event)
+    player.increaseHunger(1)
+
+    # 玩家可能在饥饿结算后死亡（饥饿伤害致死），死亡后流程中止
+    if (!player.isAlive()) {
+        return
+    }
+
+    # === 节点 14：求生者中毒状态结算前 ===
+    player.inPhase = "中毒结算"
+    player.trigger("求生者中毒状态结算前", event)
+
+    # === 节点 15：求生者中毒状态结算时 ===
+    player.trigger("求生者中毒状态结算时", event)
+    player.poison()
+
+    # 玩家可能在中毒结算后死亡，死亡后流程中止
+    if (!player.isAlive()) {
+        return
+    }
+
+    # === 节点 16：面前怪物行动前 ===
+    player.inPhase = "怪物行动"
+    player.trigger("面前怪物行动前", event)
+
+    # === 节点 17：面前怪物行动时 ===
+    #    玩家面前的怪物按进入求生者怪物区的顺序行动，先进入的先行动
+    #    详见 I_monsterAction.md
+    player.trigger("面前怪物行动时", event)
+    for (monster in player.怪物区) {
+        monster.action()  # 单个怪物行动流程，见 I_monsterAction.md
+    }
+
+    # 玩家可能在面前怪物行动后死亡，死亡后流程中止
+    if (!player.isAlive()) {
+        return
+    }
+
+    # === 节点 18：回合结束前 ===
+    player.inPhase = "回合结束"
+    #    如 gunslinger（扣动扳机让我快乐 subSkill）、MapBlocks（游乐园、警察局、城市街道）
+    player.trigger("回合结束前", event)
+
+    # === 节点 19：回合结束时 ===
+    #    如 MapBlocks（游乐园）
+    player.trigger("回合结束时", event)
+
+    # === 节点 20：退出玩家回合（非钩子节点） ===
+    player.inPhase = "回合外"
+
+    # === 节点 21：胜利判定 ===
+    #    由 GameStateMachine.nextTurn() 在本方法返回后调用 checkWinCondition()
+    #    不在 player.开始回合() 内执行
+}
+```
+
+> **设计说明**：
+> - **节点 8 潜行检定**：行动阶段前的潜行检定与 [moveTo](#moveto) 节点 10 一致，失败时移除所有怪物标记并每移除一个抓一张怪物卡。这一检定在「行动阶段前」trigger **之前**执行，确保 trigger 触发时地块已无怪物标记。
+> - **节点 9 行动阶段**：`player.等待玩家行动()` 为占位方法，实际由 UI 层驱动；行动次数耗尽或玩家主动结束时返回。
+> - **死亡中断**：摸牌/饥饿/中毒/怪物行动后均检查 `isAlive()`，死亡则立即 return，后续节点不再执行。玩家死亡流程（playerDeath）由 [draw](#drawn) / [increaseHunger](#increasehungernum) / [poison](#poison) / 怪物攻击流程内部触发。
+> - **节点 21 位置**：胜利判定放在状态机而非 `player.开始回合()` 内，原因是 `checkWinCondition()` 涉及跨玩家状态查询（所有存活玩家位置、面包车状态等），属于游戏级而非玩家级职责。
+> - **trigger 触发对象**：所有 trigger 均为 `player.trigger`（玩家身上的技能）。Game 类不继承 Entity 无自身 trigger；MapBlocks 的地块技能已挂载到 player 身上，由 `player.trigger` 统一触发。
+
+---
+
+### 十一、迷你回合流程
 
 #### 立即执行一个行动(num=1)
 
@@ -1172,7 +1359,7 @@ function player.立即执行一个行动(num=1) {
 
 ---
 
-### 十一、底层接口与工具方法
+### 十二、底层接口与工具方法
 
 #### 生命值/饥饿值/潜行值
 
@@ -1215,8 +1402,12 @@ function player.立即执行一个行动(num=1) {
 
 | 方法 | 说明 |
 |------|------|
+| `设置行动次数(n)` | 设置当前行动次数（[开始回合](#十回合流程) 节点 1 重置为 `最大行动次数`） |
 | `减少行动次数(n)` | 消耗行动次数 |
 | `getNumber(key)` | 获取数值型状态（如"玩家剩余行动次数"） |
+| `等待玩家行动()` | 占位方法，由 UI 层驱动玩家在行动阶段执行行动（[开始回合](#十回合流程) 节点 9 调用） |
+| `清除回合临时标记()` | 清除持续到回合结束的临时标记（如"避难所失效"） |
+| `isAlive()` | 玩家是否存活（生命值 > 0） |
 
 #### 选择器（玩家交互）
 
@@ -1241,6 +1432,7 @@ function player.立即执行一个行动(num=1) {
 | 关系 | 说明 |
 |------|------|
 | [Entity](../Core/Entity.md) | 继承。复用 trigger / damage / 生命值接口 |
+| [GameStateMachine](../Core/GameStateMachine.md) | 状态机调用 `player.开始回合()` 执行完整回合流程 |
 | [Monster](Monster.md) | 玩家怪物区持有怪物；可攻击其他玩家面前的怪物 |
 | [Card](Card.md) | 手牌区/装备区/牌堆持有各类卡牌 |
 | [MapBlock](MapBlock.md) | 玩家位于地块上；地块技能挂载到玩家身上 |

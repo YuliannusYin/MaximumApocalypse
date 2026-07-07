@@ -205,7 +205,7 @@
         trigger: 展示地块时 # 翻开该地块时触发
         filter: 无
         content: {
-            List = get相邻的地块(player.get_current_block()) # 获取当前地块所有相邻的地块
+            List = player.get_current_block().getAdjacentBlocks() # 获取当前地块所有相邻的存活地块
             for i in List:
                 i.addMonsterMark(1) # 为每个相邻地块添加1个怪物标记
         }

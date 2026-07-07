@@ -80,7 +80,7 @@
     攻击伤害: 2
     射程: "无" # 原文此字段为空，按包内多数机器人设定补为"无"
     技能: {
-        技能名: "激光无人机-监视"
+        技能名: "激光无人机"
         技能描述: "被此怪物卡纠缠的玩家无法进行潜行检定，直接抓取怪物卡。"
         skillType: "Monster"
         trigger: 潜行检定前 # 玩家进入有怪物标记的地块、即将进行潜行检定时触发（见 GameInstructions/E_gameJudge.md）
@@ -110,7 +110,7 @@
         filter: true
         content: {
             抓取者 = event.player
-            List = get相邻的地块(抓取者.get_current_block()) # 获取抓取者所在地块的所有相邻地块
+            List = 抓取者.get_current_block().getAdjacentBlocks() # 获取抓取者所在地块的所有相邻存活地块
             for i in List:
                 i.addMonsterMark(1) # 各放置一个怪物标记
         }

@@ -38,6 +38,7 @@ Entity（实体基类：挂载 skill + 触发 event + 通用 damage 流程）
 非 Entity 类（无技能、无 trigger）：
 
 Game（游戏全局管理）         位置：Game/Game.md
+GameStateMachine（状态机）   位置：Core/GameStateMachine.md
 Pile（通用牌堆）             位置：Common/Pile.md
 RoleCard（角色卡）           位置：Common/RoleCard.md
 Skill（技能结构定义）         位置：Common/Skill.md
@@ -53,7 +54,8 @@ GameSystem/
 │
 ├── Core/                           # 核心基础设施层
 │   ├── Entity.md                   # Entity 实体基类
-│   └── EventSystem.md              # 事件触发系统（机制/event schema/全 trigger 索引）
+│   ├── EventSystem.md              # 事件触发系统（机制/event schema/全 trigger 索引）
+│   └── GameStateMachine.md         # 游戏状态机（状态管理/回合队列/胜利失败检查）
 │
 ├── Entities/                       # 继承 Entity 的具体类
 │   ├── Player.md                   # 玩家类
@@ -114,12 +116,13 @@ GameSystem/
 |------|------|
 | [Entity.md](Core/Entity.md) | Entity 实体基类：技能挂载、trigger 方法、通用 damage 流程、生命值接口、death 抽象方法 |
 | [EventSystem.md](Core/EventSystem.md) | 事件触发系统：机制原理、event schema、命名规范、全 trigger 索引（按领域分组） |
+| [GameStateMachine.md](Core/GameStateMachine.md) | 游戏状态机：setup/playing/gameOver 状态管理、回合队列（额外回合/跳过回合）、胜利条件检查、失败条件即时触发 |
 
 ### Entities/ 实体类
 
 | 文件 | 职责 |
 |------|------|
-| [Player.md](Entities/Player.md) | Player 类：状态管理（recover/饥饿/poison）、抓牌（draw/drawScavenge/drawMonster）、弃牌与销毁、移动、检定、死亡、装备、填充物 |
+| [Player.md](Entities/Player.md) | Player 类：状态管理（recover/饥饿/poison）、抓牌（draw/drawScavenge/drawMonster）、弃牌与销毁、移动、检定、死亡、装备、填充物、回合流程（开始回合 21 节点） |
 | [Monster.md](Entities/Monster.md) | Monster 类：属性、行动/攻击流程、monsterDeath、实体化 |
 | [Card.md](Entities/Card.md) | Card 基类 + ScavengeCard / SurvivorGameCard / EquipmentCard / MonsterCard 子类定义 |
 | [MapBlock.md](Entities/MapBlock.md) | MapBlock 类：属性、展示、怪物标记管理、地块技能挂载 |
@@ -128,7 +131,7 @@ GameSystem/
 
 | 文件 | 职责 |
 |------|------|
-| [Game.md](Game/Game.md) | Game 类：全局区域、gameOver、allPlayersDead、removeCard、getScavengePile、log |
+| [Game.md](Game/Game.md) | Game 类：全局区域、removeCard、getScavengePile、log、地图管理（buildMap/destroyMapBlock）；状态相关方法（startGame/gameOver/getCurrentPlayer/nextTurn）委托给 GameStateMachine |
 
 ### Common/ 通用组件
 
@@ -166,8 +169,13 @@ GameSystem/
 | 装备进入装备区 | [Player.md](Entities/Player.md#装备card) | `player.装备(card)` |
 | 装备离开装备区 | [Player.md](Entities/Player.md#卸下card) | `player.卸下(card)` |
 | 填充物消耗 | [Player.md](Entities/Player.md#消耗填充物equipment-num) | `player.消耗填充物(equipment, num)` |
-| 游戏开始 | [Game.md](Game/Game.md#startgame) | `game.startGame()` |
-| 游戏结束 | [Game.md](Game/Game.md#gameoverresult) | `game.gameOver(result)` |
+| 玩家回合 | [Player.md](Entities/Player.md#十回合流程) | `player.开始回合()`（21 节点线性流程） |
+| 游戏开始 | [GameStateMachine.md](Core/GameStateMachine.md#startgame) | `game.startGame()` → `状态机.startGame()` |
+| 游戏结束 | [GameStateMachine.md](Core/GameStateMachine.md#gameoverresult) | `game.gameOver(result)` → `状态机.gameOver(result)` |
+| 切换回合 | [GameStateMachine.md](Core/GameStateMachine.md#nextturn) | `game.nextTurn()` → `状态机.nextTurn()` |
+| 胜利判定 | [GameStateMachine.md](Core/GameStateMachine.md#checkwincondition) | `状态机.checkWinCondition()`（回合结束时） |
+| 插入额外回合 | [GameStateMachine.md](Core/GameStateMachine.md#insertextraturnplayer) | `状态机.insertExtraTurn(player)` |
+| 跳过回合 | [GameStateMachine.md](Core/GameStateMachine.md#skipturnplayer) | `状态机.skipTurn(player)` |
 
 ---
 
@@ -193,4 +201,7 @@ GameSystem/
 - [ ] `player.立即打出一张牌` 的语义定义（区别于 `player.立即执行一个行动(num)`，特指使用一张手牌；见 [surgeon.md](../Resource/SurvivorPacks/surgeon.md) 注射类固醇）
 - [ ] 各技能中标注「自然语言描述，待实现为具体函数调用」的方法落地为正式 API（如 `player.弃置面前的一张非首领怪物并替换为怪物标记()`、`player.向玩家拉近一格不触发效果(target)`、`player.清空填充物(type)`、`target.治疗所有状态效果()` 等）
 - [x] `event.result`（检定流程）的类型与语义定义：已定义为结构体 `{ value: 骰子点数, success: 布尔值 }`；怪物出生检定的 success 无意义，恒为 true
-- [ ] 「摧毁地图板块」机制定义（[blue.md](../Resource/ScavengePacks/blue.md) 大炸药）：地块上的玩家和怪物如何处理？地块是否从游戏中移除？
+- [x] 「摧毁地图板块」机制定义：已落地（`game.destroyMapBlock(block, source)` 方法 + 摧毁地块前/时/后 trigger，玩家弹出到相邻存活地块，怪物标记消灭，地块从地图区域移除）
+- [x] 游戏地图系统设计：已落地（MapBlock 添加坐标/地块状态/目标标记字段 + 相邻查询/距离计算/射程范围查询/目标标记管理方法；Game 添加 buildMap/getBlockByCoord/getBlocksByName/destroyMapBlock 方法；任务包格式规范化含特殊位置地块名指定与目标标记定义）
+- [x] 目标标记机制扩展：已落地（ObjectiveMark 添加「初始怪物标记数」与「移除条件」字段，支持任务 9/11 标记地块预置怪物标记与清除条件移除；MapBlock 添加 removeAllObjectiveMarks 方法供炸药调用；5 个任务包 5/7/8/9/11 目标标记定义补全；炸药技能术语统一为「目标标记」）
+- [x] 游戏状态机系统：已落地（独立 GameStateMachine 类管理 setup/playing/gameOver 三状态 + 回合队列支持额外回合/跳过回合 + 胜利条件回合结束检查 + 失败条件即时检查；Game 类通过委托模式与代理字段集成状态机；Player.开始回合() 实现线性 21 节点回合流程）
