@@ -17,8 +17,11 @@ config/icon="res://icon.svg"
 
 [autoload]
 
-RoomState="*res://scripts/autoload/room_state.gd"
-Settings="*res://scripts/autoload/settings.gd"
+DataManager="*res://src/data/data_manager.gd"
+Game="*res://src/game/game.gd"
+EventBus="*res://src/core/event_bus.gd"
+RoomState="*res://src/ui/room_state.gd"
+Settings="*res://src/ui/settings.gd"
 
 [display]
 

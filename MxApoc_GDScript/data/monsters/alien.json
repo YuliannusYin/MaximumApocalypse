@@ -1,0 +1,180 @@
+{
+  "$schema": "monster_pack",
+  "monster_type": "alien",
+  "cards": [
+    {
+      "monster_name": "外星收割者",
+      "english_name": "alien_reaper",
+      "monster_level": "boss",
+      "max_hp": 25,
+      "initial_hp": 25,
+      "attack_damage": 5,
+      "range": "none",
+      "skills": [
+        {
+          "skill_name": "外星收割者-摧毁装备",
+          "english_name": "alien_reaper_destroy_equipment",
+          "skill_description": "当此怪物卡被玩家抓取后，摧毁场上所有的装备牌。",
+          "skill_type": "monster",
+          "trigger": "after_monster_enter_zone",
+          "forced": true,
+          "filter": "return true",
+          "content": "var list = game.get_all_players()\nfor i in list:\n\tvar equipment = game.get_cards(i, \"equipment\")\n\tfor c in equipment:\n\t\ti.remove_card(c)"
+        },
+        {
+          "skill_name": "外星收割者-烧毁",
+          "english_name": "alien_reaper_burn",
+          "skill_description": "当此怪物卡攻击时，随机销毁目标玩家区域内的一张牌。",
+          "skill_type": "monster",
+          "trigger": "on_monster_attack",
+          "forced": true,
+          "filter": "return true",
+          "content": "for target_player in event.target_players:\n\tvar card = game.get_random_card(target_player, [\"hand\", \"equipment\"])\n\tif card != null:\n\t\ttarget_player.remove_card(card)"
+        }
+      ]
+    },
+    {
+      "monster_name": "外星指挥官",
+      "english_name": "alien_commander",
+      "monster_level": "boss",
+      "max_hp": 22,
+      "initial_hp": 22,
+      "attack_damage": 4,
+      "range": "none",
+      "skills": [
+        {
+          "skill_name": "外星指挥官-集结修复",
+          "english_name": "alien_commander_rally_repair",
+          "skill_description": "当此怪物卡被玩家抓取后，将场上所有的外星人类怪物回复到满生命值。",
+          "skill_type": "monster",
+          "trigger": "after_monster_enter_zone",
+          "forced": true,
+          "filter": "return true",
+          "content": "var list = game.get_all_players()\nfor p in list:\n\tfor m in p.monster_zone:\n\t\tif m.monster_type == \"alien\":\n\t\t\tm.hp = m.max_hp"
+        },
+        {
+          "skill_name": "外星指挥官-烧毁",
+          "english_name": "alien_commander_burn",
+          "skill_description": "当此怪物卡攻击时，随机销毁目标玩家区域内的两张牌。",
+          "skill_type": "monster",
+          "trigger": "on_monster_attack",
+          "forced": true,
+          "filter": "return true",
+          "content": "for target_player in event.target_players:\n\tvar cards = game.get_random_cards(target_player, [\"hand\", \"equipment\"], 2)\n\tfor c in cards:\n\t\ttarget_player.remove_card(c)"
+        }
+      ]
+    },
+    {
+      "monster_name": "外星科学家",
+      "english_name": "alien_scientist",
+      "monster_level": "elite",
+      "max_hp": 9,
+      "initial_hp": 9,
+      "attack_damage": 1,
+      "range": "none",
+      "skills": [
+        {
+          "skill_name": "外星科学家-勒索装备",
+          "english_name": "alien_scientist_extort_equipment",
+          "skill_description": "当此怪物卡被玩家抓取时，抓取该卡的玩家弃掉一张装备区内的装备，否则受到六点伤害。",
+          "skill_type": "monster",
+          "trigger": "after_monster_enter_zone",
+          "forced": true,
+          "filter": "return true",
+          "content": "var drawer = event.player\nif drawer.has_card(\"equipment\"):\n\tvar choice = drawer.choose([\"弃置一张装备\", \"受到6点伤害\"])\n\tif choice == \"弃置一张装备\":\n\t\tdrawer.choose_to_discard(1, \"equipment\")\n\telif choice == \"受到6点伤害\":\n\t\tdrawer.damage(6, self)\nelse:\n\tdrawer.damage(6, self)"
+        },
+        {
+          "skill_name": "外星科学家-协同强化",
+          "english_name": "alien_scientist_synergy",
+          "skill_description": "所有外星人类怪物攻击时，造成的伤害加一。",
+          "skill_type": "monster",
+          "trigger": "on_deal_damage",
+          "forced": true,
+          "filter": "return event.source.monster_type == \"alien\"",
+          "content": "event.num += 1"
+        }
+      ]
+    },
+    {
+      "monster_name": "外星机械",
+      "english_name": "alien_machine",
+      "monster_level": "elite",
+      "max_hp": 18,
+      "initial_hp": 18,
+      "attack_damage": 4,
+      "range": "none",
+      "skills": [
+        {
+          "skill_name": "外星机械",
+          "english_name": "alien_machine",
+          "skill_description": "当此怪物卡被玩家抓取后，随机销毁抓取该卡的玩家的两张牌。",
+          "skill_type": "monster",
+          "trigger": "after_monster_enter_zone",
+          "forced": true,
+          "filter": "return true",
+          "content": "var drawer = event.player\nvar cards = game.get_random_cards(drawer, [\"hand\", \"equipment\"], 2)\nfor c in cards:\n\tdrawer.remove_card(c)"
+        }
+      ]
+    },
+    {
+      "monster_name": "外星入侵者",
+      "english_name": "alien_invader",
+      "monster_level": "elite",
+      "max_hp": 7,
+      "initial_hp": 7,
+      "attack_damage": 3,
+      "range": "none",
+      "skills": [
+        {
+          "skill_name": "外星入侵者",
+          "english_name": "alien_invader",
+          "skill_description": "当此怪物卡攻击时，随机销毁目标玩家区域内的一张牌。",
+          "skill_type": "monster",
+          "trigger": "on_monster_attack",
+          "forced": true,
+          "filter": "return true",
+          "content": "for target_player in event.target_players:\n\tvar card = game.get_random_card(target_player, [\"hand\", \"equipment\"])\n\tif card != null:\n\t\ttarget_player.remove_card(card)"
+        }
+      ]
+    },
+    {
+      "monster_name": "外星飞船",
+      "english_name": "alien_ship",
+      "monster_level": "elite",
+      "max_hp": 10,
+      "initial_hp": 10,
+      "attack_damage": 6,
+      "range": "none",
+      "skills": [
+        {
+          "skill_name": "外星飞船-烧毁",
+          "english_name": "alien_ship_burn",
+          "skill_description": "当此怪物卡攻击时，随机销毁目标玩家区域内的一张牌。",
+          "skill_type": "monster",
+          "trigger": "on_monster_attack",
+          "forced": true,
+          "filter": "return true",
+          "content": "for target_player in event.target_players:\n\tvar card = game.get_random_card(target_player, [\"hand\", \"equipment\"])\n\tif card != null:\n\t\ttarget_player.remove_card(card)"
+        },
+        {
+          "skill_name": "外星飞船-高空规避",
+          "english_name": "alien_ship_evasion",
+          "skill_description": "被动：不能被射程为短距离的武器或行动选为目标。",
+          "skill_type": "monster",
+          "passive": true,
+          "filter": "return true"
+        }
+      ]
+    },
+    {
+      "monster_name": "外星士兵",
+      "english_name": "alien_soldier",
+      "monster_level": "elite",
+      "max_hp": 15,
+      "initial_hp": 15,
+      "attack_damage": 3,
+      "range": "long",
+      "skills": []
+    }
+  ]
+}

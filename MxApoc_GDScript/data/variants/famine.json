@@ -1,0 +1,7 @@
+{
+  "$schema": "variant",
+  "id": "famine",
+  "english_name": "famine",
+  "display_name": "大饥荒",
+  "desc": "玩家随机投掷骰子来决定初始饥饿等级。"
+}
