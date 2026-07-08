@@ -1,0 +1,7 @@
+{
+  "$schema": "variant",
+  "id": "crisis",
+  "english_name": "crisis",
+  "display_name": "危机四伏",
+  "desc": "往初始拾荒牌堆中添加更多的\"伏击\"。"
+}
