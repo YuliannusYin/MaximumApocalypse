@@ -1,0 +1,7 @@
+{
+  "$schema": "variant",
+  "id": "shared_fate",
+  "english_name": "shared_fate",
+  "display_name": "同生共死",
+  "desc": "当任何玩家被消灭时，所有求生者输掉游戏。"
+}

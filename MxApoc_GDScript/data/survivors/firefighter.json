@@ -1,0 +1,296 @@
+{
+  "$schema": "survivor",
+  "character_name": "消防员",
+  "english_name": "firefighter",
+  "max_hp": 32,
+  "initial_hp": 32,
+  "stealth": 6,
+  "hunger_stealth": 5,
+  "equipment_slot": 4,
+  "intrinsic_skills": [
+    {
+      "skill_name": "拳打",
+      "english_name": "punch",
+      "skill_description": "行动：对一个目标造成2点伤害。",
+      "range": "short",
+      "active": "action",
+      "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+      "filter_target": "return true",
+      "filter_target_range": "short",
+      "select_target": 1,
+      "content": "player.consume_action(1)\ntarget.damage(2, player)"
+    }
+  ],
+  "deck": [
+    {
+      "card_name": "防火头盔",
+      "english_name": "fire_helmet",
+      "count": 2,
+      "card_type": "equipment",
+      "size": 1,
+      "skills": [
+        {
+          "skill_name": "防火头盔",
+          "english_name": "fire_helmet",
+          "skill_description": "被动：受到的伤害减一。",
+          "skill_type": "equipment",
+          "trigger": "on_take_damage",
+          "filter": "return true",
+          "forced": true,
+          "content": "event.num -= 1"
+        }
+      ]
+    },
+    {
+      "card_name": "打火机",
+      "english_name": "lighter",
+      "count": 3,
+      "card_type": "equipment",
+      "size": 1,
+      "charge_type": "fuel",
+      "charge_max": 2,
+      "charge_initial": 2,
+      "skills": [
+        {
+          "skill_name": "打火机",
+          "english_name": "lighter",
+          "skill_description": "行动：对射程内的所有怪物造成3点伤害。",
+          "range": "short",
+          "skill_type": "equipment",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"lighter\") > 0",
+          "select_target": -1,
+          "filter_target": "return target.type == \"monster\"",
+          "filter_target_range": "short",
+          "content": "player.consume_action(1)\nvar list = event.targets\nplayer.consume_charge(player.get_equipment(\"lighter\"), 1)\nfor i in list:\n\ti.damage(3, player)"
+        }
+      ]
+    },
+    {
+      "card_name": "急救包",
+      "english_name": "first_aid_kit",
+      "count": 3,
+      "card_type": "action",
+      "skills": [
+        {
+          "skill_name": "急救包",
+          "english_name": "first_aid_kit",
+          "skill_description": "行动：使射程内任一玩家一个目标恢复4点生命值。",
+          "range": "short",
+          "skill_type": "action",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "select_target": 1,
+          "filter_target": "return target.type == \"human\"",
+          "filter_target_range": "short",
+          "content": "target.recover(4)"
+        }
+      ]
+    },
+    {
+      "card_name": "猎枪",
+      "english_name": "shotgun",
+      "count": 1,
+      "card_type": "equipment",
+      "size": 1,
+      "charge_type": "ammo",
+      "charge_max": 4,
+      "charge_initial": 4,
+      "skills": [
+        {
+          "skill_name": "猎枪",
+          "english_name": "shotgun",
+          "skill_description": "行动：对射程内的一个目标造成4点伤害，然后对你面前的所有目标造成2点伤害。",
+          "range": "medium",
+          "skill_type": "equipment",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"shotgun\") > 0",
+          "select_target": 1,
+          "filter_target": "return true",
+          "filter_target_range": "medium",
+          "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"shotgun\"), 1)\ntarget.damage(4, player)\nvar list = game.get_target(player.get_current_block())\nfor i in list:\n\tif i != player:\n\t\ti.damage(2, player)"
+        }
+      ]
+    },
+    {
+      "card_name": "灭火器",
+      "english_name": "fire_extinguisher",
+      "count": 3,
+      "card_type": "action",
+      "skills": [
+        {
+          "skill_name": "灭火器",
+          "english_name": "fire_extinguisher",
+          "skill_description": "行动：击晕射程内的所有怪物，直到你的下个回合开始。",
+          "skill_type": "action",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "select_target": -1,
+          "filter_target": "return target.type == \"monster\"",
+          "filter_target_range": "short",
+          "content": "var list = event.targets\nfor i in list:\n\ti.stun(player, \"before_next_turn_start\")"
+        }
+      ]
+    },
+    {
+      "card_name": "能量饮料",
+      "english_name": "energy_drink",
+      "count": 2,
+      "card_type": "action",
+      "skills": [
+        {
+          "skill_name": "能量饮料",
+          "english_name": "energy_drink",
+          "skill_description": "行动：直到你的下个回合开始，你免疫饥饿伤害。你抓一张牌",
+          "skill_type": "action",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter_target": "return target == player",
+          "content": "player.add_temp_skill(\"energy_drink_satiety\", \"before_next_turn_start\")\nplayer.draw(1)",
+          "sub_skills": {
+            "satiety": {
+              "skill_name": "能量饮料_饱腹",
+              "english_name": "energy_drink_satiety",
+              "trigger": "before_hunger_settlement",
+              "forced": true,
+              "filter": "return true",
+              "content": "event.cancel()"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "card_name": "梯子",
+      "english_name": "ladder",
+      "count": 2,
+      "card_type": "equipment",
+      "size": 1,
+      "skills": [
+        {
+          "skill_name": "梯子",
+          "english_name": "ladder",
+          "skill_description": "被动：自动通过河流地图块的检定。弃置：抓取怪物卡前，可以弃置此装备，然后跳过抓取怪物卡的步骤。",
+          "trigger": "before_sneak_judge、before_draw_monster_card",
+          "filter": "return true",
+          "content": "if event.trigger_name == \"before_sneak_judge\" && event.name == \"河流\":\n\tevent.skip_judge = true\n\tevent.result = {\"value\": 0, \"success\": true}\nelif event.trigger_name == \"before_draw_monster_card\":\n\tif player.choose([\"是\", \"否\"]) == \"是\":\n\t\tplayer.discard(\"ladder\", \"equipment\")\n\t\tevent.cancel()"
+        }
+      ]
+    },
+    {
+      "card_name": "闪光棒",
+      "english_name": "flare_rod",
+      "count": 4,
+      "card_type": "action",
+      "skills": [
+        {
+          "skill_name": "闪光棒",
+          "english_name": "flare_rod",
+          "skill_description": "行动：将射程内的所有怪物纠缠的目标改成你。",
+          "skill_type": "action",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "select_target": -1,
+          "filter_target": "return target.type == \"monster\"",
+          "filter_target_range": "long",
+          "content": "var list = event.targets\nfor i in list:\n\ti.change_engaged_target(player)"
+        }
+      ]
+    },
+    {
+      "card_name": "我的斧子去哪儿了？",
+      "english_name": "where_is_my_axe",
+      "count": 2,
+      "card_type": "action",
+      "skills": [
+        {
+          "skill_name": "我的斧子去哪儿了？",
+          "english_name": "where_is_my_axe",
+          "skill_description": "行动：将游戏牌堆中的【值得信赖的斧子】置入你的装备区。并抓取一张拾荒卡。",
+          "skill_type": "action",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "content": "var pile = player.get_pile(\"deck\")\nvar card = game.get_card(\"reliable_axe\", pile)\nif card == null:\n\tgame.log(\"玩家游戏牌堆中没有【值得信赖的斧子】牌\")\nelse:\n\tplayer.equip(card)\nvar result = player.choose(\"请选择你抓取的拾荒卡颜色：\", [\"red\", \"green\", \"blue\"])\nvar scavenge_pile = player.get_scavenge_pile(result)\nplayer.draw_scavenge(1, scavenge_pile)"
+        }
+      ]
+    },
+    {
+      "card_name": "消防员的耐力",
+      "english_name": "firefighter_stamina",
+      "count": 2,
+      "card_type": "action",
+      "skills": [
+        {
+          "skill_name": "消防员的耐力",
+          "english_name": "firefighter_stamina",
+          "skill_description": "行动：移动最多三格，然后抓取一张牌。",
+          "skill_type": "action",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "content": "var max_steps = 3\nvar steps = 0\nwhile steps < max_steps:\n\tif steps > 0:\n\t\tvar choice = player.choose([\"继续移动\", \"停止移动\"])\n\t\tif choice == \"停止移动\":\n\t\t\tbreak\n\tvar target = player.choose_map_block({\"filter_target\": \"return target != player.get_current_block()\", \"filter_target_range\": \"medium\"})\n\tvar success = player.move_to(target)\n\tif not success:\n\t\tbreak\n\tsteps += 1\nplayer.draw(1)"
+        }
+      ]
+    },
+    {
+      "card_name": "野地夹克",
+      "english_name": "field_jacket",
+      "count": 2,
+      "card_type": "equipment",
+      "size": 1,
+      "skills": [
+        {
+          "skill_name": "野地夹克",
+          "english_name": "field_jacket",
+          "skill_description": "你可以增加一点饥饿值恢复一点行动数。",
+          "skill_type": "equipment",
+          "active": "action",
+          "usable": -1,
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"hunger_value\") < 6",
+          "content": "player.increase_hunger(1)\nplayer.add_action(1)"
+        }
+      ]
+    },
+    {
+      "card_name": "氧气罐",
+      "english_name": "oxygen_tank",
+      "count": 2,
+      "card_type": "action",
+      "skills": [
+        {
+          "skill_name": "氧气罐",
+          "english_name": "oxygen_tank",
+          "skill_description": "行动：消耗一点打火机的燃料，然后对射程内的所有目标造成5点伤害。",
+          "range": "medium",
+          "skill_type": "action",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"lighter\") > 0",
+          "select_target": -1,
+          "filter_target": "return target != player",
+          "filter_target_range": "medium",
+          "content": "player.consume_charge(player.get_equipment(\"lighter\"), 1)\nvar list = event.targets\nfor i in list:\n\ti.damage(5, player)"
+        }
+      ]
+    },
+    {
+      "card_name": "值得信赖的斧子",
+      "english_name": "reliable_axe",
+      "count": 2,
+      "card_type": "equipment",
+      "size": 2,
+      "skills": [
+        {
+          "skill_name": "值得信赖的斧子",
+          "english_name": "reliable_axe",
+          "skill_description": "行动：对一个目标造成4点伤害。",
+          "skill_type": "equipment",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "select_target": 1,
+          "filter_target": "return target != player",
+          "filter_target_range": "short",
+          "content": "player.consume_action(1)\ntarget.damage(4, player)"
+        }
+      ]
+    }
+  ]
+}

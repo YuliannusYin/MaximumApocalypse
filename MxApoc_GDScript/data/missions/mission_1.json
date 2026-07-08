@@ -1,0 +1,76 @@
+{
+  "$schema": "mission",
+  "mission_id": 1,
+  "mission_name": "1. 解救科学家",
+  "english_name": "rescue_scientist",
+  "difficulty": "easy",
+  "van_fuel_required": 4,
+  "intro_text": "你们在收音机里听到一条嘈杂的信息。有人还活着，并且他说他能结束这场噩梦。他们在警察局设了路障来保护自己，但是时间不多了。",
+  "objective_text": "目标：解救警察局的科学家。当在警察局时，你可以花费2个行动来解救科学家。把科学家带回你们的面包车里并逃离该区域。",
+  "special_setup": "初始设置：把科学家和首领卡放到一边。到达警察局的第一名玩家抓取首领卡。",
+  "monster_pack_type": "zombie",
+  "map_blocks_config": {
+    "面包车": 1,
+    "墓地": 1,
+    "森林": 2,
+    "农场": 2,
+    "城市街道": 1,
+    "旷野": 2,
+    "强盗营地": 2,
+    "加油站": 2,
+    "医院": 1,
+    "警察局": 1,
+    "河流": 2,
+    "避难所": 2,
+    "隧道": 2
+  },
+  "map_layout": [
+    [-1, 1, 1, 1, -1],
+    [1, 1, 1, 1, 1],
+    [1, 1, 0, 1, 1],
+    [1, 1, 1, 1, 1],
+    [-1, 1, 1, 1, -1]
+  ],
+  "map_legend": {
+    "-1": "no_block",
+    "0": { "type": "spawn", "block_name": "面包车" },
+    "1": "random_block"
+  },
+  "objective_marks": [],
+  "scavenge_config": {
+    "red": [
+      { "card_name": "食物", "count": 2 },
+      { "card_name": "燃料", "count": 4 },
+      { "card_name": "医疗用品", "count": 2 },
+      { "card_name": "弹药", "count": 1 },
+      { "card_name": "双筒望远镜", "count": 1 },
+      { "card_name": "多余配件", "count": 1 },
+      { "card_name": "一无所获", "count": 1 },
+      { "card_name": "伏击！", "count": 1 },
+      { "card_name": "解毒剂", "count": 2 }
+    ],
+    "green": [
+      { "card_name": "食物", "count": 6 },
+      { "card_name": "燃料", "count": 2 },
+      { "card_name": "弹药", "count": 1 },
+      { "card_name": "手电筒", "count": 1 },
+      { "card_name": "多余配件", "count": 1 },
+      { "card_name": "一无所获", "count": 1 },
+      { "card_name": "伏击！", "count": 1 },
+      { "card_name": "解毒剂", "count": 2 }
+    ],
+    "blue": [
+      { "card_name": "食物", "count": 2 },
+      { "card_name": "燃料", "count": 2 },
+      { "card_name": "弹药", "count": 3 },
+      { "card_name": "双筒望远镜", "count": 1 },
+      { "card_name": "手枪", "count": 1 },
+      { "card_name": "对讲机", "count": 1 },
+      { "card_name": "多余配件", "count": 1 },
+      { "card_name": "一无所获", "count": 2 },
+      { "card_name": "解毒剂", "count": 1 },
+      { "card_name": "医疗用品", "count": 1 }
+    ]
+  },
+  "win_condition_code": ""
+}

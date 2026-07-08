@@ -24,7 +24,7 @@
 
 ### 1.3 项目目标（按阶段）
 
-1. **阶段 1 — 核心逻辑层**：GameSystem 全部类（Entity/Player/Monster/Card/MapBlock/Game/GameStateMachine）+ Resource 数据加载 + 单元测试
+1. **阶段 1 — 核心逻辑层**：GameSystem 全部类（Entity/Player/Monster/Card/MapBlock/Game/GameStateMachine）+ JSON 数据加载 + 单元测试
 2. **阶段 2 — 单机热座**：3D 表现层 + 单机多人轮流操作
 3. **阶段 3 — 人机合作**：AI 玩家 + 存档系统
 4. **阶段 4 — 多人联机**：房间系统 + 状态同步 + 断线重连
@@ -65,36 +65,42 @@ MxApoc_GDScript/
 └── tools/                         # 工具脚本（markdown_to_json / data_validator）
 ```
 
-### 2.2 当前现状（临时占位）
+### 2.2 当前现状（迁移已完成）
 
-当前代码尚未迁移到 `src/`，暂存于以下位置：
+代码已全部迁移到 `src/`，`scripts/` 目录已删除。当前 `src/` 结构：
 
-| 现状路径 | 内容 | 对应目标路径 |
-|---------|------|-------------|
-| `scripts/autoload/settings.gd` | 全屏设置 autoload | `src/ui/settings.gd` 或保留 autoload 目录 |
-| `scripts/autoload/room_state.gd` | 房间状态 autoload（任务/变体/座位） | `src/ui/room_state.gd` 或保留 autoload 目录 |
-| `scripts/ui/*.gd` | 主菜单/游戏房间/设置对话框 | `src/ui/` |
-| `data/survivor_data.gd` 等 | GDScript 硬编码数据类（临时方案，见 §五） | `src/data/` |
-| `data/survivors.gd` 等 | 静态数据集合（临时方案） | 待迁移到 JSON + DataManager |
-| `scenes/*.tscn` | MainMenu/GameRoom/GameScene/SettingsDialog/SeatItem | `scenes/`（无需迁移） |
+| 路径 | 内容 |
+|------|------|
+| `src/core/` | entity/event_system/event_bus/game_state_machine |
+| `src/entities/` | player/monster/card/scavenge_card/survivor_game_card/equipment_card/monster_card/map_block |
+| `src/game/` | game/mission_config |
+| `src/common/` | pile/role_card/skill |
+| `src/data/` | data_manager + 7 个 *_data.gd（RefCounted）+ code_executor |
+| `src/ui/` | main_menu/game_room/game_scene/settings_dialog/seat_item/settings/room_state/i_player_input/cli_player_input |
+| `data/*.json` | 31 个 JSON 数据文件（6 survivors + 3 variants + 4 scavenge + 4 monsters + 13 missions + 1 map_blocks） |
+| `scenes/*.tscn` | MainMenu/GameRoom/GameScene/SettingsDialog/SeatItem（均引用 `res://src/ui/*.gd`） |
+| `tests/` | GUT 测试（unit/integration），402/402 通过 |
 
-### 2.3 当前 autoload 配置
+### 2.3 autoload 配置（迁移已完成）
+
+当前 `project.godot` [autoload] 配置（5 个 autoload 全部指向 `src/`）：
 
 ```ini
 [autoload]
-RoomState="*res://scripts/autoload/room_state.gd"
-Settings="*res://scripts/autoload/settings.gd"
+DataManager="*res://src/data/data_manager.gd"
+Game="*res://src/game/game.gd"
+EventBus="*res://src/core/event_bus.gd"
+RoomState="*res://src/ui/room_state.gd"
+Settings="*res://src/ui/settings.gd"
 ```
-
-**目标 autoload**（按 [GodotProjectStructure.md §二](GameDesignDocus/Engineering/GodotProjectStructure.md)）：
 
 | Autoload | 类 | 路径 | 初始化顺序 |
 |----------|---|------|-----------|
 | `DataManager` | `DataManager` | `res://src/data/data_manager.gd` | 1（先加载数据） |
 | `Game` | `Game` | `res://src/game/game.gd` | 2（依赖 DataManager） |
 | `EventBus` | `EventBus` | `res://src/core/event_bus.gd` | 3（供 UI 订阅） |
-
-> 迁移期间 `RoomState`/`Settings` 可保留为 UI 层 autoload，与游戏逻辑 autoload（Game/DataManager/EventBus）并存。
+| `RoomState` | `RoomState` | `res://src/ui/room_state.gd` | 4（UI 层，任务/变体/座位） |
+| `Settings` | `Settings` | `res://src/ui/settings.gd` | 5（UI 层，全屏设置） |
 
 ---
 
@@ -177,29 +183,32 @@ Skill                 技能结构定义
 
 数据流与 JSON Schema 见 [DataFormat.md](GameDesignDocus/Engineering/DataFormat.md)。
 
-### 5.2 当前现状（临时方案）
+### 5.2 当前现状（迁移已完成）
 
-当前 `data/` 目录下是 GDScript 硬编码数据类，**非 JSON**，且字段简化：
+`data/` 目录下为 JSON 数据文件（31 个），由 `DataManager` autoload 在 `_ready()` 时加载。数据类位于 `src/data/`，均 `extends RefCounted`，通过 `_init(data: Dictionary)` 解析 JSON。
 
-| 文件 | 内容 | 与设计文档差异 |
-|------|------|---------------|
-| `data/survivor_data.gd` | `SurvivorData extends Resource`，9 字段 | 缺 `deck`（角色专属牌堆）、`intrinsic_skills` 完整结构 |
-| `data/survivors.gd` | 静态 `_ALL` 数组硬编码 6 个角色 | 应来自 JSON |
-| `data/mission_data.gd` | `MissionData extends Resource`，11 字段 | 缺 `map_layout`、`map_legend`、`objective_marks`、`scavenge_config`、`win_condition_code` |
-| `data/missions.gd` | 静态 `_ALL` 数组 | 应来自 JSON |
-| `data/variants.gd` / `variant_data.gd` | 3 个变体（危机四伏/大饥荒/同生共死） | 字段完整，仅需迁移到 JSON |
+| 数据类型 | JSON 路径 | 数据类 | 数量 |
+|---------|----------|--------|------|
+| 求生者 | `data/survivors/*.json` | `SurvivorData` | 6 |
+| 变体 | `data/variants/*.json` | `VariantData` | 3 |
+| 拾荒牌堆 | `data/scavenge/*.json` | `ScavengeCardData` | 4 |
+| 怪物包 | `data/monsters/*.json` | `MonsterCardData` | 4 |
+| 任务 | `data/missions/*.json` | `MissionData` | 13 |
+| 地图块 | `data/map_blocks/*.json` | `MapBlockData` | 1 |
 
-### 5.3 迁移步骤
+DataManager 查询接口：`get_survivor(id)` / `get_all_survivors()` / `has_survivor(id)` / `get_variant(id)` / `get_mission(id)` / `get_scavenge_pile(color)` / `get_monster_pack(type)` / `get_map_block_def(name)`。
 
-1. **实现转换工具** `tools/markdown_to_json.gd`：按 [DataFormat.md §七](GameDesignDocus/Engineering/DataFormat.md#七-markdown--json-转换规范) 解析 Resource markdown → JSON
-2. **生成 JSON 数据**：运行转换工具，输出到 `data/survivors/`、`data/missions/` 等子目录
-3. **实现数据类** `src/data/survivor_data.gd` 等：`extends RefCounted`（按设计文档，非 Resource），`_init(data: Dictionary)` 解析 JSON
-4. **实现 DataManager** `src/data/data_manager.gd`：autoload，`_ready()` 时加载所有 JSON，提供查询接口
-5. **实现验证工具** `tools/data_validator.gd`：按 [DataFormat.md §六](GameDesignDocus/Engineering/DataFormat.md#六-数据验证规则) 检查必填字段/类型/枚举/引用完整性
-6. **替换现有硬编码引用**：将 `Survivors.get_all()` 等静态调用替换为 `DataManager.get_survivor(id)` 等
-7. **删除临时文件**：`data/survivors.gd`、`data/missions.gd`、`data/variants.gd` 及对应 `_data.gd`（迁移到 `src/data/`）
+### 5.3 迁移记录
 
-> **注意**：迁移期间 `RoomState`（房间状态 autoload）引用了 `MissionData`/`SurvivorData`/`Variants`，需同步更新引用路径。
+> 以下步骤已全部完成，保留作为历史记录。
+
+1. `[已跳过]` **实现转换工具** `tools/markdown_to_json.gd`：JSON 数据已手动生成，转换工具未实现（按用户决策跳过，未来如需重新生成数据再补）
+2. `[已完成]` **生成 JSON 数据**：31 个 JSON 文件已输出到 `data/survivors/`、`data/missions/` 等子目录，通过 PowerShell `ConvertFrom-Json` 验证语法
+3. `[已完成]` **实现数据类** `src/data/survivor_data.gd` 等：`extends RefCounted`，`_init(data: Dictionary)` 解析 JSON
+4. `[已完成]` **实现 DataManager** `src/data/data_manager.gd`：autoload，`_ready()` 时加载所有 JSON，提供查询接口
+5. `[已跳过]` **实现验证工具** `tools/data_validator.gd`：JSON 数据已通过 PowerShell 验证，验证工具未实现（按用户决策跳过）
+6. `[已完成]` **替换现有硬编码引用**：所有静态调用已替换为 `DataManager.get_survivor(id)` 等
+7. `[已完成]` **删除临时文件**：`data/survivors.gd`、`data/missions.gd`、`data/variants.gd` 及对应 `_data.gd` 已删除，`scripts/` 目录已删除
 
 ---
 
@@ -291,9 +300,9 @@ Skill                 技能结构定义
 
 地块技能**不挂在 MapBlock 上触发**，而是在玩家进入地块时**挂载到 Player.skills**，由 `player.trigger()` 统一触发；离开时清理。**不要在 MapBlock 上实现 trigger 方法**。
 
-#### 陷阱 7：目录结构处于迁移期
+#### 陷阱 7：代码目录约定
 
-当前代码在 `scripts/` 与 `data/`（GDScript 硬编码），目标结构是 `src/` + `data/`（JSON）。新增代码应放在 `src/` 对应子目录，不要继续往 `scripts/` 塞游戏逻辑代码（UI 临时代码可暂留 `scripts/`）。
+代码已全部位于 `src/`（游戏逻辑）与 `data/`（JSON 数据），`scripts/` 目录已删除。新增代码应放在 `src/` 对应子目录（参见 §2.1 目标结构），不要重新创建 `scripts/` 目录。
 
 ### 7.4 测试要求
 
@@ -352,10 +361,10 @@ godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests
 
 | # | 项 | 现状 | 目标 | 决策 |
 |---|----|------|------|------|
-| 1 | 目录结构 | `scripts/` + `data/`(GDScript) | `src/` + `data/`(JSON) + `tests/` + `tools/` | 按 [GodotProjectStructure.md](GameDesignDocus/Engineering/GodotProjectStructure.md) 迁移 |
-| 2 | 数据加载 | GDScript 硬编码（`Survivors._ALL` 等） | markdown → JSON → DataManager | 见 §五.3 迁移步骤 |
-| 3 | 数据类基类 | `extends Resource` | `extends RefCounted`（按设计文档） | 迁移时调整 |
-| 4 | autoload | RoomState / Settings | + Game / DataManager / EventBus | 阶段 1 核心逻辑实现时新增 |
+| 1 | 目录结构 | `src/` + `data/`(JSON) + `tests/` | `src/` + `data/`(JSON) + `tests/` + `tools/` | ✅ 已完成（`tools/` 按用户决策跳过） |
+| 2 | 数据加载 | JSON + DataManager autoload | markdown → JSON → DataManager | ✅ 已完成（见 §五.3 迁移记录） |
+| 3 | 数据类基类 | `extends RefCounted` + `_init(data: Dictionary)` | `extends RefCounted`（按设计文档） | ✅ 已完成 |
+| 4 | autoload | 5 个 autoload 全部指向 `src/` | + Game / DataManager / EventBus | ✅ 已完成 |
 | 5 | UI 交互接口 | 未定义 | IPlayerInput 接口（命令行 UI 先行） | 见 [docs/design-gaps.md §2.2](docs/design-gaps.md) |
 | 6 | 3D 表现层 | 未开始 | 3D 场景 + 动画 + 特效 | 阶段 2 前补充设计 |
 | 7 | AI 玩家 | 未开始 | AI 决策架构 + 难度等级 | 阶段 3 前补充设计 |

@@ -1,0 +1,314 @@
+{
+  "$schema": "survivor",
+  "character_name": "机械师",
+  "english_name": "mechanic",
+  "max_hp": 26,
+  "initial_hp": 26,
+  "stealth": 8,
+  "hunger_stealth": 7,
+  "equipment_slot": 4,
+  "intrinsic_skills": [
+    {
+      "skill_name": "维修",
+      "english_name": "repair",
+      "skill_description": "行动：从任一弃牌堆中选择一张装备牌，并把它放置在场上任一玩家的装备区中。",
+      "active": "action",
+      "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && game.has_equipment_in_discard_piles()",
+      "content": "player.consume_action(1)\nvar list = game.get_all_discard_pile_equipments()\nvar card = player.choose_card(list)\nvar target = player.choose_target({\"select_target\": 1, \"filter_target\": \"return target.type == \\\"human\\\"\", \"filter_target_range\": \"infinity\"})\ntarget.equip(card)"
+    }
+  ],
+  "deck": [
+    {
+      "card_name": "扳手",
+      "english_name": "wrench",
+      "count": 3,
+      "card_type": "equipment",
+      "size": 1,
+      "skills": [
+        {
+          "skill_name": "扳手",
+          "english_name": "wrench",
+          "skill_description": "行动：对一个目标造成2点伤害。",
+          "range": "short",
+          "skill_type": "equipment",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "select_target": 1,
+          "filter_target": "return true",
+          "filter_target_range": "short",
+          "content": "player.consume_action(1)\ntarget.damage(2, player)"
+        }
+      ]
+    },
+    {
+      "card_name": "钉子炸弹",
+      "english_name": "nail_bomb",
+      "count": 2,
+      "card_type": "action",
+      "skills": [
+        {
+          "skill_name": "钉子炸弹",
+          "english_name": "nail_bomb",
+          "skill_description": "行动：对射程内的最多3个怪物各造成5点伤害",
+          "skill_type": "action",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "select_target": [1, 3],
+          "filter_target": "return target.type == \"monster\"",
+          "filter_target_range": "medium",
+          "content": "var list = event.targets\nfor i in list:\n\ti.damage(5, player)"
+        }
+      ]
+    },
+    {
+      "card_name": "感应地雷",
+      "english_name": "proximity_mine",
+      "count": 3,
+      "card_type": "equipment",
+      "size": 1,
+      "skills": [
+        {
+          "skill_name": "感应地雷",
+          "english_name": "proximity_mine",
+          "skill_description": "被动：当你抓取一张怪物卡后，弃掉此装备并对该怪物造成7点伤害。",
+          "skill_type": "equipment",
+          "trigger": "after_draw_monster_card",
+          "filter": "return true",
+          "forced": true,
+          "content": "player.discard(\"proximity_mine\", \"equipment\")\nevent.card.damage(7, player)"
+        }
+      ]
+    },
+    {
+      "card_name": "焊接头盔",
+      "english_name": "welding_helmet",
+      "count": 2,
+      "card_type": "equipment",
+      "size": 1,
+      "skills": [
+        {
+          "skill_name": "焊接头盔",
+          "english_name": "welding_helmet",
+          "skill_description": "被动：受到的伤害减一。",
+          "skill_type": "equipment",
+          "trigger": "on_take_damage",
+          "filter": "return true",
+          "forced": true,
+          "content": "event.num -= 1"
+        }
+      ]
+    },
+    {
+      "card_name": "检查武器",
+      "english_name": "check_weapon",
+      "count": 3,
+      "card_type": "action",
+      "skills": [
+        {
+          "skill_name": "检查武器",
+          "english_name": "check_weapon",
+          "skill_description": "行动：所有玩家造成的伤害增加1，直到其回合结束。",
+          "skill_type": "action",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "content": "var list = game.get_all_players()\nfor i in list:\n\ti.add_temp_skill(\"check_weapon_damage\", \"before_turn_end\")",
+          "sub_skills": {
+            "damage": {
+              "skill_name": "检查武器_伤害",
+              "english_name": "check_weapon_damage",
+              "trigger": "on_deal_damage",
+              "forced": true,
+              "filter": "return true",
+              "content": "event.num += 1"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "card_name": "喷灯",
+      "english_name": "blowtorch",
+      "count": 2,
+      "card_type": "equipment",
+      "size": 2,
+      "charge_type": "fuel",
+      "charge_max": 3,
+      "charge_initial": 3,
+      "skills": [
+        {
+          "skill_name": "喷灯",
+          "english_name": "blowtorch",
+          "skill_description": "行动：消耗1点燃料，对一个目标造成5点伤害。",
+          "range": "short",
+          "skill_type": "equipment",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"blowtorch\") > 0",
+          "select_target": 1,
+          "filter_target": "return true",
+          "filter_target_range": "short",
+          "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"blowtorch\"), 1)\ntarget.damage(5, player)"
+        }
+      ]
+    },
+    {
+      "card_name": "启动汽车",
+      "english_name": "start_car",
+      "count": 2,
+      "card_type": "action",
+      "skills": [
+        {
+          "skill_name": "启动汽车",
+          "english_name": "start_car",
+          "skill_description": "行动：将任一玩家移动到任一已展示的地图块。",
+          "skill_type": "action",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "complex_target": true,
+          "filter_target_1": "return target.type == \"human\"",
+          "filter_target_1_range": "infinity",
+          "filter_target_2": "return target.is_revealed()",
+          "filter_target_2_range": "infinity",
+          "content": "target1.move_to(target2)"
+        }
+      ]
+    },
+    {
+      "card_name": "升级",
+      "english_name": "upgrade",
+      "count": 3,
+      "card_type": "action",
+      "skills": [
+        {
+          "skill_name": "升级",
+          "english_name": "upgrade",
+          "skill_description": "行动：放置在射程内的任一武器上，那张武器额外造成1点伤害。",
+          "range": "medium",
+          "skill_type": "action",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "select_target": 1,
+          "filter_target": "return target.card_type == \"equipment\"",
+          "filter_target_range": "medium",
+          "content": "target.add_mark_skill(\"upgrade_damage_plus_1\")\nplayer.add_skill(\"upgrade_damage\")",
+          "sub_skills": {
+            "damage": {
+              "skill_name": "升级_伤害",
+              "english_name": "upgrade_damage",
+              "trigger": "on_deal_damage",
+              "forced": true,
+              "filter": "return event.card != null && event.card.has_mark_skill(\"upgrade_damage_plus_1\")",
+              "content": "event.num += 1"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "card_name": "手枪",
+      "english_name": "pistol",
+      "count": 1,
+      "card_type": "equipment",
+      "size": 1,
+      "charge_type": "ammo",
+      "charge_max": 4,
+      "charge_initial": 4,
+      "skills": [
+        {
+          "skill_name": "手枪",
+          "english_name": "pistol",
+          "skill_description": "行动：消耗1枚弹药，对一个目标造成2点伤害。",
+          "range": "medium",
+          "skill_type": "equipment",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"pistol\") > 0",
+          "select_target": 1,
+          "filter_target": "return true",
+          "filter_target_range": "medium",
+          "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"pistol\"), 1)\ntarget.damage(2, player)"
+        }
+      ]
+    },
+    {
+      "card_name": "无人机攻击",
+      "english_name": "drone_strike",
+      "count": 2,
+      "card_type": "action",
+      "skills": [
+        {
+          "skill_name": "无人机攻击",
+          "english_name": "drone_strike",
+          "skill_description": "行动：从1个地图块上移除所有怪物标记。",
+          "skill_type": "action",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "content": "var target = player.choose_map_block({\"filter_target\": \"return target.is_revealed()\", \"filter_target_range\": \"infinity\"})\ntarget.remove_all_monster_marks()"
+        }
+      ]
+    },
+    {
+      "card_name": "阅读使用说明",
+      "english_name": "read_manual",
+      "count": 3,
+      "card_type": "action",
+      "skills": [
+        {
+          "skill_name": "阅读使用说明",
+          "english_name": "read_manual",
+          "skill_description": "行动：把你的一张装备卡装备给另一名玩家，然后你抓取一张牌。",
+          "range": "medium",
+          "skill_type": "action",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "complex_target": true,
+          "filter_target_1": "return target.in_equipment_area",
+          "filter_target_2": "return target.type == \"human\" && target != player",
+          "filter_target_2_range": "medium",
+          "content": "target2.equip(target1)\nplayer.draw(1)"
+        }
+      ]
+    },
+    {
+      "card_name": "自动炮塔",
+      "english_name": "auto_turret",
+      "count": 2,
+      "card_type": "equipment",
+      "size": 2,
+      "charge_type": "ammo",
+      "charge_max": 4,
+      "charge_initial": 4,
+      "skills": [
+        {
+          "skill_name": "自动炮塔",
+          "english_name": "auto_turret",
+          "skill_description": "被动：每次你受到伤害时，自动炮塔对伤害来源造成4点伤害。",
+          "skill_type": "equipment",
+          "trigger": "on_take_damage",
+          "filter": "return event.source != null && event.source != player",
+          "forced": true,
+          "content": "event.source.damage(4, player)"
+        }
+      ]
+    },
+    {
+      "card_name": "自制子弹",
+      "english_name": "homemade_bullets",
+      "count": 5,
+      "card_type": "action",
+      "skills": [
+        {
+          "skill_name": "自制子弹",
+          "english_name": "homemade_bullets",
+          "skill_description": "行动：完全装填射程内的任一武器。",
+          "range": "short",
+          "skill_type": "action",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "select_target": 1,
+          "filter_target": "return target.card_type == \"equipment\" && target.charge_type != null",
+          "filter_target_range": "short",
+          "content": "target.fill_charge()"
+        }
+      ]
+    }
+  ]
+}

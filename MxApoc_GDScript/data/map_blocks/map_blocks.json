@@ -1,0 +1,446 @@
+{
+  "$schema": "map_blocks",
+  "blocks": [
+    {
+      "block_name": "百货商店",
+      "english_name": "department_store",
+      "scavenge_colors": ["green"],
+      "monster_spawn_value": 9,
+      "skills": [
+        {
+          "skill_name": "百货商店",
+          "english_name": "department_store",
+          "skill_description": "展示：执行一次免费的拾荒行动",
+          "skill_type": "block",
+          "trigger": "on_reveal_block",
+          "filter": "return true",
+          "forced": true,
+          "content": "player.draw_scavenge(1, game.get_scavenge_pile(player.get_current_block().scavenge_colors[0]))"
+        }
+      ]
+    },
+    {
+      "block_name": "避难所",
+      "english_name": "shelter",
+      "scavenge_colors": [],
+      "monster_spawn_value": 12,
+      "skills": [
+        {
+          "skill_name": "避难所",
+          "english_name": "shelter",
+          "skill_description": "若你本回合开始时不在这里，且在这里受到伤害时，你免疫伤害。",
+          "skill_type": "block",
+          "trigger": "on_turn_start、on_take_damage",
+          "filter": "return !player.has_mark_skill(\"shelter_disabled\")",
+          "forced": true,
+          "content": "if event.trigger_name == \"on_turn_start\" && player.get_current_block().has_skill(\"shelter\"):\n\tplayer.add_mark_skill(\"shelter_disabled\", 1, \"turn_end\")\nelif event.trigger_name == \"on_take_damage\" && player.get_current_block().has_skill(\"shelter\"):\n\tevent.cancel()"
+        }
+      ]
+    },
+    {
+      "block_name": "城市街道",
+      "english_name": "city_street",
+      "scavenge_colors": ["red"],
+      "monster_spawn_value": 6,
+      "skills": [
+        {
+          "skill_name": "城市街道",
+          "english_name": "city_street",
+          "skill_description": "展示：抓一张怪物卡",
+          "skill_type": "block",
+          "trigger": "on_reveal_block",
+          "filter": "return true",
+          "forced": true,
+          "content": "player.draw_monster(1)"
+        }
+      ]
+    },
+    {
+      "block_name": "电厂",
+      "english_name": "power_plant",
+      "scavenge_colors": [],
+      "monster_spawn_value": 10,
+      "skills": [
+        {
+          "skill_name": "电厂",
+          "english_name": "power_plant",
+          "skill_description": "展示：弃掉所有的食物卡。进入：中毒层数加一。",
+          "skill_type": "block",
+          "trigger": "on_reveal_block、on_enter_block",
+          "filter": "return true",
+          "forced": true,
+          "content": "if event.trigger_name == \"on_reveal_block\":\n\tplayer.discard(null, null, 0, \"food\")\nelif event.trigger_name == \"on_enter_block\" && player.get_current_block().has_skill(\"power_plant\"):\n\tplayer.add_poison(1)"
+        }
+      ]
+    },
+    {
+      "block_name": "河流",
+      "english_name": "river",
+      "scavenge_colors": [],
+      "monster_spawn_value": 10,
+      "skills": [
+        {
+          "skill_name": "河流",
+          "english_name": "river",
+          "skill_description": "进入此地块前，进行一次潜行检定，成功：移动到本地；失败：返回之前的地图块",
+          "skill_type": "block",
+          "trigger": "before_enter_block",
+          "filter": "return true",
+          "forced": true,
+          "content": "if not player.sneak_judge():\n\tevent.cancel()"
+        }
+      ]
+    },
+    {
+      "block_name": "机场",
+      "english_name": "airport",
+      "scavenge_colors": ["red", "green"],
+      "monster_spawn_value": 8,
+      "skills": [
+        {
+          "skill_name": "机场",
+          "english_name": "airport",
+          "skill_description": "行动：如果这里没有怪物，移动到另一个已展示的地图块。",
+          "skill_type": "block",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_current_block().has_skill(\"airport\") && !player.get_current_block().has_monster()",
+          "select_target": 1,
+          "filter_target": "return target.is_revealed() && !target.has_monster_mark() && target != player.get_current_block()",
+          "content": "player.consume_action(1)\nplayer.move_to(target)"
+        }
+      ]
+    },
+    {
+      "block_name": "警察局",
+      "english_name": "police_station",
+      "scavenge_colors": ["blue"],
+      "monster_spawn_value": 6,
+      "skills": [
+        {
+          "skill_name": "警察局",
+          "english_name": "police_station",
+          "skill_description": "展示：执行一次免费的拾荒行动",
+          "skill_type": "block",
+          "trigger": "on_reveal_block",
+          "filter": "return true",
+          "forced": true,
+          "content": "player.draw_scavenge(1, game.get_scavenge_pile(player.get_current_block().scavenge_colors[0]))"
+        }
+      ]
+    },
+    {
+      "block_name": "军事基地",
+      "english_name": "military_base",
+      "scavenge_colors": ["red", "blue"],
+      "monster_spawn_value": 0,
+      "skills": [
+        {
+          "skill_name": "军事基地",
+          "english_name": "military_base",
+          "skill_description": "进入：对你面前的所有怪物各造成两点伤害",
+          "skill_type": "block",
+          "trigger": "on_enter_block",
+          "filter": "return true",
+          "forced": true,
+          "content": "var list = game.get_engaged_monsters(player)\nfor i in list:\n\ti.damage(2, player)"
+        }
+      ]
+    },
+    {
+      "block_name": "监狱",
+      "english_name": "prison",
+      "scavenge_colors": ["red", "green", "blue"],
+      "monster_spawn_value": 9,
+      "skills": [
+        {
+          "skill_name": "监狱",
+          "english_name": "prison",
+          "skill_description": "展示：立即结束你的行动阶段。进入：减少一次行动次数",
+          "skill_type": "block",
+          "trigger": "on_reveal_block、on_enter_block",
+          "filter": "return true",
+          "forced": true,
+          "content": "if event.trigger_name == \"on_reveal_block\" && player.in_phase == \"action\":\n\tplayer.end_phase(\"action\")\nelif event.trigger_name == \"on_enter_block\" && player.get_current_block().has_skill(\"prison\"):\n\tplayer.consume_action(1)"
+        }
+      ]
+    },
+    {
+      "block_name": "旷野",
+      "english_name": "wilderness",
+      "scavenge_colors": [],
+      "monster_spawn_value": 6,
+      "skills": [
+        {
+          "skill_name": "旷野",
+          "english_name": "wilderness",
+          "skill_description": "进入：抓一张怪物卡",
+          "skill_type": "block",
+          "trigger": "on_enter_block",
+          "filter": "return true",
+          "forced": true,
+          "content": "player.draw_monster(1)"
+        }
+      ]
+    },
+    {
+      "block_name": "工厂",
+      "english_name": "factory",
+      "scavenge_colors": ["blue"],
+      "monster_spawn_value": 4,
+      "skills": [
+        {
+          "skill_name": "工厂",
+          "english_name": "factory",
+          "skill_description": "展示：向所有相邻的地块各增加一个怪物标记",
+          "skill_type": "block",
+          "trigger": "on_reveal_block",
+          "filter": "return true",
+          "forced": true,
+          "content": "var list = player.get_current_block().get_adjacent_blocks()\nfor i in list:\n\ti.add_monster_mark(1)"
+        }
+      ]
+    },
+    {
+      "block_name": "购物中心",
+      "english_name": "shopping_mall",
+      "scavenge_colors": ["blue"],
+      "monster_spawn_value": 8,
+      "skills": [
+        {
+          "skill_name": "购物中心",
+          "english_name": "shopping_mall",
+          "skill_description": "展示：执行一次免费的拾荒行动",
+          "skill_type": "block",
+          "trigger": "on_reveal_block",
+          "filter": "return true",
+          "forced": true,
+          "content": "player.draw_scavenge(1, game.get_scavenge_pile(player.get_current_block().scavenge_colors[0]))"
+        }
+      ]
+    },
+    {
+      "block_name": "加油站",
+      "english_name": "gas_station",
+      "scavenge_colors": ["red"],
+      "monster_spawn_value": 9,
+      "skills": [
+        {
+          "skill_name": "加油站",
+          "english_name": "gas_station",
+          "skill_description": "展示：执行一次免费的拾荒行动",
+          "skill_type": "block",
+          "trigger": "on_reveal_block",
+          "filter": "return true",
+          "forced": true,
+          "content": "player.draw_scavenge(1, game.get_scavenge_pile(player.get_current_block().scavenge_colors[0]))"
+        }
+      ]
+    },
+    {
+      "block_name": "绿洲",
+      "english_name": "oasis",
+      "scavenge_colors": [],
+      "monster_spawn_value": 11,
+      "skills": [
+        {
+          "skill_name": "绿洲",
+          "english_name": "oasis",
+          "skill_description": "结束：减少一点饥饿值",
+          "skill_type": "block",
+          "trigger": "on_turn_end",
+          "filter": "return true",
+          "forced": true,
+          "content": "player.decrease_hunger(1)"
+        }
+      ]
+    },
+    {
+      "block_name": "面包车",
+      "english_name": "van",
+      "scavenge_colors": [],
+      "monster_spawn_value": 6,
+      "skills": []
+    },
+    {
+      "block_name": "墓地",
+      "english_name": "graveyard",
+      "scavenge_colors": [],
+      "monster_spawn_value": 4,
+      "skills": [
+        {
+          "skill_name": "墓地",
+          "english_name": "graveyard",
+          "skill_description": "展示：每名玩家抓一张怪物卡。进入：抓一张怪物卡",
+          "skill_type": "block",
+          "trigger": "on_reveal_block、on_enter_block",
+          "filter": "return true",
+          "forced": true,
+          "content": "if event.trigger_name == \"on_reveal_block\":\n\tvar list = game.get_all_players()\n\tfor i in list:\n\t\ti.draw_monster(1)\nelif event.trigger_name == \"on_enter_block\":\n\tplayer.draw_monster(1)"
+        }
+      ]
+    },
+    {
+      "block_name": "农场",
+      "english_name": "farm",
+      "scavenge_colors": ["green"],
+      "monster_spawn_value": 3,
+      "skills": [
+        {
+          "skill_name": "农场",
+          "english_name": "farm",
+          "skill_description": "展示：执行一次免费的拾荒行动",
+          "skill_type": "block",
+          "trigger": "on_reveal_block",
+          "filter": "return true",
+          "forced": true,
+          "content": "player.draw_scavenge(1, game.get_scavenge_pile(player.get_current_block().scavenge_colors[0]))"
+        }
+      ]
+    },
+    {
+      "block_name": "强盗营地",
+      "english_name": "bandit_camp",
+      "scavenge_colors": [],
+      "monster_spawn_value": 9,
+      "skills": [
+        {
+          "skill_name": "强盗营地",
+          "english_name": "bandit_camp",
+          "skill_description": "进入：弃掉一张已装备的装备卡或者受到5点伤害",
+          "skill_type": "block",
+          "trigger": "on_enter_block",
+          "filter": "return true",
+          "forced": true,
+          "content": "if not player.has_card(\"equipment\"):\n\tplayer.damage(5, null)\nelse:\n\tvar result = player.choose([\"弃置装备\", \"受到伤害\"])\n\tif result == \"弃置装备\":\n\t\tplayer.choose_to_discard(1, \"equipment\")\n\telif result == \"受到伤害\":\n\t\tplayer.damage(5, null)"
+        }
+      ]
+    },
+    {
+      "block_name": "山",
+      "english_name": "mountain",
+      "scavenge_colors": [],
+      "monster_spawn_value": 9,
+      "skills": [
+        {
+          "skill_name": "山",
+          "english_name": "mountain",
+          "skill_description": "进入：抓一张牌",
+          "skill_type": "block",
+          "trigger": "on_enter_block",
+          "filter": "return true",
+          "forced": true,
+          "content": "player.draw(1)"
+        }
+      ]
+    },
+    {
+      "block_name": "隧道",
+      "english_name": "tunnel",
+      "scavenge_colors": [],
+      "monster_spawn_value": 10,
+      "skills": [
+        {
+          "skill_name": "隧道",
+          "english_name": "tunnel",
+          "skill_description": "行动：移动到另一个已经展示的【隧道】地图块",
+          "skill_type": "block",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_current_block().has_skill(\"tunnel\")",
+          "select_target": 1,
+          "filter_target": "return target.has_skill(\"tunnel\") && target != player.get_current_block()",
+          "content": "player.consume_action(1)\nplayer.move_to(target)"
+        }
+      ]
+    },
+    {
+      "block_name": "森林",
+      "english_name": "forest",
+      "scavenge_colors": [],
+      "monster_spawn_value": 5,
+      "skills": [
+        {
+          "skill_name": "森林",
+          "english_name": "forest",
+          "skill_description": "进入此地块后，并在同一个回合内移动出此地块后，抓一张怪物卡",
+          "skill_type": "block",
+          "trigger": "on_enter_block、on_leave_block",
+          "filter": "return true",
+          "forced": true,
+          "content": "if event.trigger_name == \"on_enter_block\":\n\tplayer.add_mark_skill(\"forest_monster\", 1, \"turn_end\")\nelif event.trigger_name == \"on_leave_block\" && player.has_mark_skill(\"forest_monster\"):\n\tplayer.draw_monster(1)"
+        }
+      ]
+    },
+    {
+      "block_name": "沙漠",
+      "english_name": "desert",
+      "scavenge_colors": [],
+      "monster_spawn_value": 10,
+      "skills": [
+        {
+          "skill_name": "沙漠",
+          "english_name": "desert",
+          "skill_description": "进入：饥饿等级增加1",
+          "skill_type": "block",
+          "trigger": "on_enter_block",
+          "filter": "return true",
+          "forced": true,
+          "content": "player.increase_hunger(1)"
+        }
+      ]
+    },
+    {
+      "block_name": "游乐园",
+      "english_name": "amusement_park",
+      "scavenge_colors": ["red", "blue", "green"],
+      "monster_spawn_value": 6,
+      "skills": [
+        {
+          "skill_name": "游乐园",
+          "english_name": "amusement_park",
+          "skill_description": "展示：弃掉三张牌。结束：弃掉一张牌",
+          "skill_type": "block",
+          "trigger": "on_reveal_block、on_turn_end",
+          "filter": "return true",
+          "forced": true,
+          "content": "if event.trigger_name == \"on_reveal_block\":\n\tplayer.choose_to_discard(3)\nelif event.trigger_name == \"on_turn_end\":\n\tplayer.choose_to_discard(1)"
+        }
+      ]
+    },
+    {
+      "block_name": "医院",
+      "english_name": "hospital",
+      "scavenge_colors": ["red"],
+      "monster_spawn_value": 3,
+      "skills": [
+        {
+          "skill_name": "医院",
+          "english_name": "hospital",
+          "skill_description": "进入：恢复一点生命值。结束：恢复两点生命值",
+          "skill_type": "block",
+          "trigger": "on_enter_block、on_turn_end",
+          "filter": "return true",
+          "forced": true,
+          "content": "if event.trigger_name == \"on_enter_block\":\n\tplayer.add_hp(1)\nelif event.trigger_name == \"on_turn_end\":\n\tplayer.add_hp(2)"
+        }
+      ]
+    },
+    {
+      "block_name": "坠毁点",
+      "english_name": "crash_site",
+      "scavenge_colors": [],
+      "monster_spawn_value": 10,
+      "skills": [
+        {
+          "skill_name": "坠毁点",
+          "english_name": "crash_site",
+          "skill_description": "展示：每名玩家销毁一张装备。进入：销毁一张牌",
+          "skill_type": "block",
+          "trigger": "on_reveal_block、on_enter_block",
+          "filter": "return true",
+          "forced": true,
+          "content": "if event.trigger_name == \"on_reveal_block\":\n\tvar list = game.get_all_players()\n\tfor i in list:\n\t\tif i.has_card(\"equipment\"):\n\t\t\tvar card = game.get_random_card(i, [\"equipment\"])\n\t\t\tif card != null:\n\t\t\t\ti.remove_card(card)\nelif event.trigger_name == \"on_enter_block\" && player.has_card():\n\tvar card = game.get_random_card(player, [\"hand\", \"equipment\"])\n\tif card != null:\n\t\tplayer.remove_card(card)"
+        }
+      ]
+    }
+  ]
+}

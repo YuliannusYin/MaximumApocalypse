@@ -1,0 +1,130 @@
+{
+  "$schema": "monster_pack",
+  "monster_type": "zombie",
+  "cards": [
+    {
+      "monster_name": "僵尸女王",
+      "english_name": "zombie_queen",
+      "monster_level": "boss",
+      "max_hp": 18,
+      "initial_hp": 18,
+      "attack_damage": 5,
+      "range": "none",
+      "skills": [
+        {
+          "skill_name": "僵尸女王",
+          "english_name": "zombie_queen",
+          "skill_description": "当场上任何僵尸类型怪物被消灭时，消灭该怪物的玩家抓取一张新的怪物卡。",
+          "skill_type": "monster",
+          "trigger": "on_monster_death",
+          "forced": true,
+          "filter": "return event.target.monster_type == \"zombie\"",
+          "content": "event.source.draw_monster(1)"
+        }
+      ]
+    },
+    {
+      "monster_name": "一大波僵尸",
+      "english_name": "zombie_horde",
+      "monster_level": "boss",
+      "max_hp": 16,
+      "initial_hp": 16,
+      "attack_damage": 4,
+      "range": "short",
+      "skills": [
+        {
+          "skill_name": "一大波僵尸",
+          "english_name": "zombie_horde",
+          "skill_description": "当此怪物卡被玩家抓取时，在抓取该卡玩家的所有相邻地块上各放置一个怪物标记，然后该玩家再抓取一张怪物卡。",
+          "skill_type": "monster",
+          "trigger": "after_monster_enter_zone",
+          "forced": true,
+          "filter": "return true",
+          "content": "var drawer = event.player\nvar list = drawer.get_current_block().get_adjacent_blocks()\nfor i in list:\n\ti.add_monster_mark(1)\ndrawer.draw_monster(1)"
+        }
+      ]
+    },
+    {
+      "monster_name": "僵尸狗",
+      "english_name": "zombie_dog",
+      "monster_level": "normal",
+      "max_hp": 5,
+      "initial_hp": 5,
+      "attack_damage": 4,
+      "range": "none",
+      "skills": []
+    },
+    {
+      "monster_name": "僵尸士兵",
+      "english_name": "zombie_soldier",
+      "monster_level": "normal",
+      "max_hp": 8,
+      "initial_hp": 8,
+      "attack_damage": 4,
+      "range": "none",
+      "skills": []
+    },
+    {
+      "monster_name": "僵尸步行者",
+      "english_name": "zombie_walker",
+      "monster_level": "normal",
+      "max_hp": 4,
+      "initial_hp": 4,
+      "attack_damage": 2,
+      "range": "none",
+      "skills": []
+    },
+    {
+      "monster_name": "僵尸步行者（精英）",
+      "english_name": "zombie_walker_elite",
+      "monster_level": "elite",
+      "max_hp": 4,
+      "initial_hp": 4,
+      "attack_damage": 2,
+      "range": "none",
+      "skills": [
+        {
+          "skill_name": "僵尸步行者",
+          "english_name": "zombie_walker_elite",
+          "skill_description": "抓取此卡的玩家再抓取一张怪物卡。",
+          "skill_type": "monster",
+          "trigger": "after_monster_enter_zone",
+          "forced": true,
+          "filter": "return true",
+          "content": "event.player.draw_monster(1)"
+        }
+      ]
+    },
+    {
+      "monster_name": "僵尸喷吐者",
+      "english_name": "zombie_spitter",
+      "monster_level": "elite",
+      "max_hp": 6,
+      "initial_hp": 6,
+      "attack_damage": 2,
+      "range": "medium",
+      "skills": []
+    },
+    {
+      "monster_name": "僵尸潜行者",
+      "english_name": "zombie_stalker",
+      "monster_level": "elite",
+      "max_hp": 12,
+      "initial_hp": 12,
+      "attack_damage": 5,
+      "range": "medium",
+      "skills": [
+        {
+          "skill_name": "僵尸潜行者",
+          "english_name": "zombie_stalker",
+          "skill_description": "攻击后，修改纠缠目标为场上血量最低的玩家。",
+          "skill_type": "monster",
+          "trigger": "after_monster_attack",
+          "forced": true,
+          "filter": "return true",
+          "content": "var list = game.get_all_players()\nvar target = list[0]\nfor p in list:\n\tif p.get_hp() < target.get_hp():\n\t\ttarget = p\nself.change_engaged_target(target)"
+        }
+      ]
+    }
+  ]
+}
