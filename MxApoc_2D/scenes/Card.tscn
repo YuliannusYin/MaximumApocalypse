@@ -1,0 +1,23 @@
+[gd_scene format=3 uid="uid://bp4j7h13n6gc6"]
+
+[ext_resource type="Script" uid="uid://r3hqb5r3yf8p" path="res://scripts/Card.gd" id="1_6u4wf"]
+[ext_resource type="Texture2D" uid="uid://bri7f3jm485ab" path="res://images/图包/求生者图包/外科医生图包/研钵.png" id="2_6u4wf"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_p8jh5"]
+size = Vector2(75, 102)
+
+[node name="Card" type="Node2D" unique_id=1492810749]
+script = ExtResource("1_6u4wf")
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=362520401]
+scale = Vector2(0.2, 0.2)
+texture = ExtResource("2_6u4wf")
+
+[node name="Area2D" type="Area2D" parent="." unique_id=2048156348]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Area2D" unique_id=1338849153]
+position = Vector2(0.5, 0)
+shape = SubResource("RectangleShape2D_p8jh5")
+
+[connection signal="mouse_entered" from="Area2D" to="." method="_on_area_2d_mouse_entered"]
+[connection signal="mouse_exited" from="Area2D" to="." method="_on_area_2d_mouse_exited"]
