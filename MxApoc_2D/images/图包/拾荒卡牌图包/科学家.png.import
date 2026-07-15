@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bqws1p6uec6xc"
-valid=false
+uid="uid://dgsb6fpa64gnx"
+path="res://.godot/imported/科学家.png-f72aebf6e0527a6c89375dd2244dd8c2.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://images/图包/拾荒卡牌图包/科学家.png"
+dest_files=["res://.godot/imported/科学家.png-f72aebf6e0527a6c89375dd2244dd8c2.ctex"]
 
 [params]
 

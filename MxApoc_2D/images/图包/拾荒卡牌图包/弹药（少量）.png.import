@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://lmvq2mvifb1j"
-valid=false
+uid="uid://bygejth5p232b"
+path="res://.godot/imported/弹药（少量）.png-98d42eaad104f79b2f4df768f1c23c01.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://images/图包/拾荒卡牌图包/弹药（少量）.png"
+dest_files=["res://.godot/imported/弹药（少量）.png-98d42eaad104f79b2f4df768f1c23c01.ctex"]
 
 [params]
 

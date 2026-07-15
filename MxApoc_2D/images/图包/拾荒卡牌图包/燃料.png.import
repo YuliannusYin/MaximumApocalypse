@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cfuekosbxpvqr"
-valid=false
+uid="uid://dt0dx5igr72q"
+path="res://.godot/imported/燃料.png-bdc47439a108dd09cd8b96e767117f00.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://images/图包/拾荒卡牌图包/燃料.png"
+dest_files=["res://.godot/imported/燃料.png-bdc47439a108dd09cd8b96e767117f00.ctex"]
 
 [params]
 

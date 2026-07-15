@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dmmwl8rkg66ig"
-valid=false
+uid="uid://n0veltw1ietu"
+path="res://.godot/imported/食物（小箱）.png-f287b70b6154b26c811c930875c6e695.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://images/图包/拾荒卡牌图包/食物（小箱）.png"
+dest_files=["res://.godot/imported/食物（小箱）.png-f287b70b6154b26c811c930875c6e695.ctex"]
 
 [params]
 

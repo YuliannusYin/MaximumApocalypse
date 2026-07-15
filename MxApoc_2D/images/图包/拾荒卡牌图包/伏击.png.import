@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bfaui4oihjeei"
-valid=false
+uid="uid://62y47y366op8"
+path="res://.godot/imported/伏击.png-8bc0248247acc8fca84d40189762a649.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://images/图包/拾荒卡牌图包/伏击.png"
+dest_files=["res://.godot/imported/伏击.png-8bc0248247acc8fca84d40189762a649.ctex"]
 
 [params]
 

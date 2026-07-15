@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://d0p5rgee1x0dh"
-valid=false
+uid="uid://d0sqc4mieterp"
+path="res://.godot/imported/对讲机.png-7377d600f44c6c868b18c8bd300b32fb.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://images/图包/拾荒卡牌图包/对讲机.png"
+dest_files=["res://.godot/imported/对讲机.png-7377d600f44c6c868b18c8bd300b32fb.ctex"]
 
 [params]
 

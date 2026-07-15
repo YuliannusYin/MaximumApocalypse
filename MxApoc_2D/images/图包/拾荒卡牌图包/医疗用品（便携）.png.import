@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://d28vndfllil1a"
-valid=false
+uid="uid://8y6ejgolyn1"
+path="res://.godot/imported/医疗用品（便携）.png-531e6a93570dbb758d75693871e37c2e.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://images/图包/拾荒卡牌图包/医疗用品（便携）.png"
+dest_files=["res://.godot/imported/医疗用品（便携）.png-531e6a93570dbb758d75693871e37c2e.ctex"]
 
 [params]
 

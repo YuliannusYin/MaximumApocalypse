@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cg5oea2tr8lbq"
-valid=false
+uid="uid://x4wjyjx316lv"
+path="res://.godot/imported/多余配件.png-af174b126a87bdd8abdc2a28a2a94894.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://images/图包/拾荒卡牌图包/多余配件.png"
+dest_files=["res://.godot/imported/多余配件.png-af174b126a87bdd8abdc2a28a2a94894.ctex"]
 
 [params]
 

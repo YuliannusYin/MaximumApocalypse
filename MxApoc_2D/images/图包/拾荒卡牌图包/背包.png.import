@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dqpgwq238o4qu"
-valid=false
+uid="uid://bo0tsxs736ek5"
+path="res://.godot/imported/背包.png-d385cb6e7a76ff8b84e3e802f3143095.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://images/图包/拾荒卡牌图包/背包.png"
+dest_files=["res://.godot/imported/背包.png-d385cb6e7a76ff8b84e3e802f3143095.ctex"]
 
 [params]
 

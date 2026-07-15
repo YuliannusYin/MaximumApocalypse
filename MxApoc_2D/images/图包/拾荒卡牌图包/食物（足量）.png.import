@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c6cqi7qs2ypof"
-valid=false
+uid="uid://dd7wex7m7726i"
+path="res://.godot/imported/食物（足量）.png-a68ae1ed58028e75070a64f7475221c4.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://images/图包/拾荒卡牌图包/食物（足量）.png"
+dest_files=["res://.godot/imported/食物（足量）.png-a68ae1ed58028e75070a64f7475221c4.ctex"]
 
 [params]
 
