@@ -5,13 +5,16 @@ signal left_mouse_button_released
 
 const COLLISION_MASK_CARD = 1
 const COLLISION_MASK_CARD_DECK = 4
+const COLLISION_MASK_MAP_BLOCK = 16
 
 var card_manager_reference
+var map_manager_reference
 var deck_reference
 
 func _ready() -> void:
 	card_manager_reference = $"../CardManager"
-	deck_reference = $"../Deck"
+	#deck_reference = $"../Deck"
+	map_manager_reference = $"../MapManager"
 	
 	
 func _input(event) -> void:
@@ -23,6 +26,8 @@ func _input(event) -> void:
 			emit_signal("left_mouse_button_released")
 			
 func raycast_at_cursor():
+	if card_manager_reference and card_manager_reference.card_being_dragged:
+		return
 	var space_state = get_world_2d().direct_space_state
 	var parameters = PhysicsPointQueryParameters2D.new()
 	parameters.position = get_global_mouse_position()
@@ -36,3 +41,9 @@ func raycast_at_cursor():
 				card_manager_reference.start_drag(card_found)
 		elif result_collision_mask == COLLISION_MASK_CARD_DECK:
 			deck_reference.draw_card()
+		elif result_collision_mask == COLLISION_MASK_MAP_BLOCK:
+			#print("map!")
+			var map_block = result[0].collider.get_parent()
+			# 确保安全转换成功，且地块尚未翻开
+			if map_block and not map_block.is_revealed:
+				map_block.flip_block()

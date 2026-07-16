@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b4ah10nl8ih6f"
-path="res://.godot/imported/医院[红][3] .png-242d9ca59c32c5f094d9d3b9e0851fb1.ctex"
+uid="uid://c3046wn7hy2kx"
+path="res://.godot/imported/医院[红][3].png-64edd1442d1b48a64e79e12549b0bfe4.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://images/图包/地图块图包/医院[红][3] .png"
-dest_files=["res://.godot/imported/医院[红][3] .png-242d9ca59c32c5f094d9d3b9e0851fb1.ctex"]
+source_file="res://images/图包/地图块图包/医院[红][3].png"
+dest_files=["res://.godot/imported/医院[红][3].png-64edd1442d1b48a64e79e12549b0bfe4.ctex"]
 
 [params]
 

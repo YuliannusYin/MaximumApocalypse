@@ -69,7 +69,7 @@ func finish_drag():
 	card_being_dragged.scale = Vector2(1.05, 1.05)
 	var card_slot_found = raycast_check_for_card_slot()
 	if card_slot_found and not card_slot_found.card_in_slot:
-		player_hand_referened.remove_card_from_hand(card_being_dragged)
+		player_hand_referened.remove_card_from_hand(card_being_dragged, DEFAULT_CARD_MOVE_SPEED)
 		card_being_dragged.position = card_slot_found.position
 		card_being_dragged.get_node("Area2D/CollisionShape2D").disabled = true
 		card_slot_found.card_in_slot = true

@@ -1,0 +1,188 @@
+[gd_scene format=3 uid="uid://bvdw4cooksgm3"]
+
+[ext_resource type="Script" uid="uid://du3u1slk7n0a0" path="res://scripts/MapBlock.gd" id="1_bv3ow"]
+[ext_resource type="Texture2D" uid="uid://dmitqd207a74q" path="res://images/图包/地图块图包/地图块背面.png" id="1_ff57e"]
+[ext_resource type="Texture2D" uid="uid://b2jw5hvhrov3v" path="res://images/图包/游戏标记图包/怪物标记.png" id="4_svg5h"]
+[ext_resource type="Texture2D" uid="uid://b3e7bv1m3jgjy" path="res://images/图包/游戏标记图包/任务标记.png" id="5_otiow"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_p8jh5"]
+size = Vector2(772, 773)
+
+[sub_resource type="Animation" id="Animation_555k5"]
+length = 0.001
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("VisualContainer/Image:z_index")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [0]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("VisualContainer/BackImage:scale")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector2(1, 1)]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("VisualContainer/Image:scale")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector2(1, 1)]
+}
+tracks/3/type = "value"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath("VisualContainer/BackImage:z_index")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [1]
+}
+
+[sub_resource type="Animation" id="Animation_tb8g5"]
+resource_name = "map_flip"
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("VisualContainer/Image:z_index")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0.23333332, 0.73333335),
+"transitions": PackedFloat32Array(1, 1),
+"update": 1,
+"values": [0, 1]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("VisualContainer/BackImage:scale")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0, 0.23333332, 0.73333335, 1),
+"transitions": PackedFloat32Array(1, 1, 1, 1),
+"update": 0,
+"values": [Vector2(1, 1), Vector2(1.1, 1.1), Vector2(0.1, 1.1), Vector2(1, 1)]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("VisualContainer/Image:scale")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = {
+"times": PackedFloat32Array(0, 0.23333332, 0.73333335, 1),
+"transitions": PackedFloat32Array(1, 1, 1, 1),
+"update": 0,
+"values": [Vector2(1, 1), Vector2(1.1, 1.1), Vector2(0.1, 1.1), Vector2(1, 1)]
+}
+tracks/3/type = "value"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath("VisualContainer/BackImage:z_index")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = {
+"times": PackedFloat32Array(0.23333332, 0.73333335),
+"transitions": PackedFloat32Array(1, 1),
+"update": 1,
+"values": [1, 0]
+}
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_61u0u"]
+_data = {
+&"RESET": SubResource("Animation_555k5"),
+&"map_flip": SubResource("Animation_tb8g5")
+}
+
+[node name="MapBlock" type="Node2D" unique_id=1075395763]
+scale = Vector2(0.1, 0.1)
+script = ExtResource("1_bv3ow")
+
+[node name="VisualContainer" type="Node2D" parent="." unique_id=34567014]
+scale = Vector2(0.99999994, 0.99999994)
+
+[node name="BackImage" type="Sprite2D" parent="VisualContainer" unique_id=1953199525]
+z_index = 1
+texture = ExtResource("1_ff57e")
+
+[node name="Image" type="Sprite2D" parent="VisualContainer" unique_id=1531198073]
+
+[node name="Area2D" type="Area2D" parent="." unique_id=1887616686]
+collision_layer = 16
+collision_mask = 16
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Area2D" unique_id=1745152054]
+position = Vector2(1, -0.5)
+shape = SubResource("RectangleShape2D_p8jh5")
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="." unique_id=208379930]
+libraries/ = SubResource("AnimationLibrary_61u0u")
+
+[node name="MonsterMarker" type="Node2D" parent="." unique_id=1851459178]
+visible = false
+
+[node name="Sprite2D" type="Sprite2D" parent="MonsterMarker" unique_id=94841716]
+position = Vector2(-250.00002, 260)
+scale = Vector2(0.8, 0.8)
+texture = ExtResource("4_svg5h")
+
+[node name="Sprite2D2" type="Sprite2D" parent="MonsterMarker" unique_id=692063127]
+position = Vector2(0, 260)
+scale = Vector2(0.8, 0.8)
+texture = ExtResource("4_svg5h")
+
+[node name="Sprite2D3" type="Sprite2D" parent="MonsterMarker" unique_id=666975794]
+position = Vector2(250, 260)
+scale = Vector2(0.8, 0.8)
+texture = ExtResource("4_svg5h")
+
+[node name="MissionMarker" type="Node2D" parent="." unique_id=130575942]
+visible = false
+
+[node name="Sprite2D" type="Sprite2D" parent="MissionMarker" unique_id=1920581974]
+scale = Vector2(2.5, 2.5)
+texture = ExtResource("5_otiow")
+
+[node name="PlayerMarker" type="Node2D" parent="." unique_id=351853295]
+visible = false
+
+[node name="Sprite2D" type="Sprite2D" parent="PlayerMarker" unique_id=1687474019]
+position = Vector2(-200, -200)
+scale = Vector2(0.4, 0.4)
+
+[node name="Sprite2D2" type="Sprite2D" parent="PlayerMarker" unique_id=762882903]
+position = Vector2(200, 200)
+scale = Vector2(0.4, 0.4)
+
+[node name="Sprite2D3" type="Sprite2D" parent="PlayerMarker" unique_id=111780461]
+position = Vector2(-200, 200)
+scale = Vector2(0.4, 0.4)
+
+[node name="Sprite2D4" type="Sprite2D" parent="PlayerMarker" unique_id=941033630]
+position = Vector2(200, -200)
+scale = Vector2(0.4, 0.4)
+
+[connection signal="mouse_entered" from="Area2D" to="." method="_on_area_2d_mouse_entered"]
+[connection signal="mouse_exited" from="Area2D" to="." method="_on_area_2d_mouse_exited"]
