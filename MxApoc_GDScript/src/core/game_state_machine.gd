@@ -75,11 +75,11 @@ func start_game() -> void:
 		player.draw(4)
 		# 可选一次重调
 		if player.has_method("choose"):
-			var choice: Variant = player.choose(["进行重调", "不进行重调"])
+			var choice: Variant = await player.choose(["进行重调", "不进行重调"])
 			if choice == "进行重调":
 				# 把最多 4 张刚抓的牌洗回牌堆，抓等量牌
 				var max_return: int = mini(4, player.hand.size())
-				var to_return: Array = player.choose_card(max_return, "hand") if player.has_method("choose_card") else []
+				var to_return: Array = await player.choose_card(max_return, "hand") if player.has_method("choose_card") else []
 				if to_return != null and to_return.size() > 0:
 					for card in to_return:
 						player.hand.erase(card)
@@ -96,9 +96,9 @@ func start_game() -> void:
 		if player == null or not is_instance_valid(player):
 			continue
 		var event: Dictionary = EventSystem.create_event({"player": player})
-		player.trigger("on_game_start", event)
+		await player.trigger("on_game_start", event)
 	# 4. 进入第一玩家回合
-	next_turn()
+	await next_turn()
 
 
 # === 游戏结束 ===
@@ -126,7 +126,7 @@ func game_over(result: int) -> void:
 				"player": player,
 				"result": result,
 			})
-			player.trigger("on_game_over", event)
+			await player.trigger("on_game_over", event)
 		Game.game_over_called = true
 		Game.game_result = "win" if result == GameResult.WIN else "lose"
 		if EventBus != null and is_instance_valid(EventBus):
@@ -145,10 +145,14 @@ func next_turn() -> void:
 			return
 		# 2. 设置当前回合玩家
 		current_player = player
+		if Game != null and is_instance_valid(Game):
+			Game.log_message("====%s进入回合====" % player.player_name)
 		if EventBus != null and is_instance_valid(EventBus):
 			EventBus.turn_started.emit(player)
 		# 3. 执行玩家回合
-		player.start_turn()
+		await player.start_turn()
+		if Game != null and is_instance_valid(Game) and current_state == GameState.PLAYING:
+			Game.log_message("====%s结束回合====" % player.player_name)
 		# 4. 检查胜利条件
 		if check_win_condition():
 			return
@@ -194,6 +198,7 @@ func _fill_new_turn_queue() -> void:
 	turn_number += 1
 	if Game == null or not is_instance_valid(Game):
 		return
+	Game.log_message("==== 第%d轮 ====" % turn_number)
 	for player in Game.players:
 		if player != null and is_instance_valid(player) and player.is_alive():
 			turn_queue.append(player)

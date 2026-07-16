@@ -43,7 +43,7 @@ func _make_monster() -> Monster:
 func _make_skill_with_trigger(trigger_name: String, called: Array) -> Skill:
 	var s: Skill = Skill.new()
 	s.trigger = trigger_name
-	s.content = func(_ev: Dictionary) -> void:
+	s.content = func(_p, _t, _ev: Dictionary, _g) -> void:
 		called.append(trigger_name)
 	return s
 
@@ -121,7 +121,7 @@ func test_act_six_node_trigger_order() -> void:
 	# 6 个 trigger 各挂一个技能
 	for tname in ["before_monster_act", "on_monster_act", "before_monster_attack", "on_monster_attack", "after_monster_attack", "after_monster_act"]:
 		m.add_skill(_make_skill_with_trigger(tname, called))
-	m.act()
+	await m.act()
 	assert_eq(called, ["before_monster_act", "on_monster_act", "before_monster_attack", "on_monster_attack", "after_monster_attack", "after_monster_act"])
 
 
@@ -130,7 +130,7 @@ func test_act_stunned_skips_and_resets() -> void:
 	m.stunned = true
 	var called: Array = []
 	m.add_skill(_make_skill_with_trigger("on_monster_act", called))
-	m.act()
+	await m.act()
 	assert_eq(called.size(), 0, "击晕的怪物跳过行动")
 	assert_false(m.stunned, "击晕状态重置为 false")
 
@@ -138,7 +138,7 @@ func test_act_stunned_skips_and_resets() -> void:
 func test_act_not_stunned_does_not_reset() -> void:
 	var m: Monster = _make_monster()
 	m.stunned = false
-	m.act()
+	await m.act()
 	assert_false(m.stunned)
 
 
@@ -205,7 +205,7 @@ func test_death_three_node_trigger_order() -> void:
 	var called: Array = []
 	for tname in ["before_monster_death", "on_monster_death", "after_monster_death"]:
 		m.add_skill(_make_skill_with_trigger(tname, called))
-	m.death(null)
+	await m.death(null)
 	assert_eq(called, ["before_monster_death", "on_monster_death", "after_monster_death"])
 
 
@@ -214,7 +214,7 @@ func test_death_removes_from_attack_target_monster_zone() -> void:
 	var p: MockPlayer = MockPlayer.new()
 	p.monster_zone = [m]
 	m.attack_target = p
-	m.death(null)
+	await m.death(null)
 	assert_eq(p.monster_zone.size(), 0, "应从纠缠玩家怪物区移除")
 
 
@@ -223,7 +223,7 @@ func test_death_enters_monster_discard_pile() -> void:
 	# 暂用 Pile 作为 discard_pile
 	var discard: Pile = Pile.new()
 	Game.monster_discard_pile = discard
-	m.death(null)
+	await m.death(null)
 	assert_eq(discard.size(), 1, "应进入怪物弃牌堆")
 	# 清理
 	Game.monster_discard_pile = null
@@ -233,12 +233,42 @@ func test_death_null_attack_target_safe() -> void:
 	var m: Monster = _make_monster()
 	m.attack_target = null
 	Game.monster_discard_pile = Pile.new()
-	m.death(null)
+	await m.death(null)
 	assert_true(true, "attack_target 为 null 时安全执行")
 	Game.monster_discard_pile = null
 
 
-# === 6. MonsterCard.instantiate ===
+# === 6. 修改纠缠对象 ===
+
+func test_change_engaged_target_sets_field() -> void:
+	var m: Monster = _make_monster()
+	var p1: MockPlayer = MockPlayer.new()
+	var p2: MockPlayer = MockPlayer.new()
+	m.attack_target = p1
+	m.change_engaged_target(p2)
+	assert_eq(m.attack_target, p2, "应更新纠缠对象")
+
+
+func test_change_engaged_target_emits_signal() -> void:
+	var received: Array = []
+	EventBus.monster_engaged_target_changed.connect(
+		func(monster, old_t, new_t): received.append([monster, old_t, new_t])
+	)
+	var m: Monster = _make_monster()
+	var p1: MockPlayer = MockPlayer.new()
+	var p2: MockPlayer = MockPlayer.new()
+	m.attack_target = p1
+	m.change_engaged_target(p2)
+	assert_eq(received.size(), 1, "应发射 1 次信号")
+	assert_eq(received[0][0], m, "信号 monster 参数应为怪物自身")
+	assert_eq(received[0][1], p1, "信号 old_target 应为原纠缠对象")
+	assert_eq(received[0][2], p2, "信号 new_target 应为新纠缠对象")
+	EventBus.monster_engaged_target_changed.get_connections().map(
+		func(c): EventBus.monster_engaged_target_changed.disconnect(c.callable)
+	)
+
+
+# === 7. MonsterCard.instantiate ===
 
 func test_monster_card_instantiate_creates_monster() -> void:
 	var card: MonsterCard = MonsterCard.new()

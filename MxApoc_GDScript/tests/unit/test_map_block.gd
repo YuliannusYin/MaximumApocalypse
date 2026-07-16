@@ -116,21 +116,21 @@ func test_remove_all_monster_marks() -> void:
 func test_reveal_sets_flag() -> void:
 	var b: MapBlock = MapBlock.new()
 	var p: MockPlayer = MockPlayer.new()
-	b.reveal(false, p)
+	await b.reveal(false, p)
 	assert_true(b.revealed, "reveal 后 revealed 应为 true")
 
 
 func test_reveal_triggers_on_block_revealed() -> void:
 	var b: MapBlock = MapBlock.new()
 	var p: MockPlayer = MockPlayer.new()
-	b.reveal(true, p)
+	await b.reveal(true, p)
 	assert_eq(p.triggers_received, ["on_block_revealed"], "应触发 on_block_revealed")
 
 
 func test_reveal_no_effect_does_not_trigger() -> void:
 	var b: MapBlock = MapBlock.new()
 	var p: MockPlayer = MockPlayer.new()
-	b.reveal(false, p)
+	await b.reveal(false, p)
 	assert_eq(p.triggers_received.size(), 0, "trigger_effect=false 时不应触发")
 
 
@@ -351,11 +351,11 @@ func test_trigger_objective_marks_executes_effect_once() -> void:
 	var mark: Dictionary = _make_mark("m1", effect_called)
 	b.add_objective_mark(mark)
 	var p: MockPlayer = MockPlayer.new()
-	b.trigger_objective_marks(p)
+	await b.trigger_objective_marks(p)
 	assert_eq(effect_called.size(), 1, "效果应执行一次")
 	assert_true(mark["triggered"], "应标记为 triggered")
 	# 再次触发不应重复执行
-	b.trigger_objective_marks(p)
+	await b.trigger_objective_marks(p)
 	assert_eq(effect_called.size(), 1, "已触发的标记不应再次执行")
 
 
@@ -364,7 +364,7 @@ func test_trigger_objective_marks_triggers_hook() -> void:
 	var mark: Dictionary = _make_mark("m1")
 	b.add_objective_mark(mark)
 	var p: MockPlayer = MockPlayer.new()
-	b.trigger_objective_marks(p)
+	await b.trigger_objective_marks(p)
 	assert_eq(p.triggers_received, ["on_objective_mark_triggered"], "应触发 on_objective_mark_triggered")
 
 
@@ -375,7 +375,7 @@ func test_trigger_objective_marks_skips_removed() -> void:
 	mark["removed"] = true
 	b.add_objective_mark(mark)
 	var p: MockPlayer = MockPlayer.new()
-	b.trigger_objective_marks(p)
+	await b.trigger_objective_marks(p)
 	assert_eq(effect_called.size(), 0, "已移除的标记不应触发")
 
 

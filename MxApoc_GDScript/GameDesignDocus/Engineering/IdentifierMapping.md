@@ -257,8 +257,8 @@ enum DamageType { MELEE, RANGED, HUNGER, POISON, OTHER }
 | 当前生命值 | `current_hp` | `int` | 当前生命值 |
 | 伤害值 | `attack_damage` | `int` | 攻击伤害 |
 | 射程 | `range` | `Range` | 怪物射程 |
-| 纠缠对象 | `engaged_player` | `Player` | 纠缠的玩家 |
-| 击晕 | `is_stunned` | `bool` | 是否被击晕 |
+| 纠缠对象 | `attack_target` | `Player` | 纠缠的玩家 |
+| 击晕 | `stunned` | `bool` | 是否被击晕 |
 
 ### 3.5 Card 字段
 
@@ -449,6 +449,7 @@ enum DamageType { MELEE, RANGED, HUNGER, POISON, OTHER }
 |-------------|---------------|------|
 | monster.行动() | `act() -> void` | 怪物行动 |
 | monster.攻击() | `attack() -> void` | 怪物攻击 |
+| monster.修改纠缠对象(target) | `change_engaged_target(target: Player) -> void` | 修改纠缠对象 |
 | monster.monsterDeath(source) | `monster_death(source: Entity) -> void` | 怪物死亡 |
 | MonsterCard.实体化(player) | `instantiate(player: Player) -> Monster` | 怪物卡实体化 |
 

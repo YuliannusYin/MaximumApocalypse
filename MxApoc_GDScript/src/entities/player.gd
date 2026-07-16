@@ -74,15 +74,15 @@ func recover(num: int) -> void:
 	if num <= 0:
 		return
 	var event: Dictionary = EventSystem.create_recover_event(self, num)
-	trigger("before_recover", event)
-	trigger("on_recover", event)
+	await trigger("before_recover", event)
+	await trigger("on_recover", event)
 	if EventSystem.is_cancelled(event):
 		return
 	var max_recover: int = get_max_hp() - get_hp()
 	if event["num"] > max_recover:
 		event["num"] = max_recover
 	add_hp(event["num"])
-	trigger("after_recover", event)
+	await trigger("after_recover", event)
 
 
 ## 增加饥饿值。达 6 后翻面角色卡并叠加饥饿伤害标记。
@@ -149,11 +149,11 @@ func draw(n: int) -> void:
 		return
 	var event: Dictionary = EventSystem.create_draw_game_card_event(self, n)
 	# 1. 抓取游戏牌前（取消点）
-	trigger("before_draw_game_card", event)
+	await trigger("before_draw_game_card", event)
 	if EventSystem.is_cancelled(event):
 		return
 	# 2. 抓取游戏牌时（取消点）
-	trigger("on_draw_game_card", event)
+	await trigger("on_draw_game_card", event)
 	if EventSystem.is_cancelled(event):
 		return
 	# 3. 逐张抓取
@@ -164,11 +164,13 @@ func draw(n: int) -> void:
 			return
 		var card: Card = game_deck.draw()
 		hand.append(card)
+		if Game != null and is_instance_valid(Game):
+			Game.log_message("%s抓取了'%s'" % [player_name, card.card_name])
 		if EventBus != null and is_instance_valid(EventBus):
 			EventBus.card_drawn.emit(self, card)
 		event["cards"].append(card)
 	# 4. 抓取游戏牌后
-	trigger("after_draw_game_card", event)
+	await trigger("after_draw_game_card", event)
 
 
 ## 从指定拾荒牌堆抓 n 张牌（4 节点）。
@@ -177,7 +179,7 @@ func draw_scavenge(n: int, pile: Pile) -> void:
 		return
 	var event: Dictionary = EventSystem.create_draw_scavenge_event(self, pile, n)
 	# 1. 抓取拾荒牌前（取消点）
-	trigger("before_draw_scavenge_card", event)
+	await trigger("before_draw_scavenge_card", event)
 	if EventSystem.is_cancelled(event):
 		return
 	# 2. 逐张抓取
@@ -187,14 +189,16 @@ func draw_scavenge(n: int, pile: Pile) -> void:
 			break
 		var card: Card = pile.draw()
 		hand.append(card)
+		if Game != null and is_instance_valid(Game):
+			Game.log_message("%s从拾荒牌堆抓取了'%s'" % [player_name, card.card_name])
 		if EventBus != null and is_instance_valid(EventBus):
 			EventBus.scavenge_drawn.emit(self, card)
 		event["cards"].append(card)
 		event["card"] = card
 		# 3. 抓取拾荒牌时（每张触发）
-		trigger("on_draw_scavenge_card", event)
+		await trigger("on_draw_scavenge_card", event)
 	# 4. 抓取拾荒牌后
-	trigger("after_draw_scavenge_card", event)
+	await trigger("after_draw_scavenge_card", event)
 
 
 ## 从怪物牌堆抓 n 张怪物卡（7 节点）。
@@ -203,7 +207,7 @@ func draw_monster(n: int) -> void:
 		return
 	var event: Dictionary = EventSystem.create_draw_monster_event(self, n)
 	# 1. 抓取怪物卡前（取消点）
-	trigger("before_draw_monster_card", event)
+	await trigger("before_draw_monster_card", event)
 	if EventSystem.is_cancelled(event):
 		return
 	# 2. 逐张抓取
@@ -221,21 +225,23 @@ func draw_monster(n: int) -> void:
 		var card: MonsterCard = Game.monster_pile.draw()
 		event["card"] = card
 		event["cards"].append(card)
+		if Game != null and is_instance_valid(Game):
+			Game.log_message("%s抓取了怪物'%s'" % [player_name, card.card_name])
 		if EventBus != null and is_instance_valid(EventBus):
 			EventBus.monster_card_drawn.emit(self, card)
 		# b. 抓取怪物卡时（每张触发）
-		trigger("on_draw_monster_card", event)
+		await trigger("on_draw_monster_card", event)
 		# c. 怪物卡进入求生者怪物区前（每张触发）
-		trigger("before_monster_enter_zone", event)
+		await trigger("before_monster_enter_zone", event)
 		# d. 实体化（设置纠缠对象、初始化生命值）
 		var monster: Monster = card.instantiate(self)
 		# e. 怪物卡进入求生者怪物区时（每张触发）
 		monster_zone.append(monster)
-		trigger("on_monster_enter_zone", event)
+		await trigger("on_monster_enter_zone", event)
 		# f. 怪物卡进入求生者怪物区后（每张触发）
-		trigger("after_monster_enter_zone", event)
+		await trigger("after_monster_enter_zone", event)
 	# 3. 抓取怪物卡后（整体触发一次）
-	trigger("after_draw_monster_card", event)
+	await trigger("after_draw_monster_card", event)
 
 
 # === 三、弃牌与销毁流程 ===
@@ -262,7 +268,7 @@ func discard(target: Variant, position: String = "", quantity: int = 1, type: St
 		return
 	var event: Dictionary = EventSystem.create_discard_event(self, cards_to_discard, cards_to_discard.size())
 	# 1. 弃置牌前（取消点）
-	trigger("before_discard", event)
+	await trigger("before_discard", event)
 	if EventSystem.is_cancelled(event):
 		return
 	# 2. 逐张弃置
@@ -280,12 +286,14 @@ func discard(target: Variant, position: String = "", quantity: int = 1, type: St
 		else:
 			if game_discard_pile != null:
 				game_discard_pile.add(card)
+		if Game != null and is_instance_valid(Game):
+			Game.log_message("%s弃置了'%s'" % [player_name, card.card_name])
 		if EventBus != null and is_instance_valid(EventBus):
 			EventBus.card_discarded.emit(self, card)
 		# 触发弃置牌时
-		trigger("on_discard", event)
+		await trigger("on_discard", event)
 	# 3. 弃置牌后
-	trigger("after_discard", event)
+	await trigger("after_discard", event)
 
 
 ## 销毁卡牌（移出游戏，3 节点）。
@@ -306,7 +314,7 @@ func remove_card(target: Variant, position: String = "", quantity: int = 1) -> v
 		"num": cards_to_remove.size(),
 	})
 	# 1. 销毁牌前（取消点）
-	trigger("before_remove_card", event)
+	await trigger("before_remove_card", event)
 	if EventSystem.is_cancelled(event):
 		return
 	# 2. 逐张销毁
@@ -316,9 +324,9 @@ func remove_card(target: Variant, position: String = "", quantity: int = 1) -> v
 		_remove_card_from_zone(card)
 		if Game != null:
 			Game.remove_card(card)
-		trigger("on_remove_card", event)
+		await trigger("on_remove_card", event)
 	# 3. 销毁牌后
-	trigger("after_remove_card", event)
+	await trigger("after_remove_card", event)
 
 
 # === 四、移动流程 ===
@@ -328,16 +336,16 @@ func move_to(target: MapBlock) -> bool:
 	var source: MapBlock = current_block
 	var event: Dictionary = EventSystem.create_move_event(self, source, target)
 	# 1. 离开地块前
-	trigger("before_leave_block", event)
+	await trigger("before_leave_block", event)
 	# 2. 离开地块时
-	trigger("on_leave_block", event)
+	await trigger("on_leave_block", event)
 	# 3. 离开地块后
-	trigger("after_leave_block", event)
+	await trigger("after_leave_block", event)
 	# 4. 获取目标地块技能（先获取，再准入检定）
 	if target != null and target.has_method("_acquire_skills_for_player"):
 		target._acquire_skills_for_player(self)
 	# 5. 进入地块前（取消点）
-	trigger("before_enter_block", event)
+	await trigger("before_enter_block", event)
 	if EventSystem.is_cancelled(event):
 		# 移动取消，回滚：移除刚获取的目标地块技能
 		if target != null and target.has_method("_clear_skills_for_player"):
@@ -345,6 +353,9 @@ func move_to(target: MapBlock) -> bool:
 		return false
 	# 6. 移动时（坐标变更）
 	current_block = target
+	if Game != null and is_instance_valid(Game) and target != null and is_instance_valid(target):
+		var src_name: String = source.block_name if source != null and is_instance_valid(source) else "出生点"
+		Game.log_message("%s从'%s'移动至'%s'" % [player_name, src_name, target.block_name])
 	if EventBus != null and is_instance_valid(EventBus):
 		EventBus.player_moved.emit(self, source, target)
 	add_mark("moved_this_turn")
@@ -352,21 +363,21 @@ func move_to(target: MapBlock) -> bool:
 	if source != null and source.has_method("_clear_skills_for_player"):
 		source._clear_skills_for_player(self)
 	# 8. 进入地块时（一次性效果）
-	trigger("on_enter_block", event)
+	await trigger("on_enter_block", event)
 	# 9. 进入地块后（展示未展示的地块）
 	if target != null and target.has_method("is_revealed"):
 		if not target.is_revealed():
-			target.reveal(true, self)
-	trigger("after_enter_block", event)
+			await target.reveal(true, self)
+	await trigger("after_enter_block", event)
 	# 10. 潜行检定（地块有怪物标记时）
 	if target != null and target.has_method("has_monster_mark") and target.has_monster_mark():
-		if not sneak_judge():
+		if not await sneak_judge():
 			var num: int = target.count_monster_mark()
 			target.remove_monster_mark(num)
 			draw_monster(num)
 	# 11. 触发目标标记
 	if target != null and target.has_method("trigger_objective_marks"):
-		target.trigger_objective_marks(self)
+		await target.trigger_objective_marks(self)
 	return true
 
 
@@ -392,16 +403,18 @@ func sneak_judge() -> bool:
 	var sneak_value: int = get_sneak() - (monster_count + mark_count)
 	var event: Dictionary = EventSystem.create_sneak_judge_event(self, sneak_value)
 	# 1. 潜行检定前
-	trigger("before_sneak_judge", event)
+	await trigger("before_sneak_judge", event)
 	# 2. 系统投骰（若未跳过）
 	if not event["skip_judge"]:
 		var dice_value: int = judge()
+		if Game != null and is_instance_valid(Game):
+			Game.log_message("%s执行了'潜行检定'点数为%d" % [player_name, dice_value])
 		var success: bool = dice_value <= event["sneak_value"]
 		event["result"] = {"value": dice_value, "success": success}
 	# 3. 潜行检定时
-	trigger("on_sneak_judge", event)
+	await trigger("on_sneak_judge", event)
 	# 4. 潜行检定后
-	trigger("after_sneak_judge", event)
+	await trigger("after_sneak_judge", event)
 	return event["result"]["success"]
 
 
@@ -409,15 +422,17 @@ func sneak_judge() -> bool:
 func monster_spawn_judge() -> void:
 	var event: Dictionary = EventSystem.create_spawn_judge_event(self)
 	# 1. 怪物出生检定前
-	trigger("before_spawn_judge", event)
+	await trigger("before_spawn_judge", event)
 	# 2. 系统投骰
 	if not event["skip_judge"]:
 		var dice_value: int = judge()
+		if Game != null and is_instance_valid(Game):
+			Game.log_message("%s执行了'怪物生成'点数为%d" % [player_name, dice_value])
 		event["result"] = {"value": dice_value, "success": true}
 	# 3. 怪物出生检定时
-	trigger("on_spawn_judge", event)
+	await trigger("on_spawn_judge", event)
 	# 4. 怪物出生检定后
-	trigger("after_spawn_judge", event)
+	await trigger("after_spawn_judge", event)
 	# 5. 结果处理：匹配地块
 	var dice: int = event["result"]["value"]
 	if Game != null and Game.map_area != null:
@@ -440,13 +455,15 @@ func monster_spawn_judge() -> void:
 ## 玩家死亡流程（3 节点）。
 func death(source: Entity) -> void:
 	hp = 0
+	if Game != null and is_instance_valid(Game):
+		Game.log_message("%s死亡了" % player_name)
 	if EventBus != null and is_instance_valid(EventBus):
 		EventBus.player_died.emit(self, source)
 	var event: Dictionary = EventSystem.create_player_death_event(self, source)
 	# 1. 玩家死亡前
-	trigger("before_player_death", event)
+	await trigger("before_player_death", event)
 	# 2. 玩家死亡时
-	trigger("on_player_death", event)
+	await trigger("on_player_death", event)
 	# 3. 玩家死亡后
 	# 3a. 怪物区怪物 → 弃牌堆，等量怪物标记（最多3个）放回地块
 	var monsters: Array = monster_zone.duplicate()
@@ -475,7 +492,7 @@ func death(source: Entity) -> void:
 			var pile: Pile = Game.get_scavenge_pile(color)
 			if pile != null:
 				pile.shuffle()
-	trigger("after_player_death", event)
+	await trigger("after_player_death", event)
 	# 检查游戏结束条件
 	if Game != null and Game.coop_death_mode:
 		Game.game_over("lose")
@@ -488,16 +505,18 @@ func death(source: Entity) -> void:
 
 ## 从手牌中使用一张卡牌（4 节点）。
 func use_card(card: Card) -> bool:
+	if action_count < 1:
+		return false
 	var event: Dictionary = EventSystem.create_event({
 		"player": self,
 		"card": card,
 	})
 	# 1. 使用卡牌前（取消点）
-	trigger("before_use_card", event)
+	await trigger("before_use_card", event)
 	if EventSystem.is_cancelled(event):
 		return false
 	# 2. 使用卡牌时（取消点）
-	trigger("on_use_card", event)
+	await trigger("on_use_card", event)
 	if EventSystem.is_cancelled(event):
 		return false
 	# 3. 系统结算：统一消耗 1 点行动次数
@@ -510,7 +529,9 @@ func use_card(card: Card) -> bool:
 		# 弃掉这张牌（按 source 分派）
 		discard(card)
 	# 4. 使用卡牌后
-	trigger("after_use_card", event)
+	await trigger("after_use_card", event)
+	if Game != null and is_instance_valid(Game):
+		Game.log_message("%s使用了'%s'" % [player_name, card.card_name])
 	if EventBus != null and is_instance_valid(EventBus):
 		EventBus.card_used.emit(self, card)
 	return true
@@ -522,7 +543,7 @@ func use_card(card: Card) -> bool:
 func equip(card: Card) -> bool:
 	var event: Dictionary = EventSystem.create_equip_event(self, card)
 	# 1. 卡牌进入装备区前（取消点）
-	trigger("before_equip", event)
+	await trigger("before_equip", event)
 	if EventSystem.is_cancelled(event):
 		return false
 	# 系统预校验
@@ -535,14 +556,17 @@ func equip(card: Card) -> bool:
 		discard(e)
 	# b. 装备栏容量校验（简化：不强制，阶段 1 容量由 RoleCard.equipment_capacity 约束）
 	# 2. 卡牌进入装备区时
+	hand.erase(card)
 	equipment_zone.append(card)
 	# 装备技能挂载到玩家
 	if card.has_method("get_all_skills"):
 		for s in card.get_all_skills():
 			add_skill(s)
-	trigger("on_equip", event)
+	await trigger("on_equip", event)
 	# 3. 卡牌进入装备区后
-	trigger("after_equip", event)
+	await trigger("after_equip", event)
+	if Game != null and is_instance_valid(Game):
+		Game.log_message("%s装备了'%s'" % [player_name, card.card_name])
 	if EventBus != null and is_instance_valid(EventBus):
 		EventBus.equipment_equipped.emit(self, card)
 	return true
@@ -552,7 +576,7 @@ func equip(card: Card) -> bool:
 func unequip(card: Card) -> bool:
 	var event: Dictionary = EventSystem.create_equip_event(self, card)
 	# 1. 卡牌离开装备区前（取消点）
-	trigger("before_unequip", event)
+	await trigger("before_unequip", event)
 	if EventSystem.is_cancelled(event):
 		return false
 	# 2. 卡牌离开装备区时
@@ -561,9 +585,11 @@ func unequip(card: Card) -> bool:
 	if card.has_method("get_all_skills"):
 		for s in card.get_all_skills():
 			remove_skill(s)
-	trigger("on_unequip", event)
+	await trigger("on_unequip", event)
 	# 3. 卡牌离开装备区后
-	trigger("after_unequip", event)
+	await trigger("after_unequip", event)
+	if Game != null and is_instance_valid(Game):
+		Game.log_message("%s卸下了'%s'" % [player_name, card.card_name])
 	if EventBus != null and is_instance_valid(EventBus):
 		EventBus.equipment_unequipped.emit(self, card)
 	return true
@@ -580,23 +606,23 @@ func consume_charge(equipment: EquipmentCard, num: int) -> bool:
 		return false
 	var event: Dictionary = EventSystem.create_consume_charge_event(self, equipment, num)
 	# 1. 消耗填充物前（取消点）
-	trigger("before_consume_charge", event)
+	await trigger("before_consume_charge", event)
 	if EventSystem.is_cancelled(event):
 		return false
 	# 2. 消耗填充物时（取消点）
-	trigger("on_consume_charge", event)
+	await trigger("on_consume_charge", event)
 	if EventSystem.is_cancelled(event):
 		return false
 	# 3. 系统扣减
 	if equipment.has_method("consume_charge"):
 		equipment.consume_charge(event["num"])
 	# 4. 消耗填充物后
-	trigger("after_consume_charge", event)
+	await trigger("after_consume_charge", event)
 	if EventBus != null and is_instance_valid(EventBus):
 		EventBus.charge_consumed.emit(self, equipment, num)
 	# 5. 衍生：填充物耗尽时
 	if equipment.get_charge() <= 0:
-		trigger("on_charge_depleted", event)
+		await trigger("on_charge_depleted", event)
 	return true
 
 
@@ -609,19 +635,23 @@ func start_turn() -> void:
 	in_phase = "turn_start"
 	action_count = max_action_count
 	clear_turn_marks()
+	# 重置主动技能使用次数
+	for skill in skills:
+		if skill is Skill and skill.active != "":
+			skill.reset_use_count()
 	# 节点 2：回合开始前
-	trigger("before_turn_start", event)
+	await trigger("before_turn_start", event)
 	# 节点 3：回合开始时
-	trigger("on_turn_start", event)
+	await trigger("on_turn_start", event)
 	# 节点 4：怪物出生前
 	in_phase = "monster_spawn"
-	trigger("before_monster_spawn", event)
+	await trigger("before_monster_spawn", event)
 	# 节点 5：怪物出生时
-	trigger("on_monster_spawn", event)
-	monster_spawn_judge()
+	await trigger("on_monster_spawn", event)
+	await monster_spawn_judge()
 	# 节点 6：摸牌阶段前
 	in_phase = "draw"
-	trigger("before_draw_phase", event)
+	await trigger("before_draw_phase", event)
 	# 节点 7：摸牌阶段（牌堆空 → 死亡）
 	draw(1)
 	if not is_alive():
@@ -630,49 +660,49 @@ func start_turn() -> void:
 	in_phase = "action"
 	if current_block != null and current_block.has_method("has_monster_mark"):
 		if current_block.has_monster_mark():
-			if not sneak_judge():
+			if not await sneak_judge():
 				var num: int = current_block.count_monster_mark()
 				current_block.remove_monster_mark(num)
 				draw_monster(num)
-	trigger("before_action_phase", event)
+	await trigger("before_action_phase", event)
 	# 节点 9：行动阶段
-	wait_player_action()
+	await wait_player_action()
 	# 节点 10：行动阶段结束前
-	trigger("before_action_phase_end", event)
+	await trigger("before_action_phase_end", event)
 	# 节点 11：行动阶段结束时
-	trigger("on_action_phase_end", event)
+	await trigger("on_action_phase_end", event)
 	# 节点 12：求生者饥饿状态结算前
 	in_phase = "hunger"
-	trigger("before_hunger_settlement", event)
+	await trigger("before_hunger_settlement", event)
 	# 节点 13：求生者饥饿状态结算时
-	trigger("on_hunger_settlement", event)
+	await trigger("on_hunger_settlement", event)
 	increase_hunger(1)
 	if not is_alive():
 		return
 	# 节点 14：求生者中毒状态结算前
 	in_phase = "poison"
-	trigger("before_poison_settlement", event)
+	await trigger("before_poison_settlement", event)
 	# 节点 15：求生者中毒状态结算时
-	trigger("on_poison_settlement", event)
+	await trigger("on_poison_settlement", event)
 	poison()
 	if not is_alive():
 		return
 	# 节点 16：面前怪物行动前
 	in_phase = "monster_action"
-	trigger("before_zone_monster_act", event)
+	await trigger("before_zone_monster_act", event)
 	# 节点 17：面前怪物行动时
-	trigger("on_zone_monster_act", event)
+	await trigger("on_zone_monster_act", event)
 	var monsters_copy: Array = monster_zone.duplicate()
 	for monster in monsters_copy:
 		if monster != null and is_instance_valid(monster):
-			monster.act()
+			await monster.act()
 	if not is_alive():
 		return
 	# 节点 18：回合结束前
 	in_phase = "turn_end"
-	trigger("before_turn_end", event)
+	await trigger("before_turn_end", event)
 	# 节点 19：回合结束时
-	trigger("on_turn_end", event)
+	await trigger("on_turn_end", event)
 	# 节点 20：退出玩家回合
 	in_phase = "idle"
 
@@ -684,7 +714,7 @@ func execute_action_immediately(num: int = 1) -> void:
 	var saved_phase: String = in_phase
 	in_phase = "action"
 	action_count = num
-	wait_player_action()
+	await wait_player_action()
 	in_phase = saved_phase
 
 
@@ -842,24 +872,126 @@ func get_equipment(name: String) -> EquipmentCard:
 
 ## 选择器（委托 input）
 func choose(options: Array, prompt: String = "") -> Variant:
-	return input.choose(options, prompt)
+	return await input.choose(options, prompt)
 
 
 func choose_card(n: int, position: String = "hand", filter: Variant = null) -> Array:
-	return input.choose_card(n, position, filter)
+	return await input.choose_card(n, position, filter)
 
 
 func choose_map_block(blocks: Array, prompt: String = "") -> Variant:
-	return input.choose_map_block(blocks, prompt)
+	return await input.choose_map_block(blocks, prompt)
 
 
 func show_card(card: Card, target: Variant) -> void:
 	input.show_card(card, target)
 
 
-## 占位方法：等待玩家通过 UI 选择行动。
+## 行动阶段循环：等待玩家操作（使用卡牌/使用主动技能/结束回合）。
 func wait_player_action() -> void:
-	input.wait_action(self)
+	while is_alive():
+		var choice: Variant = await input.wait_action(self)
+		if choice == null:
+			break  # 结束回合
+		if typeof(choice) == TYPE_DICTIONARY:
+			var action_type: String = choice.get("type", "")
+			if action_type == "skill":
+				var skill: Skill = choice.get("skill", null)
+				if skill != null and is_instance_valid(skill):
+					await use_active_skill(skill)
+			elif action_type == "card":
+				var card: Card = choice.get("card", null)
+				if card != null and is_instance_valid(card):
+					await use_card(card)
+
+
+## 使用主动技能。处理目标选择和卡牌选择，然后执行技能 content。
+func use_active_skill(skill: Skill) -> void:
+	if skill == null or not is_instance_valid(skill):
+		return
+	if skill.active.is_empty():
+		return
+	if not skill.is_usable():
+		return
+	var event: Dictionary = EventSystem.create_event({
+		"player": self,
+		"target": null,
+		"targets": [],
+		"cards": [],
+	})
+	# 1. filter 检查
+	if not skill.execute_filter(self, event):
+		return
+	# 2. 目标选择
+	var target_type: String = skill.target_type
+	if target_type == "block":
+		var range_str: String = skill.filter_target_range
+		var candidates: Array = []
+		if current_block != null:
+			if range_str != "":
+				candidates = current_block.get_blocks_in_range(range_str)
+			else:
+				candidates = current_block.get_adjacent_blocks()
+		candidates = _filter_targets(skill, candidates, event)
+		if candidates.is_empty():
+			return
+		var chosen: Variant = await choose_map_block(candidates, "选择目标地块")
+		if chosen == null:
+			return
+		event["target"] = chosen
+	elif target_type == "entity":
+		var range_str: String = skill.filter_target_range
+		var candidates: Array = []
+		if current_block != null:
+			candidates = current_block.get_players_in_range(range_str)
+		candidates = _filter_targets(skill, candidates, event)
+		if candidates.is_empty():
+			return
+		var chosen: Variant = await choose(candidates, "选择目标")
+		if chosen == null:
+			return
+		event["target"] = chosen
+	elif target_type == "pile":
+		var colors: Array = []
+		if current_block != null and current_block.has_color():
+			colors = Array(current_block.scavenge_colors)
+		if colors.is_empty():
+			return
+		var chosen: Variant = await choose(colors, "选择拾荒牌堆颜色")
+		if chosen == null:
+			return
+		event["target"] = chosen
+	elif target_type == "equipment":
+		var candidates: Array = equipment_zone.duplicate()
+		candidates = _filter_targets(skill, candidates, event)
+		if candidates.is_empty():
+			return
+		var chosen: Variant = await choose(candidates, "选择装备")
+		if chosen == null:
+			return
+		event["target"] = chosen
+	# 3. 卡牌选择
+	if skill.select_card > 0:
+		var cards: Array = await choose_card(skill.select_card, skill.position)
+		if cards.size() < skill.select_card:
+			return
+		event["cards"] = cards
+	# 4. 执行 content
+	await skill.execute_content(self, event)
+	# 5. 记录使用
+	skill.record_use()
+
+
+## 内部方法：用 skill.filter_target 过滤候选目标列表。
+func _filter_targets(skill: Skill, candidates: Array, event: Dictionary) -> Array:
+	var filtered: Array = []
+	for candidate in candidates:
+		if skill.filter_target.is_valid():
+			if skill.filter_target.call(self, candidate, event, Game):
+				filtered.append(candidate)
+		else:
+			filtered.append(candidate)
+	return filtered
 
 
 ## 获取数值型状态。
@@ -885,7 +1017,7 @@ func discard_non_boss_monster_to_mark() -> void:
 			candidates.append(m)
 	if candidates.is_empty():
 		return
-	var monster: Monster = input.choose(candidates)
+	var monster: Monster = await input.choose(candidates)
 	if monster == null:
 		return
 	monster_zone.erase(monster)
@@ -923,7 +1055,7 @@ func play_card_immediately() -> void:
 		return
 	var saved_phase: String = in_phase
 	in_phase = "action"
-	var cards: Array = input.choose_card(1, "hand")
+	var cards: Array = await input.choose_card(1, "hand")
 	if cards.is_empty():
 		in_phase = saved_phase
 		return
@@ -932,7 +1064,7 @@ func play_card_immediately() -> void:
 		equip(card)
 	else:
 		if card.has_method("trigger"):
-			card.trigger("on_use_card", EventSystem.create_event({}))
+			await card.trigger("on_use_card", EventSystem.create_event({}))
 		discard(card)
 	in_phase = saved_phase
 
@@ -989,7 +1121,7 @@ func draw_boss_card() -> void:
 
 ## 获得解救科学家的选项。
 func rescue_scientist_option() -> void:
-	var choice: String = input.choose(["花费 1 行动解救科学家", "不解救"])
+	var choice: String = await input.choose(["花费 1 行动解救科学家", "不解救"])
 	if choice == "不解救":
 		Game.log_message(player_name + " 选择不解救科学家。")
 		return

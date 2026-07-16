@@ -273,7 +273,7 @@
           "skill_type": "equipment",
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "content": "player.consume_action(1)\nvar max_steps = 2\nvar steps = 0\nwhile steps < max_steps:\n\tif steps > 0:\n\t\tvar choice = player.choose([\"继续移动\", \"停止移动\"])\n\t\tif choice == \"停止移动\":\n\t\t\tbreak\n\tvar target = player.choose_map_block({\"filter_target\": \"return target != player.get_current_block()\", \"filter_target_range\": \"medium\"})\n\tvar success = player.move_to(target)\n\tif not success:\n\t\tbreak\n\tsteps += 1"
+          "content": "player.consume_action(1)\nvar max_steps = 2\nvar steps = 0\nwhile steps < max_steps:\n\tif steps > 0:\n\t\tvar choice = await player.choose([\"继续移动\", \"停止移动\"])\n\t\tif choice == \"停止移动\":\n\t\t\tbreak\n\ttarget = await player.choose_map_block({\"filter_target\": \"return target != player.get_current_block()\", \"filter_target_range\": \"medium\"})\n\tvar success = player.move_to(target)\n\tif not success:\n\t\tbreak\n\tsteps += 1"
         },
         {
           "skill_name": "马·弃置",
@@ -336,7 +336,7 @@
           "select_target": 1,
           "filter_target": "return true",
           "filter_target_range": "medium",
-          "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"revolver\"), 1)\ntarget.damage(3, player)\nif player.get_charge_count(\"revolver\") > 0 && player.choose([\"继续攻击\", \"停止\"]) == \"继续攻击\":\n\tvar target2 = player.choose_target({\"select_target\": 1, \"filter_target\": \"return target2 != target\", \"filter_target_range\": \"medium\"})\n\tplayer.consume_charge(player.get_equipment(\"revolver\"), 1)\n\ttarget2.damage(3, player)"
+          "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"revolver\"), 1)\ntarget.damage(3, player)\nif player.get_charge_count(\"revolver\") > 0 && await player.choose([\"继续攻击\", \"停止\"]) == \"继续攻击\":\n\tvar target2 = player.choose_target({\"select_target\": 1, \"filter_target\": \"return target2 != target\", \"filter_target_range\": \"medium\"})\n\tplayer.consume_charge(player.get_equipment(\"revolver\"), 1)\n\ttarget2.damage(3, player)"
         }
       ]
     }

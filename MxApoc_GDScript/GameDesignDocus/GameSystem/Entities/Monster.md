@@ -1,4 +1,4 @@
-﻿# Monster 怪物类
+# Monster 怪物类
 
 > 继承：[Entity](../Core/Entity.md)
 > 职责：怪物实体的属性、行动/攻击流程与死亡流程。
@@ -136,6 +136,21 @@ function monster.攻击() {
 ```
 
 > **event.目标玩家 列表约定**：统一为 `List<Player>`。射程「无」时列表只含 1 个元素（纠缠玩家），其他射程时含多个元素。技能 content 内统一用 `for 目标玩家 in event.目标玩家` 遍历（参见 alien「外星收割者-烧毁」、mutant「狂暴的突变体」）。
+
+---
+
+### 修改纠缠对象(target)
+
+> 修改怪物的纠缠对象为目标玩家。
+> 触发场景：僵尸潜行者（攻击后改纠缠血量最低玩家）、枪手/消防员（嘲讽使怪物纠缠自己）。
+
+```gdscript
+function monster.修改纠缠对象(target) {
+    monster.纠缠对象 = target
+}
+```
+
+> **注**：技能 content 内对自身调用时用 `event.monster.修改纠缠对象(target)`（`self` 在 CodeExecutor 沙箱中指 RefCounted 基类，非怪物实体）。
 
 ---
 

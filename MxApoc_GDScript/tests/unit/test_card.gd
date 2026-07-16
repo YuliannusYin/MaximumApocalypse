@@ -18,11 +18,11 @@ func test_card_can_mount_skill_and_trigger() -> void:
 	var called: Array = []
 	var s: Skill = Skill.new()
 	s.trigger = "on_take_damage"
-	s.content = func(_ev: Dictionary) -> void:
+	s.content = func(_p, _t, _ev: Dictionary, _g) -> void:
 		called.append(true)
 	c.add_skill(s)
 	var event: Dictionary = EventSystem.create_event()
-	c.trigger("on_take_damage", event)
+	await c.trigger("on_take_damage", event)
 	assert_eq(called.size(), 1, "Card 应能挂载技能并触发")
 
 
@@ -98,7 +98,7 @@ func test_equipment_card_consume_charge_success() -> void:
 	var ec: EquipmentCard = EquipmentCard.new()
 	ec.charge_max = 6
 	ec.charge_current = 4
-	var ok: bool = ec.consume_charge(2)
+	var ok: bool = await ec.consume_charge(2)
 	assert_true(ok, "充足时应消耗成功")
 	assert_eq(ec.charge_current, 2, "消耗后剩余 2")
 
@@ -107,7 +107,7 @@ func test_equipment_card_consume_charge_fail() -> void:
 	var ec: EquipmentCard = EquipmentCard.new()
 	ec.charge_max = 6
 	ec.charge_current = 1
-	var ok: bool = ec.consume_charge(2)
+	var ok: bool = await ec.consume_charge(2)
 	assert_false(ok, "不足时应失败")
 	assert_eq(ec.charge_current, 1, "失败后应保持不变")
 
@@ -116,7 +116,7 @@ func test_equipment_card_consume_charge_exact() -> void:
 	var ec: EquipmentCard = EquipmentCard.new()
 	ec.charge_max = 6
 	ec.charge_current = 3
-	var ok: bool = ec.consume_charge(3)
+	var ok: bool = await ec.consume_charge(3)
 	assert_true(ok, "刚好相等时应成功")
 	assert_eq(ec.charge_current, 0, "消耗后应为 0")
 

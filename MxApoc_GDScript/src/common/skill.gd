@@ -8,6 +8,8 @@ extends RefCounted
 
 ## 技能名
 var skill_name: String = ""
+## 英文名
+var english_name: String = ""
 ## 技能描述
 var skill_description: String = ""
 ## 可主动使用的技能声明可用阶段（如 "行动阶段"）。空字符串表示非主动技能
@@ -22,8 +24,8 @@ var forced: bool = false
 var filter: Callable = Callable()
 ## 目标过滤函数，返回 bool
 var filter_target: Callable = Callable()
-## 目标距离限制（Range 枚举值，-1 表示无限制）
-var filter_target_range: int = -1
+## 目标距离限制（"short"/"medium"/"long"/"infinity"，空字符串表示无限制）
+var filter_target_range: String = ""
 ## 选牌过滤函数
 var filter_card: Callable = Callable()
 ## 选牌位置限定（如 "手牌区"）
@@ -32,12 +34,14 @@ var position: String = ""
 var select_card: int = 0
 ## 需选择的目标数
 var select_target: int = 0
-## 攻击射程（Range 枚举值，-1 表示无）
-var range: int = -1
+## 攻击射程（"short"/"medium"/"long"/"infinity"，空字符串表示无）
+var range: String = ""
 ## 每回合可用次数限制。-1 表示不限（Infinity）
 var usable: int = -1
 ## 技能效果执行体，参数为 event
 var content: Callable = Callable()
+## 目标类型（""/"block"/"entity"/"pile"/"equipment"），用于 use_active_skill 目标选择
+var target_type: String = ""
 
 ## 运行时：本回合已使用次数（用于 usable 限制）
 var used_count: int = 0
@@ -53,16 +57,18 @@ func matches_trigger(trigger_name: String) -> bool:
 
 
 ## 执行 filter。无 filter 时返回 true（恒通过）。
-func execute_filter(event: Dictionary) -> bool:
+## player 为触发技能的实体，event 中可能包含 target 字段。
+func execute_filter(player: Variant, event: Dictionary) -> bool:
 	if not filter.is_valid():
 		return true
-	return filter.call(event)
+	return filter.call(player, event.get("target", null), event, Game)
 
 
 ## 执行 content。
-func execute_content(event: Dictionary) -> void:
+## player 为触发技能的实体，event 中可能包含 target 字段。
+func execute_content(player: Variant, event: Dictionary) -> void:
 	if content.is_valid():
-		content.call(event)
+		await content.call(player, event.get("target", null), event, Game)
 
 
 ## 本回合是否仍可使用（受 usable 限制）。

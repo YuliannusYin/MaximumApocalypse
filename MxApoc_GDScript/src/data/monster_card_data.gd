@@ -12,6 +12,7 @@ var max_hp: int = 0
 var initial_hp: int = 0
 var attack_damage: int = 0
 var range: String = ""  # "none" / "short" / "medium" / "long" / "infinity"
+var count: int = 1  # 该怪物卡在牌堆中的数量
 var skills: Array = []  # Array[SkillData]
 
 
@@ -23,6 +24,7 @@ func _init(data: Dictionary = {}) -> void:
 	initial_hp = int(data.get("initial_hp", 0))
 	attack_damage = int(data.get("attack_damage", 0))
 	range = data.get("range", "none")
+	count = int(data.get("count", 1))
 	var raw_skills: Array = data.get("skills", [])
 	for raw in raw_skills:
 		if raw is Dictionary:
