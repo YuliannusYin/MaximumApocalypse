@@ -1,0 +1,170 @@
+{
+  "$schema": "monster_pack",
+  "monster_type": "robot",
+  "cards": [
+    {
+      "monster_name": "人工智能核心领袖",
+      "english_name": "ai_core_leader",
+      "monster_level": "boss",
+      "count": 1,
+      "max_hp": 19,
+      "initial_hp": 19,
+      "attack_damage": 4,
+      "range": "medium",
+      "skills": [
+        {
+          "skill_name": "人工智能核心领袖",
+          "english_name": "ai_core_leader",
+          "skill_description": "当此怪物卡被玩家抓取时，抓取该卡的玩家弃掉所有手牌区的牌，并对射程内的所有玩家造成4点伤害。",
+          "skill_type": "monster",
+          "trigger": "after_monster_enter_zone",
+          "forced": true,
+          "filter": "return true",
+          "content": "var drawer = event.player\nvar hand_cards = game.get_cards(drawer, \"hand\")\nfor c in hand_cards:\n\tdrawer.discard(c)\nvar list = game.get_target_in_range(self.engaged_player, \"medium\")\nfor p in list:\n\tp.damage(4, self)"
+        }
+      ]
+    },
+    {
+      "monster_name": "导弹坦克",
+      "english_name": "missile_tank",
+      "monster_level": "boss",
+      "count": 1,
+      "max_hp": 22,
+      "initial_hp": 22,
+      "attack_damage": 6,
+      "range": "medium",
+      "skills": [
+        {
+          "skill_name": "导弹坦克",
+          "english_name": "missile_tank",
+          "skill_description": "当此怪物卡被玩家抓取时，抓取该卡的玩家弃掉所有装备区的牌，并对射程内的所有玩家造成6点伤害。",
+          "skill_type": "monster",
+          "trigger": "after_monster_enter_zone",
+          "forced": true,
+          "filter": "return true",
+          "content": "var drawer = event.player\nvar equipment = game.get_cards(drawer, \"equipment\")\nfor c in equipment:\n\tdrawer.discard(c)\nvar list = game.get_target_in_range(self.engaged_player, \"medium\")\nfor p in list:\n\tp.damage(6, self)"
+        }
+      ]
+    },
+    {
+      "monster_name": "激光无人机",
+      "english_name": "laser_drone",
+      "monster_level": "elite",
+      "count": 12,
+      "max_hp": 10,
+      "initial_hp": 10,
+      "attack_damage": 2,
+      "range": "none",
+      "skills": [
+        {
+          "skill_name": "激光无人机",
+          "english_name": "laser_drone",
+          "skill_description": "被此怪物卡纠缠的玩家无法进行潜行检定，直接抓取怪物卡。",
+          "skill_type": "monster",
+          "trigger": "before_sneak_judge",
+          "forced": true,
+          "filter": "return event.player == self.engaged_player",
+          "content": "event.skip_judge = true\nevent.result = {\"value\": 999, \"success\": false}"
+        }
+      ]
+    },
+    {
+      "monster_name": "机器人侦察兵",
+      "english_name": "robot_scout",
+      "monster_level": "elite",
+      "count": 4,
+      "max_hp": 12,
+      "initial_hp": 12,
+      "attack_damage": 3,
+      "range": "none",
+      "skills": [
+        {
+          "skill_name": "机器人侦察兵",
+          "english_name": "robot_scout",
+          "skill_description": "当此怪物卡被玩家抓取时，在抓取该卡玩家的所有相邻地块上各放置一个怪物标记。",
+          "skill_type": "monster",
+          "trigger": "after_monster_enter_zone",
+          "forced": true,
+          "filter": "return true",
+          "content": "var drawer = event.player\nvar list = drawer.get_current_block().get_adjacent_blocks()\nfor i in list:\n\ti.add_monster_mark(1)"
+        }
+      ]
+    },
+    {
+      "monster_name": "全能机器人",
+      "english_name": "omni_robot",
+      "monster_level": "elite",
+      "count": 4,
+      "max_hp": 20,
+      "initial_hp": 20,
+      "attack_damage": 3,
+      "range": "medium",
+      "skills": [
+        {
+          "skill_name": "全能机器人",
+          "english_name": "omni_robot",
+          "skill_description": "当此怪物卡被消灭时，对射程范围内的所有玩家造成四点伤害。",
+          "skill_type": "monster",
+          "trigger": "on_monster_death",
+          "forced": true,
+          "filter": "return event.target == self",
+          "content": "var list = game.get_target_in_range(self.engaged_player, \"medium\")\nfor p in list:\n\tp.damage(4, self)"
+        }
+      ]
+    },
+    {
+      "monster_name": "爆破机器人",
+      "english_name": "demolition_robot",
+      "monster_level": "elite",
+      "count": 8,
+      "max_hp": 15,
+      "initial_hp": 15,
+      "attack_damage": 4,
+      "range": "none",
+      "skills": [
+        {
+          "skill_name": "爆破机器人-殉爆",
+          "english_name": "demolition_robot_explode",
+          "skill_description": "当此怪物卡被消灭时，对它所纠缠的玩家造成2点伤害。",
+          "skill_type": "monster",
+          "trigger": "on_monster_death",
+          "forced": true,
+          "filter": "return event.target == self",
+          "content": "self.engaged_player.damage(2, self)"
+        },
+        {
+          "skill_name": "爆破机器人-定点爆破",
+          "english_name": "demolition_robot_targeted_blast",
+          "skill_description": "当此怪物卡造成伤害时，若受到伤害的玩家本回合没有移动过，造成的伤害翻倍。",
+          "skill_type": "monster",
+          "trigger": "on_deal_damage",
+          "forced": true,
+          "filter": "return event.source == self && event.target.count_mark(\"moved_this_turn\") == 0",
+          "content": "event.num *= 2"
+        }
+      ]
+    },
+    {
+      "monster_name": "方阵机器人",
+      "english_name": "phalanx_robot",
+      "monster_level": "elite",
+      "count": 4,
+      "max_hp": 11,
+      "initial_hp": 11,
+      "attack_damage": 4,
+      "range": "medium",
+      "skills": [
+        {
+          "skill_name": "方阵机器人",
+          "english_name": "phalanx_robot",
+          "skill_description": "当此怪物卡射程内的机器人类怪物卡受到伤害时，受到的伤害减少1点。",
+          "skill_type": "monster",
+          "trigger": "on_take_damage",
+          "forced": true,
+          "filter": "return event.target.monster_type == \"robot\" && event.target in game.get_target_in_range(self.engaged_player, \"medium\")",
+          "content": "event.num -= 1"
+        }
+      ]
+    }
+  ]
+}

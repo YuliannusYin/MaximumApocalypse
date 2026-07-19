@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://du3u1slk7n0a0" path="res://scripts/MapBlock.gd" id="1_bv3ow"]
 [ext_resource type="Texture2D" uid="uid://dmitqd207a74q" path="res://images/图包/地图块图包/地图块背面.png" id="1_ff57e"]
+[ext_resource type="Texture2D" uid="uid://begthj3unmg2a" path="res://images/图包/地图块图包/军事基地[红、蓝][0].png" id="3_svg5h"]
 [ext_resource type="Texture2D" uid="uid://b2jw5hvhrov3v" path="res://images/图包/游戏标记图包/怪物标记.png" id="4_svg5h"]
 [ext_resource type="Texture2D" uid="uid://b3e7bv1m3jgjy" path="res://images/图包/游戏标记图包/任务标记.png" id="5_otiow"]
 
@@ -117,7 +118,7 @@ _data = {
 }
 
 [node name="MapBlock" type="Node2D" unique_id=1075395763]
-scale = Vector2(0.1, 0.1)
+scale = Vector2(0.08, 0.08)
 script = ExtResource("1_bv3ow")
 
 [node name="VisualContainer" type="Node2D" parent="." unique_id=34567014]
@@ -128,6 +129,7 @@ z_index = 1
 texture = ExtResource("1_ff57e")
 
 [node name="Image" type="Sprite2D" parent="VisualContainer" unique_id=1531198073]
+texture = ExtResource("3_svg5h")
 
 [node name="Area2D" type="Area2D" parent="." unique_id=1887616686]
 collision_layer = 16

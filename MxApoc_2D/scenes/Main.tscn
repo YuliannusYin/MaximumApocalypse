@@ -1,34 +1,36 @@
 [gd_scene format=3 uid="uid://b20moev5g1mhg"]
 
 [ext_resource type="Script" uid="uid://bjehqiir05p6s" path="res://scripts/CardManager.gd" id="1_rvslj"]
-[ext_resource type="Script" uid="uid://dvhv7888det0a" path="res://Mapmanager.gd" id="4_c01mt"]
+[ext_resource type="Script" uid="uid://dvhv7888det0a" path="res://scripts/Mapmanager.gd" id="4_c01mt"]
 [ext_resource type="Script" uid="uid://cvyoy5osprg1g" path="res://scripts/PlayerHand.gd" id="4_rarhs"]
 [ext_resource type="PackedScene" uid="uid://bvdw4cooksgm3" path="res://scenes/MapBlock.tscn" id="4_vcsgt"]
+[ext_resource type="Script" uid="uid://4sn8oqyc6sr3" path="res://scripts/Deck.gd" id="5_q8u5g"]
 [ext_resource type="Script" uid="uid://b2wtipg5blx2u" path="res://scripts/InputManager.gd" id="6_c01mt"]
+[ext_resource type="PackedScene" uid="uid://bldi01vkmt46e" path="res://scenes/Deck.tscn" id="6_nxtc6"]
+[ext_resource type="PackedScene" uid="uid://bp4j7h13n6gc6" path="res://scenes/Card.tscn" id="7_jlsqs"]
+[ext_resource type="PackedScene" uid="uid://drbydd4i33xro" path="res://scenes/CardSlot.tscn" id="8_jlsqs"]
 
 [node name="Main" type="Node2D" unique_id=1117146375]
 
 [node name="CardManager" type="Node2D" parent="." unique_id=1971233979]
 script = ExtResource("1_rvslj")
 
+[node name="Card" parent="CardManager" unique_id=1492810749 instance=ExtResource("7_jlsqs")]
+position = Vector2(193, 379)
+
 [node name="PlayerHand" type="Node2D" parent="." unique_id=419380901]
 script = ExtResource("4_rarhs")
 
-[node name="InputManager" type="Node2D" parent="." unique_id=1496837385]
-script = ExtResource("6_c01mt")
+[node name="Deck" parent="." unique_id=2074906601 instance=ExtResource("6_nxtc6")]
+position = Vector2(44, 580)
+script = ExtResource("5_q8u5g")
 
 [node name="MapManager" type="Node2D" parent="." unique_id=965154135]
 script = ExtResource("4_c01mt")
 cell_scene = ExtResource("4_vcsgt")
 
-[node name="MapBlock" parent="MapManager" unique_id=1075395763 instance=ExtResource("4_vcsgt")]
-position = Vector2(533, 240)
+[node name="CardSlot" parent="." unique_id=75379824 instance=ExtResource("8_jlsqs")]
+position = Vector2(193, 235)
 
-[node name="MapBlock2" parent="MapManager" unique_id=1876313296 instance=ExtResource("4_vcsgt")]
-position = Vector2(700, 245)
-
-[node name="MapBlock3" parent="MapManager" unique_id=345190214 instance=ExtResource("4_vcsgt")]
-position = Vector2(631, 400)
-
-[node name="MapBlock4" parent="MapManager" unique_id=779329356 instance=ExtResource("4_vcsgt")]
-position = Vector2(483, 364)
+[node name="InputManager" type="Node2D" parent="." unique_id=1496837385]
+script = ExtResource("6_c01mt")

@@ -1,14 +1,14 @@
 [gd_scene format=3 uid="uid://bldi01vkmt46e"]
 
-[ext_resource type="Texture2D" uid="uid://mfi1mn3ao8fy" path="res://images/图包/求生者图包/外科医生图包/外科医生角色牌背面.jpg" id="1_mww4s"]
+[ext_resource type="Texture2D" uid="uid://fr6d61f0rbgb" path="res://images/图包/求生者图包/猎人图包/猎人游戏牌背面.jpg" id="1_mww4s"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_p8jh5"]
-size = Vector2(800.0001, 1400.0004)
+size = Vector2(760.0004, 1040.0007)
 
 [node name="Deck" type="Node2D" unique_id=2074906601]
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=570358560]
-scale = Vector2(0.1, 0.1)
+scale = Vector2(0.141, 0.141)
 texture = ExtResource("1_mww4s")
 
 [node name="Area2D" type="Area2D" parent="." unique_id=1500125409]
@@ -17,8 +17,8 @@ collision_layer = 4
 collision_mask = 4
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Area2D" unique_id=146931353]
-position = Vector2(-1.9073475e-05, -2.8610224e-05)
-scale = Vector2(0.99999946, 0.99999946)
+position = Vector2(1.2516971e-05, 2.8610224e-05)
+scale = Vector2(0.9999992, 0.9999992)
 shape = SubResource("RectangleShape2D_p8jh5")
 
 [node name="RichTextLabel" type="RichTextLabel" parent="." unique_id=979608353]

@@ -1,0 +1,102 @@
+﻿{
+  "$schema": "scavenge_pack",
+  "color": "red",
+  "cards": [
+    {
+      "card_name": "医疗用品（便携）",
+      "english_name": "medical_supplies_portable",
+      "card_type": "action",
+      "value": 2,
+      "skills": [
+        {
+          "skill_name": "医疗用品（便携）",
+          "english_name": "medical_supplies_portable",
+          "skill_description": "恢复2点生命值",
+          "skill_type": "action",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_hp() < player.get_max_hp()",
+          "select_target": 1,
+          "filter_target": "return target == player",
+          "content": "player.consume_action(1)\nplayer.recover(2)"
+        }
+      ]
+    },
+    {
+      "card_name": "医疗用品（小型）",
+      "english_name": "medical_supplies_small",
+      "card_type": "action",
+      "value": 4,
+      "skills": [
+        {
+          "skill_name": "医疗用品（小型）",
+          "english_name": "medical_supplies_small",
+          "skill_description": "恢复4点生命值",
+          "skill_type": "action",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_hp() < player.get_max_hp()",
+          "select_target": 1,
+          "filter_target": "return target == player",
+          "content": "player.consume_action(1)\nplayer.recover(4)"
+        }
+      ]
+    },
+    {
+      "card_name": "医疗用品（大型）",
+      "english_name": "medical_supplies_large",
+      "card_type": "action",
+      "value": 6,
+      "skills": [
+        {
+          "skill_name": "医疗用品（大型）",
+          "english_name": "medical_supplies_large",
+          "skill_description": "恢复6点生命值",
+          "skill_type": "action",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_hp() < player.get_max_hp()",
+          "select_target": 1,
+          "filter_target": "return target == player",
+          "content": "player.consume_action(1)\nplayer.recover(6)"
+        }
+      ]
+    },
+    {
+      "card_name": "解毒剂",
+      "english_name": "antidote",
+      "card_type": "action",
+      "skills": [
+        {
+          "skill_name": "解毒剂",
+          "english_name": "antidote",
+          "skill_description": "清除所有的异常状态效果",
+          "skill_type": "action",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "select_target": 1,
+          "filter_target": "return target == player",
+          "content": "player.consume_action(1)\nplayer.cure_all_status_effects()"
+        }
+      ]
+    },
+    {
+      "card_name": "燃料",
+      "english_name": "fuel",
+      "card_type": "equipment",
+      "size": 1,
+      "charge_type": "fuel",
+      "charge_max": 1,
+      "charge_initial": 1,
+      "skills": [
+        {
+          "skill_name": "燃料",
+          "english_name": "fuel",
+          "skill_description": "抓取到此卡时,需要立即装备或者弃掉（不额外消耗行动次数）。",
+          "skill_type": "equipment",
+          "trigger": "on_draw_scavenge_card",
+          "forced": true,
+          "filter": "return event.card.english_name == \"fuel\"",
+          "content": "var card = event.card\nvar choice = await player.choose([\"装备燃料\", \"弃掉燃料\"])\nif choice == \"装备燃料\":\n\tplayer.equip(card)\nelse:\n\tplayer.discard(card)"
+        }
+      ]
+    }
+  ]
+}

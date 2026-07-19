@@ -1,0 +1,337 @@
+{
+  "$schema": "survivor",
+  "character_name": "老兵与狗",
+  "english_name": "veteran",
+  "max_hp": 22,
+  "initial_hp": 22,
+  "stealth": 7,
+  "hunger_stealth": 6,
+  "equipment_slot": 4,
+  "intrinsic_skills": [],
+  "sub_survivors": [
+    {
+      "character_name": "老兵",
+      "english_name": "veteran_human",
+      "max_hp": 22,
+      "initial_hp": 22,
+      "stealth": 7,
+      "hunger_stealth": 6,
+      "equipment_slot": 4,
+      "intrinsic_skills": [
+        {
+          "skill_name": "把你的爪子拿开",
+          "english_name": "take_your_paws_off",
+          "skill_description": "行动：对老兵造成2点伤害，然后狗直到你的下回合开始免疫伤害。",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.dog.get_hp() > 0",
+          "content": "player.consume_action(1)\nplayer.veteran.damage(2, player)\nplayer.dog.add_temp_skill(\"take_your_paws_off_immune\", \"before_next_turn_start\")",
+          "sub_skills": {
+            "immune": {
+              "skill_name": "把你的爪子拿开_免疫",
+              "english_name": "take_your_paws_off_immune",
+              "trigger": "on_take_damage",
+              "forced": true,
+              "filter": "return true",
+              "content": "event.cancel()"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "character_name": "狗",
+      "english_name": "dog",
+      "max_hp": 12,
+      "initial_hp": 12,
+      "stealth": 9,
+      "hunger_stealth": 8,
+      "equipment_slot": 0,
+      "intrinsic_skills": [
+        {
+          "skill_name": "咬他们",
+          "english_name": "bite_them",
+          "skill_description": "行动：对中距离内的一个目标造成3点伤害，然后狗受到1点伤害。",
+          "range": "medium",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.dog.get_hp() > 0",
+          "select_target": 1,
+          "filter_target": "return true",
+          "filter_target_range": "medium",
+          "content": "player.consume_action(1)\ntarget.damage(3, player.dog)\nplayer.dog.damage(1, player)"
+        }
+      ]
+    }
+  ],
+  "deck": [
+    {
+      "card_name": "把他们撕成碎片",
+      "english_name": "tear_them_to_pieces",
+      "count": 2,
+      "card_type": "action",
+      "skills": [
+        {
+          "skill_name": "把他们撕成碎片",
+          "english_name": "tear_them_to_pieces",
+          "skill_description": "行动：如果狗还活着，对中距离内的最多3个目标造成3点伤害。",
+          "range": "medium",
+          "skill_type": "action",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.dog.get_hp() > 0",
+          "select_target": [1, 3],
+          "filter_target": "return true",
+          "filter_target_range": "medium",
+          "content": "var list = event.targets\nfor i in list:\n\ti.damage(3, player)"
+        }
+      ]
+    },
+    {
+      "card_name": "反击开始",
+      "english_name": "counterattack",
+      "count": 2,
+      "card_type": "action",
+      "skills": [
+        {
+          "skill_name": "反击开始",
+          "english_name": "counterattack",
+          "skill_description": "行动：如果狗已死亡，直到你的下回合开始，老兵造成的伤害加3。",
+          "skill_type": "action",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.dog.get_hp() <= 0",
+          "content": "player.veteran.add_temp_skill(\"counterattack_damage\", \"before_next_turn_start\")",
+          "sub_skills": {
+            "damage": {
+              "skill_name": "反击开始_伤害",
+              "english_name": "counterattack_damage",
+              "trigger": "on_deal_damage",
+              "forced": true,
+              "filter": "return true",
+              "content": "event.num += 3"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "card_name": "狗哨",
+      "english_name": "dog_whistle",
+      "count": 2,
+      "card_type": "equipment",
+      "size": 1,
+      "skills": [
+        {
+          "skill_name": "狗哨",
+          "english_name": "dog_whistle",
+          "skill_description": "行动：如果狗还活着，移除长距离内一个地图块上的1个怪物标记，然后狗受到2点伤害。",
+          "range": "long",
+          "skill_type": "equipment",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.dog.get_hp() > 0",
+          "content": "player.consume_action(1)\ntarget = await player.choose_map_block({\"filter_target\": \"return target.count_monster_mark() > 0\", \"filter_target_range\": \"long\"})\ntarget.remove_monster_mark(1)\nplayer.dog.damage(2, player)"
+        }
+      ]
+    },
+    {
+      "card_name": "干死你们",
+      "english_name": "kill_em_all",
+      "count": 2,
+      "card_type": "action",
+      "skills": [
+        {
+          "skill_name": "干死你们",
+          "english_name": "kill_em_all",
+          "skill_description": "行动：如果狗已死亡，对中距离内的所有目标造成6点伤害。",
+          "range": "medium",
+          "skill_type": "action",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.dog.get_hp() <= 0",
+          "select_target": -1,
+          "filter_target": "return target != player",
+          "filter_target_range": "medium",
+          "content": "var list = event.targets\nfor i in list:\n\ti.damage(6, player.veteran)"
+        }
+      ]
+    },
+    {
+      "card_name": "狗项圈",
+      "english_name": "dog_collar",
+      "count": 3,
+      "card_type": "equipment",
+      "size": 0,
+      "skills": [
+        {
+          "skill_name": "狗项圈",
+          "english_name": "dog_collar",
+          "skill_description": "被动：所有对狗造成的伤害减1。",
+          "skill_type": "equipment",
+          "trigger": "on_take_damage",
+          "filter": "return true",
+          "forced": true,
+          "content": "event.num -= 1"
+        }
+      ]
+    },
+    {
+      "card_name": "军牌",
+      "english_name": "military_tag",
+      "count": 2,
+      "card_type": "equipment",
+      "size": 0,
+      "skills": [
+        {
+          "skill_name": "军牌",
+          "english_name": "military_tag",
+          "skill_description": "装备时，老兵和狗各恢复2点生命值。被动：所有对老兵造成的伤害减1。",
+          "skill_type": "equipment",
+          "trigger": "on_equip、on_take_damage",
+          "filter": "return true",
+          "forced": true,
+          "content": "if event.trigger_name == \"on_equip\" && event.card.card_name == \"军牌\":\n\tplayer.veteran.recover(2)\n\tif player.dog.get_hp() > 0:\n\t\tplayer.dog.recover(2)\nelif event.trigger_name == \"on_take_damage\":\n\tevent.num -= 1"
+        }
+      ]
+    },
+    {
+      "card_name": "M1加兰德步枪",
+      "english_name": "m1_garand",
+      "count": 2,
+      "card_type": "equipment",
+      "charge_type": "ammo",
+      "charge_max": 4,
+      "charge_initial": 4,
+      "size": 2,
+      "skills": [
+        {
+          "skill_name": "M1加兰德步枪",
+          "english_name": "m1_garand",
+          "skill_description": "行动：消耗1枚弹药，对一个目标造成8点伤害。",
+          "range": "long",
+          "skill_type": "equipment",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"m1_garand\") > 0",
+          "select_target": 1,
+          "filter_target": "return true",
+          "filter_target_range": "long",
+          "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"m1_garand\"), 1)\ntarget.damage(8, player.veteran)"
+        }
+      ]
+    },
+    {
+      "card_name": "迫击炮",
+      "english_name": "mortar",
+      "count": 2,
+      "card_type": "equipment",
+      "charge_type": "ammo",
+      "charge_max": 3,
+      "charge_initial": 3,
+      "size": 2,
+      "skills": [
+        {
+          "skill_name": "迫击炮",
+          "english_name": "mortar",
+          "skill_description": "行动：消耗1枚弹药，选择一个地图块，移除其上所有怪物标记，或对该地图块的所有目标造成6点伤害。",
+          "range": "long",
+          "skill_type": "equipment",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"mortar\") > 0",
+          "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"mortar\"), 1)\ntarget = await player.choose_map_block({\"filter_target\": \"return target.is_revealed()\", \"filter_target_range\": \"long\"})\nvar choice = await player.choose([\"移除怪物标记\", \"造成伤害\"])\nif choice == \"移除怪物标记\":\n\ttarget.remove_all_monster_marks()\nelif choice == \"造成伤害\":\n\tvar list = game.get_target(target)\n\tfor i in list:\n\t\ti.damage(6, player.veteran)"
+        }
+      ]
+    },
+    {
+      "card_name": "取回",
+      "english_name": "retrieve",
+      "count": 3,
+      "card_type": "action",
+      "skills": [
+        {
+          "skill_name": "取回",
+          "english_name": "retrieve",
+          "skill_description": "行动：如果狗还活着，从任一颜色的拾荒牌堆中抓取3张牌，然后弃置2张拾荒牌。",
+          "skill_type": "action",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.dog.get_hp() > 0",
+          "content": "var result = await player.choose(\"请选择拾荒牌堆颜色：\", [\"red\", \"green\", \"blue\"])\nvar pile = player.get_scavenge_pile(result)\nplayer.draw_scavenge(3, pile)\nplayer.choose_to_discard(2, \"hand\", \"scavenge\")"
+        }
+      ]
+    },
+    {
+      "card_name": "鲁格手枪",
+      "english_name": "luger",
+      "count": 2,
+      "card_type": "equipment",
+      "charge_type": "ammo",
+      "charge_max": 5,
+      "charge_initial": 5,
+      "size": 1,
+      "skills": [
+        {
+          "skill_name": "鲁格手枪",
+          "english_name": "luger",
+          "skill_description": "行动：消耗1枚弹药，对一个目标造成4点伤害。",
+          "range": "medium",
+          "skill_type": "equipment",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"luger\") > 0",
+          "select_target": 1,
+          "filter_target": "return true",
+          "filter_target_range": "medium",
+          "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"luger\"), 1)\ntarget.damage(4, player.veteran)"
+        }
+      ]
+    },
+    {
+      "card_name": "相信它的直觉",
+      "english_name": "trust_its_instinct",
+      "count": 3,
+      "card_type": "action",
+      "skills": [
+        {
+          "skill_name": "相信它的直觉",
+          "english_name": "trust_its_instinct",
+          "skill_description": "行动：如果狗还活着，展示最多2个相邻且未展示的地图块，不触发它们的展示效果。",
+          "skill_type": "action",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.dog.get_hp() > 0",
+          "content": "var max_reveal = 2\nvar count = 0\nwhile count < max_reveal:\n\ttarget = await player.choose_map_block({\"filter_target\": \"return target.is_revealed() == false\", \"filter_target_range\": \"medium\"})\n\tif target == null:\n\t\tbreak\n\ttarget.reveal(false, player)\n\tcount += 1\n\tif count < max_reveal:\n\t\tvar choice = await player.choose([\"继续展示\", \"停止展示\"])\n\t\tif choice == \"停止展示\":\n\t\t\tbreak"
+        }
+      ]
+    },
+    {
+      "card_name": "抓捕小动物",
+      "english_name": "catch_small_animal",
+      "count": 2,
+      "card_type": "action",
+      "skills": [
+        {
+          "skill_name": "抓捕小动物",
+          "english_name": "catch_small_animal",
+          "skill_description": "行动：如果狗还活着，将老兵和狗的饥饿等级各降低2点。",
+          "skill_type": "action",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.dog.get_hp() > 0",
+          "content": "player.veteran.decrease_hunger(2)\nplayer.dog.decrease_hunger(2)"
+        }
+      ]
+    },
+    {
+      "card_name": "致残",
+      "english_name": "cripple",
+      "count": 3,
+      "card_type": "action",
+      "skills": [
+        {
+          "skill_name": "致残",
+          "english_name": "cripple",
+          "skill_description": "行动：如果狗还活着，击晕一个目标并对它造成2点伤害。",
+          "range": "medium",
+          "skill_type": "action",
+          "active": "action",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.dog.get_hp() > 0",
+          "select_target": 1,
+          "filter_target": "return true",
+          "filter_target_range": "medium",
+          "content": "target.damage(2, player.dog)\ntarget.stun(player.dog, \"before_next_turn_start\")"
+        }
+      ]
+    }
+  ]
+}

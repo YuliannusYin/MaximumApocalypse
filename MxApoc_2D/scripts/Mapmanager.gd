@@ -4,7 +4,9 @@ class_name MapManager
 
 @export var cell_scene: PackedScene
 @export var is_random: bool = true          
-@export var cell_offset: Vector2 = Vector2(80.0, 80.0) 
+@export var cell_offset: Vector2 = Vector2(65.0, 65.0) 
+@export var map_offset: Vector2 = Vector2(0.0, -60)
+
 
 const MAPBLOCKS = [
 	'军事基地[红、蓝][0]', '农场[绿][11]', '农场[绿][3]',
@@ -177,7 +179,7 @@ func center_map_in_screen() -> void:
 	
 	var viewport_size = get_viewport_rect().size
 	var center_pos = (viewport_size - grid_pixel_size) / 2.0
-	global_position = center_pos
+	global_position = center_pos + map_offset
 
 
 func _play_start_animations(blocks: Array[Node2D]) -> void:

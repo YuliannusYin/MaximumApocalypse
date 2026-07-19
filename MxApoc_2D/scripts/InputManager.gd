@@ -1,3 +1,4 @@
+#InputManager.gd
 extends Node2D
 
 signal left_mouse_button_clicked
@@ -13,7 +14,7 @@ var deck_reference
 
 func _ready() -> void:
 	card_manager_reference = $"../CardManager"
-	#deck_reference = $"../Deck"
+	deck_reference = $"../Deck"
 	map_manager_reference = $"../MapManager"
 	
 	
@@ -40,7 +41,10 @@ func raycast_at_cursor():
 			if card_found:
 				card_manager_reference.start_drag(card_found)
 		elif result_collision_mask == COLLISION_MASK_CARD_DECK:
-			deck_reference.draw_card()
+			if deck_reference:
+				deck_reference.draw_card()
+			else:
+				print("错误：InputManager 找不到 Deck 节点，请检查场景树路径！")
 		elif result_collision_mask == COLLISION_MASK_MAP_BLOCK:
 			#print("map!")
 			var map_block = result[0].collider.get_parent()
