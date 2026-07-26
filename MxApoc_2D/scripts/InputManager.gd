@@ -57,8 +57,10 @@ func raycast_at_cursor():
 			if map_block and not map_block.is_revealed:
 				map_block.flip_block()
 		elif result_collision_mask == COLLISION_MASK_MONSTER:
-			print("点击怪物牌堆")
+			#print("点击怪物牌堆")
 			if monster_deck_reference:
 				monster_deck_reference.draw_monster_card()
 			else:
 				print("错误：InputManager 找不到 Deck 节点，请检查场景树路径！")
+		elif result_collision_mask == COLLISION_MASK_MONSTER_CARD:
+			print("点击怪物牌")

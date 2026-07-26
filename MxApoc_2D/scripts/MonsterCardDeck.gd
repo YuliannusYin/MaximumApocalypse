@@ -10,6 +10,8 @@ const CARD_DRAW_SPEED = 0.1
 # 展开并洗好的怪物卡牌堆（存放卡牌数据字典）
 var monster_deck: Array[Dictionary] = []
 
+var current_hand_count = 0
+
 func _ready() -> void:
 	_load_monster_deck_data()
 	_update_deck_ui()
@@ -58,7 +60,7 @@ func _load_monster_deck_data() -> void:
 				
 		# 🟢 彻底洗牌
 		monster_deck.shuffle()
-		print("【成功】怪物牌堆 [%s] 加载完成！展开后共包含 %d 张怪物牌。" % [current_monster_type, monster_deck.size()])
+		#print("【成功】怪物牌堆 [%s] 加载完成！展开后共包含 %d 张怪物牌。" % [current_monster_type, monster_deck.size()])
 		
 
 ## 核心逻辑 2：抽取怪物卡并处理 UI 生成与显示
@@ -67,6 +69,10 @@ func draw_monster_card() -> void:
 		print("怪物牌库已经空了！")
 		return
 
+	if $"../MonsterZone".player_hand.size() >= $"../MonsterZone".MAX_ZONE_COUNT:
+		print("区域已满 12 张卡牌！")
+		return
+	
 	# 弹出第一张怪物卡数据
 	var card_data = monster_deck.pop_front()
 	

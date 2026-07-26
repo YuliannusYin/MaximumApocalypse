@@ -5,6 +5,7 @@ signal hovered
 signal hovered_off
 
 var card_position
+var is_revealed: bool = false
 
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:

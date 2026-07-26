@@ -7,11 +7,8 @@
 [ext_resource type="Script" uid="uid://4sn8oqyc6sr3" path="res://scripts/SurvivorCardDeck.gd" id="5_q8u5g"]
 [ext_resource type="Script" uid="uid://b2wtipg5blx2u" path="res://scripts/InputManager.gd" id="6_c01mt"]
 [ext_resource type="PackedScene" uid="uid://bldi01vkmt46e" path="res://scenes/SurvivorCardDeck.tscn" id="6_nxtc6"]
-[ext_resource type="PackedScene" uid="uid://drbydd4i33xro" path="res://scenes/SurvivorCardSlot.tscn" id="8_jlsqs"]
 [ext_resource type="Script" uid="uid://dpitrf5ttw313" path="res://scripts/MonsterCardManager.gd" id="9_q8u5g"]
 [ext_resource type="PackedScene" uid="uid://coffnkqr67ro5" path="res://scenes/MonsterCardDeck.tscn" id="11_bjd11"]
-[ext_resource type="PackedScene" uid="uid://2w83ebssx8x3" path="res://scenes/MonsterCardSlot.tscn" id="11_mwfav"]
-[ext_resource type="Script" uid="uid://tt0wg17k5chk" path="res://scripts/MonsterCardSlot.gd" id="12_3p2gp"]
 [ext_resource type="Script" uid="uid://b4p6h2l0aci3a" path="res://scripts/MonsterZone.gd" id="12_bjd11"]
 [ext_resource type="Script" uid="uid://c1efjtwvfimoa" path="res://scripts/MonsterCardDeck.gd" id="14_3p2gp"]
 
@@ -19,9 +16,6 @@
 
 [node name="SurvivorCardManager" type="Node2D" parent="." unique_id=1971233979]
 script = ExtResource("1_rvslj")
-
-[node name="SurvivorCardSlot" parent="." unique_id=75379824 instance=ExtResource("8_jlsqs")]
-position = Vector2(1080, 289)
 
 [node name="SurvivorDeck" parent="." unique_id=2074906601 instance=ExtResource("6_nxtc6")]
 position = Vector2(44, 580)
@@ -40,21 +34,9 @@ script = ExtResource("6_c01mt")
 [node name="MonsterCardManager" type="Node2D" parent="." unique_id=2089226084]
 script = ExtResource("9_q8u5g")
 
-[node name="MonsterCardSlot" parent="." unique_id=1263990834 instance=ExtResource("11_mwfav")]
-position = Vector2(1079, 105)
-script = ExtResource("12_3p2gp")
-
 [node name="MonsterCardDeck" parent="." unique_id=2122184933 instance=ExtResource("11_bjd11")]
 position = Vector2(1108, 580)
 script = ExtResource("14_3p2gp")
 
 [node name="MonsterZone" type="Node2D" parent="." unique_id=864986607]
 script = ExtResource("12_bjd11")
-
-[node name="ColorRect" type="ColorRect" parent="." unique_id=380624237]
-visible = false
-offset_left = 318.0
-offset_top = 4.0
-offset_right = 835.0
-offset_bottom = 521.0
-color = Color(0.49747366, 0.49747372, 0.49747354, 1)

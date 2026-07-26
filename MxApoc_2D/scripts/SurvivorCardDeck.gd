@@ -3,6 +3,7 @@ extends Node2D
 
 const CARD_SCENE_PATH = "res://scenes/SurvivorCard.tscn"
 const CARD_DRAW_SPEED = 0.1
+const MAX_PLAYER_HAND_CARD_COUNT = 10
 
 # 🟢 接收内核指定的角色英文名 (例如: "surgeon", "mechanic", "firefighter", "veteran", "hunter", "gunslinger")
 # 你可以在这里修改默认值，或者由 RoomState 分配
@@ -86,6 +87,10 @@ func draw_card() -> void:
 		print("牌库已经空了！")
 		return
 
+	if $"../PlayerHand".current_hand_count >= MAX_PLAYER_HAND_CARD_COUNT:
+		print("手牌满10")
+		return
+
 	# 弹出第一张牌的数据
 	var card_ui_data = player_deck.pop_front()
 	
@@ -121,8 +126,8 @@ func draw_card() -> void:
 # ==================== 2. 动态更换【卡牌正面】并精准校对 ====================
 	var card_front_path = "res://images/图包/求生者图包/%s/%s.png" % [character_folder_name, card_ui_data["card_name"]]
 	
-	# 🟢 路径微调：因为变为了子节点，现在路径是 VisualContainer/CardBackImage/CardImage
-	var front_node = new_card.get_node_or_null("VisualContainer/CardBackImage/CardImage") as Sprite2D
+
+	var front_node = new_card.get_node_or_null("VisualContainer/CardImage") as Sprite2D
 	
 	if front_node and ResourceLoader.exists(card_front_path):
 		var front_texture: Texture2D = load(card_front_path)

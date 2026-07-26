@@ -24,7 +24,7 @@ tracks/0/keys = {
 tracks/1/type = "value"
 tracks/1/imported = false
 tracks/1/enabled = true
-tracks/1/path = NodePath("VisualContainer/CardBackImage/CardImage:z_index")
+tracks/1/path = NodePath("VisualContainer/CardImage:z_index")
 tracks/1/interp = 1
 tracks/1/loop_wrap = true
 tracks/1/keys = {
@@ -63,7 +63,7 @@ tracks/0/keys = {
 tracks/1/type = "value"
 tracks/1/imported = false
 tracks/1/enabled = true
-tracks/1/path = NodePath("VisualContainer/CardBackImage/CardImage:z_index")
+tracks/1/path = NodePath("VisualContainer/CardImage:z_index")
 tracks/1/interp = 1
 tracks/1/loop_wrap = true
 tracks/1/keys = {
@@ -101,9 +101,9 @@ script = ExtResource("1_53xmo")
 z_index = 1
 texture = ExtResource("2_3ij5c")
 
-[node name="CardImage" type="Sprite2D" parent="VisualContainer/CardBackImage" unique_id=362520401]
+[node name="CardImage" type="Sprite2D" parent="VisualContainer" unique_id=362520401]
 z_index = -1
-scale = Vector2(0.99999994, 0.99999994)
+scale = Vector2(0.9999999, 0.9999999)
 texture = ExtResource("3_8nqlp")
 
 [node name="Area2D" type="Area2D" parent="." unique_id=2048156348]
