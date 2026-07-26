@@ -5,7 +5,7 @@
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_p8jh5"]
 size = Vector2(760.0004, 1040.0007)
 
-[node name="Deck" type="Node2D" unique_id=2074906601]
+[node name="SurvivorDeck" type="Node2D" unique_id=2074906601]
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=570358560]
 scale = Vector2(0.141, 0.141)

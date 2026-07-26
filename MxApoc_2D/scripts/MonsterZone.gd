@@ -1,12 +1,11 @@
 extends Node2D
 
-const MAX_HAND_COUNT = 10
-const CARD_SCENE_PATH = "res://scenes/Card.tscn"
+#const HAND_COUNT = 5
+const CARD_SCENE_PATH = "res://scenes/MonsterCard.tscn"
 const CARD_WIDTH = 80
-const HAND_Y_POSITION = 580
+const HAND_Y_POSITION = 550
 #const DEFAULT_CARD_MOVE_SPEED = 0.1
 
-var current_hand_count = 0
 
 var player_hand = []
 var center_screen_x
@@ -15,12 +14,10 @@ var center_screen_x
 func _ready() -> void:
 	center_screen_x = get_viewport().size.x / 2 
 	
-func add_card_to_hand(card, speed):
+func add_card_to_zone(card, speed):
 	if card not in player_hand:
 		player_hand.insert(0, card)
 		update_hand_positions(speed)
-		current_hand_count += 1
-		#print(current_hand_count)
 	else:
 		animate_card_to_position(card, card.card_position, speed)
 	
@@ -41,7 +38,7 @@ func animate_card_to_position(card, new_position, speed):
 	var tween = get_tree().create_tween()
 	tween.tween_property(card, "position", new_position, speed)
 	
-func remove_card_from_hand(card, speed):
+func remove_card_from_zone(card, speed):
 	if card in player_hand:
 		player_hand.erase(card)
 		update_hand_positions(speed)

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bqccqdviret2x"
-path="res://.godot/imported/伪装.png-ea5744dc7ac9aa80f0d0b867f57a2c04.ctex"
+uid="uid://d01f2hb4crcf5"
+path="res://.godot/imported/把他们撕成碎片.png-5e5ceda2b583ae3aee2c3339b6591acd.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://images/图包/求生者图包/猎人图包/伪装.png"
-dest_files=["res://.godot/imported/伪装.png-ea5744dc7ac9aa80f0d0b867f57a2c04.ctex"]
+source_file="res://images/图包/求生者图包/老兵与狗图包/把他们撕成碎片.png"
+dest_files=["res://.godot/imported/把他们撕成碎片.png-5e5ceda2b583ae3aee2c3339b6591acd.ctex"]
 
 [params]
 

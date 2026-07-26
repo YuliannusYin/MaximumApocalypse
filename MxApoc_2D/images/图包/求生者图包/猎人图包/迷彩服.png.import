@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b7occlm7mu3yt"
-path="res://.godot/imported/老兵游戏牌背面.jpg-fa92ccdd9692bc2b510315da265dbd67.ctex"
+uid="uid://bqccqdviret2x"
+path="res://.godot/imported/迷彩服.png-4d9d1a6cd15a56a96e5de59ac73c95a5.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://images/图包/求生者图包/老兵与狗图包/老兵游戏牌背面.jpg"
-dest_files=["res://.godot/imported/老兵游戏牌背面.jpg-fa92ccdd9692bc2b510315da265dbd67.ctex"]
+source_file="res://images/图包/求生者图包/猎人图包/迷彩服.png"
+dest_files=["res://.godot/imported/迷彩服.png-4d9d1a6cd15a56a96e5de59ac73c95a5.ctex"]
 
 [params]
 

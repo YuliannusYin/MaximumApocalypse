@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://d01f2hb4crcf5"
-path="res://.godot/imported/把它们撕成碎片.png-ff1b2baca35d94d972e3c7102ee15435.ctex"
+uid="uid://ce65clov5t5x3"
+path="res://.godot/imported/防火头盔.png-c11ca9a42dd730fcf96f683ab4183e6f.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://images/图包/求生者图包/老兵与狗图包/把它们撕成碎片.png"
-dest_files=["res://.godot/imported/把它们撕成碎片.png-ff1b2baca35d94d972e3c7102ee15435.ctex"]
+source_file="res://images/图包/求生者图包/消防员图包/防火头盔.png"
+dest_files=["res://.godot/imported/防火头盔.png-c11ca9a42dd730fcf96f683ab4183e6f.ctex"]
 
 [params]
 

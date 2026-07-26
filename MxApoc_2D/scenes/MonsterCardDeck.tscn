@@ -1,0 +1,39 @@
+[gd_scene format=3 uid="uid://coffnkqr67ro5"]
+
+[ext_resource type="Texture2D" uid="uid://cc8erjeh3pae4" path="res://images/图包/怪物卡牌图包/怪物卡牌背面.jpg" id="1_qs0ms"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_p8jh5"]
+size = Vector2(760.0004, 1040.0007)
+
+[node name="MonsterCardDeck" type="Node2D" unique_id=2074906601]
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=570358560]
+scale = Vector2(0.141, 0.141)
+texture = ExtResource("1_qs0ms")
+
+[node name="Area2D" type="Area2D" parent="." unique_id=1500125409]
+scale = Vector2(0.1, 0.1)
+collision_layer = 2
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Area2D" unique_id=146931353]
+position = Vector2(1.2516971e-05, 2.8610224e-05)
+scale = Vector2(0.9999992, 0.9999992)
+shape = SubResource("RectangleShape2D_p8jh5")
+
+[node name="RichTextLabel" type="RichTextLabel" parent="." unique_id=979608353]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -20.0
+offset_top = -20.0
+offset_right = 20.0
+offset_bottom = 20.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_font_sizes/normal_font_size = 20
+text = "0"
+horizontal_alignment = 1
+vertical_alignment = 1

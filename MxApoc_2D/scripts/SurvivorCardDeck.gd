@@ -1,12 +1,12 @@
 #Deck.gd
 extends Node2D
 
-const CARD_SCENE_PATH = "res://scenes/Card.tscn"
+const CARD_SCENE_PATH = "res://scenes/SurvivorCard.tscn"
 const CARD_DRAW_SPEED = 0.1
 
 # 🟢 接收内核指定的角色英文名 (例如: "surgeon", "mechanic", "firefighter", "veteran", "hunter", "gunslinger")
 # 你可以在这里修改默认值，或者由 RoomState 分配
-@export var character_id: String = "mechanic"
+@export var character_id: String = "surgeon"
 
 # 动态卡组池，存储当前角色所有卡牌的简要 UI 数据
 var player_deck: Array[Dictionary] = []
@@ -68,7 +68,7 @@ func _load_character_deck_data() -> void:
 				
 		# 4. 洗牌
 		player_deck.shuffle()
-		print("【成功】加载角色 [%s] 成功，共生成了 %d 张卡牌。" % [data["character_name"], player_deck.size()])
+		#print("【成功】加载角色 [%s] 成功，共生成了 %d 张卡牌。" % [data["character_name"], player_deck.size()])
 		
 		# ==================== 🟢 核心新增：同步改变牌堆（Deck）的外观 ====================
 		var pure_character_name = character_folder_name.replace("图包", "")
@@ -77,7 +77,7 @@ func _load_character_deck_data() -> void:
 		if $Sprite2D:
 			if ResourceLoader.exists(deck_bg_path):
 				$Sprite2D.texture = load(deck_bg_path)
-				print("【成功】牌堆皮肤已更换为: ", deck_bg_path)
+				#print("【成功】牌堆皮肤已更换为: ", deck_bg_path)
 			else:
 				print("【警告】未找到牌堆皮肤图片: ", deck_bg_path)
 
@@ -162,7 +162,7 @@ func draw_card() -> void:
 	new_card.global_position = self.global_position
 	
 	# 送入卡牌管理器和手牌布局
-	$"../CardManager".add_child(new_card)
+	$"../SurvivorCardManager".add_child(new_card)
 	$"../PlayerHand".add_card_to_hand(new_card, CARD_DRAW_SPEED)
 	
 	if new_card.has_node("AnimationPlayer"):

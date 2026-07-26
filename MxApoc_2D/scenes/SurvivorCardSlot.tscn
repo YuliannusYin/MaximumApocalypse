@@ -1,0 +1,37 @@
+[gd_scene format=3 uid="uid://drbydd4i33xro"]
+
+[ext_resource type="Script" uid="uid://b4q6pg66r3ohq" path="res://scripts/SurvivorCardSlot.gd" id="1_b6t2a"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_p8jh5"]
+size = Vector2(106, 145)
+
+[node name="SurvivorCardSlot" type="Node2D" unique_id=75379824]
+script = ExtResource("1_b6t2a")
+
+[node name="CardSlotImage" type="Sprite2D" parent="." unique_id=2010552168]
+scale = Vector2(0.2, 0.2)
+
+[node name="Area2D" type="Area2D" parent="." unique_id=105791809]
+collision_layer = 2
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Area2D" unique_id=5175885]
+position = Vector2(0, -0.5)
+shape = SubResource("RectangleShape2D_p8jh5")
+
+[node name="ColorRect" type="ColorRect" parent="." unique_id=1223816053]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -53.0
+offset_top = -73.0
+offset_right = 54.0
+offset_bottom = 71.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.23542988, 0.6923943, 0.8553153, 1)
+
+[connection signal="mouse_entered" from="Area2D" to="." method="_on_area_2d_mouse_entered"]
+[connection signal="mouse_exited" from="Area2D" to="." method="_on_area_2d_mouse_exited"]

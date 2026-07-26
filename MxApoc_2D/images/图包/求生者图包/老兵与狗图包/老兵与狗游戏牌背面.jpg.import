@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ce65clov5t5x3"
-path="res://.godot/imported/防火盔.png-b2f9ae272381da5db66fc8e63c523e8e.ctex"
+uid="uid://b7occlm7mu3yt"
+path="res://.godot/imported/老兵与狗游戏牌背面.jpg-d66fed7699d22aa9c77fb6f280d8908e.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://images/图包/求生者图包/消防员图包/防火盔.png"
-dest_files=["res://.godot/imported/防火盔.png-b2f9ae272381da5db66fc8e63c523e8e.ctex"]
+source_file="res://images/图包/求生者图包/老兵与狗图包/老兵与狗游戏牌背面.jpg"
+dest_files=["res://.godot/imported/老兵与狗游戏牌背面.jpg-d66fed7699d22aa9c77fb6f280d8908e.ctex"]
 
 [params]
 

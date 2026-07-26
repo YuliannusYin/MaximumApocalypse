@@ -5,17 +5,22 @@ signal left_mouse_button_clicked
 signal left_mouse_button_released
 
 const COLLISION_MASK_CARD = 1
+const COLLISION_MASK_MONSTER = 2
 const COLLISION_MASK_CARD_DECK = 4
 const COLLISION_MASK_MAP_BLOCK = 16
+const COLLISION_MASK_MONSTER_CARD = 32
+
 
 var card_manager_reference
 var map_manager_reference
 var deck_reference
+var monster_deck_reference
 
 func _ready() -> void:
-	card_manager_reference = $"../CardManager"
-	deck_reference = $"../Deck"
+	card_manager_reference = $"../SurvivorCardManager"
+	deck_reference = $"../SurvivorDeck"
 	map_manager_reference = $"../MapManager"
+	monster_deck_reference = $"../MonsterCardDeck"
 	
 	
 func _input(event) -> void:
@@ -51,3 +56,9 @@ func raycast_at_cursor():
 			# 确保安全转换成功，且地块尚未翻开
 			if map_block and not map_block.is_revealed:
 				map_block.flip_block()
+		elif result_collision_mask == COLLISION_MASK_MONSTER:
+			print("点击怪物牌堆")
+			if monster_deck_reference:
+				monster_deck_reference.draw_monster_card()
+			else:
+				print("错误：InputManager 找不到 Deck 节点，请检查场景树路径！")
