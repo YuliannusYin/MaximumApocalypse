@@ -10,7 +10,10 @@
 [ext_resource type="Script" uid="uid://dpitrf5ttw313" path="res://scripts/MonsterCardManager.gd" id="9_q8u5g"]
 [ext_resource type="PackedScene" uid="uid://coffnkqr67ro5" path="res://scenes/MonsterCardDeck.tscn" id="11_bjd11"]
 [ext_resource type="Script" uid="uid://b4p6h2l0aci3a" path="res://scripts/MonsterZone.gd" id="12_bjd11"]
+[ext_resource type="PackedScene" uid="uid://cbxbad5l24a1u" path="res://scenes/ScavengeCardDeck.tscn" id="12_qmy6f"]
 [ext_resource type="Script" uid="uid://c1efjtwvfimoa" path="res://scripts/MonsterCardDeck.gd" id="14_3p2gp"]
+[ext_resource type="Script" uid="uid://cvmjmedrmimla" path="res://scripts/ScavengeCardDeck.gd" id="15_scav"]
+[ext_resource type="Script" uid="uid://domyhgql20dus" path="res://scripts/ScavengeCardManager.gd" id="16_scav"]
 
 [node name="Main" type="Node2D" unique_id=1117146375]
 
@@ -40,3 +43,10 @@ script = ExtResource("14_3p2gp")
 
 [node name="MonsterZone" type="Node2D" parent="." unique_id=864986607]
 script = ExtResource("12_bjd11")
+
+[node name="ScavengeDeck" parent="." unique_id=1731196406 instance=ExtResource("12_qmy6f")]
+position = Vector2(1000, 463)
+script = ExtResource("15_scav")
+
+[node name="ScavengeCardManager" type="Node2D" parent="." unique_id=1185398683]
+script = ExtResource("16_scav")

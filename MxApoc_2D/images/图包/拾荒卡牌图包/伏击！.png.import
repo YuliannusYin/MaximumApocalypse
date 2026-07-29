@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cjpko2c5c5rd1"
-path="res://.godot/imported/拾荒1_panel_01.png-d441fe600c1155926a3a328f137c9c5a.ctex"
+uid="uid://62y47y366op8"
+path="res://.godot/imported/伏击！.png-de2a37b4126acd1dad41692aa9210865.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://images/图包/拾荒卡牌图包/拾荒1_panel_01.png"
-dest_files=["res://.godot/imported/拾荒1_panel_01.png-d441fe600c1155926a3a328f137c9c5a.ctex"]
+source_file="res://images/图包/拾荒卡牌图包/伏击！.png"
+dest_files=["res://.godot/imported/伏击！.png-de2a37b4126acd1dad41692aa9210865.ctex"]
 
 [params]
 

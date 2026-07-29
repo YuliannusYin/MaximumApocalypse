@@ -9,18 +9,23 @@ const COLLISION_MASK_MONSTER = 2
 const COLLISION_MASK_CARD_DECK = 4
 const COLLISION_MASK_MAP_BLOCK = 16
 const COLLISION_MASK_MONSTER_CARD = 32
-
+const COLLISION_MASK_SCAVENGE_CARD = 64
+const COLLISION_MASK_SCAVENGE_DECK = 128
 
 var card_manager_reference
 var map_manager_reference
 var deck_reference
 var monster_deck_reference
+var scavenge_manager_reference
+var scavenge_deck_reference
 
 func _ready() -> void:
 	card_manager_reference = $"../SurvivorCardManager"
 	deck_reference = $"../SurvivorDeck"
 	map_manager_reference = $"../MapManager"
 	monster_deck_reference = $"../MonsterCardDeck"
+	scavenge_manager_reference = $"../ScavengeCardManager"
+	scavenge_deck_reference = $"../ScavengeDeck"
 	
 	
 func _input(event) -> void:
@@ -33,6 +38,8 @@ func _input(event) -> void:
 			
 func raycast_at_cursor():
 	if card_manager_reference and card_manager_reference.card_being_dragged:
+		return
+	if scavenge_manager_reference and scavenge_manager_reference.card_being_dragged:
 		return
 	var space_state = get_world_2d().direct_space_state
 	var parameters = PhysicsPointQueryParameters2D.new()
@@ -64,3 +71,29 @@ func raycast_at_cursor():
 				print("错误：InputManager 找不到 Deck 节点，请检查场景树路径！")
 		elif result_collision_mask == COLLISION_MASK_MONSTER_CARD:
 			print("点击怪物牌")
+		elif result_collision_mask == COLLISION_MASK_SCAVENGE_CARD:
+			# 点击手牌中的拾荒牌 → 开始拖拽
+			var scavenge_card = result[0].collider.get_parent()
+			if scavenge_card and scavenge_manager_reference:
+				scavenge_manager_reference.start_drag(scavenge_card)
+		elif result_collision_mask == COLLISION_MASK_SCAVENGE_DECK:
+			# 获取点击到的具体 CollisionShape2D 节点
+			var area = result[0].collider
+			var shape_owner_id = area.shape_find_owner(result[0].shape)
+			var shape_node = area.shape_owner_get_owner(shape_owner_id)
+			
+			if shape_node and scavenge_deck_reference:
+				var color = ""
+				# 根据你的节点名对应颜色
+				match shape_node.name:
+					"CollisionShape2D":
+						color = "red"
+					"CollisionShape2D2":
+						color = "green"
+					"CollisionShape2D3":
+						color = "blue"
+				
+				if color != "":
+					scavenge_deck_reference.draw_scavenge_card(color)
+				else:
+					print("【错误】未识别的 CollisionShape2D 名称: ", shape_node.name)
