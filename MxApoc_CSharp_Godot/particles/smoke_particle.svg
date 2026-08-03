@@ -1,5 +1,0 @@
-<svg width="20" height="20" xmlns="http://www.w3.org/2000/svg">
-  <!-- 烟雾粒子 -->
-  <circle cx="10" cy="10" r="8" fill="white" opacity="0.3"/>
-  <circle cx="10" cy="10" r="5" fill="white" opacity="0.5"/>
-</svg>

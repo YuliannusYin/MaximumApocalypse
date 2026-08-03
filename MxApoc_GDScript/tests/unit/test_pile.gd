@@ -29,14 +29,14 @@ func test_draw_from_top() -> void:
 	var c2: Card = _make_card("card2")
 	p.add(c1)  # 顶部
 	p.add(c2)  # 底部
-	var drawn: Card = p.draw()
+	var drawn: Card = await p.draw()
 	assert_eq(drawn, c1, "应从顶部抓取（先加入的先抓）")
 	assert_eq(p.size(), 1, "抓取后 size 应为 1")
 
 
 func test_draw_empty_returns_null() -> void:
 	var p: Pile = Pile.new()
-	var drawn: Card = p.draw()
+	var drawn: Card = await p.draw()
 	assert_null(drawn, "空牌堆抓取应返回 null")
 	assert_eq(p.size(), 0)
 
@@ -104,7 +104,7 @@ func test_draw_sequence() -> void:
 	p.add(c1)
 	p.add(c2)
 	p.add(c3)
-	assert_eq(p.draw(), c1)
-	assert_eq(p.draw(), c2)
-	assert_eq(p.draw(), c3)
-	assert_null(p.draw(), "全部抓完后应返回 null")
+	assert_eq(await p.draw(), c1)
+	assert_eq(await p.draw(), c2)
+	assert_eq(await p.draw(), c3)
+	assert_null(await p.draw(), "全部抓完后应返回 null")

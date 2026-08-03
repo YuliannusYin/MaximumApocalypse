@@ -57,7 +57,7 @@ func after_each() -> void:
 func test_destroy_block_removes_from_map_area() -> void:
 	var b: MapBlock = _make_block("target", 0, 0)
 	Game.map_area = [b]
-	var ok: bool = Game.destroy_map_block(b, null)
+	var ok: bool = await Game.destroy_map_block(b, null)
 	assert_true(ok, "摧毁应成功")
 	assert_false(Game.map_area.has(b), "应从 map_area 移除")
 	assert_eq(b.block_state, "destroyed", "地块状态应为 destroyed")
@@ -71,7 +71,7 @@ func test_destroy_block_pops_player_to_adjacent() -> void:
 	Game.players = [p]
 	Game.map_area = [b1, b2]
 	# 摧毁 b1，玩家应弹出到 b2
-	Game.destroy_map_block(b1, null)
+	await Game.destroy_map_block(b1, null)
 	assert_eq(p.current_block, b2, "玩家应弹出到相邻地块 b2")
 
 
@@ -83,7 +83,7 @@ func test_destroy_block_no_adjacent_deals_damage() -> void:
 	Game.map_area = [b1]  # 没有相邻地块
 	# 摧毁 b1，玩家无处可逃应受 5 点伤害
 	var initial_hp: int = p.hp
-	Game.destroy_map_block(b1, null)
+	await Game.destroy_map_block(b1, null)
 	assert_eq(p.hp, initial_hp - 5, "应受 5 点伤害")
 
 
@@ -91,7 +91,7 @@ func test_destroy_block_clears_monster_marks() -> void:
 	var b: MapBlock = _make_block("target", 0, 0)
 	b.add_monster_mark(3)  # 3 个怪物标记
 	Game.map_area = [b]
-	Game.destroy_map_block(b, null)
+	await Game.destroy_map_block(b, null)
 	assert_eq(b.count_monster_mark(), 0, "怪物标记应清零")
 
 
@@ -103,10 +103,10 @@ func test_destroy_block_cancel_prevents_destruction() -> void:
 	# 添加取消技能
 	var cancel_skill: Skill = Skill.new()
 	cancel_skill.trigger = "before_destroy_block"
-	cancel_skill.content = func(ev: Dictionary) -> void:
+	cancel_skill.content = func(_p, _t, ev: Dictionary, _g) -> void:
 		EventSystem.cancel(ev)
 	p.add_skill(cancel_skill)
-	var ok: bool = Game.destroy_map_block(b, null)
+	var ok: bool = await Game.destroy_map_block(b, null)
 	assert_false(ok, "取消应返回 false")
 	assert_true(Game.map_area.has(b), "地块应仍在 map_area")
 	assert_eq(b.block_state, "alive", "地块状态应仍为 alive")

@@ -56,11 +56,11 @@ func test_trigger_executes_matching_skill() -> void:
 	var called: Array = []
 	var s: Skill = Skill.new()
 	s.trigger = "on_take_damage"
-	s.content = func(_ev: Dictionary) -> void:
+	s.content = func(_p, _t, _ev: Dictionary, _g) -> void:
 		called.append(true)
 	e.add_skill(s)
 	var event: Dictionary = EventSystem.create_event()
-	e.trigger("on_take_damage", event)
+	await e.trigger("on_take_damage", event)
 	assert_eq(called.size(), 1, "匹配 trigger 的技能 content 应被执行")
 
 
@@ -69,11 +69,11 @@ func test_trigger_skips_non_matching_skill() -> void:
 	var called: Array = []
 	var s: Skill = Skill.new()
 	s.trigger = "on_deal_damage"
-	s.content = func(_ev: Dictionary) -> void:
+	s.content = func(_p, _t, _ev: Dictionary, _g) -> void:
 		called.append(true)
 	e.add_skill(s)
 	var event: Dictionary = EventSystem.create_event()
-	e.trigger("on_take_damage", event)
+	await e.trigger("on_take_damage", event)
 	assert_eq(called.size(), 0, "不匹配 trigger 的技能 content 不应执行")
 
 
@@ -82,11 +82,11 @@ func test_trigger_compound_trigger_matches() -> void:
 	var called: Array = []
 	var s: Skill = Skill.new()
 	s.trigger = "on_game_start、on_take_damage"
-	s.content = func(_ev: Dictionary) -> void:
+	s.content = func(_p, _t, _ev: Dictionary, _g) -> void:
 		called.append(true)
 	e.add_skill(s)
 	var event: Dictionary = EventSystem.create_event()
-	e.trigger("on_take_damage", event)
+	await e.trigger("on_take_damage", event)
 	assert_eq(called.size(), 1, "复合 trigger 中包含匹配项时应执行")
 
 
@@ -95,13 +95,13 @@ func test_trigger_filter_false_skips_content() -> void:
 	var called: Array = []
 	var s: Skill = Skill.new()
 	s.trigger = "on_take_damage"
-	s.filter = func(_ev: Dictionary) -> bool:
+	s.filter = func(_p, _t, _ev: Dictionary, _g) -> bool:
 		return false
-	s.content = func(_ev: Dictionary) -> void:
+	s.content = func(_p, _t, _ev: Dictionary, _g) -> void:
 		called.append(true)
 	e.add_skill(s)
 	var event: Dictionary = EventSystem.create_event()
-	e.trigger("on_take_damage", event)
+	await e.trigger("on_take_damage", event)
 	assert_eq(called.size(), 0, "filter 返回 false 时 content 不应执行")
 
 
@@ -110,17 +110,17 @@ func test_trigger_cancel_breaks_loop() -> void:
 	var call_order: Array = []
 	var s1: Skill = Skill.new()
 	s1.trigger = "on_take_damage"
-	s1.content = func(ev: Dictionary) -> void:
+	s1.content = func(_p, _t, ev: Dictionary, _g) -> void:
 		call_order.append("s1")
 		EventSystem.cancel(ev)
 	var s2: Skill = Skill.new()
 	s2.trigger = "on_take_damage"
-	s2.content = func(_ev: Dictionary) -> void:
+	s2.content = func(_p, _t, _ev: Dictionary, _g) -> void:
 		call_order.append("s2")
 	e.add_skill(s1)
 	e.add_skill(s2)
 	var event: Dictionary = EventSystem.create_event()
-	e.trigger("on_take_damage", event)
+	await e.trigger("on_take_damage", event)
 	assert_eq(call_order, ["s1"], "cancel 后应中断后续技能")
 	assert_true(EventSystem.is_cancelled(event), "event 应已取消")
 
@@ -159,15 +159,15 @@ func test_damage_with_source_triggers_all_hooks() -> void:
 	# 给 source 挂载造成伤害前/时/后
 	var s_before: Skill = Skill.new()
 	s_before.trigger = "before_deal_damage"
-	s_before.content = func(_ev: Dictionary) -> void:
+	s_before.content = func(_p, _t, _ev: Dictionary, _g) -> void:
 		call_log.append("source_before_deal")
 	var s_on: Skill = Skill.new()
 	s_on.trigger = "on_deal_damage"
-	s_on.content = func(_ev: Dictionary) -> void:
+	s_on.content = func(_p, _t, _ev: Dictionary, _g) -> void:
 		call_log.append("source_on_deal")
 	var s_after: Skill = Skill.new()
 	s_after.trigger = "after_deal_damage"
-	s_after.content = func(_ev: Dictionary) -> void:
+	s_after.content = func(_p, _t, _ev: Dictionary, _g) -> void:
 		call_log.append("source_after_deal")
 	source.add_skill(s_before)
 	source.add_skill(s_on)
@@ -175,15 +175,15 @@ func test_damage_with_source_triggers_all_hooks() -> void:
 	# 给 target 挂载受到伤害前/时/后
 	var t_before: Skill = Skill.new()
 	t_before.trigger = "before_take_damage"
-	t_before.content = func(_ev: Dictionary) -> void:
+	t_before.content = func(_p, _t, _ev: Dictionary, _g) -> void:
 		call_log.append("target_before_take")
 	var t_on: Skill = Skill.new()
 	t_on.trigger = "on_take_damage"
-	t_on.content = func(_ev: Dictionary) -> void:
+	t_on.content = func(_p, _t, _ev: Dictionary, _g) -> void:
 		call_log.append("target_on_take")
 	var t_after: Skill = Skill.new()
 	t_after.trigger = "after_take_damage"
-	t_after.content = func(_ev: Dictionary) -> void:
+	t_after.content = func(_p, _t, _ev: Dictionary, _g) -> void:
 		call_log.append("target_after_take")
 	target.add_skill(t_before)
 	target.add_skill(t_on)
@@ -204,12 +204,12 @@ func test_damage_no_source_skips_source_hooks() -> void:
 	var call_log: Array = []
 	var s_before: Skill = Skill.new()
 	s_before.trigger = "before_deal_damage"
-	s_before.content = func(_ev: Dictionary) -> void:
+	s_before.content = func(_p, _t, _ev: Dictionary, _g) -> void:
 		call_log.append("source_before_deal")
 	source.add_skill(s_before)
 	var t_before: Skill = Skill.new()
 	t_before.trigger = "before_take_damage"
-	t_before.content = func(_ev: Dictionary) -> void:
+	t_before.content = func(_p, _t, _ev: Dictionary, _g) -> void:
 		call_log.append("target_before_take")
 	target.add_skill(t_before)
 	target.damage(3, null)
@@ -222,7 +222,7 @@ func test_damage_cancel_prevents_hp_loss() -> void:
 	target.hp = 10
 	var s: Skill = Skill.new()
 	s.trigger = "on_take_damage"
-	s.content = func(ev: Dictionary) -> void:
+	s.content = func(_p, _t, ev: Dictionary, _g) -> void:
 		EventSystem.cancel(ev)
 	target.add_skill(s)
 	target.damage(5, null)
@@ -234,7 +234,7 @@ func test_damage_modify_num_via_hook() -> void:
 	target.hp = 10
 	var s: Skill = Skill.new()
 	s.trigger = "on_take_damage"
-	s.content = func(ev: Dictionary) -> void:
+	s.content = func(_p, _t, ev: Dictionary, _g) -> void:
 		ev["num"] = 2  # 减少 5 → 2
 	target.add_skill(s)
 	target.damage(5, null)

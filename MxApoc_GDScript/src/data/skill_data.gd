@@ -22,6 +22,7 @@ var select_target: int = 0
 var range: String = ""
 var usable: int = -1
 var content: String = ""
+var target_type: String = ""
 
 
 func _init(data: Dictionary = {}) -> void:
@@ -42,3 +43,4 @@ func _init(data: Dictionary = {}) -> void:
 	range = data.get("range", "")
 	usable = int(data.get("usable", -1))
 	content = data.get("content", "")
+	target_type = data.get("target_type", "")

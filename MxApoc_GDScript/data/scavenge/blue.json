@@ -1,4 +1,4 @@
-{
+﻿{
   "$schema": "scavenge_pack",
   "color": "blue",
   "cards": [
@@ -190,7 +190,7 @@
           "trigger": "before_draw_scavenge_card",
           "filter": "return true",
           "forced": true,
-          "content": "event.cancel()\nvar pile = event.pile\nvar top_two = pile.peek_top(2)\nvar keep = player.choose(top_two)\nplayer.gain(keep)\nfor card in top_two:\n\tif card != keep:\n\t\tpile.put_bottom(card)"
+          "content": "event.cancel()\nvar pile = event.pile\nvar top_two = pile.peek_top(2)\nvar keep = await player.choose(top_two)\nplayer.gain(keep)\nfor card in top_two:\n\tif card != keep:\n\t\tpile.put_bottom(card)"
         }
       ]
     },
@@ -251,7 +251,7 @@
           "select_target": 1,
           "filter_target": "return target.is_map_block() && target.is_revealed() && target.is_alive()",
           "filter_target_range": "medium",
-          "content": "player.consume_action(1)\ngame.destroy_map_block(target, player)"
+          "content": "player.consume_action(1)\nawait game.destroy_map_block(target, player)"
         }
       ]
     }

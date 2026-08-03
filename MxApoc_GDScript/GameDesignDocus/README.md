@@ -1,9 +1,6 @@
 # 游戏设计文档（GameDesignDocus）
 
-> 《末日启示录》(Maximum Apocalypse) 桌游数字化项目的游戏设计文档总入口。
-> 技术栈：Godot 4.7 + GDScript。项目背景见 [AGENTS.md](../AGENTS.md)。
-
----
+***
 
 ## 目录结构
 
@@ -23,25 +20,25 @@ GameDesignDocus/
     Godot 工程结构、标识符映射、数据格式规范
 ```
 
----
+***
 
 ## 四个子目录
 
-| 目录 | 定位 | 读者 | 入口 |
-|------|------|------|------|
-| [GameSystem/](GameSystem/README.md) | 底层系统设计：类继承、字段、方法、事件机制、伪代码流程 | 开发者 | [GameSystem/README.md](GameSystem/README.md) |
-| [GameInstructions/](GameInstructions/README.md) | 游戏规则说明：从概述到术语的完整规则文档 | 设计师 / 玩家 | [GameInstructions/README.md](GameInstructions/README.md) |
-| [Resource/](Resource/README.md) | 数据定义：求生者/拾荒/怪物/任务/地图块的具体内容 | 设计师 / 开发者 | [Resource/README.md](Resource/README.md) |
-| [Engineering/](Engineering/GodotProjectStructure.md) | 工程设计：Godot 项目结构、中英文标识符映射、JSON 数据格式规范 | 开发者 | [Engineering/GodotProjectStructure.md](Engineering/GodotProjectStructure.md) |
+| 目录                                                   | 定位                                   | 读者        | 入口                                                                           |
+| ---------------------------------------------------- | ------------------------------------ | --------- | ---------------------------------------------------------------------------- |
+| [GameSystem/](GameSystem/README.md)                  | 底层系统设计：类继承、字段、方法、事件机制、伪代码流程          | 开发者       | [GameSystem/README.md](GameSystem/README.md)                                 |
+| [GameInstructions/](GameInstructions/README.md)      | 游戏规则说明：从概述到术语的完整规则文档                 | 设计师 / 玩家  | [GameInstructions/README.md](GameInstructions/README.md)                     |
+| [Resource/](Resource/README.md)                      | 数据定义：求生者/拾荒/怪物/任务/地图块的具体内容           | 设计师 / 开发者 | [Resource/README.md](Resource/README.md)                                     |
+| [Engineering/](Engineering/GodotProjectStructure.md) | 工程设计：Godot 项目结构、中英文标识符映射、JSON 数据格式规范 | 开发者       | [Engineering/GodotProjectStructure.md](Engineering/GodotProjectStructure.md) |
 
----
+***
 
 ## 阅读路线图
 
 ### 初次了解项目
 
 1. [AGENTS.md](../AGENTS.md) — 项目总体说明书
-2. [A_overview.md](GameInstructions/A_overview.md) — 游戏概述
+2. [A\_overview.md](GameInstructions/A_overview.md) — 游戏概述
 3. [GameSystem/README.md](GameSystem/README.md) — 系统架构总览（类继承图 + 设计原则）
 
 ### 理解游戏规则
@@ -59,7 +56,7 @@ GameDesignDocus/
 2. [Core/Entity.md](GameSystem/Core/Entity.md) — Entity 基类（技能挂载 + trigger + damage 流程）
 3. [Core/EventSystem.md](GameSystem/Core/EventSystem.md) — 事件触发机制与全 trigger 索引
 4. [Entities/Player.md](GameSystem/Entities/Player.md) — Player 类（最大文档，含所有玩家流程方法）
-5. [J_gameEventFlow.md](GameInstructions/J_gameEventFlow.md) — 事件流程汇总（trigger 名 + 节点表）
+5. [J\_gameEventFlow.md](GameInstructions/J_gameEventFlow.md) — 事件流程汇总（trigger 名 + 节点表）
 
 ### 查阅卡牌/地图数据
 
@@ -72,7 +69,7 @@ GameDesignDocus/
 2. [Engineering/IdentifierMapping.md](Engineering/IdentifierMapping.md) — 中英文标识符完整映射表
 3. [Engineering/DataFormat.md](Engineering/DataFormat.md) — markdown → JSON 数据格式规范
 
----
+***
 
 ## 四目录关系
 
@@ -90,15 +87,17 @@ Engineering/（工程设计）──→ GameSystem/ + Resource/ 的代码实现�
 - **Engineering/** 是工程规范：定义 Godot 项目结构、中英文标识符映射、JSON 数据格式，指导从设计文档到代码的落地
 
 核心设计模式：
+
 - **钩子驱动**：所有流程采用「XX前 / XX时 / XX后」三段式钩子 + 取消点
 - **event 对象**：流程间通信载体（按流程含 `event.target` / `event.targetBlock` / `event.card` / `event.targets` / `event.num` / `event.cancel()` 等字段，详见 [GameSystem/Core/EventSystem.md §2.2](GameSystem/Core/EventSystem.md#22-按流程类型的字段)）
 - **技能统一挂载**：所有技能挂到 Entity.skills，由 `entity.trigger()` 统一遍历
 - **地块技能挂载到玩家**：玩家进入地块时地块技能挂载到 Player，离开时清理
 
----
+***
 
 ## 文档约定
 
 - **伪代码风格**：GDScript 风味伪代码，`function` 关键字声明方法，`#` 注释
 - **trigger 命名**：中文「XX前/时/后」，复合触发用「、」分隔（如 `trigger: 游戏开始时、受到伤害时`）
 - **标注约定**：`[提案]` 表示尚未落地的提案性命名，`待定义` 表示语义待定
+

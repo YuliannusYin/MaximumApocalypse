@@ -28,7 +28,6 @@ Settings="*res://src/ui/settings.gd"
 window/size/viewport_width=1430
 window/size/viewport_height=780
 window/stretch/mode="canvas_items"
-window/stretch/aspect="expand"
 window/size/viewport=Vector2i(1430, 780)
 window/size/minimum_size=Vector2i(1024, 600)
 

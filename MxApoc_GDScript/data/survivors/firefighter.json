@@ -60,7 +60,7 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"lighter\") > 0",
           "select_target": -1,
-          "filter_target": "return target.type == \"monster\"",
+          "filter_target": "return target.is_monster()",
           "filter_target_range": "short",
           "content": "player.consume_action(1)\nvar list = event.targets\nplayer.consume_charge(player.get_equipment(\"lighter\"), 1)\nfor i in list:\n\ti.damage(3, player)"
         }
@@ -81,7 +81,7 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
           "select_target": 1,
-          "filter_target": "return target.type == \"human\"",
+          "filter_target": "return target.is_player()",
           "filter_target_range": "short",
           "content": "target.recover(4)"
         }
@@ -126,7 +126,7 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
           "select_target": -1,
-          "filter_target": "return target.type == \"monster\"",
+          "filter_target": "return target.is_monster()",
           "filter_target_range": "short",
           "content": "var list = event.targets\nfor i in list:\n\ti.stun(player, \"before_next_turn_start\")"
         }
@@ -173,7 +173,7 @@
           "skill_description": "被动：自动通过河流地图块的检定。弃置：抓取怪物卡前，可以弃置此装备，然后跳过抓取怪物卡的步骤。",
           "trigger": "before_sneak_judge、before_draw_monster_card",
           "filter": "return true",
-          "content": "if event.trigger_name == \"before_sneak_judge\" && event.name == \"河流\":\n\tevent.skip_judge = true\n\tevent.result = {\"value\": 0, \"success\": true}\nelif event.trigger_name == \"before_draw_monster_card\":\n\tif player.choose([\"是\", \"否\"]) == \"是\":\n\t\tplayer.discard(\"ladder\", \"equipment\")\n\t\tevent.cancel()"
+          "content": "if event.trigger_name == \"before_sneak_judge\" && event.name == \"河流\":\n\tevent.skip_judge = true\n\tevent.result = {\"value\": 0, \"success\": true}\nelif event.trigger_name == \"before_draw_monster_card\":\n\tif await player.choose([\"是\", \"否\"]) == \"是\":\n\t\tplayer.discard(\"ladder\", \"equipment\")\n\t\tevent.cancel()"
         }
       ]
     },
@@ -191,7 +191,7 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
           "select_target": -1,
-          "filter_target": "return target.type == \"monster\"",
+          "filter_target": "return target.is_monster()",
           "filter_target_range": "long",
           "content": "var list = event.targets\nfor i in list:\n\ti.change_engaged_target(player)"
         }
@@ -210,7 +210,7 @@
           "skill_type": "action",
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "content": "var pile = player.get_pile(\"deck\")\nvar card = game.get_card(\"reliable_axe\", pile)\nif card == null:\n\tgame.log(\"玩家游戏牌堆中没有【值得信赖的斧子】牌\")\nelse:\n\tplayer.equip(card)\nvar result = player.choose(\"请选择你抓取的拾荒卡颜色：\", [\"red\", \"green\", \"blue\"])\nvar scavenge_pile = player.get_scavenge_pile(result)\nplayer.draw_scavenge(1, scavenge_pile)"
+          "content": "var pile = player.get_pile(\"deck\")\nvar card = game.get_card(\"reliable_axe\", pile)\nif card == null:\n\tgame.log(\"玩家游戏牌堆中没有【值得信赖的斧子】牌\")\nelse:\n\tplayer.equip(card)\nvar result = await player.choose(\"请选择你抓取的拾荒卡颜色：\", [\"red\", \"green\", \"blue\"])\nvar scavenge_pile = player.get_scavenge_pile(result)\nplayer.draw_scavenge(1, scavenge_pile)"
         }
       ]
     },
@@ -227,7 +227,7 @@
           "skill_type": "action",
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "content": "var max_steps = 3\nvar steps = 0\nwhile steps < max_steps:\n\tif steps > 0:\n\t\tvar choice = player.choose([\"继续移动\", \"停止移动\"])\n\t\tif choice == \"停止移动\":\n\t\t\tbreak\n\tvar target = player.choose_map_block({\"filter_target\": \"return target != player.get_current_block()\", \"filter_target_range\": \"medium\"})\n\tvar success = player.move_to(target)\n\tif not success:\n\t\tbreak\n\tsteps += 1\nplayer.draw(1)"
+          "content": "var max_steps = 3\nvar steps = 0\nwhile steps < max_steps:\n\tif steps > 0:\n\t\tvar choice = await player.choose([\"继续移动\", \"停止移动\"])\n\t\tif choice == \"停止移动\":\n\t\t\tbreak\n\ttarget = await player.choose_map_block({\"filter_target\": \"return target != player.get_current_block()\", \"filter_target_range\": \"medium\"})\n\tvar success = player.move_to(target)\n\tif not success:\n\t\tbreak\n\tsteps += 1\nplayer.draw(1)"
         }
       ]
     },

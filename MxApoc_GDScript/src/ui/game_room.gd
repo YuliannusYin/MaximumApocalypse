@@ -178,7 +178,7 @@ func _update_start_button() -> void:
 func _on_start_game() -> void:
 	if not RoomState.is_ready_to_start():
 		return
-	get_tree().change_scene_to_file("res://scenes/GameScene.tscn")
+	get_tree().change_scene_to_file("res://scenes/LoadingScreen.tscn")
 
 func _on_back() -> void:
 	get_tree().change_scene_to_file("res://scenes/MainMenu.tscn")

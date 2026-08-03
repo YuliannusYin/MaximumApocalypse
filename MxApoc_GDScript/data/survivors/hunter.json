@@ -14,7 +14,7 @@
       "skill_description": "行动：最多展示两个相邻的地图块，且不触发任何地块触发效果。",
       "active": "action",
       "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_current_block().has_adjacent_unrevealed_block()",
-      "content": "player.consume_action(1)\nvar max_reveal = 2\nvar count = 0\nwhile count < max_reveal:\n\tvar target = player.choose_map_block({\"filter_target\": \"return target.is_revealed() == false\", \"filter_target_range\": \"medium\"})\n\tif target == null:\n\t\tbreak\n\ttarget.reveal(false, player)\n\tcount += 1\n\tif count < max_reveal:\n\t\tvar choice = player.choose([\"继续展示\", \"停止展示\"])\n\t\tif choice == \"停止展示\":\n\t\t\tbreak"
+      "content": "player.consume_action(1)\nvar max_reveal = 2\nvar count = 0\nwhile count < max_reveal:\n\ttarget = await player.choose_map_block({\"filter_target\": \"return target.is_revealed() == false\", \"filter_target_range\": \"medium\"})\n\tif target == null:\n\t\tbreak\n\ttarget.reveal(false, player)\n\tcount += 1\n\tif count < max_reveal:\n\t\tvar choice = await player.choose([\"继续展示\", \"停止展示\"])\n\t\tif choice == \"停止展示\":\n\t\t\tbreak"
     }
   ],
   "deck": [
@@ -166,7 +166,7 @@
           "skill_type": "equipment",
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"motorcycle\") > 0",
-          "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"motorcycle\"), 1)\nvar max_steps = 3\nvar steps = 0\nwhile steps < max_steps:\n\tif steps > 0:\n\t\tvar choice = player.choose([\"继续移动\", \"停止移动\"])\n\t\tif choice == \"停止移动\":\n\t\t\tbreak\n\tvar target = player.choose_map_block({\"filter_target\": \"return target != player.get_current_block()\", \"filter_target_range\": \"medium\"})\n\tvar success = player.move_to(target)\n\tif not success:\n\t\tbreak\n\tsteps += 1"
+          "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"motorcycle\"), 1)\nvar max_steps = 3\nvar steps = 0\nwhile steps < max_steps:\n\tif steps > 0:\n\t\tvar choice = await player.choose([\"继续移动\", \"停止移动\"])\n\t\tif choice == \"停止移动\":\n\t\t\tbreak\n\ttarget = await player.choose_map_block({\"filter_target\": \"return target != player.get_current_block()\", \"filter_target_range\": \"medium\"})\n\tvar success = player.move_to(target)\n\tif not success:\n\t\tbreak\n\tsteps += 1"
         }
       ]
     },
@@ -246,7 +246,7 @@
           "skill_type": "action",
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && game.has_equipment_in_discard_piles()",
-          "content": "var list = game.get_all_discard_pile_equipments()\nvar card = player.choose_card(list)\nvar target = player.choose_target({\"select_target\": 1, \"filter_target\": \"return target.type == \\\"human\\\"\", \"filter_target_range\": \"infinity\"})\ntarget.equip(card)"
+          "content": "var list = game.get_all_discard_pile_equipments()\nvar card = await player.choose_card(list)\ntarget = await player.choose_target({\"select_target\": 1, \"filter_target\": \"return target.type == \\\"human\\\"\", \"filter_target_range\": \"infinity\"})\ntarget.equip(card)"
         }
       ]
     },
@@ -274,7 +274,7 @@
           "skill_type": "equipment",
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.has_non_boss_monster()",
-          "content": "player.discard(\"camouflage\", \"equipment\")\nplayer.damage(3, player)\nplayer.discard_non_boss_monster_to_mark()"
+          "content": "player.discard(\"camouflage\", \"equipment\")\nplayer.damage(3, player)\nawait player.discard_non_boss_monster_to_mark()"
         }
       ]
     },
@@ -291,7 +291,7 @@
           "skill_type": "action",
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "content": "var result = player.choose(\"请选择拾荒堆颜色：\", [\"red\", \"green\", \"blue\"])\nvar scavenge_pile = player.get_scavenge_pile(result)\nplayer.draw_scavenge(3, scavenge_pile)\nplayer.choose_to_discard(1, \"hand\", \"scavenge\")"
+          "content": "var result = await player.choose(\"请选择拾荒堆颜色：\", [\"red\", \"green\", \"blue\"])\nvar scavenge_pile = player.get_scavenge_pile(result)\nplayer.draw_scavenge(3, scavenge_pile)\nplayer.choose_to_discard(1, \"hand\", \"scavenge\")"
         }
       ]
     }
