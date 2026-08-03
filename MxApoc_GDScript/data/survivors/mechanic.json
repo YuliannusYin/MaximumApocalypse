@@ -14,7 +14,7 @@
       "skill_description": "行动：从任一弃牌堆中选择一张装备牌，并把它放置在场上任一玩家的装备区中。",
       "active": "action",
       "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && game.has_equipment_in_discard_piles()",
-      "content": "player.consume_action(1)\nvar list = game.get_all_discard_pile_equipments()\nvar card = player.choose_card(list)\nvar target = player.choose_target({\"select_target\": 1, \"filter_target\": \"return target.type == \\\"human\\\"\", \"filter_target_range\": \"infinity\"})\ntarget.equip(card)"
+      "content": "player.consume_action(1)\nvar list = game.get_all_discard_pile_equipments()\nvar card = await player.choose_card(list)\ntarget = await player.choose_target({\"select_target\": 1, \"filter_target\": \"return target.type == \\\"human\\\"\", \"filter_target_range\": \"infinity\"})\ntarget.equip(card)"
     }
   ],
   "deck": [
@@ -241,7 +241,7 @@
           "skill_type": "action",
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "content": "var target = player.choose_map_block({\"filter_target\": \"return target.is_revealed()\", \"filter_target_range\": \"infinity\"})\ntarget.remove_all_monster_marks()"
+          "content": "target = await player.choose_map_block({\"filter_target\": \"return target.is_revealed()\", \"filter_target_range\": \"infinity\"})\ntarget.remove_all_monster_marks()"
         }
       ]
     },

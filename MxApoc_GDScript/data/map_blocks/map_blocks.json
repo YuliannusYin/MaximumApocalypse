@@ -1,4 +1,4 @@
-{
+﻿{
   "$schema": "map_blocks",
   "blocks": [
     {
@@ -311,7 +311,7 @@
           "trigger": "on_enter_block",
           "filter": "return true",
           "forced": true,
-          "content": "if not player.has_card(\"equipment\"):\n\tplayer.damage(5, null)\nelse:\n\tvar result = player.choose([\"弃置装备\", \"受到伤害\"])\n\tif result == \"弃置装备\":\n\t\tplayer.choose_to_discard(1, \"equipment\")\n\telif result == \"受到伤害\":\n\t\tplayer.damage(5, null)"
+          "content": "if not player.has_card(\"equipment\"):\n\tplayer.damage(5, null)\nelse:\n\tvar result = await player.choose([\"弃置装备\", \"受到伤害\"])\n\tif result == \"弃置装备\":\n\t\tplayer.choose_to_discard(1, \"equipment\")\n\telif result == \"受到伤害\":\n\t\tplayer.damage(5, null)"
         }
       ]
     },

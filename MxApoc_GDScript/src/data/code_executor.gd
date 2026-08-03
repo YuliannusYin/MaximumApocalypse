@@ -7,7 +7,7 @@ extends RefCounted
 ## 编译失败时降级为 no-op Callable（filter 返回 true，content 无操作）。
 ## 参考模式：addons/gut/dynamic_gdscript.gd
 
-const _FILTER_PREFIX := "extends RefCounted\nfunc _fn(player, target, event, game) -> bool:\n\t"
+const _FILTER_PREFIX := "extends RefCounted\nfunc _fn(player, target, event, game) -> bool:\n"
 const _CONTENT_PREFIX := "extends RefCounted\nfunc _fn(player, target, event, game) -> void:\n"
 
 
@@ -17,7 +17,8 @@ const _CONTENT_PREFIX := "extends RefCounted\nfunc _fn(player, target, event, ga
 static func compile_filter(code: String) -> Callable:
 	if code.strip_edges().is_empty():
 		return Callable()
-	var full_code: String = _FILTER_PREFIX + code
+	var indented: String = code.indent("\t")
+	var full_code: String = _FILTER_PREFIX + indented
 	var instance: Object = _compile(full_code)
 	if instance == null:
 		push_warning("CodeExecutor: filter 编译失败，降级为恒真: " + code)
@@ -45,7 +46,8 @@ static func compile_content(code: String) -> Callable:
 static func compile_filter_target(code: String) -> Callable:
 	if code.strip_edges().is_empty() or code.strip_edges() == "true":
 		return Callable()
-	var full_code: String = _FILTER_PREFIX + code
+	var indented: String = code.indent("\t")
+	var full_code: String = _FILTER_PREFIX + indented
 	var instance: Object = _compile(full_code)
 	if instance == null:
 		return _create_noop_filter()

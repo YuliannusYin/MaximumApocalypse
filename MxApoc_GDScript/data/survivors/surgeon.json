@@ -1,4 +1,4 @@
-{
+﻿{
   "$schema": "survivor",
   "character_name": "外科医生",
   "english_name": "surgeon",
@@ -35,7 +35,7 @@
           "skill_type": "action",
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "content": "player.draw(2)\nvar result = player.choose(\"请选择你抓取的拾荒卡颜色：\", [\"red\", \"green\", \"blue\"])\nvar pile = player.get_scavenge_pile(result)\nplayer.draw_scavenge(1, pile)"
+          "content": "player.draw(2)\nvar result = await player.choose(\"请选择你抓取的拾荒卡颜色：\", [\"red\", \"green\", \"blue\"])\nvar pile = player.get_scavenge_pile(result)\nplayer.draw_scavenge(1, pile)"
         }
       ]
     },
@@ -193,7 +193,7 @@
           "select_target": 1,
           "filter_target": "return target.type == \"human\"",
           "filter_target_range": "short",
-          "content": "player.consume_action(1)\nvar choice = player.choose([\"治疗所有状态效果\", \"降低饥饿等级1点\"])\nif choice == \"治疗所有状态效果\":\n\ttarget.cure_all_status_effects()\nelif choice == \"降低饥饿等级1点\":\n\ttarget.decrease_hunger(1)"
+          "content": "player.consume_action(1)\nvar choice = await player.choose([\"治疗所有状态效果\", \"降低饥饿等级1点\"])\nif choice == \"治疗所有状态效果\":\n\ttarget.cure_all_status_effects()\nelif choice == \"降低饥饿等级1点\":\n\ttarget.decrease_hunger(1)"
         }
       ]
     },
@@ -213,7 +213,7 @@
           "select_target": 1,
           "filter_target": "return target.type == \"human\"",
           "filter_target_range": "infinity",
-          "content": "target.play_card_immediately()\ntarget.play_card_immediately()"
+          "content": "await target.play_card_immediately()\nawait target.play_card_immediately()"
         }
       ]
     },
@@ -233,7 +233,7 @@
           "select_target": 1,
           "filter_target": "return target.type == \"human\"",
           "filter_target_range": "infinity",
-          "content": "target.execute_action_immediately(2)"
+          "content": "await target.execute_action_immediately(2)"
         }
       ]
     },

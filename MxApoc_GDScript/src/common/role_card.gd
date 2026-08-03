@@ -12,6 +12,9 @@ var is_front_side: bool = true
 ## 角色名称（如"猎人"、"消防员"）
 var role_name: String = ""
 
+## 英文标识符（如"firefighter"），用于图片资源路径查找
+var english_name: String = ""
+
 ## 生命值上限
 var max_hp: int = 0
 

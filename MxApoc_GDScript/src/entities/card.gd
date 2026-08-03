@@ -5,8 +5,11 @@ extends Entity
 ## 继承 Entity，卡牌自带技能（装备技能、行动牌效果、怪物卡技能）。
 ## 设计文档：GameDesignDocus/GameSystem/Entities/Card.md
 
-## 卡牌名称
+## 卡牌名称（中文）
 var card_name: String = ""
+
+## 卡牌英文名（用于 content 代码字符串中按名查找装备/卡牌）
+var english_name: String = ""
 
 ## 卡牌类型（如"行动"、"装备"、"食物"等）
 var card_type: String = ""

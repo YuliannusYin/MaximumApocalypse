@@ -257,14 +257,15 @@ enum DamageType { MELEE, RANGED, HUNGER, POISON, OTHER }
 | 当前生命值 | `current_hp` | `int` | 当前生命值 |
 | 伤害值 | `attack_damage` | `int` | 攻击伤害 |
 | 射程 | `range` | `Range` | 怪物射程 |
-| 纠缠对象 | `engaged_player` | `Player` | 纠缠的玩家 |
-| 击晕 | `is_stunned` | `bool` | 是否被击晕 |
+| 纠缠对象 | `attack_target` | `Player` | 纠缠的玩家 |
+| 击晕 | `stunned` | `bool` | 是否被击晕 |
 
 ### 3.5 Card 字段
 
 | 设计文档字段 | GDScript 字段 | 类型 | 说明 |
 |-------------|---------------|------|------|
 | 名字 | `card_name` | `String` | 卡牌中文名 |
+| 英文名 | `english_name` | `String` | 卡牌英文名（content 代码按名查找，如 game.get_card） |
 | 类型 | `card_type` | `CardType` | 卡牌类型 |
 | source | `source` | `CardSource` | 卡牌来源 |
 | 大小 | `size` | `int` | 占用装备栏格数 |
@@ -423,6 +424,10 @@ enum DamageType { MELEE, RANGED, HUNGER, POISON, OTHER }
 | player.drawBossCard() | `draw_boss_card() -> void` | 抽首领卡 |
 | player.获得解救科学家的选项() | `get_rescue_scientist_option() -> void` | 解救科学家选项 |
 | player.记录科学家信息() | `record_scientist_info() -> void` | 记录科学家信息 |
+| player.扣除行动次数(n) | `consume_action(n: int) -> void` | 扣除行动次数（= reduce_action_count 别名，content 代码统一调用名） |
+| player.增加行动次数(n) | `add_action(n: int) -> void` | 增加行动次数 |
+| player.添加临时技能(skill_id, expire_trigger) | `add_temp_skill(skill_id: String, expire_trigger: String) -> void` | 临时技能挂载（expire_trigger 触发后自动移除） |
+| player.获取牌堆(name) | `get_pile(name: String) -> Variant` | 按名获取牌堆（deck/hand/equipment/discard） |
 
 ### 4.3 Player 查询接口
 
@@ -431,7 +436,7 @@ enum DamageType { MELEE, RANGED, HUNGER, POISON, OTHER }
 | player.getNumber("xxx") | `get_number(key: String) -> int` | 查询数值标记 |
 | player.getEquipment("xxx") | `get_equipment(name: String) -> EquipmentCard` | 按名获取装备 |
 | player.hasEquipment("xxx") | `has_equipment(name: String) -> bool` | 判断是否持有装备 |
-| player.get填充物数量("xxx") | `get_charge_count(name: String) -> int` | 查询填充物数量 |
+| player.get填充物数量("xxx") | `get_charge_count(equipment_name: String) -> int` | 查询装备填充物数量（装备不存在返回 0） |
 | player.get_current_block() | `get_current_block() -> MapBlock` | 获取当前地块 |
 
 ### 4.4 Player 选择器（UI 交互）
@@ -441,6 +446,7 @@ enum DamageType { MELEE, RANGED, HUNGER, POISON, OTHER }
 | player.等待玩家行动() | `wait_player_action() -> void` | 等待玩家行动（UI 驱动） |
 | target.choose(list) | `choose(options: Array) -> int` | 列表选择 |
 | target.chooseCard(n, position, source) | `choose_card(n: int, position: String, source: String) -> Array[Card]` | 选牌 |
+| player.chooseTarget(n, skill) | `choose_target(n: int, skill: Variant) -> Array` | 选择目标（n=-1 全部；skill 含 target_type/filter_target） |
 | player.showCard(card, target) | `show_card(card: Card, target: Player) -> void` | 展示卡牌 |
 
 ### 4.5 Monster 方法
@@ -449,7 +455,9 @@ enum DamageType { MELEE, RANGED, HUNGER, POISON, OTHER }
 |-------------|---------------|------|
 | monster.行动() | `act() -> void` | 怪物行动 |
 | monster.攻击() | `attack() -> void` | 怪物攻击 |
+| monster.修改纠缠对象(target) | `change_engaged_target(target: Player) -> void` | 修改纠缠对象 |
 | monster.monsterDeath(source) | `monster_death(source: Entity) -> void` | 怪物死亡 |
+| monster.击晕(source, expire_trigger) | `stun(source: Variant, expire_trigger: String) -> void` | 击晕怪物（设置 stunned=true，行动时清除并跳过） |
 | MonsterCard.实体化(player) | `instantiate(player: Player) -> Monster` | 怪物卡实体化 |
 
 ### 4.6 MapBlock 方法
@@ -493,6 +501,8 @@ enum DamageType { MELEE, RANGED, HUNGER, POISON, OTHER }
 | game.destroyMapBlock(block, source) | `destroy_map_block(block: MapBlock, source: Entity) -> void` | 摧毁地块 |
 | game.检查任务胜利条件() | `check_mission_win_condition() -> bool` | 检查任务胜利 |
 | game.createScavengeCard(卡牌名) | `create_scavenge_card(card_name: String) -> ScavengeCard` | 工厂方法 |
+| game.getCard(英文名, pile) | `get_card(card_english_name: String, pile: Variant) -> Card` | 从牌堆查找卡牌（pile 可为 Pile 或 Array） |
+| game.getTarget(block) | `get_target(block: MapBlock) -> Array` | 获取地块上玩家+怪物 |
 
 ### 4.8 GameStateMachine 方法
 
@@ -747,3 +757,32 @@ enum DamageType { MELEE, RANGED, HUNGER, POISON, OTHER }
 | [DataFormat.md](DataFormat.md) | JSON 数据格式（使用本表的枚举值映射） |
 | [../GameSystem/](../GameSystem/README.md) | 系统设计源文档（中文标识符来源） |
 | [../GameInstructions/K_gameTerminology.md](../GameInstructions/K_gameTerminology.md) | 游戏术语表（trigger 名来源） |
+
+---
+
+## 十一、消防员卡牌使用流程新增映射
+
+> 以下映射为消防员卡牌使用流程（`data/survivors/firefighter.json`）落地新增的标识符。
+> 方法/字段映射已并入对应章节，此处集中索引并记录信号变更（无既有信号章节）。
+
+### 11.1 新增方法/字段索引
+
+| 标识符 | 类别 | 所在章节 |
+|--------|------|---------|
+| `consume_action(n)` | Player 方法 | §4.2 |
+| `add_action(n)` | Player 方法 | §4.2 |
+| `add_temp_skill(skill_id, expire_trigger)` | Player 方法 | §4.2 |
+| `get_pile(name)` | Player 方法 | §4.2 |
+| `get_charge_count(equipment_name)` | Player 查询接口 | §4.3（参数名由 `name` 更新为 `equipment_name`） |
+| `choose_target(n, skill)` | Player 选择器 | §4.4 |
+| `stun(source, expire_trigger)` | Monster 方法 | §4.5 |
+| `get_card(card_english_name, pile)` | Game 方法 | §4.7 |
+| `get_target(block)` | Game 方法 | §4.7 |
+| `log(message)` | Game 方法 | §4.7（已存在，= `log_message` 别名） |
+| `english_name` | Card 字段 | §3.5 |
+
+### 11.2 信号变更
+
+| 信号 | 旧签名 | 新签名 | 所在文件 | 说明 |
+|------|--------|--------|---------|------|
+| `choose_target_requested` | `choose_target_requested(n: int)` | `choose_target_requested(n: int, skill: Variant)` | `src/ui/gui_player_input.gd` | 携带 skill 以便 UI 按 `target_type`/`filter_target` 构建候选并过滤；`i_player_input.gd`、`cli_player_input.gd`、`game_scene_2d.gd` 同步适配 |

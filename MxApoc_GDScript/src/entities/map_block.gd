@@ -37,6 +37,8 @@ var objective_marks: Array = []
 ## trigger_effect=true 时触发 on_block_revealed（地块技能已挂载到 player 由 player.trigger 触发）。
 func reveal(trigger_effect: bool, player: Variant) -> void:
 	revealed = true
+	if Game != null and is_instance_valid(Game):
+		Game.log_message("地图块'%s'被揭示" % block_name)
 	if EventBus != null and is_instance_valid(EventBus):
 		EventBus.block_revealed.emit(self, player)
 	if trigger_effect:
@@ -44,7 +46,7 @@ func reveal(trigger_effect: bool, player: Variant) -> void:
 			"player": player,
 			"block": self,
 		})
-		player.trigger("on_block_revealed", event)
+		await player.trigger("on_block_revealed", event)
 
 
 ## 是否已展示。
@@ -258,7 +260,7 @@ func trigger_objective_marks(player: Variant) -> void:
 			EventBus.objective_mark_triggered.emit(player, self, mark)
 		# 2. 触发 on_objective_mark_triggered
 		var event: Dictionary = EventSystem.create_objective_mark_event(player, self, mark)
-		player.trigger("on_objective_mark_triggered", event)
+		await player.trigger("on_objective_mark_triggered", event)
 
 
 # === 内部方法 ===

@@ -84,7 +84,7 @@ func test_start_game_transitions_to_playing_or_won() -> void:
 	Game.monster_pile.add(_make_monster_card("z1"))
 	Game.mission_config = _make_winning_mission_config()
 	# start_game 后第一回合结束即胜利
-	Game.state_machine.start_game()
+	await Game.state_machine.start_game()
 	# 胜利后状态应为 GAME_OVER with WIN
 	assert_true(Game.state_machine.is_game_over(), "应已游戏结束（胜利）")
 	assert_eq(Game.state_machine.get_game_result(), GameStateMachine.GameResult.WIN)
@@ -96,7 +96,7 @@ func test_start_game_draws_initial_hand_and_monster() -> void:
 	Game.monster_pile = Pile.new()
 	Game.monster_pile.add(_make_monster_card("z1"))
 	Game.mission_config = _make_winning_mission_config()
-	Game.state_machine.start_game()
+	await Game.state_machine.start_game()
 	# CliPlayerInput 默认 choose 返回第一项 "进行重调"，但 choose_card 返回空 → 不重调
 	# 应抓 4 张初始手牌 + 1 张 start_turn 抓牌 = 5 张
 	# 但 start_turn 中可能discard了一些，这里只验证至少抓了 4 张初始牌
@@ -120,7 +120,7 @@ func test_next_turn_advances_to_next_player() -> void:
 		call_count[0] += 1
 		return call_count[0] >= 2  # 第二次检查时胜利
 	Game.mission_config = mc
-	Game.state_machine.start_game()
+	await Game.state_machine.start_game()
 	# start_game 后第一玩家 p1 完成回合，check_win_condition 返回 false
 	# 然后第二玩家 p2 完成回合，check_win_condition 返回 true → 胜利
 	assert_eq(Game.state_machine.get_game_result(), GameStateMachine.GameResult.WIN)
@@ -138,7 +138,7 @@ func test_turn_flow_with_dead_player_skipped() -> void:
 	Game.monster_pile.add(_make_monster_card("z1"))
 	Game.monster_pile.add(_make_monster_card("z2"))
 	Game.mission_config = _make_winning_mission_config()
-	Game.state_machine.start_game()
+	await Game.state_machine.start_game()
 	# p2 死亡，应被跳过；p1 完成回合后胜利
 	assert_eq(Game.state_machine.get_game_result(), GameStateMachine.GameResult.WIN)
 	# p2 虽然在 start_game 中抓了 4 张牌，但不应执行回合（start_turn 未调用）

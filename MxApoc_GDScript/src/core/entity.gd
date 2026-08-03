@@ -20,9 +20,9 @@ func trigger(trigger_name: String, event: Dictionary) -> void:
 	for s in skills:
 		if not s.matches_trigger(trigger_name):
 			continue
-		if not s.execute_filter(event):
+		if not s.execute_filter(self, event):
 			continue
-		s.execute_content(event)
+		await s.execute_content(self, event)
 		if EventSystem.is_cancelled(event):
 			break
 
@@ -61,30 +61,45 @@ func damage(num: int, source: Entity, type: Variant = "", card: Card = null) -> 
 
 	# 1-2. before_deal_damage / before_take_damage
 	if source != null:
-		source.trigger("before_deal_damage", event)
-		trigger("before_take_damage", event)
+		await source.trigger("before_deal_damage", event)
+		await trigger("before_take_damage", event)
 	else:
-		trigger("before_take_damage", event)
+		await trigger("before_take_damage", event)
 
 	# 3. on_deal_damage（可修改 event.num）
 	if source != null:
-		source.trigger("on_deal_damage", event)
+		await source.trigger("on_deal_damage", event)
 
 	# 4. on_take_damage（取消点：可修改 event.num 或 event.cancel()）
-	trigger("on_take_damage", event)
+	await trigger("on_take_damage", event)
 
 	if EventSystem.is_cancelled(event):
 		return
 
 	# 5. 系统扣血（非钩子节点）
 	reduce_hp(event["num"])
+	# 5.5 日志记录（玩家受伤时区分来源）
+	if is_player() and event["num"] > 0 and Game != null and is_instance_valid(Game):
+		var p_name: String = self.get("player_name")
+		var dmg_num: int = event["num"]
+		var dmg_type: String = str(type) if type != null else ""
+		if dmg_type == "monster_attack" and source != null and is_instance_valid(source) and source.is_monster():
+			Game.log_message("%s被怪物'%s'攻击，受到%d点伤害" % [p_name, source.get("monster_name"), dmg_num])
+		elif dmg_type == "hunger":
+			Game.log_message("%s因饥饿受到%d点伤害" % [p_name, dmg_num])
+		elif dmg_type == "poison":
+			Game.log_message("%s因中毒受到%d点伤害" % [p_name, dmg_num])
+		elif dmg_type == "block_destroy":
+			Game.log_message("%s因地块摧毁受到%d点伤害" % [p_name, dmg_num])
+		else:
+			Game.log_message("%s受到%d点伤害" % [p_name, dmg_num])
 
 	# 6. after_deal_damage
 	if source != null:
-		source.trigger("after_deal_damage", event)
+		await source.trigger("after_deal_damage", event)
 
 	# 7. after_take_damage
-	trigger("after_take_damage", event)
+	await trigger("after_take_damage", event)
 
 	# 8. 死亡判定（多态调用）
 	if get_hp() <= 0:

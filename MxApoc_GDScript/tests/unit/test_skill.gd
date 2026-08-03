@@ -11,8 +11,8 @@ func test_default_fields() -> void:
 	assert_false(s.forced)
 	assert_false(s.filter.is_valid())
 	assert_false(s.content.is_valid())
-	assert_eq(s.filter_target_range, -1)
-	assert_eq(s.range, -1)
+	assert_eq(s.filter_target_range, "")
+	assert_eq(s.range, "")
 	assert_eq(s.usable, -1)
 	assert_eq(s.used_count, 0)
 
@@ -41,33 +41,33 @@ func test_matches_trigger_empty() -> void:
 func test_execute_filter_no_filter_returns_true() -> void:
 	var s: Skill = Skill.new()
 	var event: Dictionary = EventSystem.create_event()
-	assert_true(s.execute_filter(event), "无 filter 时应返回 true")
+	assert_true(s.execute_filter(null, event), "无 filter 时应返回 true")
 
 
 func test_execute_filter_with_filter() -> void:
 	var s: Skill = Skill.new()
-	s.filter = func(ev: Dictionary) -> bool:
+	s.filter = func(_p, _t, ev: Dictionary, _g) -> bool:
 		return ev.get("num", 0) > 0
 	var event_pos: Dictionary = EventSystem.create_event({"num": 5})
 	var event_zero: Dictionary = EventSystem.create_event({"num": 0})
-	assert_true(s.execute_filter(event_pos))
-	assert_false(s.execute_filter(event_zero))
+	assert_true(s.execute_filter(null, event_pos))
+	assert_false(s.execute_filter(null, event_zero))
 
 
 func test_execute_content() -> void:
 	var s: Skill = Skill.new()
 	var captured: Array = []
-	s.content = func(ev: Dictionary) -> void:
+	s.content = func(_p, _t, ev: Dictionary, _g) -> void:
 		captured.append(ev.get("num", 0))
 	var event: Dictionary = EventSystem.create_event({"num": 7})
-	s.execute_content(event)
+	s.execute_content(null, event)
 	assert_eq(captured, [7])
 
 
 func test_execute_content_no_content_does_nothing() -> void:
 	var s: Skill = Skill.new()
 	var event: Dictionary = EventSystem.create_event()
-	s.execute_content(event)
+	s.execute_content(null, event)
 	assert_true(true, "无 content 时 execute_content 不应抛错")
 
 

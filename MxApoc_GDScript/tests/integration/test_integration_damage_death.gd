@@ -68,16 +68,16 @@ func test_full_damage_to_death_triggers_all_hooks() -> void:
 	var triggers_received: Array = []
 	var s_before: Skill = Skill.new()
 	s_before.trigger = "before_take_damage"
-	s_before.content = func(_ev: Dictionary) -> void: triggers_received.append("before_take_damage")
+	s_before.content = func(_p, _t, _ev: Dictionary, _g) -> void: triggers_received.append("before_take_damage")
 	var s_on: Skill = Skill.new()
 	s_on.trigger = "on_take_damage"
-	s_on.content = func(_ev: Dictionary) -> void: triggers_received.append("on_take_damage")
+	s_on.content = func(_p, _t, _ev: Dictionary, _g) -> void: triggers_received.append("on_take_damage")
 	var s_after: Skill = Skill.new()
 	s_after.trigger = "after_take_damage"
-	s_after.content = func(_ev: Dictionary) -> void: triggers_received.append("after_take_damage")
+	s_after.content = func(_p, _t, _ev: Dictionary, _g) -> void: triggers_received.append("after_take_damage")
 	var s_death: Skill = Skill.new()
 	s_death.trigger = "before_player_death"
-	s_death.content = func(_ev: Dictionary) -> void: triggers_received.append("before_player_death")
+	s_death.content = func(_p, _t, _ev: Dictionary, _g) -> void: triggers_received.append("before_player_death")
 	p.add_skill(s_before)
 	p.add_skill(s_on)
 	p.add_skill(s_after)

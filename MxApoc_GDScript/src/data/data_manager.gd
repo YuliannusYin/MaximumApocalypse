@@ -12,6 +12,8 @@ var _scavenge_piles: Dictionary = {}   # color -> Array[ScavengeCardData]
 var _monster_packs: Dictionary = {}    # monster_type -> Array[MonsterCardData]
 var _missions: Dictionary = {}         # mission_id (int) -> MissionData
 var _map_blocks: Dictionary = {}       # english_name -> MapBlockData
+var _map_blocks_by_name: Dictionary = {}  # block_name (Chinese) -> MapBlockData
+var _common_skills: Array = []         # Array[SkillData]
 
 
 func _ready() -> void:
@@ -25,6 +27,7 @@ func _load_all() -> void:
 	_load_monster_packs()
 	_load_missions()
 	_load_map_blocks()
+	_load_common_skills()
 
 
 func _load_json(path: String) -> Variant:
@@ -120,6 +123,17 @@ func _load_map_blocks() -> void:
 		if raw is Dictionary:
 			var block := MapBlockData.new(raw)
 			_map_blocks[block.english_name] = block
+			_map_blocks_by_name[block.block_name] = block
+
+
+func _load_common_skills() -> void:
+	var data: Variant = _load_json("res://data/common_skills.json")
+	if data == null or not (data is Array):
+		push_error("DataManager: failed to load common_skills.json")
+		return
+	for raw in data:
+		if raw is Dictionary:
+			_common_skills.append(SkillData.new(raw))
 
 
 func _load_dir(dir_path: String, callback: Callable) -> void:
@@ -201,3 +215,13 @@ func get_monster_pack(monster_type: String) -> Array:
 ## 获取地图块定义。
 func get_map_block_def(english_name: String) -> MapBlockData:
 	return _map_blocks.get(english_name)
+
+
+## 按中文名获取地图块定义。
+func get_map_block_def_by_name(block_name: String) -> MapBlockData:
+	return _map_blocks_by_name.get(block_name)
+
+
+## 获取通用主动技能数据。
+func get_common_skills() -> Array:
+	return _common_skills

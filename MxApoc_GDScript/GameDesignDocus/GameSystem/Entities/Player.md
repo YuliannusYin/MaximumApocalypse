@@ -909,7 +909,7 @@ function player.playerDeath(source) {
 > **统一消耗行动次数**：useCard 对装备牌和行动牌统一消耗 1 点行动次数。卡牌 content 内不再调用 `player.减少行动次数(1)`。
 > **卡牌类型分流**：
 > - 装备牌 → 调用 `player.装备(card)`（§八）进入装备区，不弃掉
-> - 行动牌 → 技能系统独立执行 content（useCard 不直接调用 `card.技能.content()`），执行后弃掉
+> - 行动牌 → 执行完整技能流程：遍历 `card.skills` 中 `active="action"` 的 skill → `execute_filter` 校验 → `select_target` 目标选择（>0 调用 `choose_target`，=-1 自动选全部合法目标）→ `select_card` 选牌（若有）→ `execute_content` 执行 → `discard` 弃牌
 > **弃牌堆分流**：行动牌使用后按 `card.source` 字段分派（scavenge → 拾荒弃牌堆，game → 游戏牌弃牌堆），由 `player.discard(card)` 内部处理（见 §三 discard）。
 
 **事件钩子顺序**：
@@ -950,10 +950,32 @@ function player.useCard(card) {
         # 装备栏容量校验失败时由 装备() 内部取消并提示
         player.装备(card)
     } else {
-        # 行动牌：技能 content 由技能系统独立执行
-        # useCard 不直接调用 card.技能.content()，由技能系统统一调度
-        # [技能系统执行 content]
-        game.skillSystem.execute(card.技能, event)
+        # 行动牌：执行 card 上声明 active="action" 的 skill 的完整流程
+        for skill in card.skills 中 active == "action" 的 skill {
+            # filter 校验（返回 false 则跳过该技能）
+            if not skill.execute_filter(player, event) {
+                continue
+            }
+            # select_target 目标选择
+            var selectN = skill.select_target
+            if selectN > 0 {
+                var targets = await player.choose_target(selectN, skill)
+                if targets.is_empty() { continue }  # 玩家取消
+                event.target = targets[0]
+                event.targets = targets
+            } else if selectN == -1 {
+                # 自动选取全部合法目标（由 UI 层按 filter_target 过滤）
+                var targets = await player.choose_target(-1, skill)
+                event.target = targets[0] if not targets.is_empty() else null
+                event.targets = targets
+            }
+            # select_card 选牌（若有）
+            if skill.select_card > 0 {
+                event.cards = await player.choose_card(skill.select_card, "hand", skill.filter_card)
+            }
+            # 执行 content
+            await skill.execute_content(player, event)
+        }
 
         # 弃掉这张牌（按 source 字段分流，见 §三 discard）
         player.discard(card)
@@ -966,7 +988,7 @@ function player.useCard(card) {
 ```
 
 > **设计说明**：
-> - 行动牌的技能 content 由技能系统独立执行（`game.skillSystem.execute`），而非 useCard 直接调用。这保持技能执行的统一调度（filter 校验、目标选择等由技能系统处理）。
+> - 行动牌分支由 useCard 直接遍历 `card.skills` 中 `active="action"` 的技能，依次执行 `execute_filter` 校验 → `select_target` 目标选择 → `select_card` 选牌 → `execute_content` 执行；content 执行后再 `discard`。`select_target=-1` 时由 UI 层自动选取全部经 `filter_target` 过滤的合法目标（不弹 UI），`select_target>0` 时弹出目标选择区由玩家选 N 个。
 > - 装备牌进入装备区时，装备栏容量校验失败由 `player.装备(card)` 内部处理（取消装备并提示），useCard 不重复校验。
 > - 行动牌使用后的弃牌由 `player.discard(card)` 按 `card.source` 自动分派到对应弃牌堆。
 

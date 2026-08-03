@@ -126,7 +126,7 @@
           "skill_type": "equipment",
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.dog.get_hp() > 0",
-          "content": "player.consume_action(1)\nvar target = player.choose_map_block({\"filter_target\": \"return target.count_monster_mark() > 0\", \"filter_target_range\": \"long\"})\ntarget.remove_monster_mark(1)\nplayer.dog.damage(2, player)"
+          "content": "player.consume_action(1)\ntarget = await player.choose_map_block({\"filter_target\": \"return target.count_monster_mark() > 0\", \"filter_target_range\": \"long\"})\ntarget.remove_monster_mark(1)\nplayer.dog.damage(2, player)"
         }
       ]
     },
@@ -232,7 +232,7 @@
           "skill_type": "equipment",
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"mortar\") > 0",
-          "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"mortar\"), 1)\nvar target = player.choose_map_block({\"filter_target\": \"return target.is_revealed()\", \"filter_target_range\": \"long\"})\nvar choice = player.choose([\"移除怪物标记\", \"造成伤害\"])\nif choice == \"移除怪物标记\":\n\ttarget.remove_all_monster_marks()\nelif choice == \"造成伤害\":\n\tvar list = game.get_target(target)\n\tfor i in list:\n\t\ti.damage(6, player.veteran)"
+          "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"mortar\"), 1)\ntarget = await player.choose_map_block({\"filter_target\": \"return target.is_revealed()\", \"filter_target_range\": \"long\"})\nvar choice = await player.choose([\"移除怪物标记\", \"造成伤害\"])\nif choice == \"移除怪物标记\":\n\ttarget.remove_all_monster_marks()\nelif choice == \"造成伤害\":\n\tvar list = game.get_target(target)\n\tfor i in list:\n\t\ti.damage(6, player.veteran)"
         }
       ]
     },
@@ -249,7 +249,7 @@
           "skill_type": "action",
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.dog.get_hp() > 0",
-          "content": "var result = player.choose(\"请选择拾荒牌堆颜色：\", [\"red\", \"green\", \"blue\"])\nvar pile = player.get_scavenge_pile(result)\nplayer.draw_scavenge(3, pile)\nplayer.choose_to_discard(2, \"hand\", \"scavenge\")"
+          "content": "var result = await player.choose(\"请选择拾荒牌堆颜色：\", [\"red\", \"green\", \"blue\"])\nvar pile = player.get_scavenge_pile(result)\nplayer.draw_scavenge(3, pile)\nplayer.choose_to_discard(2, \"hand\", \"scavenge\")"
         }
       ]
     },
@@ -291,7 +291,7 @@
           "skill_type": "action",
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.dog.get_hp() > 0",
-          "content": "var max_reveal = 2\nvar count = 0\nwhile count < max_reveal:\n\tvar target = player.choose_map_block({\"filter_target\": \"return target.is_revealed() == false\", \"filter_target_range\": \"medium\"})\n\tif target == null:\n\t\tbreak\n\ttarget.reveal(false, player)\n\tcount += 1\n\tif count < max_reveal:\n\t\tvar choice = player.choose([\"继续展示\", \"停止展示\"])\n\t\tif choice == \"停止展示\":\n\t\t\tbreak"
+          "content": "var max_reveal = 2\nvar count = 0\nwhile count < max_reveal:\n\ttarget = await player.choose_map_block({\"filter_target\": \"return target.is_revealed() == false\", \"filter_target_range\": \"medium\"})\n\tif target == null:\n\t\tbreak\n\ttarget.reveal(false, player)\n\tcount += 1\n\tif count < max_reveal:\n\t\tvar choice = await player.choose([\"继续展示\", \"停止展示\"])\n\t\tif choice == \"停止展示\":\n\t\t\tbreak"
         }
       ]
     },

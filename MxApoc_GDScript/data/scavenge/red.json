@@ -1,4 +1,4 @@
-{
+﻿{
   "$schema": "scavenge_pack",
   "color": "red",
   "cards": [
@@ -94,7 +94,7 @@
           "trigger": "on_draw_scavenge_card",
           "forced": true,
           "filter": "return event.card.english_name == \"fuel\"",
-          "content": "var card = event.card\nvar choice = player.choose([\"装备燃料\", \"弃掉燃料\"])\nif choice == \"装备燃料\":\n\tplayer.equip(card)\nelse:\n\tplayer.discard(card)"
+          "content": "var card = event.card\nvar choice = await player.choose([\"装备燃料\", \"弃掉燃料\"])\nif choice == \"装备燃料\":\n\tplayer.equip(card)\nelse:\n\tplayer.discard(card)"
         }
       ]
     }

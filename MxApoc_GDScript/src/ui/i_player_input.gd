@@ -25,8 +25,8 @@ func choose_card(n: int, position: String = "hand", filter: Variant = null) -> A
 	return []
 
 
-## 选 n 个目标玩家。filter: Callable(player) -> bool。
-func choose_target(n: int, filter: Variant = null) -> Array:
+## 选择目标。n 为选择数量（-1 表示全部），skill 为当前技能（含 target_type/filter_target 等）。
+func choose_target(n: int, skill: Variant) -> Array:
 	_push_override_error("choose_target")
 	return []
 

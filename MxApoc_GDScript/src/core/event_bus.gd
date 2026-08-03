@@ -17,6 +17,7 @@ signal card_used(player: Variant, card: Variant)
 # === 怪物相关信号 ===
 signal monster_spawned(monster: Variant, player: Variant)
 signal monster_died(monster: Variant, source: Variant)
+signal monster_engaged_target_changed(monster: Variant, old_target: Variant, new_target: Variant)
 
 # === 地图相关信号 ===
 signal block_revealed(block: Variant, player: Variant)
