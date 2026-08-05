@@ -9,7 +9,7 @@ extends IPlayerInput
 
 signal action_requested(player: Variant)
 signal choose_requested(options: Array, prompt: String)
-signal choose_card_requested(n: int, position: String)
+signal choose_card_requested(n: int, param: Variant)
 signal choose_target_requested(n: int, skill: Variant)
 signal choose_block_requested(blocks: Array, prompt: String)
 signal confirm_requested(message: String)
@@ -47,8 +47,8 @@ func choose(options: Array, prompt: String = "") -> Variant:
 	return await _wait_for_response()
 
 
-func choose_card(n: int, position: String = "hand", filter: Variant = null) -> Array:
-	choose_card_requested.emit(n, position)
+func choose_card(n: int, param: Variant = "hand", filter: Variant = null) -> Array:
+	choose_card_requested.emit(n, param)
 	var result: Variant = await _wait_for_response()
 	if result is Array:
 		return result

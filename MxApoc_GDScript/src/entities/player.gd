@@ -173,6 +173,11 @@ func draw(n: int) -> void:
 	await trigger("after_draw_game_card", event)
 
 
+## 将卡牌加入手牌区（content 代码调用入口）。
+func gain(card: Card) -> void:
+	hand.append(card)
+
+
 ## 从指定拾荒牌堆抓 n 张牌（4 节点）。
 func draw_scavenge(n: int, pile: Pile) -> void:
 	if n <= 0:
@@ -196,7 +201,17 @@ func draw_scavenge(n: int, pile: Pile) -> void:
 		event["cards"].append(card)
 		event["card"] = card
 		# 3. 抓取拾荒牌时（每张触发）
+		# 临时挂载抓到卡的 forced trigger 技能（如一无所获/伏击/燃料），使其 on_draw_scavenge_card 触发器生效
+		var mounted_skills: Array = []
+		if card.has_method("get_all_skills"):
+			for s in card.get_all_skills():
+				if s.forced and s.matches_trigger("on_draw_scavenge_card"):
+					add_skill(s)
+					mounted_skills.append(s)
 		await trigger("on_draw_scavenge_card", event)
+		# 触发完成后卸载临时挂载的技能
+		for s in mounted_skills:
+			remove_skill(s)
 	# 4. 抓取拾荒牌后
 	await trigger("after_draw_scavenge_card", event)
 
@@ -590,6 +605,8 @@ func equip(card: Card) -> bool:
 	# 2. 卡牌进入装备区时
 	hand.erase(card)
 	equipment_zone.append(card)
+	if card is EquipmentCard:
+		card.in_equipment_area = true
 	# 装备技能挂载到玩家
 	if card.has_method("get_all_skills"):
 		for s in card.get_all_skills():
@@ -613,11 +630,13 @@ func unequip(card: Card) -> bool:
 		return false
 	# 2. 卡牌离开装备区时
 	equipment_zone.erase(card)
-	# 移除装备技能
+	if card is EquipmentCard:
+		card.in_equipment_area = false
+	await trigger("on_unequip", event)
+	# 移除装备技能（在 on_unequip 之后，确保 on_unequip 触发器仍可见装备技能）
 	if card.has_method("get_all_skills"):
 		for s in card.get_all_skills():
 			remove_skill(s)
-	await trigger("on_unequip", event)
 	# 3. 卡牌离开装备区后
 	await trigger("after_unequip", event)
 	if Game != null and is_instance_valid(Game):
@@ -625,6 +644,25 @@ func unequip(card: Card) -> bool:
 	if EventBus != null and is_instance_valid(EventBus):
 		EventBus.equipment_unequipped.emit(self, card)
 	return true
+
+
+## 增加装备栏容量上限 n 格。
+## 容量由 RoleCard.equipment_capacity 约束（见 equip() 预校验注释）。
+func increase_equipment_slot(n: int) -> void:
+	if n <= 0:
+		return
+	if role_card == null:
+		return
+	role_card.equipment_capacity += n
+
+
+## 减少装备栏容量上限 n 格，不低于 0。
+func decrease_equipment_slot(n: int) -> void:
+	if n <= 0:
+		return
+	if role_card == null:
+		return
+	role_card.equipment_capacity = maxi(role_card.equipment_capacity - n, 0)
 
 
 # === 九、填充物流程 ===
@@ -835,7 +873,7 @@ func get_cards(position: String = "", name: String = "", quantity: int = 0, sour
 
 
 func _card_matches(card: Card, name: String, source: String) -> bool:
-	if name != "" and card.card_name != name:
+	if name != "" and card.card_name != name and card.english_name != name:
 		return false
 	if source != "" and card.source != source:
 		return false
@@ -863,6 +901,8 @@ func _remove_card_from_zone(card: Card) -> void:
 ## 内部卸下装备（不触发钩子，供 discard 流程复用）。
 func _unequip(card: Card) -> void:
 	equipment_zone.erase(card)
+	if card is EquipmentCard:
+		card.in_equipment_area = false
 	if card != null and typeof(card) == TYPE_OBJECT and card.has_method("get_all_skills"):
 		for s in card.get_all_skills():
 			remove_skill(s)
@@ -939,6 +979,11 @@ func get_pile(name: String) -> Variant:
 			return null
 
 
+## 返回游戏牌弃牌堆（content 代码调用入口）。
+func get_discard_pile() -> Pile:
+	return game_discard_pile
+
+
 ## 添加临时技能，在 expire_trigger 触发后自动移除。
 ## skill_id 应为预定义的临时技能 ID（如 "energy_drink_satiety"）。
 ## 简化实现：硬编码已知临时技能的 content；执行后由闭包自动 remove_skill。
@@ -966,8 +1011,15 @@ func choose(options: Array, prompt: String = "") -> Variant:
 	return await input.choose(options, prompt)
 
 
-func choose_card(n: int, position: String = "hand", filter: Variant = null) -> Array:
-	return await input.choose_card(n, position, filter)
+## 选择卡牌。
+## param 为 String 时：按 position（如 "hand"/"equipment"/"discard"）查询玩家区域卡牌（原有行为）。
+## param 为 Array 时：直接作为候选卡牌列表，绕过 position 查询。
+func choose_card(n: int, param: Variant = "hand", filter: Variant = null) -> Array:
+	if typeof(param) == TYPE_ARRAY:
+		# Array 模式：直接作为候选卡牌列表，绕过 position 查询
+		return await input.choose_card(n, param, filter)
+	# String 模式（原有行为）：按 position 查询玩家区域卡牌
+	return await input.choose_card(n, param, filter)
 
 
 ## 选择目标。n 为选择数量（-1 表示全部），skill 为当前技能（含 target_type/filter_target 等）。

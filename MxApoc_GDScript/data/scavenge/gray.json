@@ -1,4 +1,4 @@
-﻿{
+{
   "$schema": "scavenge_pack",
   "color": "gray",
   "cards": [
@@ -48,7 +48,7 @@
           "skill_type": "action",
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "content": "player.consume_action(1)\nvar list = player.get_discard_pile()\nif list.size() == 0:\n\tgame.log(\"玩家没有弃牌堆中的牌\")\n\treturn\nvar card = await player.choose_card(1, list)\nplayer.gain(card)"
+          "content": "player.consume_action(1)\nvar list = player.get_discard_pile()\nif list.size() == 0:\n\tgame.log(\"玩家没有弃牌堆中的牌\")\n\treturn\nvar card = await player.choose_card(1, list)\nplayer.gain(card[0])"
         }
       ]
     },

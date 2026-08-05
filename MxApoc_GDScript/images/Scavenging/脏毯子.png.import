@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bi2kypqi52f1o"
-valid=false
+uid="uid://5uhntvvrwvd7"
+path="res://.godot/imported/脏毯子.png-ab77707067eead0870cad095e8cd6537.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://images/scavenging/脏毯子.png"
+dest_files=["res://.godot/imported/脏毯子.png-ab77707067eead0870cad095e8cd6537.ctex"]
 
 [params]
 

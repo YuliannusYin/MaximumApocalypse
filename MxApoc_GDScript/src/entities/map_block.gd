@@ -147,6 +147,11 @@ func is_destroyed() -> bool:
 	return block_state == "destroyed"
 
 
+## 是否为地图块（供 filter_target 中 target.is_map_block() 调用区分地块目标）。
+func is_map_block() -> bool:
+	return true
+
+
 ## 返回四向相邻的存活地块（上下左右）。
 func get_adjacent_blocks() -> Array:
 	var adjacent: Array = []

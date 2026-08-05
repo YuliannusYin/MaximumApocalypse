@@ -1,4 +1,4 @@
-﻿{
+{
   "$schema": "scavenge_pack",
   "color": "red",
   "cards": [
@@ -73,7 +73,7 @@
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
           "select_target": 1,
           "filter_target": "return target == player",
-          "content": "player.consume_action(1)\nplayer.cure_all_status_effects()"
+          "content": "player.consume_action(1)\nplayer.heal_all_status()"
         }
       ]
     },

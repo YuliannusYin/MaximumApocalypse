@@ -1,4 +1,4 @@
-﻿{
+{
   "$schema": "scavenge_pack",
   "color": "blue",
   "cards": [
@@ -128,9 +128,9 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
           "select_target": 1,
-          "filter_target": "return target.type == \"human\" && target != player",
+          "filter_target": "return target.is_player() && target != player",
           "filter_target_range": "infinity",
-          "content": "player.consume_action(1)\ntarget.execute_immediate_action(1)"
+          "content": "player.consume_action(1)\ntarget.execute_action_immediately(1)"
         }
       ]
     },
@@ -169,10 +169,10 @@
           "english_name": "backpack",
           "skill_description": "被动：玩家增加1格装备栏。",
           "skill_type": "equipment",
-          "trigger": "on_card_enter_equipment、on_card_leave_equipment",
+          "trigger": "on_equip、on_unequip",
           "filter": "return event.card.english_name == \"backpack\"",
           "forced": true,
-          "content": "if event.trigger_name == \"on_card_enter_equipment\":\n\tplayer.increase_equipment_slot(1)\nelif event.trigger_name == \"on_card_leave_equipment\":\n\tplayer.decrease_equipment_slot(1)"
+          "content": "if event.trigger_name == \"on_equip\":\n\tplayer.increase_equipment_slot(1)\nelif event.trigger_name == \"on_unequip\":\n\tplayer.decrease_equipment_slot(1)"
         }
       ]
     },
@@ -190,7 +190,7 @@
           "trigger": "before_draw_scavenge_card",
           "filter": "return true",
           "forced": true,
-          "content": "event.cancel()\nvar pile = event.pile\nvar top_two = pile.peek_top(2)\nvar keep = await player.choose(top_two)\nplayer.gain(keep)\nfor card in top_two:\n\tif card != keep:\n\t\tpile.put_bottom(card)"
+          "content": "EventSystem.cancel(event)\nvar pile = event.pile\nvar top_two = []\nwhile top_two.size() < 2 and not pile.is_empty():\n\ttop_two.append(pile.draw())\nif top_two.size() == 0:\n\treturn\nvar keep = await player.choose(top_two)\nplayer.gain(keep)\nfor card in top_two:\n\tif card != keep:\n\t\tpile.put_bottom(card)"
         }
       ]
     },

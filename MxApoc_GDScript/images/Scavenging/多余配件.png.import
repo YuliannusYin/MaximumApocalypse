@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cnops1h4bmxqo"
-valid=false
+uid="uid://dlubqshovnyee"
+path="res://.godot/imported/多余配件.png-363b6c40982cb3d93db247ff3c37a921.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://images/scavenging/多余配件.png"
+dest_files=["res://.godot/imported/多余配件.png-363b6c40982cb3d93db247ff3c37a921.ctex"]
 
 [params]
 
