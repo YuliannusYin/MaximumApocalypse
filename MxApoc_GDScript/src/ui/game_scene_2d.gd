@@ -642,15 +642,24 @@ func _on_confirm_requested(message: String) -> void:
 	_show_confirm_popup(message)
 
 
-func _on_choose_card_requested(n: int, position: String) -> void:
+func _on_choose_card_requested(n: int, param: Variant) -> void:
 	var current: Variant = Game.get_current_player()
 	if current == null or not is_instance_valid(current):
 		_gui_input.respond_choose_card([])
 		return
 	var cards: Array = []
-	if current.has_method("get_cards"):
-		cards = current.get_cards(position)
-	_show_card_select_popup(cards, n, position)
+	var label: String = ""
+	if typeof(param) == TYPE_ARRAY:
+		# Array 模式：直接作为候选卡牌列表，绕过 position 查询
+		cards = param
+		label = "候选列表"
+	else:
+		# String 模式（原有行为）：按 position 查询玩家区域卡牌
+		var position: String = param
+		if current.has_method("get_cards"):
+			cards = current.get_cards(position)
+		label = position
+	_show_card_select_popup(cards, n, label)
 
 
 func _on_choose_target_requested(n: int, skill: Variant) -> void:
@@ -682,14 +691,28 @@ func _on_choose_target_requested(n: int, skill: Variant) -> void:
 			if eqz != null:
 				candidates = eqz
 		_:
-			# entity（缺省）：当前地块射程内的玩家 + 当前玩家怪物区的怪物
+			# entity（缺省）：当前地块射程内玩家 + 当前地块所有玩家（含当前玩家自身） + 当前玩家怪物区怪物
 			if current_block != null and is_instance_valid(current_block):
 				candidates = current_block.get_players_in_range(filter_target_range)
+				# 追加当前地块所有玩家（含当前玩家自身），保证 self-targeting 技能可选自己
+				candidates.append_array(current_block.get_players())
 			var monster_zone: Variant = current.get("monster_zone")
 			if monster_zone != null:
 				for m in monster_zone:
 					if m != null and is_instance_valid(m):
 						candidates.append(m)
+			# 去重（按实例 id，避免 get_players_in_range 与 get_players 重叠）
+			var seen: Dictionary = {}
+			var deduped: Array = []
+			for c in candidates:
+				if c == null or not is_instance_valid(c):
+					continue
+				var key: int = c.get_instance_id()
+				if seen.has(key):
+					continue
+				seen[key] = true
+				deduped.append(c)
+			candidates = deduped
 	# filter_target 过滤候选
 	var filtered: Array = []
 	for target in candidates:

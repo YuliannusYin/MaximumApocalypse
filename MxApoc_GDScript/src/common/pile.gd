@@ -27,6 +27,18 @@ func add(card: Card) -> void:
 	cards.append(card)
 
 
+## 查看牌堆顶 n 张牌（不移除）。不足时返回全部。
+func peek_top(n: int) -> Array:
+	if n <= 0:
+		return []
+	return cards.slice(0, n)
+
+
+## 将一张牌置于牌堆底（语义化别名，等价于 add）。
+func put_bottom(card: Card) -> void:
+	cards.append(card)
+
+
 ## 洗牌（随机打乱牌堆顺序）。
 func shuffle() -> void:
 	cards.shuffle()

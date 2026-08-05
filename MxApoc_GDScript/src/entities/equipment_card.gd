@@ -15,6 +15,9 @@ var charge_max: int = 0
 ## 当前填充物数量。耗尽时触发「填充物耗尽时」trigger
 var charge_current: int = 0
 
+## 装备区标记：是否在玩家装备区内
+var in_equipment_area: bool = false
+
 
 ## 消耗 n 个填充物。成功返回 true，不足返回 false。
 func consume_charge(n: int) -> bool:
@@ -37,6 +40,21 @@ func get_charge() -> int:
 ## 补充填充物（不超过上限）。
 func refill(n: int) -> void:
 	charge_current = mini(charge_current + n, charge_max)
+
+
+## 添加指定类型的填充物。
+## 当 type 匹配 charge_type（或 charge_type 为空时接受任意类型）时，
+## 将 charge_current 增加 amount，但不超过 charge_max。
+## type 不匹配则什么都不做（用于弹药/燃料等 content 代码按类型补充）。
+func add_charge(amount: int, type: String) -> void:
+	if charge_type != "" and charge_type != type:
+		return
+	charge_current = mini(charge_current + amount, charge_max)
+
+
+## 将填充物填满到上限。
+func fill_charge() -> void:
+	charge_current = charge_max
 
 
 ## 是否为武器牌（用于 damage 流程的 card 参数判断）。

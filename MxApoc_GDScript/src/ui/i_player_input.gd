@@ -19,8 +19,10 @@ func choose(options: Array, prompt: String = "") -> Variant:
 	return null
 
 
-## 从手牌/装备区选 n 张牌。filter: Callable(card) -> bool，null 表示不过滤。
-func choose_card(n: int, position: String = "hand", filter: Variant = null) -> Array:
+## 选 n 张牌。filter: Callable(card) -> bool，null 表示不过滤。
+## param 为 String 时：按 position（如 "hand"/"equipment"/"discard"）查询玩家区域卡牌。
+## param 为 Array 时：直接作为候选卡牌列表，绕过 position 查询。
+func choose_card(n: int, param: Variant = "hand", filter: Variant = null) -> Array:
 	_push_override_error("choose_card")
 	return []
 

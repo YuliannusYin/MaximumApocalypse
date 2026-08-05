@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dm4uyop01wxxv"
-valid=false
+uid="uid://gd0r65tqgq3h"
+path="res://.godot/imported/一无所获.png-85d483d46c8a7143523025fbe7e123a6.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://images/scavenging/一无所获.png"
+dest_files=["res://.godot/imported/一无所获.png-85d483d46c8a7143523025fbe7e123a6.ctex"]
 
 [params]
 

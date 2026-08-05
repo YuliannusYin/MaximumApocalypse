@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bhihie7o1x3qi"
-valid=false
+uid="uid://buapk6h33hc57"
+path="res://.godot/imported/手电筒.png-280c4aa0587b9ac98c76b721e6ee524d.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://images/scavenging/手电筒.png"
+dest_files=["res://.godot/imported/手电筒.png-280c4aa0587b9ac98c76b721e6ee524d.ctex"]
 
 [params]
 

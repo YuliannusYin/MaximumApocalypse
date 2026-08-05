@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cj3incxtlvf6n"
-valid=false
+uid="uid://p2gpejbhvt1u"
+path="res://.godot/imported/老报纸.png-e399d31ce6b1590f0a199ccf04232435.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://images/scavenging/老报纸.png"
+dest_files=["res://.godot/imported/老报纸.png-e399d31ce6b1590f0a199ccf04232435.ctex"]
 
 [params]
 

@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://3vj4e847nx4g"
-valid=false
+uid="uid://byg2y2q4vbk48"
+path="res://.godot/imported/手枪.png-97774a8e327f14659e1c9d90f7dcc1f5.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://images/scavenging/手枪.png"
+dest_files=["res://.godot/imported/手枪.png-97774a8e327f14659e1c9d90f7dcc1f5.ctex"]
 
 [params]
 

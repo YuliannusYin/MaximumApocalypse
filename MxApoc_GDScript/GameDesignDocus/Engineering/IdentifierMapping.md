@@ -274,6 +274,7 @@ enum DamageType { MELEE, RANGED, HUNGER, POISON, OTHER }
 | 填充物类型 | `charge_type` | `String` | 弹药/燃料/空尖弹等 |
 | 填充物上限 | `charge_max` | `int` | 填充物上限 |
 | 填充物当前量 | `charge_current` | `int` | 当前填充物数量 |
+| 装备区标记 | `in_equipment_area` | `bool` | 标记装备牌是否在玩家装备区内 |
 
 ### 3.6 MapBlock 字段
 
@@ -428,6 +429,8 @@ enum DamageType { MELEE, RANGED, HUNGER, POISON, OTHER }
 | player.增加行动次数(n) | `add_action(n: int) -> void` | 增加行动次数 |
 | player.添加临时技能(skill_id, expire_trigger) | `add_temp_skill(skill_id: String, expire_trigger: String) -> void` | 临时技能挂载（expire_trigger 触发后自动移除） |
 | player.获取牌堆(name) | `get_pile(name: String) -> Variant` | 按名获取牌堆（deck/hand/equipment/discard） |
+| player.gain(card) | `gain(card: Card) -> void` | 将卡牌加入手牌区 |
+| player.getDiscardPile() | `get_discard_pile() -> Pile` | 返回游戏牌弃牌堆 |
 
 ### 4.3 Player 查询接口
 
@@ -446,6 +449,7 @@ enum DamageType { MELEE, RANGED, HUNGER, POISON, OTHER }
 | player.等待玩家行动() | `wait_player_action() -> void` | 等待玩家行动（UI 驱动） |
 | target.choose(list) | `choose(options: Array) -> int` | 列表选择 |
 | target.chooseCard(n, position, source) | `choose_card(n: int, position: String, source: String) -> Array[Card]` | 选牌 |
+| player.chooseCard(n, param, filter) | `choose_card(n: int, param: Variant, filter: Variant = null) -> Array` | 选择卡牌（param 为 String 按 position 查询；为 Array 直接作为候选列表） |
 | player.chooseTarget(n, skill) | `choose_target(n: int, skill: Variant) -> Array` | 选择目标（n=-1 全部；skill 含 target_type/filter_target） |
 | player.showCard(card, target) | `show_card(card: Card, target: Player) -> void` | 展示卡牌 |
 
@@ -483,6 +487,7 @@ enum DamageType { MELEE, RANGED, HUNGER, POISON, OTHER }
 | block.addMonsterMark() | `add_monster_mark() -> void` | 添加怪物标记 |
 | block.removeMonsterMark() | `remove_monster_mark() -> void` | 移除怪物标记 |
 | block.hasColor() | `has_scavenge_color() -> bool` | 是否可拾荒 |
+| mapBlock.isMapBlock() | `is_map_block() -> bool` | 是否为地图块（供 filter_target 区分地块目标） |
 
 ### 4.7 Game 方法
 
@@ -500,7 +505,7 @@ enum DamageType { MELEE, RANGED, HUNGER, POISON, OTHER }
 | game.getAdjacentAliveBlocks(block) | `get_adjacent_alive_blocks(block: MapBlock) -> Array[MapBlock]` | 相邻存活地块 |
 | game.destroyMapBlock(block, source) | `destroy_map_block(block: MapBlock, source: Entity) -> void` | 摧毁地块 |
 | game.检查任务胜利条件() | `check_mission_win_condition() -> bool` | 检查任务胜利 |
-| game.createScavengeCard(卡牌名) | `create_scavenge_card(card_name: String) -> ScavengeCard` | 工厂方法 |
+| game.createScavengeCard(cardName) | `create_scavenge_card(card_name: String) -> Card` | 按 card_name 创建拾荒卡实例 |
 | game.getCard(英文名, pile) | `get_card(card_english_name: String, pile: Variant) -> Card` | 从牌堆查找卡牌（pile 可为 Pile 或 Array） |
 | game.getTarget(block) | `get_target(block: MapBlock) -> Array` | 获取地块上玩家+怪物 |
 
@@ -526,6 +531,20 @@ enum DamageType { MELEE, RANGED, HUNGER, POISON, OTHER }
 | pile.shuffle() | `shuffle() -> void` | 洗牌 |
 | pile.shuffleInto(targetPile) | `shuffle_into(target_pile: Pile) -> void` | 洗入目标牌堆 |
 | pile.getAll() | `get_all() -> Array[Card]` | 获取所有牌 |
+| pile.peekTop(n) | `peek_top(n: int) -> Array` | 查看牌堆顶 n 张牌（不移除） |
+| pile.putBottom(card) | `put_bottom(card: Card) -> void` | 将一张牌置于牌堆底 |
+
+### 4.10 EquipmentCard 方法
+
+| 设计文档方法 | GDScript 方法 | 说明 |
+|-------------|---------------|------|
+| equipmentCard.fillCharge() | `fill_charge() -> void` | 将填充物填满到上限 |
+
+### 4.11 ScavengeCard 方法
+
+| 设计文档方法 | GDScript 方法 | 说明 |
+|-------------|---------------|------|
+| scavengeCard.getColor() | `get_color() -> String` | 返回拾荒卡颜色 |
 
 ---
 

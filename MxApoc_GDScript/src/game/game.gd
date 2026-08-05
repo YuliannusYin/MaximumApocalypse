@@ -317,9 +317,16 @@ func get_scavenge_pile(color: String) -> Pile:
 	return null
 
 
-## 根据卡牌名创建拾荒卡实例（stub，需 ScavengePacks 数据加载后完整实现）。
+## 根据卡牌名创建拾荒卡实例。
+## 遍历所有拾荒包数据（red/green/blue/gray），按 card_name 精确匹配 ScavengeCardData，
+## 找到时调用 _create_scavenge_card_from_data 创建实例并返回；未找到返回 null 并记录日志。
 func create_scavenge_card(card_name: String) -> Card:
-	log_message("create_scavenge_card stub: " + card_name)
+	for color in ["red", "green", "blue", "gray"]:
+		var pile_data: Array = DataManager.get_scavenge_pile(color)
+		for card_data in pile_data:
+			if card_data.card_name == card_name:
+				return _create_scavenge_card_from_data(card_data, color)
+	log_message("未找到拾荒卡：%s" % card_name)
 	return null
 
 
@@ -618,8 +625,16 @@ func _create_scavenge_card_from_data(card_data: ScavengeCardData, color: String)
 	card.source = "scavenge"
 	if card_data.card_type == "equipment":
 		card.scavenge_type = "equipment"
+		card.card_subtype = "equipment"
 	else:
 		card.scavenge_type = "consumable"
+		card.card_subtype = "action"
+	# EquipmentCard 继承字段：从数据填充装备相关属性。
+	# 非装备类拾荒卡（食物/弹药/医疗用品等）的 charge 字段保持默认 0/空，无害。
+	card.size = card_data.size
+	card.charge_type = card_data.charge_type
+	card.charge_max = card_data.charge_max
+	card.charge_current = card_data.charge_initial
 	for skill_data in card_data.skills:
 		card.add_skill(_create_skill_from_data(skill_data))
 	return card

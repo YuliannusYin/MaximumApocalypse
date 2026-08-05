@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b7yf3cxjxksko"
-valid=false
+uid="uid://b86nsoycsyj7c"
+path="res://.godot/imported/双筒望远镜.png-c101f279cfa76160b10cb1dd3d59cd8a.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://images/scavenging/双筒望远镜.png"
+dest_files=["res://.godot/imported/双筒望远镜.png-c101f279cfa76160b10cb1dd3d59cd8a.ctex"]
 
 [params]
 

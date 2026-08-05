@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c2bw7bna1mehb"
-valid=false
+uid="uid://bl182kgcxrs66"
+path="res://.godot/imported/满是灰尘的日记本.png-ba9eeaf1db0612c2661576700edde1c0.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://images/scavenging/满是灰尘的日记本.png"
+dest_files=["res://.godot/imported/满是灰尘的日记本.png-ba9eeaf1db0612c2661576700edde1c0.ctex"]
 
 [params]
 
