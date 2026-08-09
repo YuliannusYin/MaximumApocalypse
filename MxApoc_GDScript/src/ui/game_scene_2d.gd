@@ -1210,6 +1210,14 @@ func _show_event_log_popup() -> void:
 	var panel := Panel.new()
 	panel.position = Vector2(415, 100)
 	panel.size = Vector2(600, 520)
+	# 设置背景色 #1E2228
+	var bg_style := StyleBoxFlat.new()
+	bg_style.bg_color = Color("#1E2228")
+	bg_style.content_margin_left = 8
+	bg_style.content_margin_right = 8
+	bg_style.content_margin_top = 8
+	bg_style.content_margin_bottom = 8
+	panel.add_theme_stylebox_override("panel", bg_style)
 	overlay.add_child(panel)
 
 	var vbox := VBoxContainer.new()
@@ -1239,7 +1247,10 @@ func _show_event_log_popup() -> void:
 	var start_idx: int = maxi(0, _event_log.size() - 100)
 	for i in range(start_idx, _event_log.size()):
 		var msg: String = _event_log[i]
-		var lbl := Label.new()
+		var lbl := RichTextLabel.new()
+		lbl.bbcode_enabled = true
+		lbl.fit_content = true
+		lbl.add_theme_color_override("default_color", Color("#cccccc"))
 		if msg.begins_with("===="):
 			lbl.text = msg
 			lbl.add_theme_font_size_override("font_size", 12)
@@ -1249,7 +1260,9 @@ func _show_event_log_popup() -> void:
 		content.add_child(lbl)
 
 	if _event_log.is_empty():
-		var empty := Label.new()
+		var empty := RichTextLabel.new()
+		empty.bbcode_enabled = true
+		empty.fit_content = true
 		empty.text = "暂无日志"
 		empty.add_theme_font_size_override("font_size", 12)
 		content.add_child(empty)

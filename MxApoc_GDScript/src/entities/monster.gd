@@ -133,7 +133,7 @@ func _attack() -> void:
 	for target in targets:
 		if target != null and is_instance_valid(target) and target.is_alive():
 			if Game != null and is_instance_valid(Game):
-				Game.log_message("怪物'%s'攻击了%s" % [monster_name, target.player_name])
+				Game.log_message(LogColors.monster(monster_name) + " 攻击了 " + LogColors.player(target.player_name))
 			target.damage(damage_value, self, "monster_attack")
 
 
@@ -144,7 +144,10 @@ func _attack() -> void:
 ## 取消点：无（死亡流程不可取消）
 func death(source: Entity) -> void:
 	if Game != null and is_instance_valid(Game):
-		Game.log_message("怪物'%s'被击杀" % monster_name)
+		if source != null and source.is_player():
+			Game.log_message(LogColors.monster(monster_name) + " 被 " + LogColors.player(source.player_name) + " 击杀")
+		else:
+			Game.log_message(LogColors.monster(monster_name) + " 被击杀")
 	if EventBus != null and is_instance_valid(EventBus):
 		EventBus.monster_died.emit(self, source)
 	var event: Dictionary = EventSystem.create_monster_death_event(self, source)

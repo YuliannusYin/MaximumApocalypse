@@ -120,11 +120,11 @@ func test_reveal_sets_flag() -> void:
 	assert_true(b.revealed, "reveal 后 revealed 应为 true")
 
 
-func test_reveal_triggers_on_block_revealed() -> void:
+func test_reveal_triggers_on_reveal_block() -> void:
 	var b: MapBlock = MapBlock.new()
 	var p: MockPlayer = MockPlayer.new()
 	await b.reveal(true, p)
-	assert_eq(p.triggers_received, ["on_block_revealed"], "应触发 on_block_revealed")
+	assert_eq(p.triggers_received, ["on_reveal_block"], "应触发 on_reveal_block")
 
 
 func test_reveal_no_effect_does_not_trigger() -> void:
