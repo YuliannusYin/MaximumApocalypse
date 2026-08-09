@@ -1,4 +1,4 @@
-﻿{
+{
   "$schema": "map_blocks",
   "blocks": [
     {
@@ -33,7 +33,7 @@
           "trigger": "on_turn_start、on_take_damage",
           "filter": "return !player.has_mark_skill(\"shelter_disabled\")",
           "forced": true,
-          "content": "if event.trigger_name == \"on_turn_start\" && player.get_current_block().has_skill(\"shelter\"):\n\tplayer.add_mark_skill(\"shelter_disabled\", 1, \"turn_end\")\nelif event.trigger_name == \"on_take_damage\" && player.get_current_block().has_skill(\"shelter\"):\n\tevent.cancel()"
+          "content": "if event.trigger_name == \"on_turn_start\" && player.get_current_block().has_skill(\"shelter\"):\n\tplayer.add_mark_skill(\"shelter_disabled\", 1, \"turn_end\")\nelif event.trigger_name == \"on_take_damage\" && player.get_current_block().has_skill(\"shelter\"):\n\tevent[\"cancel\"].call()"
         }
       ]
     },
@@ -69,7 +69,7 @@
           "trigger": "on_reveal_block、on_enter_block",
           "filter": "return true",
           "forced": true,
-          "content": "if event.trigger_name == \"on_reveal_block\":\n\tplayer.discard(null, null, 0, \"food\")\nelif event.trigger_name == \"on_enter_block\" && player.get_current_block().has_skill(\"power_plant\"):\n\tplayer.add_poison(1)"
+          "content": "if event.trigger_name == \"on_reveal_block\":\n\tvar food_cards = []\n\tfor c in player.get_cards():\n\t\tif c.english_name.begins_with(\"food_\"):\n\t\t\tfood_cards.append(c)\n\tplayer.discard(food_cards)\nelif event.trigger_name == \"on_enter_block\" && player.get_current_block().has_skill(\"power_plant\"):\n\tplayer.add_poison(1)"
         }
       ]
     },
@@ -87,7 +87,7 @@
           "trigger": "before_enter_block",
           "filter": "return true",
           "forced": true,
-          "content": "if not player.sneak_judge():\n\tevent.cancel()"
+          "content": "if not player.sneak_judge():\n\tevent[\"cancel\"].call()"
         }
       ]
     },
@@ -142,7 +142,7 @@
           "trigger": "on_enter_block",
           "filter": "return true",
           "forced": true,
-          "content": "var list = game.get_engaged_monsters(player)\nfor i in list:\n\ti.damage(2, player)"
+          "content": "var list = game.get_engaged_monsters(player)\nfor i in list:\n\tawait i.damage(2, player)"
         }
       ]
     },

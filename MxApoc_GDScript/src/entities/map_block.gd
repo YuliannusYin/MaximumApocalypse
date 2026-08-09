@@ -34,11 +34,17 @@ var objective_marks: Array = []
 # === 展示 ===
 
 ## 翻开未展示的地块。
-## trigger_effect=true 时触发 on_block_revealed（地块技能已挂载到 player 由 player.trigger 触发）。
+## trigger_effect=true 时触发 on_reveal_block（地块技能已挂载到 player 由 player.trigger 触发）。
 func reveal(trigger_effect: bool, player: Variant) -> void:
 	revealed = true
 	if Game != null and is_instance_valid(Game):
-		Game.log_message("地图块'%s'被揭示" % block_name)
+		var _player_name: String = ""
+		if player != null and is_instance_valid(player) and player.has_method("is_player") and player.is_player():
+			_player_name = player.get("player_name")
+		if _player_name != "":
+			Game.log_message(LogColors.player(_player_name) + " 展示了 " + LogColors.block(block_name))
+		else:
+			Game.log_message(LogColors.block(block_name) + " 被揭示了")
 	if EventBus != null and is_instance_valid(EventBus):
 		EventBus.block_revealed.emit(self, player)
 	if trigger_effect:
@@ -46,7 +52,7 @@ func reveal(trigger_effect: bool, player: Variant) -> void:
 			"player": player,
 			"block": self,
 		})
-		await player.trigger("on_block_revealed", event)
+		await player.trigger("on_reveal_block", event)
 
 
 ## 是否已展示。
@@ -63,12 +69,20 @@ func get_spawn_value() -> int:
 
 ## 增加 n 个怪物标记（上限 3）。不触发目标标记移除条件检查。
 func add_monster_mark(n: int = 1) -> void:
+	var _before: int = monster_marks
 	monster_marks = mini(monster_marks + n, 3)
+	var _actual: int = monster_marks - _before
+	if _actual > 0 and Game != null and is_instance_valid(Game):
+		Game.log_message(LogColors.block(block_name) + " 添加了 " + str(_actual) + " 枚 \"怪物标记\"")
 
 
 ## 移除 n 个怪物标记。移除后检查目标标记移除条件。
 func remove_monster_mark(n: int = 1) -> void:
+	var _before: int = monster_marks
 	monster_marks = maxi(monster_marks - n, 0)
+	var _actual: int = _before - monster_marks
+	if _actual > 0 and Game != null and is_instance_valid(Game):
+		Game.log_message(LogColors.block(block_name) + " 移除了 " + str(_actual) + " 枚 \"怪物标记\"")
 	_check_objective_mark_remove_conditions()
 
 
@@ -86,6 +100,11 @@ func count_monster_mark() -> int:
 ## 是否有怪物标记。
 func has_monster_mark() -> bool:
 	return monster_marks > 0
+
+
+## 地块上是否有纠缠怪物（玩家面前的怪物）。
+func has_monster() -> bool:
+	return count_monster() > 0
 
 
 ## 返回地块上当前纠缠玩家的怪物总数。
@@ -112,9 +131,21 @@ func has_color() -> bool:
 ## 是否具备指定名字的地块技能。
 func has_skill(skill_name: String) -> bool:
 	for s in skills:
-		if s.skill_name == skill_name:
+		if s.skill_name == skill_name or s.english_name == skill_name:
 			return true
 	return false
+
+
+## 将地块技能挂载到玩家身上（玩家进入地块时调用）。
+func _acquire_skills_for_player(player: Variant) -> void:
+	for s in skills:
+		player.add_skill(s)
+
+
+## 从玩家身上移除地块技能（玩家离开地块时调用）。
+func _clear_skills_for_player(player: Variant) -> void:
+	for s in skills:
+		player.remove_skill(s)
 
 
 ## 是否存在相邻且未展示的存活地块。

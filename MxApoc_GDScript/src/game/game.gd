@@ -229,7 +229,7 @@ func destroy_map_block(block: MapBlock, source: Variant) -> bool:
 	for player in players_on_block:
 		var adjacent: Array = block.get_adjacent_blocks()
 		if adjacent.is_empty():
-			log_message(player.player_name + " 无处可逃，受到 5 点伤害")
+			log_message(LogColors.player(player.player_name) + " 无处可逃，受到 5 点伤害")
 			player.damage(5, null, "block_destroy")
 		else:
 			var target: MapBlock = await player.choose_map_block(adjacent)
@@ -251,7 +251,7 @@ func destroy_map_block(block: MapBlock, source: Variant) -> bool:
 	# 5. 地块状态变更，从地图区域移除
 	block.block_state = "destroyed"
 	map_area.erase(block)
-	log_message("地图块'%s'被摧毁" % block.block_name)
+	log_message(LogColors.block(block.block_name) + " 被摧毁了")
 	# 6. 摧毁地块后（通知）
 	for player in players:
 		if player != null and is_instance_valid(player):
@@ -317,6 +317,30 @@ func get_scavenge_pile(color: String) -> Pile:
 	return null
 
 
+## 返回玩家面前纠缠的怪物列表。
+func get_engaged_monsters(player: Variant) -> Array:
+	if player == null or not is_instance_valid(player):
+		return []
+	if "monster_zone" in player:
+		return player.monster_zone
+	return []
+
+
+## 从玩家指定区域随机返回一张牌；无牌返回 null。
+func get_random_card(player: Variant, areas: Array) -> Variant:
+	if player == null or not is_instance_valid(player):
+		return null
+	var all_cards: Array = []
+	for area in areas:
+		if area == "hand" and "hand" in player:
+			all_cards.append_array(player.hand)
+		elif area == "equipment" and "equipment_zone" in player:
+			all_cards.append_array(player.equipment_zone)
+	if all_cards.is_empty():
+		return null
+	return all_cards[randi() % all_cards.size()]
+
+
 ## 根据卡牌名创建拾荒卡实例。
 ## 遍历所有拾荒包数据（red/green/blue/gray），按 card_name 精确匹配 ScavengeCardData，
 ## 找到时调用 _create_scavenge_card_from_data 创建实例并返回；未找到返回 null 并记录日志。
@@ -326,7 +350,7 @@ func create_scavenge_card(card_name: String) -> Card:
 		for card_data in pile_data:
 			if card_data.card_name == card_name:
 				return _create_scavenge_card_from_data(card_data, color)
-	log_message("未找到拾荒卡：%s" % card_name)
+	log_message("未找到拾荒卡：" + LogColors.card(card_name))
 	return null
 
 
@@ -473,7 +497,7 @@ func _init_global_piles(mission: MissionData) -> void:
 			var count: int = int(entry.get("count", 0))
 			var variants: Array = _find_scavenge_card_variants(card_name)
 			if variants.is_empty():
-				log_message("警告：拾荒卡未找到 - " + color + "/" + card_name)
+				log_message("警告：拾荒卡未找到 - " + color + "/" + LogColors.card(card_name))
 				continue
 			for i in count:
 				var card_data: ScavengeCardData = variants[i % variants.size()]

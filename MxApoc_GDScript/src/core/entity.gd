@@ -22,6 +22,21 @@ func trigger(trigger_name: String, event: Dictionary) -> void:
 			continue
 		if not s.execute_filter(self, event):
 			continue
+		# 输出触发日志
+		if Game != null and is_instance_valid(Game):
+			var _trigger_actor: Variant = self
+			if has_method("is_monster") and is_monster() and event.has("player"):
+				_trigger_actor = event["player"]
+			var _actor_name: String = ""
+			if _trigger_actor.has_method("is_player") and _trigger_actor.is_player():
+				_actor_name = _trigger_actor.get("player_name")
+			elif _trigger_actor.has_method("is_monster") and _trigger_actor.is_monster():
+				_actor_name = _trigger_actor.get("monster_name")
+			elif "block_name" in _trigger_actor:
+				_actor_name = str(_trigger_actor.block_name)
+			var _skill_name: String = s.skill_name if s.skill_name != "" else s.english_name
+			if _actor_name != "":
+				Game.log_message(LogColors.player(_actor_name) + " 触发了 " + LogColors.skill_by_type(_skill_name, s.skill_type))
 		await s.execute_content(self, event)
 		if EventSystem.is_cancelled(event):
 			break
@@ -78,21 +93,28 @@ func damage(num: int, source: Entity, type: Variant = "", card: Card = null) -> 
 
 	# 5. 系统扣血（非钩子节点）
 	reduce_hp(event["num"])
-	# 5.5 日志记录（玩家受伤时区分来源）
+	# 5.5 日志记录（玩家/怪物受伤时区分来源）
 	if is_player() and event["num"] > 0 and Game != null and is_instance_valid(Game):
 		var p_name: String = self.get("player_name")
 		var dmg_num: int = event["num"]
 		var dmg_type: String = str(type) if type != null else ""
 		if dmg_type == "monster_attack" and source != null and is_instance_valid(source) and source.is_monster():
-			Game.log_message("%s被怪物'%s'攻击，受到%d点伤害" % [p_name, source.get("monster_name"), dmg_num])
+			Game.log_message(LogColors.player(p_name) + " 受到 " + LogColors.monster(source.get("monster_name")) + " 造成的 " + str(dmg_num) + " 点伤害")
 		elif dmg_type == "hunger":
-			Game.log_message("%s因饥饿受到%d点伤害" % [p_name, dmg_num])
+			Game.log_message(LogColors.player(p_name) + " 因饥饿受到 " + str(dmg_num) + " 点伤害")
 		elif dmg_type == "poison":
-			Game.log_message("%s因中毒受到%d点伤害" % [p_name, dmg_num])
+			Game.log_message(LogColors.player(p_name) + " 因中毒受到 " + str(dmg_num) + " 点伤害")
 		elif dmg_type == "block_destroy":
-			Game.log_message("%s因地块摧毁受到%d点伤害" % [p_name, dmg_num])
+			Game.log_message(LogColors.player(p_name) + " 因地块摧毁受到 " + str(dmg_num) + " 点伤害")
 		else:
-			Game.log_message("%s受到%d点伤害" % [p_name, dmg_num])
+			Game.log_message(LogColors.player(p_name) + " 受到 " + str(dmg_num) + " 点伤害")
+	elif is_monster() and event["num"] > 0 and Game != null and is_instance_valid(Game):
+		var m_name: String = self.get("monster_name")
+		var dmg_num_m: int = event["num"]
+		if source != null and is_instance_valid(source) and source.is_player():
+			Game.log_message(LogColors.monster(m_name) + " 受到 " + LogColors.player(source.get("player_name")) + " 造成的 " + str(dmg_num_m) + " 点伤害")
+		else:
+			Game.log_message(LogColors.monster(m_name) + " 受到 " + str(dmg_num_m) + " 点伤害")
 
 	# 6. after_deal_damage
 	if source != null:

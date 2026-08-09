@@ -146,13 +146,13 @@ func next_turn() -> void:
 		# 2. 设置当前回合玩家
 		current_player = player
 		if Game != null and is_instance_valid(Game):
-			Game.log_message("====%s进入回合====" % player.player_name)
+			Game.log_message("==== " + LogColors.player(player.player_name) + " 回合开始 ====")
 		if EventBus != null and is_instance_valid(EventBus):
 			EventBus.turn_started.emit(player)
 		# 3. 执行玩家回合
 		await player.start_turn()
 		if Game != null and is_instance_valid(Game) and current_state == GameState.PLAYING:
-			Game.log_message("====%s结束回合====" % player.player_name)
+			Game.log_message("==== " + LogColors.player(player.player_name) + " 回合结束 ====")
 		# 4. 检查胜利条件
 		if check_win_condition():
 			return
@@ -176,7 +176,7 @@ func _get_next_player() -> Variant:
 			if skip_turn_marks.has(player):
 				skip_turn_marks.erase(player)
 				if Game != null and is_instance_valid(Game):
-					Game.log_message(player.player_name + " 的回合被跳过。")
+					Game.log_message(LogColors.player(player.player_name) + " 的回合被跳过。")
 				skipped_any = true
 				continue
 			return player
@@ -214,7 +214,7 @@ func queue_extra_turn(player: Variant) -> void:
 		return
 	turn_queue.push_front(player)
 	if Game != null and is_instance_valid(Game):
-		Game.log_message(player.player_name + " 获得了一个额外回合。")
+		Game.log_message(LogColors.player(player.player_name) + " 获得了一个额外回合。")
 
 
 ## 标记玩家跳过下个回合。跳过是一次性的。
@@ -223,7 +223,7 @@ func skip_next_turn(player: Variant) -> void:
 		return
 	skip_turn_marks[player] = true
 	if Game != null and is_instance_valid(Game):
-		Game.log_message(player.player_name + " 的下个回合将被跳过。")
+		Game.log_message(LogColors.player(player.player_name) + " 的下个回合将被跳过。")
 
 
 # === 胜利条件检查 ===
