@@ -1,127 +1,178 @@
-{
-  "$schema": "monster_pack",
-  "monster_type": "mutant",
-  "cards": [
-    {
-      "monster_name": "狂暴的突变体",
-      "english_name": "raging_mutant",
-      "monster_level": "boss",
-      "count": 1,
-      "max_hp": 30,
-      "initial_hp": 30,
-      "attack_damage": 5,
-      "range": "short",
-      "skills": [
-        {
-          "skill_name": "狂暴的突变体",
-          "english_name": "raging_mutant",
-          "skill_description": "当此怪物卡攻击时，对所有受到攻击的玩家添加一层中毒效果。",
-          "skill_type": "monster",
-          "trigger": "on_monster_attack",
-          "forced": true,
-          "filter": "return true",
-          "content": "var list = event.target_players\nfor p in list:\n\tp.add_mark_skill(\"poison\", 1)"
-        }
-      ]
-    },
-    {
-      "monster_name": "达克斯顿·贾格",
-      "english_name": "daxton_jag",
-      "monster_level": "boss",
-      "count": 1,
-      "max_hp": 24,
-      "initial_hp": 24,
-      "attack_damage": 4,
-      "range": "medium",
-      "skills": [
-        {
-          "skill_name": "达克斯顿贾格",
-          "english_name": "daxton_jag",
-          "skill_description": "当此怪物卡被玩家抓取时，所有玩家弃掉一张装备区内的装备，否则受到四点伤害。",
-          "skill_type": "monster",
-          "trigger": "after_monster_enter_zone",
-          "forced": true,
-          "filter": "return true",
-          "content": "var list = game.get_all_players()\nfor p in list:\n\tif p.has_card(\"equipment\"):\n\t\tvar choice = p.choose([\"弃置一张装备\", \"受到4点伤害\"])\n\t\tif choice == \"弃置一张装备\":\n\t\t\tp.choose_to_discard(1, \"equipment\")\n\t\telif choice == \"受到4点伤害\":\n\t\t\tp.damage(4, self)\n\telse:\n\t\tp.damage(4, self)"
-        }
-      ]
-    },
-    {
-      "monster_name": "军部残余武装",
-      "english_name": "military_remnant",
-      "monster_level": "elite",
-      "count": 4,
-      "max_hp": 10,
-      "initial_hp": 10,
-      "attack_damage": 4,
-      "range": "none",
-      "skills": [
-        {
-          "skill_name": "军部残余武装",
-          "english_name": "military_remnant",
-          "skill_description": "当此怪物卡被玩家抓取后，抓取该卡的玩家弃掉一张装备区内的装备，否则受到四点伤害。",
-          "skill_type": "monster",
-          "trigger": "after_monster_enter_zone",
-          "forced": true,
-          "filter": "return true",
-          "content": "var drawer = event.player\nif drawer.has_card(\"equipment\"):\n\tvar choice = drawer.choose([\"弃置一张装备\", \"受到4点伤害\"])\n\tif choice == \"弃置一张装备\":\n\t\tdrawer.choose_to_discard(1, \"equipment\")\n\telif choice == \"受到4点伤害\":\n\t\tdrawer.damage(4, self)\nelse:\n\tdrawer.damage(4, self)"
-        }
-      ]
-    },
-    {
-      "monster_name": "强盗",
-      "english_name": "bandit",
-      "monster_level": "elite",
-      "count": 6,
-      "max_hp": 7,
-      "initial_hp": 7,
-      "attack_damage": 3,
-      "range": "none",
-      "skills": [
-        {
-          "skill_name": "强盗",
-          "english_name": "bandit",
-          "skill_description": "当此怪物卡被玩家抓取后，抓取该卡的玩家弃掉一张拾荒卡，否则受到三点伤害。",
-          "skill_type": "monster",
-          "trigger": "after_monster_enter_zone",
-          "forced": true,
-          "filter": "return true",
-          "content": "var drawer = event.player\nif drawer.has_card(\"hand\", \"scavenge\"):\n\tvar choice = drawer.choose([\"弃置一张拾荒牌\", \"受到3点伤害\"])\n\tif choice == \"弃置一张拾荒牌\":\n\t\tdrawer.choose_to_discard(1, \"hand\", \"scavenge\")\n\telif choice == \"受到3点伤害\":\n\t\tdrawer.damage(3, self)\nelse:\n\tdrawer.damage(3, self)"
-        }
-      ]
-    },
-    {
-      "monster_name": "突变体老鼠",
-      "english_name": "mutant_rat",
-      "monster_level": "elite",
-      "count": 8,
-      "max_hp": 5,
-      "initial_hp": 5,
-      "attack_damage": 2,
-      "range": "none",
-      "skills": [
-        {
-          "skill_name": "突变体老鼠",
-          "english_name": "mutant_rat",
-          "skill_description": "当此怪物卡攻击时，对所有受到攻击的玩家添加一层中毒效果。",
-          "skill_type": "monster",
-          "trigger": "on_monster_attack",
-          "forced": true,
-          "filter": "return true",
-          "content": "var list = event.target_players\nfor p in list:\n\tp.add_mark_skill(\"poison\", 1)"
-        }
-      ]
-    },
-    {
-      "monster_name": "突变体",
-      "english_name": "mutant",
-      "monster_level": "elite",
-      "count": 8,
-      "max_hp": 8,
-      "initial_hp": 8,
-      "attack_damage": 5,
-      "range": "none",
-      "skills": []
-    }
-  ]
-}
+[
+  {
+    "card_name": "狂暴的突变体",
+    "english_name": "raging_mutant",
+    "monster_level": "boss",
+    "count": 1,
+    "max_hp": 30,
+    "initial_hp": 30,
+    "attack_damage": 5,
+    "range": "short",
+    "skills": [
+      {
+        "skill_name": "狂暴的突变体",
+        "english_name": "raging_mutant",
+        "skill_description": "当此怪物卡攻击时，对所有受到攻击的玩家添加一层中毒效果。",
+        "skill_type": "monster",
+        "trigger": "on_monster_attack",
+        "forced": true,
+        "effects": [
+          {
+            "effect_type": "add_status_mark",
+            "target": "attack_targets",
+            "mark_type": "poison",
+            "amount": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "card_name": "达克斯顿·贾格",
+    "english_name": "daxton_jag",
+    "monster_level": "boss",
+    "count": 1,
+    "max_hp": 24,
+    "initial_hp": 24,
+    "attack_damage": 4,
+    "range": "short",
+    "skills": [
+      {
+        "skill_name": "达克斯顿贾格",
+        "english_name": "daxton_jag",
+        "skill_description": "当此怪物卡被玩家抓取时，所有玩家弃掉一张装备区内的装备，否则受到四点伤害。",
+        "skill_type": "monster",
+        "trigger": "after_monster_enter_zone",
+        "forced": true,
+        "effects": [
+          {
+            "effect_type": "choice_or_penalty",
+            "target": "all_players",
+            "choice": {
+              "type": "discard_card",
+              "amount": 1,
+              "zone": "equipment"
+            },
+            "penalty": {
+              "type": "damage",
+              "amount": 4,
+              "source": "self"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "card_name": "军部残余武装",
+    "english_name": "military_remnant",
+    "monster_level": "elite",
+    "count": 4,
+    "max_hp": 10,
+    "initial_hp": 10,
+    "attack_damage": 4,
+    "range": "none",
+    "skills": [
+      {
+        "skill_name": "军部残余武装",
+        "english_name": "military_remnant",
+        "skill_description": "当此怪物卡被玩家抓取后，抓取该卡的玩家弃掉一张装备区内的装备，否则受到四点伤害。",
+        "skill_type": "monster",
+        "trigger": "after_monster_enter_zone",
+        "forced": true,
+        "effects": [
+          {
+            "effect_type": "choice_or_penalty",
+            "target": "caster_player",
+            "choice": {
+              "type": "discard_card",
+              "amount": 1,
+              "zone": "equipment"
+            },
+            "penalty": {
+              "type": "damage",
+              "amount": 4,
+              "source": "self"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "card_name": "强盗",
+    "english_name": "bandit",
+    "monster_level": "elite",
+    "count": 6,
+    "max_hp": 7,
+    "initial_hp": 7,
+    "attack_damage": 3,
+    "range": "none",
+    "skills": [
+      {
+        "skill_name": "强盗",
+        "english_name": "bandit",
+        "skill_description": "当此怪物卡被玩家抓取后，抓取该卡的玩家弃掉一张拾荒卡，否则受到三点伤害。",
+        "skill_type": "monster",
+        "trigger": "after_monster_enter_zone",
+        "forced": true,
+        "effects": [
+          {
+            "effect_type": "choice_or_penalty",
+            "target": "caster_player",
+            "choice": {
+              "type": "discard_card",
+              "amount": 1,
+              "zone": "hand",
+              "card_tag": "scavenge"
+            },
+            "penalty": {
+              "type": "damage",
+              "amount": 3,
+              "source": "self"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "card_name": "突变体老鼠",
+    "english_name": "mutant_rat",
+    "monster_level": "elite",
+    "count": 8,
+    "max_hp": 5,
+    "initial_hp": 5,
+    "attack_damage": 2,
+    "range": "none",
+    "skills": [
+      {
+        "skill_name": "突变体老鼠",
+        "english_name": "mutant_rat",
+        "skill_description": "当此怪物卡攻击时，对所有受到攻击的玩家添加一层中毒效果。",
+        "skill_type": "monster",
+        "trigger": "on_monster_attack",
+        "forced": true,
+        "effects": [
+          {
+            "effect_type": "add_status_mark",
+            "target": "attack_targets",
+            "mark_type": "poison",
+            "amount": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "card_name": "突变体",
+    "english_name": "mutant",
+    "monster_level": "elite",
+    "count": 8,
+    "max_hp": 8,
+    "initial_hp": 8,
+    "attack_damage": 5,
+    "range": "none",
+    "skills": []
+  }
+]
