@@ -17,7 +17,9 @@ var skills: Array[Skill] = []
 ## 若 trigger 为取消点，技能可调用 event["cancel"].call() 或 EventSystem.cancel(event) 终止流程。
 func trigger(trigger_name: String, event: Dictionary) -> void:
 	EventSystem.set_trigger_name(event, trigger_name)
-	for s in skills:
+	# 迭代副本：技能 content 可能挂载/移除技能（如燃料 on_draw 调用 equip），
+	# 避免新挂载的同触发器技能在当前迭代中重复触发导致死循环。
+	for s in skills.duplicate():
 		if not s.matches_trigger(trigger_name):
 			continue
 		if not s.execute_filter(self, event):

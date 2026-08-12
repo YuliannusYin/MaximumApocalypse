@@ -7,6 +7,9 @@ extends Panel
 
 const CARD_W := 100
 const CARD_H := 140
+const PANEL_W := 110
+const PANEL_H := 150
+const BORDER := 5
 const SELECTED_OFFSET := 20.0
 const SELECTED_BORDER_COLOR := Color(1.0, 0.84, 0.0, 1.0)
 const SELECTED_BORDER_WIDTH := 3
@@ -37,24 +40,29 @@ var _range_label: Label
 var _type_label: Label
 var _cost_label: Label
 var _effect_label: Label
+var _content_panel: Panel
 var _base_position: Vector2 = Vector2.ZERO
 var _is_selected: bool = false
 var _is_hovered: bool = false
 
 
 func _ready() -> void:
-	custom_minimum_size = Vector2(CARD_W, CARD_H)
-	size = Vector2(CARD_W, CARD_H)
+	custom_minimum_size = Vector2(PANEL_W, PANEL_H)
+	size = Vector2(PANEL_W, PANEL_H)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_build_content()
 	for child in get_children():
 		if child is Control:
 			child.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if _content_panel != null and is_instance_valid(_content_panel):
+		for child in _content_panel.get_children():
+			if child is Control:
+				child.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
 func _init() -> void:
-	custom_minimum_size = Vector2(CARD_W, CARD_H)
-	size = Vector2(CARD_W, CARD_H)
+	custom_minimum_size = Vector2(PANEL_W, PANEL_H)
+	size = Vector2(PANEL_W, PANEL_H)
 
 
 ## 设置卡牌数据并刷新显示。
@@ -107,6 +115,11 @@ func set_hovered(hovered: bool) -> void:
 # === 构建 ===
 
 func _build_content() -> void:
+	_content_panel = Panel.new()
+	_content_panel.position = Vector2(BORDER, BORDER)
+	_content_panel.size = Vector2(CARD_W, CARD_H)
+	_content_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_content_panel)
 	# 图片背景
 	_texture_rect = TextureRect.new()
 	_texture_rect.set_anchors_preset(PRESET_FULL_RECT)
@@ -114,7 +127,7 @@ func _build_content() -> void:
 	_texture_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	_texture_rect.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	_texture_rect.visible = false
-	add_child(_texture_rect)
+	_content_panel.add_child(_texture_rect)
 	# 左上角标识（装备牌格子数 / 行动牌金色"行动"）
 	_badge_label = Label.new()
 	_badge_label.position = Vector2(4, 4)
@@ -123,7 +136,7 @@ func _build_content() -> void:
 	_badge_label.add_theme_color_override("font_outline_color", Color.BLACK)
 	_badge_label.add_theme_constant_override("outline_size", 3)
 	_badge_label.visible = false
-	add_child(_badge_label)
+	_content_panel.add_child(_badge_label)
 	# 牌名（图片模式在中下，文字模式在顶部）
 	_name_label = Label.new()
 	_name_label.position = Vector2(4, 4)
@@ -134,7 +147,7 @@ func _build_content() -> void:
 	_name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_name_label.add_theme_color_override("font_outline_color", Color.BLACK)
 	_name_label.add_theme_constant_override("outline_size", 3)
-	add_child(_name_label)
+	_content_panel.add_child(_name_label)
 	# 射程（图片模式，名字下方）
 	_range_label = Label.new()
 	_range_label.position = Vector2(4, CARD_H - 32)
@@ -144,21 +157,21 @@ func _build_content() -> void:
 	_range_label.add_theme_color_override("font_outline_color", Color.BLACK)
 	_range_label.add_theme_constant_override("outline_size", 3)
 	_range_label.visible = false
-	add_child(_range_label)
+	_content_panel.add_child(_range_label)
 	# 卡牌类型（文字模式）
 	_type_label = Label.new()
 	_type_label.position = Vector2(4, 42)
 	_type_label.size = Vector2(CARD_W - 8, 16)
 	_type_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_type_label.add_theme_font_size_override("font_size", 10)
-	add_child(_type_label)
+	_content_panel.add_child(_type_label)
 	# 消耗（文字模式）
 	_cost_label = Label.new()
 	_cost_label.position = Vector2(4, 60)
 	_cost_label.size = Vector2(CARD_W - 8, 16)
 	_cost_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_cost_label.add_theme_font_size_override("font_size", 10)
-	add_child(_cost_label)
+	_content_panel.add_child(_cost_label)
 	# 效果简述（文字模式，底部）
 	_effect_label = Label.new()
 	_effect_label.position = Vector2(4, 78)
@@ -167,7 +180,7 @@ func _build_content() -> void:
 	_effect_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	_effect_label.add_theme_font_size_override("font_size", 9)
 	_effect_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	add_child(_effect_label)
+	_content_panel.add_child(_effect_label)
 	_refresh()
 
 
@@ -252,25 +265,25 @@ func _apply_badge() -> void:
 
 
 func _apply_style() -> void:
+	# 外层面板：黑色背景 + 选中时金色边框
+	var outer_style := StyleBoxFlat.new()
+	outer_style.bg_color = Color.BLACK
+	if _is_selected:
+		outer_style.border_width_left = SELECTED_BORDER_WIDTH
+		outer_style.border_width_top = SELECTED_BORDER_WIDTH
+		outer_style.border_width_right = SELECTED_BORDER_WIDTH
+		outer_style.border_width_bottom = SELECTED_BORDER_WIDTH
+		outer_style.border_color = SELECTED_BORDER_COLOR
+	add_theme_stylebox_override("panel", outer_style)
+	# 内层面板：卡牌类型背景色
 	var bg: Color = Color(0.30, 0.30, 0.34, 1.0)
 	if _card != null and is_instance_valid(_card):
 		var ctype: String = _card.get("card_type")
 		bg = TYPE_COLORS.get(ctype, Color(0.30, 0.30, 0.34, 1.0))
-	var style := StyleBoxFlat.new()
-	style.bg_color = bg
-	if _is_selected:
-		style.border_width_left = SELECTED_BORDER_WIDTH
-		style.border_width_top = SELECTED_BORDER_WIDTH
-		style.border_width_right = SELECTED_BORDER_WIDTH
-		style.border_width_bottom = SELECTED_BORDER_WIDTH
-		style.border_color = SELECTED_BORDER_COLOR
-	else:
-		style.border_width_left = 1
-		style.border_width_top = 1
-		style.border_width_right = 1
-		style.border_width_bottom = 1
-		style.border_color = Color(0.15, 0.15, 0.15, 1.0)
-	add_theme_stylebox_override("panel", style)
+	if _content_panel != null and is_instance_valid(_content_panel):
+		var inner_style := StyleBoxFlat.new()
+		inner_style.bg_color = bg
+		_content_panel.add_theme_stylebox_override("panel", inner_style)
 
 
 func _type_display(ctype: String) -> String:

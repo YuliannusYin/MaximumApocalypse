@@ -327,6 +327,7 @@ func get_engaged_monsters(player: Variant) -> Array:
 
 
 ## 从玩家指定区域随机返回一张牌；无牌返回 null。
+## 装备区持有 Equipment 实体，返回时映射为来源 EquipmentCard，保持"返回卡"语义。
 func get_random_card(player: Variant, areas: Array) -> Variant:
 	if player == null or not is_instance_valid(player):
 		return null
@@ -335,7 +336,9 @@ func get_random_card(player: Variant, areas: Array) -> Variant:
 		if area == "hand" and "hand" in player:
 			all_cards.append_array(player.hand)
 		elif area == "equipment" and "equipment_zone" in player:
-			all_cards.append_array(player.equipment_zone)
+			for e in player.equipment_zone:
+				if e != null and is_instance_valid(e) and e.get("equipment_card") != null:
+					all_cards.append(e.equipment_card)
 	if all_cards.is_empty():
 		return null
 	return all_cards[randi() % all_cards.size()]

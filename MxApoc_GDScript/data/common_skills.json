@@ -1,41 +1,5 @@
 [
   {
-    "skill_name": "移动",
-    "english_name": "move",
-    "skill_description": "移动到相邻的存活地块",
-    "skill_type": "common",
-    "active": "action",
-    "target_type": "block",
-    "filter_target_range": "short",
-    "select_target": 1,
-    "filter_target": "return target != player.get_current_block()",
-    "usable": -1,
-    "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-    "content": "player.reduce_action_count(1)\nawait player.move_to(target)"
-  },
-  {
-    "skill_name": "摸牌",
-    "english_name": "draw_card",
-    "skill_description": "从求生者游戏牌堆中抓取一张牌",
-    "skill_type": "common",
-    "active": "action",
-    "target_type": "",
-    "usable": -1,
-    "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-    "content": "player.reduce_action_count(1)\nawait player.draw(1)"
-  },
-  {
-    "skill_name": "拾荒",
-    "english_name": "scavenge",
-    "skill_description": "从当前地块可拾荒的牌堆中抓取一张牌",
-    "skill_type": "common",
-    "active": "action",
-    "target_type": "pile",
-    "usable": -1,
-    "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_current_block() != null && player.get_current_block().has_color()",
-    "content": "player.reduce_action_count(1)\nawait player.draw_scavenge(1, game.get_scavenge_pile(target))"
-  },
-  {
     "skill_name": "制衡",
     "english_name": "balance",
     "skill_description": "弃置两张求生者游戏牌，然后从游戏牌堆抓取一张牌",
@@ -63,17 +27,5 @@
     "filter": "return player.in_phase == \"action\" && player.get_current_block() != null && player.get_current_block().get_players().size() > 1",
     "filter_target": "return target != player && target.is_alive()",
     "content": "var card = event[\"cards\"][0]\nplayer.show_card(card, target)\nvar result = await target.choose([\"同意\", \"拒绝\"], \"是否同意交易？\")\nif result == \"同意\":\n\tvar cards2 = await target.choose_card(1, \"hand\")\n\tif cards2.size() > 0:\n\t\tvar card2 = cards2[0]\n\t\tplayer._remove_card_from_zone(card)\n\t\ttarget._remove_card_from_zone(card2)\n\t\ttarget.hand.append(card)\n\t\tplayer.hand.append(card2)"
-  },
-  {
-    "skill_name": "加油",
-    "english_name": "refuel",
-    "skill_description": "消耗一个燃料装备的1点填充物，为另一燃料装备补充1点填充物",
-    "skill_type": "common",
-    "active": "action",
-    "target_type": "equipment",
-    "usable": -1,
-    "filter": "return player.in_phase == \"action\"",
-    "filter_target": "return target != null && target.has_method(\"get_charge\") && target.get(\"charge_type\") == \"fuel\" && target.get_charge() < target.get(\"charge_max\")",
-    "content": "var source = null\nfor e in player.equipment_zone:\n\tif e.get(\"charge_type\") == \"fuel\" && e.get_charge() > 0:\n\t\tsource = e\n\t\tbreak\nif source != null:\n\tsource.consume_charge(1)\n\ttarget.refill(1)"
   }
 ]

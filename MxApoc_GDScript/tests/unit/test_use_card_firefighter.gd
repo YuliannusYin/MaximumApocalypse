@@ -202,7 +202,7 @@ func test_get_charge_count() -> void:
 	_setup_game_for_player(p)
 	var lighter: EquipmentCard = _make_firefighter_equipment("打火机")
 	assert_not_null(lighter, "应能创建打火机装备牌")
-	p.equipment_zone.append(lighter)
+	await p.equip(lighter)
 	var count: int = p.get_charge_count("打火机")
 	assert_eq(count, 2, "打火机初始填充物应为 2")
 

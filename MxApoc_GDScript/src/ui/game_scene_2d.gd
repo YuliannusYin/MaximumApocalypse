@@ -15,9 +15,9 @@ const ZOOM_STEP := 0.1
 const SETTINGS_DIALOG_SCENE := preload("res://scenes/SettingsDialog.tscn")
 
 # === 层节点（来自 .tscn）===
-@onready var _table_layer: Control = $TableLayer
-@onready var _ui_layer: Control = $UILayer
-@onready var _popup_layer: Control = $PopupLayer
+@onready var _table_layer: CanvasLayer = $TableLayer
+@onready var _ui_layer: CanvasLayer = $UILayer
+@onready var _popup_layer: CanvasLayer = $PopupLayer
 
 # === 桌子/摄像头 ===
 var _table_bg: ColorRect
@@ -57,9 +57,13 @@ var _hand_area: HandDisplayArea
 
 # === 卡牌选中状态 ===
 var _selected_card: Variant = null
+var _selected_pile_key: String = ""
 var _confirm_button: Button
 var _cancel_end_button: Button
 var _prompt_label: Label
+var _confirm_mode: bool = false
+var _move_select_mode: bool = false
+var _move_selected_block: Variant = null
 
 # === 右侧牌堆 ===
 var _pile_views: Dictionary = {}  # pile_key → {panel, label}，_wire_static_nodes 填充
@@ -102,6 +106,12 @@ func _wire_static_nodes() -> void:
 	if game_discard_entry != null:
 		var gd_panel: Panel = game_discard_entry["panel"]
 		gd_panel.gui_input.connect(_on_discard_pile_gui_input.bind("game"))
+	# 可点击牌堆（摸牌/拾荒）连接点击
+	for click_key in ["game_deck", "red_scavenge", "green_scavenge", "blue_scavenge"]:
+		var click_entry: Variant = _pile_views.get(click_key)
+		if click_entry != null:
+			var click_panel: Panel = click_entry["panel"]
+			click_panel.gui_input.connect(_on_pile_gui_input.bind(click_key))
 	_apply_styles()
 
 
@@ -110,8 +120,9 @@ func _apply_styles() -> void:
 		var entry: Variant = _pile_views.get(config["key"])
 		if entry == null:
 			continue
-		entry["panel"].add_theme_stylebox_override("panel", _make_pile_style(config["color"]))
+		entry["panel"].add_theme_stylebox_override("panel", _make_pile_style(config["color"], false))
 	_active_skill_panel.add_theme_stylebox_override("panel", _make_active_skill_style())
+	_refresh_pile_highlights()
 
 
 func _make_active_skill_style() -> StyleBoxFlat:
@@ -208,6 +219,8 @@ func _build_table_and_map() -> void:
 		_map_container.add_child(view)
 		view.setup(block)
 		_block_views[block.get_instance_id()] = view
+		view.block_clicked.connect(_on_block_clicked)
+		view.avatar_clicked.connect(_on_avatar_clicked)
 
 	_refresh_map()
 
@@ -224,8 +237,8 @@ func _refresh_map() -> void:
 		if view == null or not is_instance_valid(view):
 			continue
 		var is_current: bool = (current_block != null and is_instance_valid(current_block)
-				and block == current_block)
-		view.refresh(is_current)
+			and block == current_block)
+		view.refresh(is_current, current)
 
 
 func _input(event: InputEvent) -> void:
@@ -241,6 +254,46 @@ func _input(event: InputEvent) -> void:
 			_zoom_map(event.position, 1.0 + ZOOM_STEP)
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			_zoom_map(event.position, 1.0 - ZOOM_STEP)
+	elif event is InputEventKey and event.pressed and not event.echo:
+		_handle_shortcut(event.keycode)
+
+
+## 处理按钮快捷键（弹窗打开时不响应）。
+func _handle_shortcut(keycode: int) -> void:
+	if _popup_overlay != null:
+		return
+	if _move_select_mode:
+		match keycode:
+			KEY_S:
+				if _confirm_button != null and is_instance_valid(_confirm_button) and not _confirm_button.disabled:
+					_on_confirm_pressed()
+			KEY_C:
+				if _cancel_end_button != null and is_instance_valid(_cancel_end_button) and not _cancel_end_button.disabled:
+					_on_cancel_end_pressed()
+		return
+	if _confirm_mode:
+		match keycode:
+			KEY_S:
+				if _confirm_button != null and is_instance_valid(_confirm_button) and not _confirm_button.disabled:
+					_on_confirm_pressed()
+			KEY_C:
+				if _cancel_end_button != null and is_instance_valid(_cancel_end_button) and not _cancel_end_button.disabled:
+					_on_cancel_end_pressed()
+		return
+	match keycode:
+		KEY_S:
+			if _confirm_button != null and is_instance_valid(_confirm_button) and not _confirm_button.disabled:
+				_on_confirm_pressed()
+		KEY_E:
+			if _selected_pile_key == "" and _selected_card == null:
+				if _cancel_end_button != null and is_instance_valid(_cancel_end_button) and not _cancel_end_button.disabled:
+					_on_cancel_end_pressed()
+		KEY_C:
+			if _selected_pile_key != "" or _selected_card != null:
+				if _cancel_end_button != null and is_instance_valid(_cancel_end_button) and not _cancel_end_button.disabled:
+					_on_cancel_end_pressed()
+		KEY_M:
+			_enter_move_select_mode()
 
 
 func _clamp_camera() -> void:
@@ -352,7 +405,7 @@ func _build_hand_area() -> void:
 	_confirm_button = Button.new()
 	_confirm_button.position = Vector2(575, 550)
 	_confirm_button.size = Vector2(120, 30)
-	_confirm_button.text = "确定"
+	_confirm_button.text = "确定 (S)"
 	_confirm_button.add_theme_font_size_override("font_size", 14)
 	_confirm_button.disabled = true
 	_confirm_button.pressed.connect(_on_confirm_pressed)
@@ -361,7 +414,7 @@ func _build_hand_area() -> void:
 	_cancel_end_button = Button.new()
 	_cancel_end_button.position = Vector2(735, 550)
 	_cancel_end_button.size = Vector2(120, 30)
-	_cancel_end_button.text = "结束回合"
+	_cancel_end_button.text = "结束回合 (E)"
 	_cancel_end_button.add_theme_font_size_override("font_size", 14)
 	_cancel_end_button.disabled = true
 	_cancel_end_button.pressed.connect(_on_cancel_end_pressed)
@@ -390,6 +443,11 @@ func _refresh_hand_area() -> void:
 # === 卡牌选中处理 ===
 
 func _on_card_selected(card: Variant) -> void:
+	if _move_select_mode:
+		return
+	if _confirm_mode:
+		return
+	_selected_pile_key = ""  # 互斥：清除牌堆选中
 	_selected_card = card
 	_update_prompt(card)
 	_refresh_confirm_cancel_buttons()
@@ -423,6 +481,30 @@ func _update_prompt(card: Variant) -> void:
 
 
 func _on_confirm_pressed() -> void:
+	if _move_select_mode:
+		if _move_selected_block != null and is_instance_valid(_move_selected_block):
+			var target = _move_selected_block
+			_exit_move_select_mode()
+			if _gui_input != null and is_instance_valid(_gui_input):
+				_gui_input.respond_action({"type": "move", "target": target})
+		return
+	if _confirm_mode:
+		_confirm_mode = false
+		if _prompt_label != null and is_instance_valid(_prompt_label):
+			_prompt_label.text = ""
+		_refresh_confirm_cancel_buttons()
+		if _gui_input != null and is_instance_valid(_gui_input):
+			_gui_input.respond_confirm(true)
+		return
+	if _selected_pile_key != "":
+		var pile_key: String = _selected_pile_key
+		_selected_pile_key = ""
+		if _prompt_label != null and is_instance_valid(_prompt_label):
+			_prompt_label.text = ""
+		_refresh_confirm_cancel_buttons()
+		if _gui_input != null and is_instance_valid(_gui_input):
+			_gui_input.respond_action({"type": "pile_draw", "pile_key": pile_key})
+		return
 	if _selected_card == null or not is_instance_valid(_selected_card):
 		return
 	var current: Variant = Game.get_current_player()
@@ -437,6 +519,23 @@ func _on_confirm_pressed() -> void:
 
 
 func _on_cancel_end_pressed() -> void:
+	if _move_select_mode:
+		_exit_move_select_mode()
+		return
+	if _confirm_mode:
+		_confirm_mode = false
+		if _prompt_label != null and is_instance_valid(_prompt_label):
+			_prompt_label.text = ""
+		_refresh_confirm_cancel_buttons()
+		if _gui_input != null and is_instance_valid(_gui_input):
+			_gui_input.respond_confirm(false)
+		return
+	if _selected_pile_key != "":
+		_selected_pile_key = ""
+		if _prompt_label != null and is_instance_valid(_prompt_label):
+			_prompt_label.text = ""
+		_refresh_confirm_cancel_buttons()
+		return
 	if _selected_card != null:
 		# 有卡牌选中 → 取消选中
 		if _hand_area != null and is_instance_valid(_hand_area):
@@ -449,26 +548,146 @@ func _on_cancel_end_pressed() -> void:
 
 ## 双用途按钮 + 确定按钮状态刷新。
 func _refresh_confirm_cancel_buttons() -> void:
+	if _move_select_mode:
+		if _confirm_button != null and is_instance_valid(_confirm_button):
+			_confirm_button.text = "确定 (S)"
+			_confirm_button.disabled = _move_selected_block == null
+		if _cancel_end_button != null and is_instance_valid(_cancel_end_button):
+			_cancel_end_button.text = "取消 (C)"
+			_cancel_end_button.disabled = false
+		return
+	if _confirm_mode:
+		if _confirm_button != null and is_instance_valid(_confirm_button):
+			_confirm_button.text = "确定 (S)"
+			_confirm_button.disabled = false
+		if _cancel_end_button != null and is_instance_valid(_cancel_end_button):
+			_cancel_end_button.text = "取消 (C)"
+			_cancel_end_button.disabled = false
+		return
 	var current: Variant = Game.get_current_player()
 	var in_action: bool = false
 	var action_count: int = 0
 	if current != null and is_instance_valid(current):
 		in_action = (current.get("in_phase") == "action")
 		action_count = current.get("action_count")
-	# 确定按钮：有选中卡牌 + 行动阶段 + 行动次数>0
+	# 确定按钮：有选中卡牌或牌堆 + 行动阶段 + 行动次数>0 + 选中卡牌 filter 通过
 	if _confirm_button != null and is_instance_valid(_confirm_button):
-		_confirm_button.disabled = not (_selected_card != null and in_action and action_count > 0)
+		var card_ok: bool = true
+		if _selected_card != null and is_instance_valid(_selected_card) and current != null and is_instance_valid(current):
+			card_ok = current.is_card_usable(_selected_card)
+		_confirm_button.disabled = not ((_selected_card != null or _selected_pile_key != "") and in_action and action_count > 0 and card_ok)
 	# 取消/结束回合 双用途按钮
 	if _cancel_end_button != null and is_instance_valid(_cancel_end_button):
-		if _selected_card != null:
-			_cancel_end_button.text = "取消"
+		if _selected_pile_key != "":
+			_cancel_end_button.text = "取消 (C)"
+			_cancel_end_button.disabled = false
+		elif _selected_card != null:
+			_cancel_end_button.text = "取消 (C)"
 			_cancel_end_button.disabled = false
 		elif in_action and action_count <= 0:
-			_cancel_end_button.text = "结束回合"
+			_cancel_end_button.text = "结束回合 (E)"
 			_cancel_end_button.disabled = false
 		else:
-			_cancel_end_button.text = "结束回合"
+			_cancel_end_button.text = "结束回合 (E)"
 			_cancel_end_button.disabled = true
+
+
+# === 移动选择模式 ===
+
+## 进入移动选择模式：守卫弹窗/确认/已进入；守卫非行动阶段或行动次数≤0；复位选中并刷新高亮与按钮。
+func _enter_move_select_mode() -> void:
+	if _popup_overlay != null or _confirm_mode or _move_select_mode:
+		return
+	var current: Variant = Game.get_current_player()
+	if current == null or not is_instance_valid(current):
+		return
+	if current.get("in_phase") != "action" or current.get("action_count") <= 0:
+		return
+	_move_select_mode = true
+	_move_selected_block = null
+	# 清空手牌选中（互斥）
+	if _hand_area != null and is_instance_valid(_hand_area):
+		_hand_area.clear_selection()
+	_selected_card = null
+	_selected_pile_key = ""
+	if _prompt_label != null and is_instance_valid(_prompt_label):
+		_prompt_label.text = "\"移动\": 选择目标地图块"
+	_refresh_move_highlights()
+	_refresh_confirm_cancel_buttons()
+
+
+## 退出移动选择模式：复位状态，清空 prompt，清除移动高亮，刷新地图与按钮。
+func _exit_move_select_mode() -> void:
+	_move_select_mode = false
+	_move_selected_block = null
+	if _prompt_label != null and is_instance_valid(_prompt_label):
+		_prompt_label.text = ""
+	_refresh_move_highlights()
+	_refresh_map()
+	_refresh_confirm_cancel_buttons()
+
+
+## 刷新移动高亮：移动模式下当前地块相邻存活地块设为 green（已选中设为 golden），其余设为 none。
+func _refresh_move_highlights() -> void:
+	if not _move_select_mode:
+		for view in _block_views.values():
+			if view != null and is_instance_valid(view):
+				view.set_move_highlight("none")
+		return
+	var current: Variant = Game.get_current_player()
+	if current == null or not is_instance_valid(current):
+		return
+	var current_block: Variant = current.get("current_block")
+	if current_block == null or not is_instance_valid(current_block):
+		return
+	var adjacent: Array = current_block.get_adjacent_blocks()
+	for block in Game.map_area:
+		if block == null or not is_instance_valid(block):
+			continue
+		var view: Variant = _block_views.get(block.get_instance_id())
+		if view == null or not is_instance_valid(view):
+			continue
+		var is_adjacent: bool = false
+		for b in adjacent:
+			if b == block:
+				is_adjacent = true
+				break
+		if is_adjacent and block == _move_selected_block:
+			view.set_move_highlight("golden")
+		elif is_adjacent:
+			view.set_move_highlight("green")
+		else:
+			view.set_move_highlight("none")
+
+
+## 地块点击处理：移动模式下选中相邻存活地块，普通模式下弹出地块详情。
+func _on_block_clicked(block: Variant) -> void:
+	if _move_select_mode:
+		# 仅允许选择当前地块相邻的存活地块
+		var current: Variant = Game.get_current_player()
+		if current == null or not is_instance_valid(current):
+			return
+		var current_block: Variant = current.get("current_block")
+		if current_block == null or not is_instance_valid(current_block):
+			return
+		var adjacent: Array = current_block.get_adjacent_blocks()
+		var is_adjacent: bool = false
+		for b in adjacent:
+			if b == block:
+				is_adjacent = true
+				break
+		if not is_adjacent:
+			return
+		_move_selected_block = block
+		_refresh_move_highlights()
+		_refresh_confirm_cancel_buttons()
+		return
+	_show_block_detail_popup(block)
+
+
+## 当前玩家头像点击处理：进入移动选择模式。
+func _on_avatar_clicked(_block: Variant) -> void:
+	_enter_move_select_mode()
 
 
 func _on_settings_pressed() -> void:
@@ -565,19 +784,53 @@ func _get_current_player_deck_count() -> int:
 	return deck.size() if deck.has_method("size") else deck.get("cards").size()
 
 
-func _make_pile_style(color: Color) -> StyleBoxFlat:
+func _make_pile_style(color: Color, highlight: bool = false) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = color
-	style.border_width_left = 2
-	style.border_width_top = 2
-	style.border_width_right = 2
-	style.border_width_bottom = 2
-	style.border_color = Color(0.15, 0.15, 0.15, 1.0)
+	if highlight:
+		style.border_width_left = 4
+		style.border_width_top = 4
+		style.border_width_right = 4
+		style.border_width_bottom = 4
+		style.border_color = Color("#FFD700")
+	else:
+		style.border_width_left = 2
+		style.border_width_top = 2
+		style.border_width_right = 2
+		style.border_width_bottom = 2
+		style.border_color = Color(0.15, 0.15, 0.15, 1.0)
 	style.corner_radius_top_left = 4
 	style.corner_radius_top_right = 4
 	style.corner_radius_bottom_left = 4
 	style.corner_radius_bottom_right = 4
 	return style
+
+
+## 根据当前玩家行动状态刷新可操作牌堆的金黄色高亮。
+func _refresh_pile_highlights() -> void:
+	var current: Variant = Game.get_current_player()
+	var can_act: bool = false
+	var block_colors: PackedStringArray = []
+	if current != null and is_instance_valid(current):
+		can_act = current.get("in_phase") == "action" and current.get("action_count") > 0
+		var block: Variant = current.get("current_block")
+		if block != null and is_instance_valid(block):
+			block_colors = block.get("scavenge_colors")
+	for config in PILE_CONFIGS:
+		var highlight: bool = false
+		if can_act:
+			match config["key"]:
+				"game_deck":
+					highlight = _get_current_player_deck_count() > 0
+				"red_scavenge":
+					highlight = "red" in block_colors and _get_pile_count(Game.red_scavenge_pile) > 0
+				"green_scavenge":
+					highlight = "green" in block_colors and _get_pile_count(Game.green_scavenge_pile) > 0
+				"blue_scavenge":
+					highlight = "blue" in block_colors and _get_pile_count(Game.blue_scavenge_pile) > 0
+		var entry: Variant = _pile_views.get(config["key"])
+		if entry != null:
+			entry["panel"].add_theme_stylebox_override("panel", _make_pile_style(config["color"], highlight))
 
 
 # === 主动技能按钮区 ===
@@ -594,11 +847,16 @@ func _refresh_active_skill_buttons() -> void:
 	if current.get("in_phase") != "action":
 		return
 
+	var seen_names: Dictionary = {}
 	for skill in current.get("skills"):
 		if skill == null or not is_instance_valid(skill):
 			continue
 		if skill.get("active") == "":
 			continue
+		var sname: String = skill.skill_name
+		if seen_names.has(sname):
+			continue
+		seen_names[sname] = true
 		var btn := Button.new()
 		btn.text = skill.skill_name
 		btn.add_theme_font_size_override("font_size", 12)
@@ -612,6 +870,10 @@ func _refresh_active_skill_buttons() -> void:
 
 
 func _on_active_skill_pressed(skill: Skill) -> void:
+	if _move_select_mode:
+		return
+	if _confirm_mode:
+		return
 	if _gui_input != null and is_instance_valid(_gui_input):
 		_gui_input.respond_action({"type": "skill", "skill": skill})
 
@@ -632,6 +894,7 @@ func _on_action_requested(_player: Variant) -> void:
 	_update_phase_indicator()
 	_refresh_active_skill_buttons()
 	_refresh_confirm_cancel_buttons()
+	_refresh_pile_highlights()
 
 
 func _on_choose_requested(options: Array, prompt: String) -> void:
@@ -639,7 +902,12 @@ func _on_choose_requested(options: Array, prompt: String) -> void:
 
 
 func _on_confirm_requested(message: String) -> void:
-	_show_confirm_popup(message)
+	_confirm_mode = true
+	_selected_card = null
+	_selected_pile_key = ""
+	if _prompt_label != null and is_instance_valid(_prompt_label):
+		_prompt_label.text = message
+	_refresh_confirm_cancel_buttons()
 
 
 func _on_choose_card_requested(n: int, param: Variant) -> void:
@@ -793,6 +1061,11 @@ func _option_display_name(option: Variant) -> String:
 		return "%s (HP %d/%d)" % [option.monster_name, option.hp, option.max_hp]
 	if option is Player:
 		return option.player_name
+	if option is Equipment:
+		var eq: Equipment = option
+		if eq.charge_max > 0:
+			return "%s (%d/%d)" % [eq.card_name, eq.charge_current, eq.charge_max]
+		return eq.card_name
 	if option is Card:
 		return option.card_name
 	return str(option)
@@ -1100,6 +1373,8 @@ func _show_block_select_popup(blocks: Array, prompt: String) -> void:
 
 
 func _on_block_selected(block: Variant) -> void:
+	if _move_select_mode:
+		return
 	_close_popup()
 	_gui_input.respond_choose_block(block)
 
@@ -1136,6 +1411,158 @@ func _show_card_detail_popup(card: Card) -> void:
 
 func _on_card_detail_closed() -> void:
 	_close_popup()
+
+
+## 地块详情弹窗：点击地块时显示地块信息（已展示/未探索/已摧毁 三种分支）。
+func _show_block_detail_popup(block: Variant) -> void:
+	if block == null or not is_instance_valid(block):
+		return
+	var overlay := _create_modal_overlay()
+	var panel := Panel.new()
+	panel.position = Vector2(515, 200)
+	overlay.add_child(panel)
+
+	var vbox := VBoxContainer.new()
+	vbox.set_anchors_preset(PRESET_FULL_RECT)
+	vbox.offset_left = 12
+	vbox.offset_top = 8
+	vbox.offset_right = -12
+	vbox.offset_bottom = -8
+	vbox.add_theme_constant_override("separation", 4)
+	panel.add_child(vbox)
+
+	var coord_var: Variant = block.get("coordinate")
+	var coord: Dictionary = coord_var if coord_var is Dictionary else {"x": 0, "y": 0}
+	var coord_str: String = "(%d,%d)" % [coord.get("x", 0), coord.get("y", 0)]
+
+	# 已摧毁地块
+	if block.is_destroyed():
+		var destroyed_title := Label.new()
+		destroyed_title.text = "已摧毁 %s" % coord_str
+		destroyed_title.add_theme_font_size_override("font_size", 16)
+		vbox.add_child(destroyed_title)
+		panel.size = Vector2(240, 90)
+		var d_close := Button.new()
+		d_close.text = "关闭"
+		d_close.custom_minimum_size = Vector2(80, 30)
+		d_close.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		d_close.pressed.connect(_close_popup)
+		vbox.add_child(d_close)
+		return
+
+	# 未展示地块
+	if not block.is_revealed():
+		var unrevealed_title := Label.new()
+		unrevealed_title.text = "未探索 %s" % coord_str
+		unrevealed_title.add_theme_font_size_override("font_size", 16)
+		vbox.add_child(unrevealed_title)
+		panel.size = Vector2(240, 90)
+		var u_close := Button.new()
+		u_close.text = "关闭"
+		u_close.custom_minimum_size = Vector2(80, 30)
+		u_close.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		u_close.pressed.connect(_close_popup)
+		vbox.add_child(u_close)
+		return
+
+	# 已展示地块
+	var title := Label.new()
+	title.text = "%s %s" % [block.get("block_name"), coord_str]
+	title.add_theme_font_size_override("font_size", 16)
+	vbox.add_child(title)
+
+	var spawn_lbl := Label.new()
+	spawn_lbl.text = "刷怪点数：%d" % block.get("monster_spawn_value")
+	spawn_lbl.add_theme_font_size_override("font_size", 13)
+	vbox.add_child(spawn_lbl)
+
+	var color_map: Dictionary = {"red": "红", "green": "绿", "blue": "蓝"}
+	var color_parts: PackedStringArray = []
+	for c in block.get("scavenge_colors"):
+		color_parts.append(color_map.get(c, c))
+	var scavenge_lbl := Label.new()
+	scavenge_lbl.text = "拾荒颜色：" + ("、".join(color_parts) if color_parts.size() > 0 else "无")
+	scavenge_lbl.add_theme_font_size_override("font_size", 13)
+	vbox.add_child(scavenge_lbl)
+
+	# 技能描述
+	var skills: Array = block.get("skills")
+	var skill_count: int = 0
+	if not skills.is_empty():
+		var skill_header := Label.new()
+		skill_header.text = "地块技能："
+		skill_header.add_theme_font_size_override("font_size", 13)
+		vbox.add_child(skill_header)
+		for skill in skills:
+			if skill == null or not is_instance_valid(skill):
+				continue
+			skill_count += 1
+			var skill_lbl := Label.new()
+			skill_lbl.text = "• %s：%s" % [skill.get("skill_name"), skill.get("skill_description")]
+			skill_lbl.add_theme_font_size_override("font_size", 12)
+			skill_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			skill_lbl.custom_minimum_size = Vector2(376, 0)
+			vbox.add_child(skill_lbl)
+
+	# 玩家列表
+	var players: Array = block.get_players()
+	var player_parts: PackedStringArray = []
+	for p in players:
+		if p != null and is_instance_valid(p):
+			player_parts.append(p.get("player_name"))
+	var players_lbl := Label.new()
+	players_lbl.text = "玩家：" + ("、".join(player_parts) if player_parts.size() > 0 else "无")
+	players_lbl.add_theme_font_size_override("font_size", 13)
+	vbox.add_child(players_lbl)
+
+	# 怪物列表（遍历地块上所有玩家的 monster_zone）
+	var monsters: Array = []
+	for p in players:
+		if p == null or not is_instance_valid(p):
+			continue
+		for m in p.get("monster_zone"):
+			if m != null and is_instance_valid(m):
+				monsters.append(m)
+	var monster_header := Label.new()
+	monster_header.text = "怪物："
+	monster_header.add_theme_font_size_override("font_size", 13)
+	vbox.add_child(monster_header)
+	if monsters.is_empty():
+		var empty_lbl := Label.new()
+		empty_lbl.text = "  无"
+		empty_lbl.add_theme_font_size_override("font_size", 12)
+		vbox.add_child(empty_lbl)
+	else:
+		for m in monsters:
+			var m_lbl := Label.new()
+			m_lbl.text = "  %s (HP %d/%d)" % [m.get("monster_name"), m.get("hp"), m.get("max_hp")]
+			m_lbl.add_theme_font_size_override("font_size", 12)
+			vbox.add_child(m_lbl)
+
+	# 怪物标记数
+	var marks_lbl := Label.new()
+	marks_lbl.text = "怪物标记：%d" % block.get("monster_marks")
+	marks_lbl.add_theme_font_size_override("font_size", 13)
+	vbox.add_child(marks_lbl)
+
+	# 特殊标记（目标标记）
+	var obj_marks: Array = block.get("objective_marks")
+	var obj_lbl := Label.new()
+	obj_lbl.text = "特殊标记：%d" % obj_marks.size()
+	obj_lbl.add_theme_font_size_override("font_size", 13)
+	vbox.add_child(obj_lbl)
+
+	# 关闭按钮
+	var close_btn := Button.new()
+	close_btn.text = "关闭"
+	close_btn.custom_minimum_size = Vector2(80, 30)
+	close_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	close_btn.pressed.connect(_close_popup)
+	vbox.add_child(close_btn)
+
+	# 尺寸根据内容自适应（粗略估算高度）
+	var est_h: int = 28 + 22 + 22 + (22 + skill_count * 36) + 22 + (22 + maxi(monsters.size(), 1) * 20) + 22 + 22 + 38 + 24
+	panel.size = Vector2(400, est_h)
 
 
 # === 详情弹窗（任务 #91） ===
@@ -1285,6 +1712,81 @@ func _on_discard_pile_gui_input(event: InputEvent, pile_type: String) -> void:
 			_show_game_discard_popup()
 
 
+## 可操作牌堆（摸牌/拾荒）的鼠标点击处理。
+func _on_pile_gui_input(event: InputEvent, pile_key: String) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		_on_pile_clicked(pile_key)
+
+
+## 判断牌堆当前是否可点击（可操作）。
+func _is_pile_clickable(pile_key: String) -> bool:
+	var current: Variant = Game.get_current_player()
+	if current == null or not is_instance_valid(current):
+		return false
+	if current.get("in_phase") != "action" or current.get("action_count") <= 0:
+		return false
+	match pile_key:
+		"game_deck":
+			return _get_current_player_deck_count() > 0
+		"red_scavenge", "green_scavenge", "blue_scavenge":
+			var block: Variant = current.get("current_block")
+			if block == null or not is_instance_valid(block):
+				return false
+			var color_key: String = pile_key.replace("_scavenge", "")
+			if not color_key in block.get("scavenge_colors"):
+				return false
+			var pile: Variant = null
+			match pile_key:
+				"red_scavenge":
+					pile = Game.red_scavenge_pile
+				"green_scavenge":
+					pile = Game.green_scavenge_pile
+				"blue_scavenge":
+					pile = Game.blue_scavenge_pile
+			return _get_pile_count(pile) > 0
+		_:
+			return false
+
+
+## 牌堆中文名。
+func _pile_display_name(pile_key: String) -> String:
+	match pile_key:
+		"game_deck":
+			return "游戏牌堆"
+		"red_scavenge":
+			return "红色拾荒牌堆"
+		"green_scavenge":
+			return "绿色拾荒牌堆"
+		"blue_scavenge":
+			return "蓝色拾荒牌堆"
+		_:
+			return "牌堆"
+
+
+## 点击可操作牌堆，进入"牌堆选中"状态。
+func _on_pile_clicked(pile_key: String) -> void:
+	if _move_select_mode:
+		return
+	if _confirm_mode:
+		return
+	if not _is_pile_clickable(pile_key):
+		return
+	# 互斥：清除手牌选中
+	if _selected_card != null:
+		if _hand_area != null and is_instance_valid(_hand_area):
+			_hand_area.clear_selection()
+	_selected_pile_key = pile_key
+	_update_prompt_for_pile(pile_key)
+	_refresh_confirm_cancel_buttons()
+
+
+## 牌堆选中时更新 prompt。
+func _update_prompt_for_pile(pile_key: String) -> void:
+	if _prompt_label == null or not is_instance_valid(_prompt_label):
+		return
+	_prompt_label.text = "是否从" + _pile_display_name(pile_key) + "中抓取一张牌？"
+
+
 func _show_scavenge_discard_popup() -> void:
 	var cards: Array = []
 	if Game.scavenge_discard_pile != null and is_instance_valid(Game.scavenge_discard_pile):
@@ -1400,8 +1902,8 @@ func _show_monster_zone_popup(player: Variant) -> void:
 	var pname: String = player.get("player_name")
 	var overlay := _create_modal_overlay()
 
-	var card_w: int = 120
-	var card_h: int = 180
+	var card_w: int = 130
+	var card_h: int = 190
 	var cols: int = 4
 	var flow_w: int = cols * card_w + (cols - 1) * 8
 	var rows: int = ceili(float(maxi(monsters.size(), 1)) / float(cols))
@@ -1441,7 +1943,7 @@ func _show_monster_zone_popup(player: Variant) -> void:
 		for m in monsters:
 			if m == null or not is_instance_valid(m):
 				continue
-			flow.add_child(_build_monster_card(m, card_w, card_h))
+			flow.add_child(_build_monster_card(m, 120, 180))
 
 	var ok_btn := Button.new()
 	ok_btn.text = "关闭"
@@ -1451,34 +1953,24 @@ func _show_monster_zone_popup(player: Variant) -> void:
 	vbox.add_child(ok_btn)
 
 
-## 构建单个怪物卡片（120×180）：图片 + 属性叠加 + 彩色边框。
+## 构建单个怪物卡片（外层130×190黑色边框 + 内层120×180）：图片 + 属性叠加。
 func _build_monster_card(m: Variant, w: int, h: int) -> Panel:
 	var card := Panel.new()
-	card.custom_minimum_size = Vector2(w, h)
-	card.size = Vector2(w, h)
+	card.custom_minimum_size = Vector2(w + 10, h + 10)
+	card.size = Vector2(w + 10, h + 10)
 
-	# 彩色边框：boss=红/elite=橙/normal=灰
-	var level: String = m.get("monster_level")
-	var border_color: Color = Color(0.4, 0.4, 0.4, 1.0)
-	var border_w: int = 2
-	if level == "boss":
-		border_color = Color(0.85, 0.15, 0.15, 1.0)
-		border_w = 4
-	elif level == "elite":
-		border_color = Color(0.9, 0.6, 0.1, 1.0)
-		border_w = 3
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.15, 0.15, 0.18, 1.0)
-	style.border_width_left = border_w
-	style.border_width_top = border_w
-	style.border_width_right = border_w
-	style.border_width_bottom = border_w
-	style.border_color = border_color
-	style.corner_radius_top_left = 4
-	style.corner_radius_top_right = 4
-	style.corner_radius_bottom_left = 4
-	style.corner_radius_bottom_right = 4
+	style.bg_color = Color.BLACK
 	card.add_theme_stylebox_override("panel", style)
+
+	var inner := Panel.new()
+	inner.position = Vector2(5, 5)
+	inner.size = Vector2(w, h)
+	var inner_style := StyleBoxFlat.new()
+	inner_style.bg_color = Color(0.15, 0.15, 0.18, 1.0)
+	inner.add_theme_stylebox_override("panel", inner_style)
+	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(inner)
 
 	# 怪物图片
 	var tex: Texture2D = ImageCache.get_monster_texture(m.get("monster_name"))
@@ -1491,7 +1983,7 @@ func _build_monster_card(m: Variant, w: int, h: int) -> Panel:
 		img.texture = tex
 		if m.get("stunned"):
 			img.modulate = Color(0.5, 0.5, 0.8, 0.7)
-		card.add_child(img)
+		inner.add_child(img)
 
 	# HP/MaxHP（右上角）
 	var hp_lbl := Label.new()
@@ -1502,7 +1994,7 @@ func _build_monster_card(m: Variant, w: int, h: int) -> Panel:
 	hp_lbl.add_theme_font_size_override("font_size", 12)
 	hp_lbl.add_theme_color_override("font_outline_color", Color.BLACK)
 	hp_lbl.add_theme_constant_override("outline_size", 3)
-	card.add_child(hp_lbl)
+	inner.add_child(hp_lbl)
 
 	# 攻击力（HP 下方）
 	var atk_lbl := Label.new()
@@ -1513,7 +2005,7 @@ func _build_monster_card(m: Variant, w: int, h: int) -> Panel:
 	atk_lbl.add_theme_font_size_override("font_size", 11)
 	atk_lbl.add_theme_color_override("font_outline_color", Color.BLACK)
 	atk_lbl.add_theme_constant_override("outline_size", 3)
-	card.add_child(atk_lbl)
+	inner.add_child(atk_lbl)
 
 	# 怪物名（中下）
 	var name_lbl := Label.new()
@@ -1524,7 +2016,7 @@ func _build_monster_card(m: Variant, w: int, h: int) -> Panel:
 	name_lbl.add_theme_font_size_override("font_size", 13)
 	name_lbl.add_theme_color_override("font_outline_color", Color.BLACK)
 	name_lbl.add_theme_constant_override("outline_size", 3)
-	card.add_child(name_lbl)
+	inner.add_child(name_lbl)
 
 	# 射程（名字下方）
 	var range_map := {"none": "纠缠", "short": "短程", "medium": "中程", "long": "远程", "infinity": "无限"}
@@ -1536,7 +2028,7 @@ func _build_monster_card(m: Variant, w: int, h: int) -> Panel:
 	range_lbl.add_theme_font_size_override("font_size", 11)
 	range_lbl.add_theme_color_override("font_outline_color", Color.BLACK)
 	range_lbl.add_theme_constant_override("outline_size", 3)
-	card.add_child(range_lbl)
+	inner.add_child(range_lbl)
 
 	# 眩晕标识（左上角）
 	if m.get("stunned"):
@@ -1548,7 +2040,7 @@ func _build_monster_card(m: Variant, w: int, h: int) -> Panel:
 		stun_lbl.add_theme_color_override("font_color", Color(0.6, 0.8, 1.0, 1.0))
 		stun_lbl.add_theme_color_override("font_outline_color", Color.BLACK)
 		stun_lbl.add_theme_constant_override("outline_size", 2)
-		card.add_child(stun_lbl)
+		inner.add_child(stun_lbl)
 
 	return card
 
@@ -1560,8 +2052,8 @@ func _show_equipment_zone_popup(player: Variant) -> void:
 	var pname: String = player.get("player_name")
 	var overlay := _create_modal_overlay()
 
-	var card_w: int = 120
-	var card_h: int = 180
+	var card_w: int = 130
+	var card_h: int = 190
 	var cols: int = 4
 	var flow_w: int = cols * card_w + (cols - 1) * 8
 	var rows: int = ceili(float(maxi(equips.size(), 1)) / float(cols))
@@ -1601,7 +2093,7 @@ func _show_equipment_zone_popup(player: Variant) -> void:
 		for card in equips:
 			if card == null or not is_instance_valid(card):
 				continue
-			flow.add_child(_build_equipment_card(card, card_w, card_h))
+			flow.add_child(_build_equipment_card(card, 120, 180))
 
 	var ok_btn := Button.new()
 	ok_btn.text = "关闭"
@@ -1614,21 +2106,21 @@ func _show_equipment_zone_popup(player: Variant) -> void:
 ## 构建单个装备卡片（120×180）：图片 + 牌名(中下) + 射程(名字下) + 左上角格子数。
 func _build_equipment_card(card: Variant, w: int, h: int) -> Panel:
 	var p := Panel.new()
-	p.custom_minimum_size = Vector2(w, h)
-	p.size = Vector2(w, h)
+	p.custom_minimum_size = Vector2(w + 10, h + 10)
+	p.size = Vector2(w + 10, h + 10)
 
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.15, 0.15, 0.18, 1.0)
-	style.border_width_left = 2
-	style.border_width_top = 2
-	style.border_width_right = 2
-	style.border_width_bottom = 2
-	style.border_color = Color(0.3, 0.55, 0.35, 1.0)
-	style.corner_radius_top_left = 4
-	style.corner_radius_top_right = 4
-	style.corner_radius_bottom_left = 4
-	style.corner_radius_bottom_right = 4
+	style.bg_color = Color.BLACK
 	p.add_theme_stylebox_override("panel", style)
+
+	var inner := Panel.new()
+	inner.position = Vector2(5, 5)
+	inner.size = Vector2(w, h)
+	var inner_style := StyleBoxFlat.new()
+	inner_style.bg_color = Color(0.15, 0.15, 0.18, 1.0)
+	inner.add_theme_stylebox_override("panel", inner_style)
+	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	p.add_child(inner)
 
 	# 装备图片
 	var tex: Texture2D = ImageCache.get_card_texture(card.get("card_name"))
@@ -1639,7 +2131,7 @@ func _build_equipment_card(card: Variant, w: int, h: int) -> Panel:
 		img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 		img.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 		img.texture = tex
-		p.add_child(img)
+		inner.add_child(img)
 
 	# 左上角格子数
 	var size_val: Variant = card.get("size")
@@ -1652,7 +2144,7 @@ func _build_equipment_card(card: Variant, w: int, h: int) -> Panel:
 	badge.add_theme_color_override("font_color", Color.WHITE)
 	badge.add_theme_color_override("font_outline_color", Color.BLACK)
 	badge.add_theme_constant_override("outline_size", 3)
-	p.add_child(badge)
+	inner.add_child(badge)
 
 	# 牌名（中下）
 	var name_lbl := Label.new()
@@ -1663,7 +2155,7 @@ func _build_equipment_card(card: Variant, w: int, h: int) -> Panel:
 	name_lbl.add_theme_font_size_override("font_size", 13)
 	name_lbl.add_theme_color_override("font_outline_color", Color.BLACK)
 	name_lbl.add_theme_constant_override("outline_size", 3)
-	p.add_child(name_lbl)
+	inner.add_child(name_lbl)
 
 	# 射程（名字下方，仅 range≠"none" 且非空）
 	var range_val: Variant = card.get("range")
@@ -1678,7 +2170,7 @@ func _build_equipment_card(card: Variant, w: int, h: int) -> Panel:
 		range_lbl.add_theme_font_size_override("font_size", 11)
 		range_lbl.add_theme_color_override("font_outline_color", Color.BLACK)
 		range_lbl.add_theme_constant_override("outline_size", 3)
-		p.add_child(range_lbl)
+		inner.add_child(range_lbl)
 
 	# 填充物信息（如果有）
 	var charge_max_val: Variant = card.get("charge_max")
@@ -1694,7 +2186,7 @@ func _build_equipment_card(card: Variant, w: int, h: int) -> Panel:
 		charge_lbl.add_theme_color_override("font_color", Color(0.9, 0.85, 0.3, 1.0))
 		charge_lbl.add_theme_color_override("font_outline_color", Color.BLACK)
 		charge_lbl.add_theme_constant_override("outline_size", 3)
-		p.add_child(charge_lbl)
+		inner.add_child(charge_lbl)
 
 	return p
 
@@ -1768,9 +2260,13 @@ func _on_turn_started(player: Variant) -> void:
 func _on_phase_changed(player: Variant, _old_phase: String, new_phase: String) -> void:
 	_update_phase_indicator()
 	_refresh_confirm_cancel_buttons()
+	_refresh_pile_highlights()
 	if new_phase != "action":
 		_clear_active_skill_buttons()
-		# 非行动阶段清空选中
+		# 非行动阶段清空选中（手牌 + 牌堆）
+		_selected_pile_key = ""
+		if _prompt_label != null and is_instance_valid(_prompt_label):
+			_prompt_label.text = ""
 		if _hand_area != null and is_instance_valid(_hand_area):
 			_hand_area.clear_selection()
 
@@ -1820,6 +2316,7 @@ func _phase_display(phase: String) -> String:
 func _on_player_moved(_player: Variant, _source_block: Variant, _target_block: Variant) -> void:
 	_refresh_map()
 	_refresh_all_panels()
+	_refresh_pile_highlights()
 
 
 func _on_block_revealed(_block: Variant, _player: Variant) -> void:
@@ -1849,6 +2346,7 @@ func _on_player_stat_changed(player: Variant, _arg1: Variant = null, _arg2: Vari
 	if player != null and is_instance_valid(player) and current != null and is_instance_valid(current) and player == current:
 		_refresh_hand_area()
 		_refresh_pile_counts()
+		_refresh_pile_highlights()
 		_refresh_active_skill_buttons()
 		_refresh_confirm_cancel_buttons()
 	_update_phase_indicator()
@@ -1856,6 +2354,7 @@ func _on_player_stat_changed(player: Variant, _arg1: Variant = null, _arg2: Vari
 
 func _on_pile_drawn(_player: Variant, _card: Variant) -> void:
 	_refresh_pile_counts()
+	_refresh_pile_highlights()
 	_refresh_panel_for_player(_player)
 
 

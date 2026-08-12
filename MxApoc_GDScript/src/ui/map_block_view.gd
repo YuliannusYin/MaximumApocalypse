@@ -18,7 +18,11 @@ var _texture_rect: TextureRect
 var _name_label: Label
 var _grid_cells: Array[TextureRect] = []  # 3×3 九宫格，索引 = row*3+col
 var _highlight_panel: Panel  # 高亮覆盖层，渲染在最顶层
+var _move_highlight_panel: Panel  # 移动选取高亮覆盖层（绿色/金黄色）
 var _block_texture: Texture2D  # 缓存已选中的地块变体纹理（revealed 后锁定，destroyed 复用）
+
+signal block_clicked(block: Variant)
+signal avatar_clicked(block: Variant)
 
 
 func _init() -> void:
@@ -33,7 +37,7 @@ func setup(block: MapBlock, is_current_player_block: bool = false) -> void:
 	refresh(is_current_player_block)
 
 
-func refresh(is_current_player_block: bool = false) -> void:
+func refresh(is_current_player_block: bool = false, current_player: Variant = null) -> void:
 	if _block == null or not is_instance_valid(_block):
 		return
 	if _block.is_destroyed():
@@ -46,7 +50,7 @@ func refresh(is_current_player_block: bool = false) -> void:
 		_highlight_panel.visible = true
 	else:
 		_highlight_panel.visible = false
-	_update_grid()
+	_update_grid(current_player)
 
 
 func _build_content() -> void:
@@ -102,6 +106,13 @@ func _build_content() -> void:
 	_highlight_panel.add_theme_stylebox_override("panel", hl_style)
 	add_child(_highlight_panel)
 
+	# 移动选取高亮覆盖层：渲染在最顶层，绿色/金黄色边框
+	_move_highlight_panel = Panel.new()
+	_move_highlight_panel.set_anchors_preset(PRESET_FULL_RECT)
+	_move_highlight_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_move_highlight_panel.visible = false
+	add_child(_move_highlight_panel)
+
 
 func _apply_unrevealed_style() -> void:
 	var back: Texture2D = ImageCache.get_block_back_texture()
@@ -142,12 +153,15 @@ func _apply_destroyed_style() -> void:
 
 
 ## 填充九宫格：玩家头像（前 N 格）+ 怪物标记图标（后 M 格）。
-func _update_grid() -> void:
+func _update_grid(current_player: Variant = null) -> void:
 	# 先清空所有格子
 	for cell in _grid_cells:
 		cell.texture = null
 		cell.visible = false
 		cell.modulate = Color(1, 1, 1, 1)
+		cell.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if cell.is_connected("gui_input", _on_avatar_cell_input):
+			cell.gui_input.disconnect(_on_avatar_cell_input)
 	if _block == null or not is_instance_valid(_block):
 		return
 	if not _block.is_revealed() or _block.is_destroyed():
@@ -168,6 +182,10 @@ func _update_grid() -> void:
 		if tex != null:
 			_grid_cells[idx].texture = tex
 			_grid_cells[idx].visible = true
+			if current_player != null and player == current_player:
+				_grid_cells[idx].mouse_filter = Control.MOUSE_FILTER_STOP
+				if not _grid_cells[idx].is_connected("gui_input", _on_avatar_cell_input):
+					_grid_cells[idx].gui_input.connect(_on_avatar_cell_input)
 			idx += 1
 	# 怪物标记
 	var mark_tex: Texture2D = ImageCache.get_monster_mark_texture()
@@ -200,3 +218,50 @@ func _make_fill_style(color: Color) -> StyleBoxFlat:
 	style.corner_radius_bottom_left = 2
 	style.corner_radius_bottom_right = 2
 	return style
+
+
+func _gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		block_clicked.emit(_block)
+
+
+## 设置移动选取高亮状态：none/green/golden。
+func set_move_highlight(state: String) -> void:
+	if _move_highlight_panel == null or not is_instance_valid(_move_highlight_panel):
+		return
+	match state:
+		"green":
+			_move_highlight_panel.visible = true
+			var style := StyleBoxFlat.new()
+			style.bg_color = Color(0, 0, 0, 0)
+			style.border_width_left = 5
+			style.border_width_top = 5
+			style.border_width_right = 5
+			style.border_width_bottom = 5
+			style.border_color = Color(0.2, 0.8, 0.2, 1.0)
+			style.corner_radius_top_left = 4
+			style.corner_radius_top_right = 4
+			style.corner_radius_bottom_left = 4
+			style.corner_radius_bottom_right = 4
+			_move_highlight_panel.add_theme_stylebox_override("panel", style)
+		"golden":
+			_move_highlight_panel.visible = true
+			var style := StyleBoxFlat.new()
+			style.bg_color = Color(0, 0, 0, 0)
+			style.border_width_left = 5
+			style.border_width_top = 5
+			style.border_width_right = 5
+			style.border_width_bottom = 5
+			style.border_color = Color(1.0, 0.84, 0.0, 1.0)
+			style.corner_radius_top_left = 4
+			style.corner_radius_top_right = 4
+			style.corner_radius_bottom_left = 4
+			style.corner_radius_bottom_right = 4
+			_move_highlight_panel.add_theme_stylebox_override("panel", style)
+		_:
+			_move_highlight_panel.visible = false
+
+
+func _on_avatar_cell_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		avatar_clicked.emit(_block)

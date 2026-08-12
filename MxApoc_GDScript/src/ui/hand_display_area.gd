@@ -9,10 +9,10 @@ const AREA_X := 265
 const AREA_Y := 620
 const AREA_W := 900
 const AREA_H := 150
-const CARD_W := 100
-const CARD_H := 140
+const CARD_W := 110
+const CARD_H := 150
 const CARD_GAP := 8
-const CARD_Y := 5.0  # 卡牌在手牌区内的 y 偏移（垂直居中）
+const CARD_Y := 0.0  # 卡牌在手牌区内的 y 偏移（垂直居中）
 
 signal card_selected(card: Variant)
 signal card_deselected()

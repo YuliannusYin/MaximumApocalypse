@@ -70,19 +70,15 @@ func _get_common_skill(english_name: String) -> Skill:
 
 func test_common_skills_count() -> void:
 	var skills: Array = DataManager.get_common_skills()
-	assert_eq(skills.size(), 6, "应加载 6 个通用技能")
+	assert_eq(skills.size(), 2, "应加载 2 个通用技能")
 
 
 func test_common_skill_target_types() -> void:
 	var by_name: Dictionary = {}
 	for sd in DataManager.get_common_skills():
 		by_name[sd.english_name] = sd
-	assert_eq(by_name["move"].target_type, "block")
-	assert_eq(by_name["draw_card"].target_type, "")
-	assert_eq(by_name["scavenge"].target_type, "pile")
 	assert_eq(by_name["balance"].target_type, "")
 	assert_eq(by_name["trade"].target_type, "entity")
-	assert_eq(by_name["refuel"].target_type, "equipment")
 
 
 # === B. use_active_skill 基础守卫 ===
@@ -191,9 +187,10 @@ func test_use_active_skill_equipment_target() -> void:
 	var p: Player = _make_player()
 	_setup_game_with_map(p, [])
 	var e: EquipmentCard = _make_equipment("fuel_can")
-	p.equipment_zone.append(e)
+	await p.equip(e)
+	var entity: Equipment = p.get_equipment("fuel_can")
 	var cli: CliPlayerInput = CliPlayerInput.new()
-	cli.queue_choose(e)
+	cli.queue_choose(entity)
 	p.input = cli
 	var captured: Array = []
 	var s: Skill = Skill.new()
@@ -202,7 +199,7 @@ func test_use_active_skill_equipment_target() -> void:
 	s.content = func(_pl, target, _ev, _g) -> void:
 		captured.append(target)
 	await p.use_active_skill(s)
-	assert_eq(captured, [e], "content 应收到选中的装备")
+	assert_eq(captured, [entity], "content 应收到选中的装备实体")
 
 
 # === D. use_active_skill 卡牌选择 ===
@@ -230,35 +227,6 @@ func test_use_active_skill_select_card() -> void:
 	assert_eq(captured[0], [c1, c2], "event.cards 应为选中的两张牌")
 
 
-# === E. 真实技能集成 ===
-
-func test_real_draw_card_skill() -> void:
-	var p: Player = _make_player()
-	_setup_game_with_map(p, [])
-	p.game_deck.add(_make_card("drawn1"))
-	var s: Skill = _get_common_skill("draw_card")
-	assert_not_null(s, "应找到 draw_card 技能")
-	await p.use_active_skill(s)
-	assert_eq(p.action_count, 1, "摸牌应消耗 1 行动次数")
-	assert_eq(p.hand.size(), 1, "应摸到 1 张牌")
-
-
-func test_real_move_skill() -> void:
-	var p: Player = _make_player()
-	var b1: MapBlock = _make_block("b1", 0, 0)
-	var b2: MapBlock = _make_block("b2", 1, 0)
-	_setup_game_with_map(p, [b1, b2])
-	p.current_block = b1
-	var cli: CliPlayerInput = CliPlayerInput.new()
-	cli.queue_choose_block(b2)
-	p.input = cli
-	var s: Skill = _get_common_skill("move")
-	assert_not_null(s, "应找到 move 技能")
-	await p.use_active_skill(s)
-	assert_eq(p.current_block, b2, "应移动到 b2")
-	assert_eq(p.action_count, 1, "移动应消耗 1 行动次数")
-
-
 # === F. wait_player_action 循环 ===
 
 func test_wait_player_action_exits_on_null() -> void:
@@ -271,18 +239,38 @@ func test_wait_player_action_exits_on_null() -> void:
 	assert_true(p.is_alive(), "null 应退出循环，玩家仍存活")
 
 
-func test_wait_player_action_skill_dict_then_null() -> void:
+func test_wait_player_action_pile_draw_game_deck() -> void:
 	var p: Player = _make_player()
 	_setup_game_with_map(p, [])
 	p.game_deck.add(_make_card("drawn1"))
-	var draw_skill: Skill = _get_common_skill("draw_card")
 	var cli: CliPlayerInput = CliPlayerInput.new()
-	cli.queue_action({"type": "skill", "skill": draw_skill})
+	cli.queue_action({"type": "pile_draw", "pile_key": "game_deck"})
 	cli.queue_action(null)
 	p.input = cli
 	await p.wait_player_action()
-	assert_eq(p.hand.size(), 1, "技能 dict 应触发摸牌")
+	assert_eq(p.hand.size(), 1, "pile_draw game_deck 应摸 1 张牌")
 	assert_eq(p.action_count, 1, "摸牌应消耗 1 行动次数")
+
+
+func test_wait_player_action_pile_draw_scavenge() -> void:
+	var p: Player = _make_player()
+	_setup_game_with_map(p, [])
+	Game.red_scavenge_pile.add(_make_card("scavenge1", "action", "scavenge"))
+	var cli: CliPlayerInput = CliPlayerInput.new()
+	cli.queue_action({"type": "pile_draw", "pile_key": "red_scavenge"})
+	cli.queue_action(null)
+	p.input = cli
+	await p.wait_player_action()
+	assert_eq(p.hand.size(), 1, "pile_draw red_scavenge 应抓 1 张拾荒牌")
+	assert_eq(p.action_count, 1, "拾荒应消耗 1 行动次数")
+
+
+func test_execute_pile_draw_invalid_key() -> void:
+	var p: Player = _make_player()
+	_setup_game_with_map(p, [])
+	await p._execute_pile_draw("unknown_key")
+	assert_eq(p.action_count, 2, "未知 pile_key 不应消耗行动次数")
+	assert_eq(p.hand.size(), 0, "未知 pile_key 不应抓牌")
 
 
 func test_wait_player_action_card_dict_then_null() -> void:
@@ -315,3 +303,18 @@ func test_start_turn_resets_skill_use_count() -> void:
 	assert_false(s.is_usable(), "使用一次后应不可用")
 	await p.start_turn()
 	assert_true(s.is_usable(), "回合开始应重置使用次数")
+
+
+func test_wait_player_action_move() -> void:
+	var p: Player = _make_player()
+	var b1: MapBlock = _make_block("b1", 0, 0)
+	var b2: MapBlock = _make_block("b2", 1, 0)
+	_setup_game_with_map(p, [b1, b2])
+	p.current_block = b1
+	var cli: CliPlayerInput = CliPlayerInput.new()
+	cli.queue_action({"type": "move", "target": b2})
+	cli.queue_action(null)
+	p.input = cli
+	await p.wait_player_action()
+	assert_eq(p.current_block, b2, "move 动作应将玩家移动到 b2")
+	assert_eq(p.action_count, 1, "move 应消耗 1 行动次数")

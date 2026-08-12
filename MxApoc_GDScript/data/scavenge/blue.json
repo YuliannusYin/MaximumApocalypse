@@ -14,10 +14,11 @@
           "skill_description": "行动：向一张武器卡填装2发弹药。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "target_type": "equipment",
+          "filter": "return player.in_phase == \"action\"",
           "select_target": 1,
           "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\" && target.charge_current < target.charge_max",
-          "content": "player.consume_action(1)\ntarget.add_charge(2, \"ammo\")"
+          "content": "player.add_charge_to(target, 2, \"ammo\")"
         }
       ]
     },
@@ -33,10 +34,11 @@
           "skill_description": "行动：向一张武器卡填装3发弹药。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "target_type": "equipment",
+          "filter": "return player.in_phase == \"action\"",
           "select_target": 1,
           "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\" && target.charge_current < target.charge_max",
-          "content": "player.consume_action(1)\ntarget.add_charge(3, \"ammo\")"
+          "content": "player.add_charge_to(target, 3, \"ammo\")"
         }
       ]
     },
@@ -52,10 +54,11 @@
           "skill_description": "行动：向一张武器卡填装4发弹药。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "target_type": "equipment",
+          "filter": "return player.in_phase == \"action\"",
           "select_target": 1,
           "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\" && target.charge_current < target.charge_max",
-          "content": "player.consume_action(1)\ntarget.add_charge(4, \"ammo\")"
+          "content": "player.add_charge_to(target, 4, \"ammo\")"
         }
       ]
     },
@@ -71,10 +74,11 @@
           "skill_description": "行动：向一张武器卡填装5发弹药。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "target_type": "equipment",
+          "filter": "return player.in_phase == \"action\"",
           "select_target": 1,
           "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\" && target.charge_current < target.charge_max",
-          "content": "player.consume_action(1)\ntarget.add_charge(5, \"ammo\")"
+          "content": "player.add_charge_to(target, 5, \"ammo\")"
         }
       ]
     },
@@ -89,10 +93,11 @@
           "skill_description": "行动：将一张武器卡填装到满弹药。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "target_type": "equipment",
+          "filter": "return player.in_phase == \"action\"",
           "select_target": 1,
           "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\" && target.charge_current < target.charge_max",
-          "content": "player.consume_action(1)\ntarget.fill_charge()"
+          "content": "player.fill_charge_to(target)"
         }
       ]
     },
@@ -227,11 +232,11 @@
           "range": "long",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter": "return player.in_phase == \"action\"",
           "select_target": 1,
           "filter_target": "return target.is_map_block() && !target.has_monster_mark()",
           "filter_target_range": "long",
-          "content": "player.consume_action(1)\ntarget.remove_all_objective_marks()\nvar list = game.get_target(target)\nfor i in list:\n\ti.damage(8, player)"
+          "content": "target.remove_all_objective_marks()\nvar list = game.get_target(target)\nfor i in list:\n\ti.damage(8, player)"
         }
       ]
     },
@@ -247,11 +252,11 @@
           "range": "medium",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter": "return player.in_phase == \"action\"",
           "select_target": 1,
           "filter_target": "return target.is_map_block() && target.is_revealed() && target.is_alive()",
           "filter_target_range": "medium",
-          "content": "player.consume_action(1)\nawait game.destroy_map_block(target, player)"
+          "content": "await game.destroy_map_block(target, player)"
         }
       ]
     }

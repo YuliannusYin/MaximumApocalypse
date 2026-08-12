@@ -11,31 +11,14 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_gs2d")
 
-[node name="TableLayer" type="Control" parent="."]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="TableLayer" type="CanvasLayer" parent="."]
+layer = 0
 
-[node name="UILayer" type="Control" parent="."]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
+[node name="UILayer" type="CanvasLayer" parent="."]
+layer = 1
 
-[node name="PopupLayer" type="Control" parent="."]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
+[node name="PopupLayer" type="CanvasLayer" parent="."]
+layer = 2
 
 [node name="TopBar" type="HBoxContainer" parent="UILayer"]
 layout_mode = 1
