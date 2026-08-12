@@ -57,6 +57,32 @@ func fill_charge() -> void:
 	charge_current = charge_max
 
 
+## 修改填充物类型。
+func change_charge_type(type: String) -> void:
+	charge_type = type
+
+
 ## 是否为武器牌（用于 damage 流程的 card 参数判断）。
 func is_weapon_card() -> bool:
 	return range != "none" and card_subtype == "equipment"
+
+
+## 实体化：复制卡面数据到 Equipment 实例。
+## 由 Player.equip 调用。装备区持有实体，来源卡通过 equipment_card 回引。
+func instantiate(player: Player = null) -> Equipment:
+	var eq: Equipment = Equipment.new()
+	eq.equipment_name = card_name
+	eq.card_name = card_name
+	eq.english_name = english_name
+	eq.card_type = card_type
+	eq.card_subtype = card_subtype
+	eq.source = source
+	eq.size = size
+	eq.range = range
+	eq.charge_type = charge_type
+	eq.charge_max = charge_max
+	eq.in_equipment_area = true
+	eq.equipment_card = self
+	for s in skills:
+		eq.add_skill(s)
+	return eq

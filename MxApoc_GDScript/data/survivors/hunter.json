@@ -50,7 +50,7 @@
           "range": "long",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && (player.has_equipment(\"bow\") || player.has_equipment(\"crossbow\"))",
+          "filter": "return player.in_phase == \"action\" && (player.has_equipment(\"bow\") || player.has_equipment(\"crossbow\"))",
           "select_target": 1,
           "filter_target": "return true",
           "filter_target_range": "long",
@@ -208,7 +208,7 @@
           "range": "medium",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter": "return player.in_phase == \"action\"",
           "select_target": 1,
           "filter_target": "return target.type == \"monster\"",
           "filter_target_range": "medium",
@@ -228,7 +228,7 @@
           "skill_description": "行动：使场上所有玩家的饥饿值降低1点。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter": "return player.in_phase == \"action\"",
           "content": "var list = game.get_all_players()\nfor i in list:\n\ti.decrease_hunger(1)"
         }
       ]
@@ -245,7 +245,7 @@
           "skill_description": "行动：从场上所有弃牌堆中选一张装备牌，将其置入场上任一玩家的装备区中。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && game.has_equipment_in_discard_piles()",
+          "filter": "return player.in_phase == \"action\" && game.has_equipment_in_discard_piles()",
           "content": "var list = game.get_all_discard_pile_equipments()\nvar card = await player.choose_card(list)\ntarget = await player.choose_target({\"select_target\": 1, \"filter_target\": \"return target.type == \\\"human\\\"\", \"filter_target_range\": \"infinity\"})\ntarget.equip(card)"
         }
       ]
@@ -290,7 +290,7 @@
           "skill_description": "行动：从任一拾荒牌堆中抓取3张牌，然后弃置一张拾荒牌。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter": "return player.in_phase == \"action\"",
           "content": "var result = await player.choose(\"请选择拾荒堆颜色：\", [\"red\", \"green\", \"blue\"])\nvar scavenge_pile = player.get_scavenge_pile(result)\nplayer.draw_scavenge(3, scavenge_pile)\nplayer.choose_to_discard(1, \"hand\", \"scavenge\")"
         }
       ]

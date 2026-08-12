@@ -962,8 +962,10 @@ func test_get_cards_by_name() -> void:
 
 func test_get_cards_by_position() -> void:
 	var p: Player = _make_player()
+	_setup_game_for_player(p)
 	p.hand.append(_make_card("c1"))
-	p.equipment_zone.append(_make_equipment("e1"))
+	var e1: EquipmentCard = _make_equipment("e1")
+	await p.equip(e1)
 	var hand_only: Array = p.get_cards("hand")
 	assert_eq(hand_only.size(), 1)
 	var equip_only: Array = p.get_cards("equipment")
@@ -972,16 +974,18 @@ func test_get_cards_by_position() -> void:
 
 func test_get_all_game_cards() -> void:
 	var p: Player = _make_player()
+	_setup_game_for_player(p)
 	var c1: Card = _make_card("c1")
-	var c2: Card = _make_card("c2")
+	var c2: EquipmentCard = _make_equipment("c2")
 	var c3: Card = _make_card("c3")
 	var c4: Card = _make_card("c4")
 	p.hand.append(c1)
-	p.equipment_zone.append(c2)
+	await p.equip(c2)
 	p.game_deck.add(c3)
 	p.game_discard_pile.add(c4)
 	var all: Array = p.get_all_game_cards()
 	assert_eq(all.size(), 4, "应返回所有游戏牌")
+	assert_true(all.has(c2), "装备区来源卡应在所有游戏牌中")
 
 
 func test_has_non_boss_monster() -> void:
@@ -1005,10 +1009,15 @@ func test_marks_management() -> void:
 
 func test_has_equipment() -> void:
 	var p: Player = _make_player()
+	_setup_game_for_player(p)
 	assert_false(p.has_equipment("weapon"))
-	p.equipment_zone.append(_make_equipment("weapon"))
+	var e: EquipmentCard = _make_equipment("weapon")
+	await p.equip(e)
 	assert_true(p.has_equipment("weapon"))
-	assert_not_null(p.get_equipment("weapon"))
+	var entity: Equipment = p.get_equipment("weapon")
+	assert_not_null(entity)
+	assert_true(entity is Equipment, "get_equipment 应返回 Equipment 实体")
+	assert_eq(entity.equipment_card, e, "实体 equipment_card 应回引来源卡")
 
 
 func test_get_number() -> void:
@@ -1085,10 +1094,12 @@ func test_play_card_immediately_equipment() -> void:
 
 func test_has_item() -> void:
 	var p: Player = _make_player()
+	_setup_game_for_player(p)
 	assert_false(p.has_item("potion"))
 	p.hand.append(_make_card("potion"))
 	assert_true(p.has_item("potion"))
-	p.equipment_zone.append(_make_equipment("special"))
+	var special: EquipmentCard = _make_equipment("special")
+	await p.equip(special)
 	assert_true(p.has_item("special"))
 
 

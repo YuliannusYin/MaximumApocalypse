@@ -133,6 +133,8 @@ func decrease_hunger(num: int) -> void:
 	if num <= 0:
 		return
 	hunger -= num
+	if Game != null and is_instance_valid(Game):
+		Game.log_message(LogColors.player(player_name) + " 减少了 " + str(num) + " 点饥饿值")
 	if count_mark("hunger_damage_level") > 0:
 		remove_mark("hunger_damage_level")
 	if role_card != null and not role_card.is_front():
@@ -279,8 +281,9 @@ func draw_monster(n: int) -> void:
 # === 三、弃牌与销毁流程 ===
 
 ## 弃置卡牌到对应弃牌堆（3 节点）。
-## target 可为 Card/Array[Card]/String（卡牌名）；position 为区域名；quantity 为数量。
-func discard(target: Variant, position: String = "", quantity: int = 1, type: String = "") -> void:
+## target 可为 Card/Equipment/Array/String（卡牌名）；position 为区域名；quantity 为数量。
+## 装备区命中时走卸下分支，并把来源 EquipmentCard 送入弃牌堆（弃牌堆永远收来源卡）。
+func discard(target: Variant, position: String = "", quantity: int = 1, type: String = "", silent: bool = false) -> void:
 	var cards_to_discard: Array = []
 	if type != "":
 		# 按类型弃置
@@ -290,6 +293,9 @@ func discard(target: Variant, position: String = "", quantity: int = 1, type: St
 				cards_to_discard.append(card)
 	elif target is Array:
 		cards_to_discard = target.duplicate()
+	elif target is Equipment:
+		# 装备实体
+		cards_to_discard.append(target)
 	elif target is Card:
 		# 单张卡牌
 		cards_to_discard.append(target)
@@ -305,23 +311,36 @@ func discard(target: Variant, position: String = "", quantity: int = 1, type: St
 		return
 	# 2. 逐张弃置
 	for card in cards_to_discard:
-		event["card"] = card
-		# 装备区的牌先走卸下流程
-		if equipment_zone.has(card):
-			_unequip(card)
+		var entity: Equipment = _resolve_equipment_entity(card)
+		if entity != null:
+			# 装备区实体：卸下 + 来源卡入弃牌堆
+			_unequip(entity)
+			var src_card: EquipmentCard = entity.equipment_card
+			event["card"] = src_card
+			if src_card.source == "scavenge":
+				if Game != null and Game.scavenge_discard_pile != null:
+					Game.scavenge_discard_pile.add(src_card)
+			else:
+				if game_discard_pile != null:
+					game_discard_pile.add(src_card)
+			if not silent and Game != null and is_instance_valid(Game):
+				Game.log_message(LogColors.player(player_name) + " 弃置了 " + LogColors.card(src_card.card_name))
+			if EventBus != null and is_instance_valid(EventBus):
+				EventBus.card_discarded.emit(self, src_card)
 		else:
+			# 手牌卡
+			event["card"] = card
 			_remove_card_from_zone(card)
-		# 进入对应弃牌堆（按 source 分派）
-		if card.source == "scavenge":
-			if Game != null and Game.scavenge_discard_pile != null:
-				Game.scavenge_discard_pile.add(card)
-		else:
-			if game_discard_pile != null:
-				game_discard_pile.add(card)
-		if Game != null and is_instance_valid(Game):
-			Game.log_message(LogColors.player(player_name) + " 弃置了 " + LogColors.card(card.card_name))
-		if EventBus != null and is_instance_valid(EventBus):
-			EventBus.card_discarded.emit(self, card)
+			if card.source == "scavenge":
+				if Game != null and Game.scavenge_discard_pile != null:
+					Game.scavenge_discard_pile.add(card)
+			else:
+				if game_discard_pile != null:
+					game_discard_pile.add(card)
+			if not silent and Game != null and is_instance_valid(Game):
+				Game.log_message(LogColors.player(player_name) + " 弃置了 " + LogColors.card(card.card_name))
+			if EventBus != null and is_instance_valid(EventBus):
+				EventBus.card_discarded.emit(self, card)
 		# 触发弃置牌时
 		await trigger("on_discard", event)
 	# 3. 弃置牌后
@@ -333,6 +352,8 @@ func remove_card(target: Variant, position: String = "", quantity: int = 1) -> v
 	var cards_to_remove: Array = []
 	if target is Array:
 		cards_to_remove = target.duplicate()
+	elif target is Equipment:
+		cards_to_remove.append(target)
 	elif target is Card:
 		cards_to_remove.append(target)
 	else:
@@ -349,13 +370,15 @@ func remove_card(target: Variant, position: String = "", quantity: int = 1) -> v
 	await trigger("before_remove_card", event)
 	if EventSystem.is_cancelled(event):
 		return
-	# 2. 逐张销毁
+	# 2. 逐张销毁（销毁不入弃牌堆，与现状一致）
 	for card in cards_to_remove:
-		event["card"] = card
-		event["cards"].append(card)
+		var entity: Equipment = _resolve_equipment_entity(card)
+		var src_card: Variant = entity.equipment_card if entity != null else card
+		event["card"] = src_card
+		event["cards"].append(src_card)
 		_remove_card_from_zone(card)
 		if Game != null:
-			Game.remove_card(card)
+			Game.remove_card(src_card)
 		await trigger("on_remove_card", event)
 	# 3. 销毁牌后
 	await trigger("after_remove_card", event)
@@ -517,13 +540,15 @@ func death(source: Entity) -> void:
 		if Game != null:
 			Game.remove_card(c)
 	# 3c. 拾荒卡按颜色洗回对应拾荒牌堆
+	# 装备区返回的是 Equipment 实体，需用来源 ScavengeCard 入拾荒牌堆。
 	var scavenge_cards: Array = get_cards("", "", 0, "scavenge")
 	for c in scavenge_cards:
 		_remove_card_from_zone(c)
-		if Game != null and c.has_method("get_color"):
-			var pile: Pile = Game.get_scavenge_pile(c.get_color())
+		var src_card: Variant = c.equipment_card if c is Equipment else c
+		if Game != null and src_card != null and src_card.has_method("get_color"):
+			var pile: Pile = Game.get_scavenge_pile(src_card.get_color())
 			if pile != null:
-				pile.add(c)
+				pile.add(src_card)
 	if Game != null:
 		for color in ["red", "green", "blue"]:
 			var pile: Pile = Game.get_scavenge_pile(color)
@@ -561,14 +586,15 @@ func use_card(card: Card) -> bool:
 		return false
 	# 3. 系统结算：统一消耗 1 点行动次数（输出"消耗了"日志）
 	consume_action(1)
-	if Game != null and is_instance_valid(Game):
-		Game.log_message(LogColors.player(player_name) + " 使用了 " + LogColors.card(card.card_name))
 	# 按卡牌类型分流
 	if card.card_type == "equipment":
+		if Game != null and is_instance_valid(Game):
+			Game.log_message(LogColors.player(player_name) + " 使用了 " + LogColors.card(card.card_name))
 		equip(card)
 	else:
 		# 行动牌：执行 card 上声明 active="action" 的 skill 的完整流程
 		var skill_executed: bool = false
+		var use_logged: bool = false
 		for skill in card.get_all_skills():
 			if skill.active != "action":
 				continue
@@ -594,16 +620,50 @@ func use_card(card: Card) -> bool:
 			if select_card_n > 0:
 				var cards: Array = await choose_card(select_card_n, "hand", skill.filter_card)
 				event["cards"] = cards
+			# 输出使用日志（有非自身目标时输出"对目标使用了"，否则输出"使用了"）
+			if not use_logged and Game != null and is_instance_valid(Game):
+				var _target: Variant = event.get("target", null)
+				if _target != null and _target != self:
+					Game.log_message(LogColors.player(player_name) + " 对 " + _format_target_name(_target) + " 使用了 " + LogColors.card(card.card_name))
+				else:
+					Game.log_message(LogColors.player(player_name) + " 使用了 " + LogColors.card(card.card_name))
+				use_logged = true
 			# 执行 content
 			await skill.execute_content(self, event)
 			skill_executed = true
-		# 弃牌（在 content 执行后）
-		discard(card)
+		# 若所有 skill 的 filter 均不通过，仍输出"使用了"日志
+		if not use_logged and Game != null and is_instance_valid(Game):
+			Game.log_message(LogColors.player(player_name) + " 使用了 " + LogColors.card(card.card_name))
+		# 弃牌（在 content 执行后，静默弃置不输出"弃置了"日志）
+		discard(card, "", 1, "", true)
 	# 4. 使用卡牌后
 	await trigger("after_use_card", event)
 	if EventBus != null and is_instance_valid(EventBus):
 		EventBus.card_used.emit(self, card)
 	return true
+
+
+## 判断手牌当前是否可被玩家使用（供 UI 确认按钮置灰）。
+## 装备牌直接可装备（无 filter 门槛）；行动牌需至少一个 active="action" 技能 filter 通过。
+## filter 以 target = null 求值，与 use_card 的校验时机保持一致。
+func is_card_usable(card: Card) -> bool:
+	if card == null or not is_instance_valid(card):
+		return false
+	if card.card_type == "equipment":
+		return true
+	var event: Dictionary = EventSystem.create_event({
+		"player": self,
+		"card": card,
+		"target": null,
+		"targets": [],
+		"cards": [],
+	})
+	for skill in card.get_all_skills():
+		if skill.active != "action":
+			continue
+		if skill.execute_filter(self, event):
+			return true
+	return false
 
 
 # === 八、装备流程 ===
@@ -616,21 +676,30 @@ func equip(card: Card) -> bool:
 	if EventSystem.is_cancelled(event):
 		return false
 	# 系统预校验
-	# a. 同名装备校验：弃置装备区中的同名装备
+	# a. 同名装备校验：弃置装备区中的同名装备（装备区持有 Equipment 实体）
+	# "燃料"例外：允许多张同时存在于装备区
 	var same_name: Array = []
-	for e in equipment_zone:
-		if e.card_name == card.card_name:
-			same_name.append(e)
-	for e in same_name:
-		discard(e)
+	if card.get("english_name") != "fuel":
+		for e in equipment_zone:
+			if e.card_name == card.card_name:
+				same_name.append(e)
+		for e in same_name:
+			discard(e)
 	# b. 装备栏容量校验（简化：不强制，阶段 1 容量由 RoleCard.equipment_capacity 约束）
 	# 2. 卡牌进入装备区时
 	hand.erase(card)
-	equipment_zone.append(card)
-	if card is EquipmentCard:
-		card.in_equipment_area = true
-	# 装备技能挂载到玩家
-	if card.has_method("get_all_skills"):
+	# 实体化：装备区持有 Equipment 实体；非 EquipmentCard 时保底直接入区
+	var entity: Equipment = null
+	if card is EquipmentCard and card.has_method("instantiate"):
+		entity = card.instantiate(self)
+		equipment_zone.append(entity)
+	else:
+		equipment_zone.append(card)
+	# 装备技能挂载到玩家（从实体挂载，技能实例与来源卡同源）
+	if entity != null:
+		for s in entity.get_all_skills():
+			add_skill(s)
+	elif card.has_method("get_all_skills"):
 		for s in card.get_all_skills():
 			add_skill(s)
 	await trigger("on_equip", event)
@@ -639,32 +708,35 @@ func equip(card: Card) -> bool:
 	if Game != null and is_instance_valid(Game):
 		Game.log_message(LogColors.player(player_name) + " 装备了 " + LogColors.card(card.card_name))
 	if EventBus != null and is_instance_valid(EventBus):
-		EventBus.equipment_equipped.emit(self, card)
+		EventBus.equipment_equipped.emit(self, entity if entity != null else card)
 	return true
 
 
 ## 装备离开装备区（3 节点）。
-func unequip(card: Card) -> bool:
-	var event: Dictionary = EventSystem.create_equip_event(self, card)
+func unequip(card: Variant) -> bool:
+	# 解析装备实体（target 可为实体或来源卡）
+	var entity: Equipment = _resolve_equipment_entity(card)
+	if entity == null:
+		return false
+	var src_card: EquipmentCard = entity.equipment_card
+	var event: Dictionary = EventSystem.create_equip_event(self, src_card)
 	# 1. 卡牌离开装备区前（取消点）
 	await trigger("before_unequip", event)
 	if EventSystem.is_cancelled(event):
 		return false
 	# 2. 卡牌离开装备区时
-	equipment_zone.erase(card)
-	if card is EquipmentCard:
-		card.in_equipment_area = false
+	equipment_zone.erase(entity)
+	entity.in_equipment_area = false
 	await trigger("on_unequip", event)
 	# 移除装备技能（在 on_unequip 之后，确保 on_unequip 触发器仍可见装备技能）
-	if card.has_method("get_all_skills"):
-		for s in card.get_all_skills():
-			remove_skill(s)
+	for s in entity.get_all_skills():
+		remove_skill(s)
 	# 3. 卡牌离开装备区后
 	await trigger("after_unequip", event)
 	if Game != null and is_instance_valid(Game):
-		Game.log_message(LogColors.player(player_name) + " 卸下了 " + LogColors.card(card.card_name))
+		Game.log_message(LogColors.player(player_name) + " 卸下了 " + LogColors.card(src_card.card_name))
 	if EventBus != null and is_instance_valid(EventBus):
-		EventBus.equipment_unequipped.emit(self, card)
+		EventBus.equipment_unequipped.emit(self, src_card)
 	return true
 
 
@@ -690,13 +762,19 @@ func decrease_equipment_slot(n: int) -> void:
 # === 九、填充物流程 ===
 
 ## 装备填充物消耗（4 节点 + 耗尽衍生）。
-func consume_charge(equipment: EquipmentCard, num: int) -> bool:
+## equipment 可为 Equipment 实体或 EquipmentCard（实体方法委托到来源卡）。
+## 钩子/事件载荷收到的永远是来源 EquipmentCard（entity.equipment_card）。
+func consume_charge(equipment: Variant, num: int) -> bool:
 	# 前置校验：填充物不足时取消
 	if equipment == null or not equipment.has_method("get_charge"):
 		return false
 	if equipment.get_charge() < num:
 		return false
-	var event: Dictionary = EventSystem.create_consume_charge_event(self, equipment, num)
+	# 解析来源卡：钩子/事件载荷用来源卡（保留 charge_type 等 live 字段访问）
+	var src_card: Variant = equipment
+	if equipment is Equipment and equipment.equipment_card != null:
+		src_card = equipment.equipment_card
+	var event: Dictionary = EventSystem.create_consume_charge_event(self, src_card, num)
 	# 1. 消耗填充物前（取消点）
 	await trigger("before_consume_charge", event)
 	if EventSystem.is_cancelled(event):
@@ -705,7 +783,7 @@ func consume_charge(equipment: EquipmentCard, num: int) -> bool:
 	await trigger("on_consume_charge", event)
 	if EventSystem.is_cancelled(event):
 		return false
-	# 3. 系统扣减
+	# 3. 系统扣减（实体方法委托到来源卡）
 	if equipment.has_method("consume_charge"):
 		equipment.consume_charge(event["num"])
 		if Game != null and is_instance_valid(Game):
@@ -713,11 +791,47 @@ func consume_charge(equipment: EquipmentCard, num: int) -> bool:
 	# 4. 消耗填充物后
 	await trigger("after_consume_charge", event)
 	if EventBus != null and is_instance_valid(EventBus):
-		EventBus.charge_consumed.emit(self, equipment, num)
+		EventBus.charge_consumed.emit(self, src_card, num)
 	# 5. 衍生：填充物耗尽时
 	if equipment.get_charge() <= 0:
 		await trigger("on_charge_depleted", event)
 	return true
+
+
+## 为装备填装填充物并输出日志。
+func add_charge_to(equipment: Variant, amount: int, type: String) -> void:
+	if equipment == null or not equipment.has_method("add_charge"):
+		return
+	var before: int = equipment.get_charge()
+	equipment.add_charge(amount, type)
+	var added: int = equipment.get_charge() - before
+	if added > 0 and Game != null and is_instance_valid(Game):
+		Game.log_message(LogColors.player(player_name) + " 对 " + LogColors.card(equipment.card_name) + " 填装了 " + str(added) + " 发填充物")
+
+
+## 将装备填充物填满并输出日志。
+func fill_charge_to(equipment: Variant) -> void:
+	if equipment == null or not equipment.has_method("fill_charge"):
+		return
+	var before: int = equipment.get_charge()
+	equipment.fill_charge()
+	var added: int = equipment.get_charge() - before
+	if added > 0 and Game != null and is_instance_valid(Game):
+		Game.log_message(LogColors.player(player_name) + " 对 " + LogColors.card(equipment.card_name) + " 填装了 " + str(added) + " 发填充物")
+
+
+## 格式化目标名称为带颜色的字符串（用于日志输出）。
+func _format_target_name(target: Variant) -> String:
+	if typeof(target) == TYPE_OBJECT and is_instance_valid(target):
+		if target.has_method("is_monster") and target.is_monster():
+			return LogColors.monster(target.get("monster_name"))
+		elif target.has_method("is_player") and target.is_player():
+			return LogColors.player(target.get("player_name"))
+		elif "block_name" in target:
+			return LogColors.block(target.block_name)
+		elif "card_name" in target:
+			return LogColors.card(target.card_name)
+	return "\"" + str(target) + "\""
 
 
 # === 十、回合流程 ===
@@ -900,7 +1014,7 @@ func get_cards(position: String = "", name: String = "", quantity: int = 0, sour
 	return result
 
 
-func _card_matches(card: Card, name: String, source: String) -> bool:
+func _card_matches(card: Variant, name: String, source: String) -> bool:
 	if name != "" and card.card_name != name and card.english_name != name:
 		return false
 	if source != "" and card.source != source:
@@ -909,10 +1023,13 @@ func _card_matches(card: Card, name: String, source: String) -> bool:
 
 
 ## 返回所有求生者游戏牌（手牌+装备+牌堆+弃牌堆）。
+## 装备区追加来源 EquipmentCard（实体不入"所有游戏卡"）。
 func get_all_game_cards() -> Array:
 	var result: Array = []
 	result.append_array(hand)
-	result.append_array(equipment_zone)
+	for e in equipment_zone:
+		if e != null and e.equipment_card != null:
+			result.append(e.equipment_card)
 	if game_deck != null:
 		result.append_array(game_deck.get_all())
 	if game_discard_pile != null:
@@ -921,19 +1038,52 @@ func get_all_game_cards() -> Array:
 
 
 ## 从所在区域移除一张牌（内部方法）。
-func _remove_card_from_zone(card: Card) -> void:
+## 装备区持有 Equipment 实体，需解析实体后 erase。
+func _remove_card_from_zone(card: Variant) -> void:
 	hand.erase(card)
-	equipment_zone.erase(card)
+	var entity: Equipment = _resolve_equipment_entity(card)
+	if entity != null:
+		equipment_zone.erase(entity)
+	else:
+		equipment_zone.erase(card)
 
 
 ## 内部卸下装备（不触发钩子，供 discard 流程复用）。
-func _unequip(card: Card) -> void:
-	equipment_zone.erase(card)
-	if card is EquipmentCard:
-		card.in_equipment_area = false
-	if card != null and typeof(card) == TYPE_OBJECT and card.has_method("get_all_skills"):
-		for s in card.get_all_skills():
-			remove_skill(s)
+## target 可为 Equipment 实体或 EquipmentCard 来源卡。
+func _unequip(target: Variant) -> void:
+	var entity: Equipment = _resolve_equipment_entity(target)
+	if entity == null:
+		return
+	equipment_zone.erase(entity)
+	entity.in_equipment_area = false
+	for s in entity.get_all_skills():
+		remove_skill(s)
+
+
+## 解析装备实体：target 为 Equipment 实体时返回自身；
+## 为 EquipmentCard 时在装备区查找对应实体；为其他对象/字符串时按 card_name 匹配；
+## 找不到返回 null。
+func _resolve_equipment_entity(target: Variant) -> Equipment:
+	if target is Equipment:
+		return target
+	if target is EquipmentCard:
+		for e in equipment_zone:
+			if e != null and e.equipment_card == target:
+				return e
+		return null
+	# 按卡牌名匹配（对象或字符串）
+	var tname: String = ""
+	if target != null and typeof(target) == TYPE_OBJECT and target.has_method("get"):
+		var got: Variant = target.get("card_name")
+		if got is String:
+			tname = got
+	elif target is String:
+		tname = target
+	if tname != "":
+		for e in equipment_zone:
+			if e != null and (e.card_name == tname or e.english_name == tname):
+				return e
+	return null
 
 
 ## 玩家面前是否有非首领怪物。
@@ -1016,7 +1166,7 @@ func has_card(type: String = "") -> bool:
 	return false
 
 
-func get_equipment(name: String) -> EquipmentCard:
+func get_equipment(name: String) -> Equipment:
 	for e in equipment_zone:
 		if e.card_name == name or e.english_name == name:
 			return e
@@ -1025,7 +1175,7 @@ func get_equipment(name: String) -> EquipmentCard:
 
 ## 查询指定装备的当前 charge 数量；装备不存在返回 0。
 func get_charge_count(equipment_name: String) -> int:
-	var equip: EquipmentCard = get_equipment(equipment_name)
+	var equip: Equipment = get_equipment(equipment_name)
 	if equip == null or not is_instance_valid(equip):
 		return 0
 	return equip.get_charge()
@@ -1078,6 +1228,11 @@ func add_temp_skill(skill_id: String, expire_trigger: String) -> void:
 ## 选择器（委托 input）
 func choose(options: Array, prompt: String = "") -> Variant:
 	return await input.choose(options, prompt)
+
+
+## 确认对话框（委托 input）。
+func confirm(message: String) -> bool:
+	return await input.confirm(message)
 
 
 ## 选择卡牌。
@@ -1151,6 +1306,37 @@ func wait_player_action() -> void:
 				var card: Card = choice.get("card", null)
 				if card != null and is_instance_valid(card):
 					await use_card(card)
+			elif action_type == "pile_draw":
+				var pile_key: String = choice.get("pile_key", "")
+				await _execute_pile_draw(pile_key)
+			elif action_type == "move":
+				var target_block: Variant = choice.get("target", null)
+				if target_block != null and is_instance_valid(target_block):
+					consume_action(1)
+					await move_to(target_block)
+
+
+## 执行牌堆抓牌动作（UI 牌堆点击触发）。
+## pile_key 为 "game_deck" / "red_scavenge" / "green_scavenge" / "blue_scavenge"。
+func _execute_pile_draw(pile_key: String) -> void:
+	if pile_key == "game_deck":
+		consume_action(1)
+		await draw(1)
+		return
+	var pile: Pile = null
+	match pile_key:
+		"red_scavenge":
+			pile = Game.red_scavenge_pile
+		"green_scavenge":
+			pile = Game.green_scavenge_pile
+		"blue_scavenge":
+			pile = Game.blue_scavenge_pile
+		_:
+			return
+	if pile == null:
+		return
+	consume_action(1)
+	await draw_scavenge(1, pile)
 
 
 ## 设置标记让 wait_player_action 循环跳出。phase 为请求结束的阶段名。

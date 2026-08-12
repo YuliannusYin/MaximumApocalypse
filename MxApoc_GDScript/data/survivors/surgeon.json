@@ -1,4 +1,4 @@
-﻿{
+{
   "$schema": "survivor",
   "character_name": "外科医生",
   "english_name": "surgeon",
@@ -34,7 +34,7 @@
           "skill_description": "行动：抓取两张牌和一张拾荒卡。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter": "return player.in_phase == \"action\"",
           "content": "player.draw(2)\nvar result = await player.choose(\"请选择你抓取的拾荒卡颜色：\", [\"red\", \"green\", \"blue\"])\nvar pile = player.get_scavenge_pile(result)\nplayer.draw_scavenge(1, pile)"
         }
       ]
@@ -74,7 +74,7 @@
           "range": "medium",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter": "return player.in_phase == \"action\"",
           "select_target": -1,
           "filter_target": "return target.type == \"monster\"",
           "filter_target_range": "medium",
@@ -167,7 +167,7 @@
           "skill_description": "行动：使任一玩家回复6点生命。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter": "return player.in_phase == \"action\"",
           "select_target": 1,
           "filter_target": "return target.type == \"human\"",
           "filter_target_range": "infinity",
@@ -209,7 +209,7 @@
           "skill_description": "行动：选择一名玩家，该玩家可以立即打出2张牌。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter": "return player.in_phase == \"action\"",
           "select_target": 1,
           "filter_target": "return target.type == \"human\"",
           "filter_target_range": "infinity",
@@ -229,7 +229,7 @@
           "skill_description": "行动：选择一名玩家，该玩家可以立即执行2个行动。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter": "return player.in_phase == \"action\"",
           "select_target": 1,
           "filter_target": "return target.type == \"human\"",
           "filter_target_range": "infinity",

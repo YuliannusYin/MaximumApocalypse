@@ -136,7 +136,7 @@ static func create_equip_event(player: Variant, card: Card) -> Dictionary:
 
 
 # === 消耗填充物 event ===
-static func create_consume_charge_event(player: Variant, equipment: EquipmentCard, num: int) -> Dictionary:
+static func create_consume_charge_event(player: Variant, equipment: Variant, num: int) -> Dictionary:
 	return create_event({
 		"player": player,
 		"card": equipment,

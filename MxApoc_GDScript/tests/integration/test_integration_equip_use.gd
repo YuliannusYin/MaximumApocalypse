@@ -125,8 +125,8 @@ func test_equip_same_name_discards_existing() -> void:
 	assert_eq(p.equipment_zone.size(), 1, "装备区应只有 1 个（同名替换）")
 	assert_eq(p.game_discard_pile.get_all().size(), 1, "旧装备应进入弃牌堆")
 	assert_eq(p.game_discard_pile.get_all()[0], e1, "弃置的应是 e1")
-	# 新装备应在装备区
-	assert_eq(p.equipment_zone[0], e2, "装备区应是 e2")
+	# 新装备应在装备区（装备区持有 Equipment 实体，来源卡通过 equipment_card 回引）
+	assert_eq(p.equipment_zone[0].equipment_card, e2, "装备区实体的来源卡应是 e2")
 
 
 func test_consume_charge_insufficient_returns_false() -> void:

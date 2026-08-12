@@ -249,7 +249,9 @@ func test_equip_sets_in_equipment_area_true() -> void:
 	e.card_subtype = "equipment"
 	e.source = "game"
 	await p.equip(e)
-	assert_true(e.in_equipment_area, "装备后 in_equipment_area 应为 true")
+	var entity: Equipment = p.get_equipment("test_equip")
+	assert_not_null(entity, "装备区应有 Equipment 实体")
+	assert_true(entity.in_equipment_area, "装备后实体 in_equipment_area 应为 true")
 
 
 func test_unequip_sets_in_equipment_area_false() -> void:
@@ -261,8 +263,9 @@ func test_unequip_sets_in_equipment_area_false() -> void:
 	e.card_subtype = "equipment"
 	e.source = "game"
 	await p.equip(e)
+	var entity: Equipment = p.get_equipment("test_equip")
 	await p.unequip(e)
-	assert_false(e.in_equipment_area, "卸下后 in_equipment_area 应为 false")
+	assert_false(entity.in_equipment_area, "卸下后实体 in_equipment_area 应为 false")
 
 
 # === 三、关键拾荒卡使用流程测试 ===
@@ -344,16 +347,18 @@ func test_use_big_dynamite_destroys_block() -> void:
 
 # 使用"弹药（少量）"给装备区武器加 2 发弹药
 # 已修复：EquipmentCard.add_charge 已实装；ScavengeCard extends EquipmentCard，具备 charge_type 字段。
+# 重构后装备区持有 Equipment 实体：choose_target 候选为实体，content 在实体上调用 add_charge（委托回来源卡）。
 func test_use_ammo_small_adds_charge() -> void:
 	var p: Player = _make_player(10, 10)
 	_setup_game_for_player(p)
 	var pistol: Card = _make_scavenge_card("手枪")
 	pistol.charge_current = 0  # 弹药耗尽以便触发 filter（charge_current < charge_max）
 	await p.equip(pistol)
+	var pistol_entity: Equipment = p.get_equipment("手枪")
 	var card: Card = _make_scavenge_card("弹药（少量）")
 	p.hand.append(card)
 	var cli: CliPlayerInput = CliPlayerInput.new()
-	cli.queue_choose_target([pistol])
+	cli.queue_choose_target([pistol_entity])
 	p.input = cli
 	var result: bool = await p.use_card(card)
 	assert_true(result, "使用弹药（少量）应成功")
@@ -405,7 +410,7 @@ func test_bulletproof_vest_reduces_damage() -> void:
 	_setup_game_for_player(p)
 	var vest: Card = _make_scavenge_card("防弹背心")
 	await p.equip(vest)
-	assert_true(p.equipment_zone.has(vest), "防弹背心应进入装备区")
+	assert_true(p.has_equipment("防弹背心"), "防弹背心应进入装备区")
 	await p.damage(5, null)
 	assert_eq(p.hp, 7, "防弹背心应减伤 2（5 - 2 = 3 伤害，10 - 3 = 7）")
 
@@ -417,19 +422,19 @@ func test_bulletproof_vest_destroyed_after_3_uses() -> void:
 	_setup_game_for_player(p)
 	var vest: Card = _make_scavenge_card("防弹背心")
 	await p.equip(vest)
-	assert_true(p.equipment_zone.has(vest), "防弹背心应进入装备区")
+	assert_true(p.has_equipment("防弹背心"), "防弹背心应进入装备区")
 	# 第一次伤害：减伤 2，使用次数 1
 	await p.damage(5, null)
 	assert_eq(p.hp, 17, "第一次：减伤 2（5-2=3，20-3=17）")
-	assert_true(p.equipment_zone.has(vest), "第一次后背心仍在装备区")
+	assert_true(p.has_equipment("防弹背心"), "第一次后背心仍在装备区")
 	# 第二次伤害：减伤 2，使用次数 2
 	await p.damage(5, null)
 	assert_eq(p.hp, 14, "第二次：减伤 2（17-3=14）")
-	assert_true(p.equipment_zone.has(vest), "第二次后背心仍在装备区")
+	assert_true(p.has_equipment("防弹背心"), "第二次后背心仍在装备区")
 	# 第三次伤害：减伤 2，使用次数 3 → 销毁
 	await p.damage(5, null)
 	assert_eq(p.hp, 11, "第三次：减伤 2（14-3=11）")
-	assert_false(p.equipment_zone.has(vest), "第三次后背心应被销毁")
+	assert_false(p.has_equipment("防弹背心"), "第三次后背心应被销毁")
 
 
 # 装备"背包"后装备栏 +1
@@ -542,7 +547,7 @@ func test_fuel_equip_or_discard() -> void:
 	cli.queue_choose("装备燃料")
 	p.input = cli
 	await p.draw_scavenge(1, pile)
-	assert_true(p.equipment_zone.has(card), "选择装备燃料后应进入装备区")
+	assert_true(p.has_equipment(card.card_name), "选择装备燃料后应进入装备区")
 	assert_false(p.hand.has(card), "燃料不应留在手牌")
 
 
