@@ -1,5 +1,4 @@
 ﻿{
-  "$schema": "survivor",
   "character_name": "外科医生",
   "english_name": "surgeon",
   "max_hp": 23,
@@ -12,13 +11,26 @@
       "skill_name": "缝合",
       "english_name": "suture",
       "skill_description": "行动：使一名玩家回复1点生命。",
-      "range": "short",
+      "skill_type": "intrinsic",
       "active": "action",
-      "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-      "select_target": 1,
-      "filter_target": "return target.type == \"human\"",
-      "filter_target_range": "short",
-      "content": "player.consume_action(1)\ntarget.recover(1)"
+      "costs": [
+        {
+          "cost_type": "action_point",
+          "amount": 1
+        }
+      ],
+      "target_selector": {
+        "target_type": "human",
+        "select_count": 1,
+        "range": "short"
+      },
+      "effects": [
+        {
+          "effect_type": "recover_hp",
+          "target": "selected_target",
+          "amount": 1
+        }
+      ]
     }
   ],
   "deck": [
@@ -34,8 +46,29 @@
           "skill_description": "行动：抓取两张牌和一张拾荒卡。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "content": "player.draw(2)\nvar result = await player.choose(\"请选择你抓取的拾荒卡颜色：\", [\"red\", \"green\", \"blue\"])\nvar pile = player.get_scavenge_pile(result)\nplayer.draw_scavenge(1, pile)"
+          "costs": [
+            {
+              "cost_type": "action_point",
+              "amount": 1
+            }
+          ],
+          "effects": [
+            {
+              "effect_type": "draw_card",
+              "target": "self",
+              "amount": 2
+            },
+            {
+              "effect_type": "draw_scavenge_card",
+              "target": "self",
+              "amount": 1,
+              "color_choice": [
+                "red",
+                "green",
+                "blue"
+              ]
+            }
+          ]
         }
       ]
     },
@@ -50,14 +83,28 @@
           "skill_name": "轮床",
           "english_name": "stretcher",
           "skill_description": "行动：把一名玩家向你拉近1格，不触发地图块效果。",
-          "range": "long",
           "skill_type": "equipment",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "select_target": 1,
-          "filter_target": "return target.type == \"human\" && target != player",
-          "filter_target_range": "long",
-          "content": "player.consume_action(1)\ntarget.pull_toward_one_block_no_effect(player)"
+          "costs": [
+            {
+              "cost_type": "action_point",
+              "amount": 1
+            }
+          ],
+          "target_selector": {
+            "target_type": "human",
+            "condition": "is_self == false",
+            "select_count": 1,
+            "range": "long"
+          },
+          "effects": [
+            {
+              "effect_type": "pull_target",
+              "target": "selected_target",
+              "distance": 1,
+              "trigger_tile_effect": false
+            }
+          ]
         }
       ]
     },
@@ -71,14 +118,26 @@
           "skill_name": "莫洛托夫鸡尾酒",
           "english_name": "molotov_cocktail",
           "skill_description": "行动：对射程内的所有怪物造成3点伤害。",
-          "range": "medium",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "select_target": -1,
-          "filter_target": "return target.type == \"monster\"",
-          "filter_target_range": "medium",
-          "content": "var list = event.targets\nfor i in list:\n\ti.damage(3, player)"
+          "costs": [
+            {
+              "cost_type": "action_point",
+              "amount": 1
+            }
+          ],
+          "target_selector": {
+            "target_type": "monster",
+            "select_count": "all_in_range",
+            "range": "medium"
+          },
+          "effects": [
+            {
+              "effect_type": "damage",
+              "target": "selected_targets",
+              "amount": 3
+            }
+          ]
         }
       ]
     },
@@ -93,14 +152,26 @@
           "skill_name": "手术刀",
           "english_name": "scalpel",
           "skill_description": "行动：对1个目标造成2点伤害。",
-          "range": "short",
           "skill_type": "equipment",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "select_target": 1,
-          "filter_target": "return true",
-          "filter_target_range": "short",
-          "content": "player.consume_action(1)\ntarget.damage(2, player)"
+          "costs": [
+            {
+              "cost_type": "action_point",
+              "amount": 1
+            }
+          ],
+          "target_selector": {
+            "target_type": "any",
+            "select_count": 1,
+            "range": "short"
+          },
+          "effects": [
+            {
+              "effect_type": "damage",
+              "target": "selected_target",
+              "amount": 2
+            }
+          ]
         },
         {
           "skill_name": "手术刀·回复",
@@ -108,9 +179,13 @@
           "skill_description": "被动：回复生命时，额外回复1点。",
           "skill_type": "equipment",
           "trigger": "on_recover",
-          "filter": "return true",
           "forced": true,
-          "content": "event.num += 1"
+          "effects": [
+            {
+              "effect_type": "modify_heal_amount",
+              "amount": 1
+            }
+          ]
         }
       ]
     },
@@ -127,9 +202,13 @@
           "skill_description": "被动：回复生命时，额外回复1点。",
           "skill_type": "equipment",
           "trigger": "on_recover",
-          "filter": "return true",
           "forced": true,
-          "content": "event.num += 1"
+          "effects": [
+            {
+              "effect_type": "modify_heal_amount",
+              "amount": 1
+            }
+          ]
         }
       ]
     },
@@ -144,14 +223,26 @@
           "skill_name": "泰瑟枪",
           "english_name": "taser",
           "skill_description": "行动：击晕一个怪物直到你的下回合开始。",
-          "range": "medium",
           "skill_type": "equipment",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "select_target": 1,
-          "filter_target": "return target.type == \"monster\"",
-          "filter_target_range": "medium",
-          "content": "player.consume_action(1)\ntarget.stun(player, \"before_next_turn_start\")"
+          "costs": [
+            {
+              "cost_type": "action_point",
+              "amount": 1
+            }
+          ],
+          "target_selector": {
+            "target_type": "monster",
+            "select_count": 1,
+            "range": "medium"
+          },
+          "effects": [
+            {
+              "effect_type": "stun",
+              "target": "selected_target",
+              "duration": "before_next_turn_start"
+            }
+          ]
         }
       ]
     },
@@ -167,11 +258,24 @@
           "skill_description": "行动：使任一玩家回复6点生命。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "select_target": 1,
-          "filter_target": "return target.type == \"human\"",
-          "filter_target_range": "infinity",
-          "content": "target.recover(6)"
+          "costs": [
+            {
+              "cost_type": "action_point",
+              "amount": 1
+            }
+          ],
+          "target_selector": {
+            "target_type": "human",
+            "select_count": 1,
+            "range": "infinite"
+          },
+          "effects": [
+            {
+              "effect_type": "recover_hp",
+              "target": "selected_target",
+              "amount": 6
+            }
+          ]
         }
       ]
     },
@@ -186,14 +290,41 @@
           "skill_name": "研钵",
           "english_name": "mortar",
           "skill_description": "行动：治疗射程内的一名玩家所有的状态效果，或者降低其饥饿等级1点。",
-          "range": "short",
           "skill_type": "equipment",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "select_target": 1,
-          "filter_target": "return target.type == \"human\"",
-          "filter_target_range": "short",
-          "content": "player.consume_action(1)\nvar choice = await player.choose([\"治疗所有状态效果\", \"降低饥饿等级1点\"])\nif choice == \"治疗所有状态效果\":\n\ttarget.cure_all_status_effects()\nelif choice == \"降低饥饿等级1点\":\n\ttarget.decrease_hunger(1)"
+          "costs": [
+            {
+              "cost_type": "action_point",
+              "amount": 1
+            }
+          ],
+          "target_selector": {
+            "target_type": "human",
+            "select_count": 1,
+            "range": "short"
+          },
+          "effects": [
+            {
+              "effect_type": "choose_one_effect",
+              "options": [
+                {
+                  "option_name": "cure_all_status_effects",
+                  "effect": {
+                    "effect_type": "cure_all_status_effects",
+                    "target": "selected_target"
+                  }
+                },
+                {
+                  "option_name": "decrease_hunger",
+                  "effect": {
+                    "effect_type": "decrease_hunger",
+                    "target": "selected_target",
+                    "amount": 1
+                  }
+                }
+              ]
+            }
+          ]
         }
       ]
     },
@@ -209,11 +340,24 @@
           "skill_description": "行动：选择一名玩家，该玩家可以立即打出2张牌。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "select_target": 1,
-          "filter_target": "return target.type == \"human\"",
-          "filter_target_range": "infinity",
-          "content": "await target.play_card_immediately()\nawait target.play_card_immediately()"
+          "costs": [
+            {
+              "cost_type": "action_point",
+              "amount": 1
+            }
+          ],
+          "target_selector": {
+            "target_type": "human",
+            "select_count": 1,
+            "range": "infinite"
+          },
+          "effects": [
+            {
+              "effect_type": "play_card_immediately",
+              "target": "selected_target",
+              "count": 2
+            }
+          ]
         }
       ]
     },
@@ -229,11 +373,24 @@
           "skill_description": "行动：选择一名玩家，该玩家可以立即执行2个行动。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "select_target": 1,
-          "filter_target": "return target.type == \"human\"",
-          "filter_target_range": "infinity",
-          "content": "await target.execute_action_immediately(2)"
+          "costs": [
+            {
+              "cost_type": "action_point",
+              "amount": 1
+            }
+          ],
+          "target_selector": {
+            "target_type": "human",
+            "select_count": 1,
+            "range": "infinite"
+          },
+          "effects": [
+            {
+              "effect_type": "execute_action_immediately",
+              "target": "selected_target",
+              "count": 2
+            }
+          ]
         }
       ]
     },
@@ -248,14 +405,26 @@
           "skill_name": "钻头",
           "english_name": "drill",
           "skill_description": "行动：对1个目标造成3点伤害。",
-          "range": "short",
           "skill_type": "equipment",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "select_target": 1,
-          "filter_target": "return true",
-          "filter_target_range": "short",
-          "content": "player.consume_action(1)\ntarget.damage(3, player)"
+          "costs": [
+            {
+              "cost_type": "action_point",
+              "amount": 1
+            }
+          ],
+          "target_selector": {
+            "target_type": "any",
+            "select_count": 1,
+            "range": "short"
+          },
+          "effects": [
+            {
+              "effect_type": "damage",
+              "target": "selected_target",
+              "amount": 3
+            }
+          ]
         }
       ]
     }

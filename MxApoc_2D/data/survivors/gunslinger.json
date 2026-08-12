@@ -1,5 +1,4 @@
 {
-  "$schema": "survivor",
   "character_name": "枪手",
   "english_name": "gunslinger",
   "max_hp": 28,
@@ -12,10 +11,35 @@
       "skill_name": "快速拔枪",
       "english_name": "quick_draw",
       "skill_description": "游戏开始时，将牌堆中的装备牌【柯尔特手枪】装备你的装备区。当你受到饥饿伤害时，将装备区或弃牌区中的【柯尔特手枪】重新洗回你的牌堆。",
-      "trigger": "on_game_start、on_take_damage",
-      "filter": "return true",
-      "forced": true,
-      "content": "if event.trigger_name == \"on_game_start\":\n\tvar pile = player.get_pile(\"deck\")\n\tvar card = game.get_card(\"colt_pistol\", pile)\n\tif card == null:\n\t\tgame.log(\"玩家游戏牌堆中没有【柯尔特手枪】牌\")\n\t\treturn\n\tplayer.equip(card)\nelif event.trigger_name == \"on_take_damage\" && event.type == \"hunger\":\n\tvar card = game.get_card(\"colt_pistol\", \"field\")\n\tif card == null:\n\t\tgame.log(\"场上没有【柯尔特手枪】牌\")\n\t\treturn\n\tvar pile = player.get_pile(\"deck\")\n\tplayer.add_card_to_pile(card, pile)\n\tplayer.shuffle(pile)"
+      "skill_type": "intrinsic",
+      "triggers": [
+        {
+          "trigger": "on_game_start",
+          "forced": true,
+          "effects": [
+            {
+              "effect_type": "equip_from_pile",
+              "source_pile": "deck",
+              "card_english_name": "colt_pistol"
+            }
+          ]
+        },
+        {
+          "trigger": "on_take_damage",
+          "condition": "damage_type == 'hunger'",
+          "forced": true,
+          "effects": [
+            {
+              "effect_type": "shuffle_card_into_deck",
+              "target_card": "colt_pistol",
+              "source_areas": [
+                "equipment",
+                "discard_pile"
+              ]
+            }
+          ]
+        }
+      ]
     }
   ],
   "deck": [
@@ -29,15 +53,32 @@
           "skill_name": "集中射击",
           "english_name": "focused_shot",
           "skill_description": "行动：消耗一枚弹药，对一个选定目标造成5点伤害。",
-          "range": "long",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "complex_target": true,
-          "filter_target_1": "return target.in_equipment_area && target.charge_type == \"ammo\" && target.charge_current > 0",
-          "filter_target_2": "return true",
-          "filter_target_2_range": "long",
-          "content": "player.consume_charge(target1, 1)\ntarget2.damage(5, player)"
+          "costs": [
+            {
+              "cost_type": "action_point",
+              "amount": 1
+            },
+            {
+              "cost_type": "charge",
+              "charge_type": "ammo",
+              "amount": 1,
+              "source": "equipped_item"
+            }
+          ],
+          "target_selector": {
+            "target_type": "any",
+            "select_count": 1,
+            "range": "long"
+          },
+          "effects": [
+            {
+              "effect_type": "damage",
+              "target": "selected_target",
+              "amount": 5
+            }
+          ]
         }
       ]
     },
@@ -53,15 +94,41 @@
           "skill_description": "行动：本回合可以额外执行两个行动。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "content": "player.increase_max_action(2)\nplayer.add_temp_skill(\"pull_trigger_happy_clear\", \"before_turn_end\")\nplayer.add_action(2)",
+          "costs": [
+            {
+              "cost_type": "action_point",
+              "amount": 1
+            }
+          ],
+          "target_selector": {
+            "target_type": "player",
+            "target_scope": "self"
+          },
+          "effects": [
+            {
+              "effect_type": "add_action_point",
+              "target": "self",
+              "amount": 2
+            },
+            {
+              "effect_type": "add_temp_skill",
+              "target": "self",
+              "skill_id": "pull_trigger_happy_clear",
+              "duration": "before_turn_end"
+            }
+          ],
           "sub_skills": {
             "clear": {
               "skill_name": "扣动扳机让我快乐_清除",
               "english_name": "pull_trigger_happy_clear",
               "trigger": "before_turn_end",
               "forced": true,
-              "content": "player.decrease_max_action(2)"
+              "effects": [
+                {
+                  "effect_type": "modify_max_action_point",
+                  "amount": -2
+                }
+              ]
             }
           }
         }
@@ -79,26 +146,62 @@
           "skill_description": "行动：销毁本牌然后将一张弹药类武器填装满【空尖弹】弹药，这种弹药会让武器牌额外造成两点伤害。武器弹药耗尽时弃置武器牌。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.has_fillable_weapon()",
-          "select_target": 1,
-          "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\"",
-          "content": "player.remove_card(\"hollow_point\", \"resolution\")\nplayer.add_skill(\"hollow_point_damage\")\nplayer.add_skill(\"hollow_point_remove\")\ntarget.change_charge_type(\"hollow_point\")\ntarget.fill_charge()",
+          "costs": [
+            {
+              "cost_type": "action_point",
+              "amount": 1
+            },
+            {
+              "cost_type": "destroy_self"
+            }
+          ],
+          "target_selector": {
+            "target_type": "equipped_item",
+            "condition": "charge_type == 'ammo'",
+            "select_count": 1
+          },
+          "effects": [
+            {
+              "effect_type": "convert_charge_type",
+              "target": "selected_target",
+              "new_charge_type": "hollow_point",
+              "fill_full": true
+            },
+            {
+              "effect_type": "add_skill_to_player",
+              "skill_id": "hollow_point_damage"
+            },
+            {
+              "effect_type": "add_skill_to_player",
+              "skill_id": "hollow_point_remove"
+            }
+          ],
           "sub_skills": {
             "damage": {
               "skill_name": "空尖弹_伤害",
               "english_name": "hollow_point_damage",
               "trigger": "on_deal_damage",
               "forced": true,
-              "filter": "return event.card.charge_type == \"hollow_point\"",
-              "content": "event.num += 2"
+              "condition": "event.card.charge_type == 'hollow_point'",
+              "effects": [
+                {
+                  "effect_type": "modify_damage_dealt",
+                  "amount": 2
+                }
+              ]
             },
             "remove": {
               "skill_name": "空尖弹_移除",
               "english_name": "hollow_point_remove",
               "trigger": "on_charge_depleted",
               "forced": true,
-              "filter": "return event.card.charge_type == \"hollow_point\"",
-              "content": "player.discard(event.card)"
+              "condition": "event.card.charge_type == 'hollow_point'",
+              "effects": [
+                {
+                  "effect_type": "discard_card",
+                  "target_card": "event.card"
+                }
+              ]
             }
           }
         }
@@ -114,14 +217,32 @@
           "skill_name": "齐射",
           "english_name": "volley",
           "skill_description": "行动：弃掉装备区内的所有弹药，对一个目标造成X次2伤害。（X为你以此法弃掉的弹药数量。）",
-          "range": "medium",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_total_charge_count(\"ammo\") > 0",
-          "filter_target": "return target != player",
-          "select_target": 1,
-          "filter_target_range": "medium",
-          "content": "var num = player.get_total_charge_count(\"ammo\")\nplayer.clear_charge(\"ammo\")\nfor i in range(num):\n\ttarget.damage(2, player)"
+          "costs": [
+            {
+              "cost_type": "action_point",
+              "amount": 1
+            },
+            {
+              "cost_type": "clear_all_charge",
+              "charge_type": "ammo",
+              "save_count_to": "x_count"
+            }
+          ],
+          "target_selector": {
+            "target_type": "other",
+            "select_count": 1,
+            "range": "medium"
+          },
+          "effects": [
+            {
+              "effect_type": "repeat_damage",
+              "target": "selected_target",
+              "damage_per_hit": 2,
+              "repeat_times": "x_count"
+            }
+          ]
         }
       ]
     },
@@ -135,14 +256,31 @@
           "skill_name": "手榴弹",
           "english_name": "grenade",
           "skill_description": "行动：对一个目标造成5点伤害，并对其同一地块的所有目标造成3点伤害。",
-          "range": "medium",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "filter_target": "return target != player",
-          "select_target": 1,
-          "filter_target_range": "medium",
-          "content": "target.damage(5, player)\nvar list = game.get_target(target.get_current_block())\nfor i in list:\n\tif i != target:\n\t\ti.damage(3, player)"
+          "costs": [
+            {
+              "cost_type": "action_point",
+              "amount": 1
+            }
+          ],
+          "target_selector": {
+            "target_type": "other",
+            "select_count": 1,
+            "range": "medium"
+          },
+          "effects": [
+            {
+              "effect_type": "damage",
+              "target": "selected_target",
+              "amount": 5
+            },
+            {
+              "effect_type": "damage",
+              "target": "same_block_other_targets",
+              "amount": 3
+            }
+          ]
         }
       ]
     },
@@ -158,17 +296,38 @@
           "skill_description": "行动：直到你的回合结束，你每杀死一个怪物就随机从一个拾荒牌堆抓取一张牌（无地块拾荒颜色限制）。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "filter_target": "return target == player",
-          "content": "player.add_temp_skill(\"search_corpse_draw\", \"before_turn_end\")",
+          "costs": [
+            {
+              "cost_type": "action_point",
+              "amount": 1
+            }
+          ],
+          "target_selector": {
+            "target_type": "player",
+            "target_scope": "self"
+          },
+          "effects": [
+            {
+              "effect_type": "add_temp_skill",
+              "target": "self",
+              "skill_id": "search_corpse_draw",
+              "duration": "before_turn_end"
+            }
+          ],
           "sub_skills": {
             "draw": {
               "skill_name": "搜索尸体_抓牌",
               "english_name": "search_corpse_draw",
               "trigger": "on_monster_death",
               "forced": true,
-              "filter": "return event.source == player",
-              "content": "var scavenge_pile = game.get_scavenge_pile(\"random\")\nplayer.draw_scavenge(1, scavenge_pile)"
+              "condition": "event.source == player",
+              "effects": [
+                {
+                  "effect_type": "draw_scavenge_card",
+                  "choose_color": "random",
+                  "amount": 1
+                }
+              ]
             }
           }
         }
@@ -184,14 +343,32 @@
           "skill_name": "套索",
           "english_name": "lasso",
           "skill_description": "行动：击晕一个怪物并让其纠缠你。",
-          "range": "medium",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "select_target": 1,
-          "filter_target": "return target.type == \"monster\"",
-          "filter_target_range": "medium",
-          "content": "target.stun(player, \"before_next_turn_start\")\ntarget.change_engaged_target(player)"
+          "costs": [
+            {
+              "cost_type": "action_point",
+              "amount": 1
+            }
+          ],
+          "target_selector": {
+            "target_type": "monster",
+            "select_count": 1,
+            "range": "medium"
+          },
+          "effects": [
+            {
+              "effect_type": "apply_status",
+              "status_type": "stun",
+              "target": "selected_target",
+              "duration": "before_next_turn_start"
+            },
+            {
+              "effect_type": "change_engaged_target",
+              "target": "selected_target",
+              "new_engaged_target": "self"
+            }
+          ]
         }
       ]
     },
@@ -207,11 +384,25 @@
           "skill_description": "行动：选择另一名玩家，使其立即执行一个行动。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "select_target": 1,
-          "filter_target": "return target.type == \"human\" && target != player",
-          "filter_target_range": "infinity",
-          "content": "target.execute_immediate_action(1)"
+          "costs": [
+            {
+              "cost_type": "action_point",
+              "amount": 1
+            }
+          ],
+          "target_selector": {
+            "target_type": "human",
+            "select_count": 1,
+            "range": "infinite",
+            "exclude_self": true
+          },
+          "effects": [
+            {
+              "effect_type": "grant_immediate_action",
+              "target": "selected_target",
+              "amount": 1
+            }
+          ]
         }
       ]
     },
@@ -228,9 +419,13 @@
           "skill_description": "被动：受到的伤害减一。",
           "skill_type": "equipment",
           "trigger": "on_take_damage",
-          "filter": "return true",
           "forced": true,
-          "content": "event.num -= 1"
+          "effects": [
+            {
+              "effect_type": "modify_damage_taken",
+              "amount": -1
+            }
+          ]
         }
       ]
     },
@@ -248,14 +443,31 @@
           "skill_name": "柯尔特手枪",
           "english_name": "colt_pistol",
           "skill_description": "行动：对一个目标造成2点伤害。",
-          "range": "medium",
           "skill_type": "equipment",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"colt_pistol\") > 0",
-          "select_target": 1,
-          "filter_target": "return true",
-          "filter_target_range": "medium",
-          "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"colt_pistol\"), 1)\ntarget.damage(2, player)"
+          "costs": [
+            {
+              "cost_type": "action_point",
+              "amount": 1
+            },
+            {
+              "cost_type": "charge",
+              "target_equipment": "colt_pistol",
+              "amount": 1
+            }
+          ],
+          "target_selector": {
+            "target_type": "any",
+            "select_count": 1,
+            "range": "medium"
+          },
+          "effects": [
+            {
+              "effect_type": "damage",
+              "target": "selected_target",
+              "amount": 2
+            }
+          ]
         }
       ]
     },
@@ -272,8 +484,24 @@
           "skill_description": "行动：移动最多两格。",
           "skill_type": "equipment",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "content": "player.consume_action(1)\nvar max_steps = 2\nvar steps = 0\nwhile steps < max_steps:\n\tif steps > 0:\n\t\tvar choice = await player.choose([\"继续移动\", \"停止移动\"])\n\t\tif choice == \"停止移动\":\n\t\t\tbreak\n\ttarget = await player.choose_map_block({\"filter_target\": \"return target != player.get_current_block()\", \"filter_target_range\": \"medium\"})\n\tvar success = player.move_to(target)\n\tif not success:\n\t\tbreak\n\tsteps += 1"
+          "costs": [
+            {
+              "cost_type": "action_point",
+              "amount": 1
+            }
+          ],
+          "target_selector": {
+            "target_type": "player",
+            "target_scope": "self"
+          },
+          "effects": [
+            {
+              "effect_type": "move",
+              "max_steps": 2,
+              "optional_stop": true,
+              "range": "medium"
+            }
+          ]
         },
         {
           "skill_name": "马·弃置",
@@ -281,8 +509,21 @@
           "skill_description": "弃置：弃置此装备，将场上所有玩家的饥饿等级降低一点（不消耗行动次数）。",
           "skill_type": "equipment",
           "active": "action",
-          "filter": "return player.in_phase == \"action\"",
-          "content": "player.discard(\"horse\", \"equipment\")\nvar list = game.get_all_players()\nfor i in list:\n\ti.decrease_hunger(1)"
+          "costs": [
+            {
+              "cost_type": "discard_self"
+            }
+          ],
+          "target_selector": {
+            "target_type": "all_players"
+          },
+          "effects": [
+            {
+              "effect_type": "modify_hunger",
+              "target": "all_players",
+              "amount": -1
+            }
+          ]
         }
       ]
     },
@@ -298,18 +539,47 @@
           "english_name": "ranger_hat",
           "skill_description": "被动：此装备进入玩家的装备区时，玩家回复三点生命值。",
           "skill_type": "equipment",
-          "trigger": "on_card_enter_equipment、on_card_leave_equipment",
-          "filter": "return event.card.english_name == \"ranger_hat\"",
-          "forced": true,
-          "content": "if event.trigger_name == \"on_card_enter_equipment\":\n\tplayer.recover(3)\n\tplayer.add_skill(\"ranger_hat_damage\")\nelif event.trigger_name == \"on_card_leave_equipment\":\n\tplayer.remove_skill(\"ranger_hat_damage\")",
+          "triggers": [
+            {
+              "trigger": "on_card_enter_equipment",
+              "condition": "event.card.english_name == 'ranger_hat'",
+              "forced": true,
+              "effects": [
+                {
+                  "effect_type": "heal",
+                  "target": "self",
+                  "amount": 3
+                },
+                {
+                  "effect_type": "add_skill_to_player",
+                  "skill_id": "ranger_hat_damage"
+                }
+              ]
+            },
+            {
+              "trigger": "on_card_leave_equipment",
+              "condition": "event.card.english_name == 'ranger_hat'",
+              "forced": true,
+              "effects": [
+                {
+                  "effect_type": "remove_skill_from_player",
+                  "skill_id": "ranger_hat_damage"
+                }
+              ]
+            }
+          ],
           "sub_skills": {
             "damage": {
               "skill_name": "游侠帽_伤害",
               "english_name": "ranger_hat_damage",
               "trigger": "on_deal_damage",
-              "filter": "return true",
               "forced": true,
-              "content": "event.num += 1"
+              "effects": [
+                {
+                  "effect_type": "modify_damage_dealt",
+                  "amount": 1
+                }
+              ]
             }
           }
         }
@@ -329,14 +599,57 @@
           "skill_name": "左轮手枪",
           "english_name": "revolver",
           "skill_description": "行动：对一个目标造成3点伤害，然后你可以再花费一个弹药来攻击另一个目标。",
-          "range": "medium",
           "skill_type": "equipment",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"revolver\") > 0",
-          "select_target": 1,
-          "filter_target": "return true",
-          "filter_target_range": "medium",
-          "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"revolver\"), 1)\ntarget.damage(3, player)\nif player.get_charge_count(\"revolver\") > 0 && await player.choose([\"继续攻击\", \"停止\"]) == \"继续攻击\":\n\tvar target2 = player.choose_target({\"select_target\": 1, \"filter_target\": \"return target2 != target\", \"filter_target_range\": \"medium\"})\n\tplayer.consume_charge(player.get_equipment(\"revolver\"), 1)\n\ttarget2.damage(3, player)"
+          "costs": [
+            {
+              "cost_type": "action_point",
+              "amount": 1
+            },
+            {
+              "cost_type": "charge",
+              "target_equipment": "revolver",
+              "amount": 1
+            }
+          ],
+          "target_selector": {
+            "target_type": "any",
+            "select_count": 1,
+            "range": "medium"
+          },
+          "effects": [
+            {
+              "effect_type": "damage",
+              "target": "selected_target",
+              "amount": 3
+            },
+            {
+              "effect_type": "optional_chain_action",
+              "condition": "revolver.charge > 0",
+              "costs": [
+                {
+                  "cost_type": "charge",
+                  "target_equipment": "revolver",
+                  "amount": 1
+                }
+              ],
+              "target_selector": {
+                "target_type": "any",
+                "select_count": 1,
+                "range": "medium",
+                "exclude_targets": [
+                  "selected_target"
+                ]
+              },
+              "effects": [
+                {
+                  "effect_type": "damage",
+                  "target": "selected_target",
+                  "amount": 3
+                }
+              ]
+            }
+          ]
         }
       ]
     }

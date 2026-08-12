@@ -1,92 +1,133 @@
-﻿{
-  "$schema": "scavenge_pack",
-  "color": "gray",
-  "cards": [
-    {
-      "card_name": "一无所获",
-      "english_name": "nothing_found",
-      "card_type": "action",
-      "skills": [
-        {
-          "skill_name": "一无所获",
-          "english_name": "nothing_found",
-          "skill_description": "抓取到此牌时，立即弃掉。",
-          "skill_type": "action",
-          "trigger": "on_draw_scavenge_card",
-          "forced": true,
-          "filter": "return event.card.english_name == \"nothing_found\"",
-          "content": "player.discard(event.card)"
-        }
-      ]
-    },
-    {
-      "card_name": "伏击！",
-      "english_name": "ambush",
-      "card_type": "action",
-      "skills": [
-        {
-          "skill_name": "伏击！",
-          "english_name": "ambush",
-          "skill_description": "抓取到此牌时，立即抓取一张怪物卡，然后弃掉此卡。",
-          "skill_type": "action",
-          "trigger": "on_draw_scavenge_card",
-          "forced": true,
-          "filter": "return event.card.english_name == \"ambush\"",
-          "content": "player.draw_monster(1)\nplayer.discard(event.card)"
-        }
-      ]
-    },
-    {
-      "card_name": "多余配件",
-      "english_name": "spare_parts",
-      "card_type": "action",
-      "skills": [
-        {
-          "skill_name": "多余配件",
-          "english_name": "spare_parts",
-          "skill_description": "行动：从你的弃牌堆将一张牌返回手牌。",
-          "skill_type": "action",
-          "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "content": "player.consume_action(1)\nvar list = player.get_discard_pile()\nif list.size() == 0:\n\tgame.log(\"玩家没有弃牌堆中的牌\")\n\treturn\nvar card = await player.choose_card(1, list)\nplayer.gain(card)"
-        }
-      ]
-    },
-    {
-      "card_name": "脏毯子",
-      "english_name": "dirty_blanket",
-      "card_type": "item",
-      "skills": []
-    },
-    {
-      "card_name": "老报纸",
-      "english_name": "old_newspaper",
-      "card_type": "item",
-      "skills": []
-    },
-    {
-      "card_name": "满是灰尘的日记本",
-      "english_name": "dusty_diary",
-      "card_type": "item",
-      "skills": []
-    },
-    {
-      "card_name": "科学家",
-      "english_name": "scientist",
-      "card_type": "equipment",
-      "size": 1,
-      "skills": [
-        {
-          "skill_name": "科学家",
-          "english_name": "scientist",
-          "skill_description": "被动：携带'科学家'的玩家无法通过任何潜行判定。",
-          "skill_type": "equipment",
-          "trigger": "on_sneak_judge",
-          "forced": true,
-          "filter": "return player.has_equipment(\"scientist\")",
-          "content": "event.result = {\"value\": 999, \"success\": false}"
-        }
-      ]
-    }
-  ]
-}
+﻿[
+  {
+    "card_name": "一无所获",
+    "english_name": "nothing_found",
+    "card_color": "gray",
+    "card_type": "action",
+    "count": 1,
+    "skills": [
+      {
+        "skill_name": "一无所获",
+        "english_name": "nothing_found",
+        "skill_description": "抓取到此牌时，立即弃掉。",
+        "skill_type": "action",
+        "trigger": "on_drawn",
+        "forced": true,
+        "effects": [
+          {
+            "effect_type": "discard_self"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "card_name": "伏击！",
+    "english_name": "ambush",
+    "card_color": "gray",
+    "card_type": "action",
+    "count": 1,
+    "skills": [
+      {
+        "skill_name": "伏击！",
+        "english_name": "ambush",
+        "skill_description": "抓取到此牌时，立即抓取一张怪物卡，然后弃掉此卡。",
+        "skill_type": "action",
+        "trigger": "on_drawn",
+        "forced": true,
+        "effects": [
+          {
+            "effect_type": "draw_card",
+            "source_deck": "monster_deck",
+            "amount": 1
+          },
+          {
+            "effect_type": "discard_self"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "card_name": "多余配件",
+    "english_name": "spare_parts",
+    "card_color": "gray",
+    "card_type": "action",
+    "count": 1,
+    "skills": [
+      {
+        "skill_name": "多余配件",
+        "english_name": "spare_parts",
+        "skill_description": "行动：从你的弃牌堆将一张牌返回手牌。",
+        "skill_type": "action",
+        "active": "action",
+        "costs": [
+          {
+            "cost_type": "action_point",
+            "amount": 1
+          }
+        ],
+        "target_selector": {
+          "target_type": "card",
+          "zone": "discard_pile",
+          "owner": "self",
+          "count": 1
+        },
+        "effects": [
+          {
+            "effect_type": "recover_to_hand",
+            "target": "selected_target"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "card_name": "脏毯子",
+    "english_name": "dirty_blanket",
+    "card_color": "gray",
+    "card_type": "item",
+    "count": 1,
+    "skills": []
+  },
+  {
+    "card_name": "老报纸",
+    "english_name": "old_newspaper",
+    "card_color": "gray",
+    "card_type": "item",
+    "count": 1,
+    "skills": []
+  },
+  {
+    "card_name": "满是灰尘的日记本",
+    "english_name": "dusty_diary",
+    "card_color": "gray",
+    "card_type": "item",
+    "count": 1,
+    "skills": []
+  },
+  {
+    "card_name": "科学家",
+    "english_name": "scientist",
+    "card_color": "gray",
+    "card_type": "equipment",
+    "size": 1,
+    "count": 1,
+    "skills": [
+      {
+        "skill_name": "科学家",
+        "english_name": "scientist",
+        "skill_description": "被动：携带'科学家'的玩家无法通过任何潜行判定。",
+        "skill_type": "equipment",
+        "trigger": "on_sneak_check",
+        "forced": true,
+        "effects": [
+          {
+            "effect_type": "stealth_check_override",
+            "result": "always_fail"
+          }
+        ]
+      }
+    ]
+  }
+]

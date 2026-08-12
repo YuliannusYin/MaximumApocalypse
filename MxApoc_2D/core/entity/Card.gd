@@ -13,7 +13,8 @@ enum CardDeck {
 enum CardType {
     ACTION_CARD,
     EQUIPMENT_CARD,
-    MONSTER_CARD
+    MONSTER_CARD,
+    UNKNOWN_CARD_TYPE
 }
 
 # 卡牌区域
@@ -26,7 +27,8 @@ enum CardZone {
     MONSTER_DISCARD_ZONE,
     SCAVENGE_DRAW_DECK,
     SCAVENGE_DISCARD_ZONE,
-    EQUIPMENT_ZONE
+    EQUIPMENT_ZONE,
+    UNKNOWN_CARD_ZONE_TYPE
 }
 
 # 卡牌中文名

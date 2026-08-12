@@ -7,12 +7,14 @@ extends BaseEntity
 enum ScavengeColor {
 	RED,
 	GREEN,
-	BLUE
+	BLUE,
+	UNKNOWN_SCAVENGE_COLOR_TYPE
 }
 
 enum Status {
 	ALIVE,
-	DESTROYED
+	DESTROYED,
+	UNKNOWN_STATUS_TYPE
 }
 
 # ==============================================================================

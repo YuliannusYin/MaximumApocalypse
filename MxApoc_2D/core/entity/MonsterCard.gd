@@ -6,27 +6,31 @@ extends Card
 enum MonsterLevel {
 	NORMAL,
 	ELITE,
-	BOSS
+	BOSS,
+	UNKNOWN_MONSTER_LEVEL_TYPE
 }
 
 # 怪物状态
 enum MonsterStatus {
 	ALIVE,
-	DEAD
+	DEAD,
+	UNKNOWN_MONSTER_STATUS_TYPE
 }
 
 # 怪物攻击范围
 enum MonsterRange {
 	NONE,
 	SHORT,
-	LONG
+	LONG,
+	UNKNOWN_MONSTER_RANGE_TYPE
 }
 
 enum MonsterType {
 	ALIEN,
 	MUTANT,
 	ROBOT,
-	ZOMBIE
+	ZOMBIE,
+	UNKNOWN_MONSTER_TYPE_TYPE
 }
 
 # 怪物类型

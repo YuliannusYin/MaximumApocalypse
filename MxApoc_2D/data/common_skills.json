@@ -5,13 +5,25 @@
     "skill_description": "移动到相邻的存活地块",
     "skill_type": "common",
     "active": "action",
-    "target_type": "block",
-    "filter_target_range": "short",
-    "select_target": 1,
-    "filter_target": "return target != player.get_current_block()",
-    "usable": -1,
-    "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-    "content": "player.reduce_action_count(1)\nawait player.move_to(target)"
+    "costs": [
+      {
+        "cost_type": "action_point",
+        "amount": 1
+      }
+    ],
+    "target_selector": {
+      "target_type": "map_block",
+      "condition": "is_alive == true && is_current_block == false",
+      "select_count": 1,
+      "range": "short"
+    },
+    "effects": [
+      {
+        "effect_type": "move_to_map_block",
+        "target": "self",
+        "destination": "selected_target"
+      }
+    ]
   },
   {
     "skill_name": "摸牌",
@@ -19,10 +31,20 @@
     "skill_description": "从求生者游戏牌堆中抓取一张牌",
     "skill_type": "common",
     "active": "action",
-    "target_type": "",
-    "usable": -1,
-    "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-    "content": "player.reduce_action_count(1)\nawait player.draw(1)"
+    "costs": [
+      {
+        "cost_type": "action_point",
+        "amount": 1
+      }
+    ],
+    "effects": [
+      {
+        "effect_type": "draw_card",
+        "target": "self",
+        "amount": 1,
+        "deck_type": "survivor_deck"
+      }
+    ]
   },
   {
     "skill_name": "拾荒",
@@ -30,10 +52,26 @@
     "skill_description": "从当前地块可拾荒的牌堆中抓取一张牌",
     "skill_type": "common",
     "active": "action",
-    "target_type": "pile",
-    "usable": -1,
-    "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_current_block() != null && player.get_current_block().has_color()",
-    "content": "player.reduce_action_count(1)\nawait player.draw_scavenge(1, game.get_scavenge_pile(target))"
+    "condition": "current_map_block.has_scavenge_color == true",
+    "costs": [
+      {
+        "cost_type": "action_point",
+        "amount": 1
+      }
+    ],
+    "target_selector": {
+      "target_type": "scavenge_pile",
+      "condition": "matches_current_map_block_color == true",
+      "select_count": 1
+    },
+    "effects": [
+      {
+        "effect_type": "draw_scavenge_card",
+        "target": "self",
+        "amount": 1,
+        "from_pile": "selected_target"
+      }
+    ]
   },
   {
     "skill_name": "制衡",
@@ -41,12 +79,23 @@
     "skill_description": "弃置两张求生者游戏牌，然后从游戏牌堆抓取一张牌",
     "skill_type": "common",
     "active": "action",
-    "target_type": "",
-    "select_card": 2,
-    "position": "hand",
-    "usable": 1,
-    "filter": "return player.in_phase == \"action\"",
-    "content": "var cards = event[\"cards\"]\nawait player.discard(cards)\nawait player.draw(1)"
+    "limit_per_turn": 1,
+    "costs": [
+      {
+        "cost_type": "discard_card",
+        "source": "hand",
+        "card_type": "survivor_card",
+        "amount": 2
+      }
+    ],
+    "effects": [
+      {
+        "effect_type": "draw_card",
+        "target": "self",
+        "amount": 1,
+        "deck_type": "survivor_deck"
+      }
+    ]
   },
   {
     "skill_name": "交易",
@@ -54,15 +103,30 @@
     "skill_description": "选择一张拾荒牌和同地块内另一玩家，与其交换一张拾荒牌",
     "skill_type": "common",
     "active": "action",
-    "target_type": "entity",
-    "filter_target_range": "short",
-    "select_target": 1,
-    "select_card": 1,
-    "position": "hand",
-    "usable": 1,
-    "filter": "return player.in_phase == \"action\" && player.get_current_block() != null && player.get_current_block().get_players().size() > 1",
-    "filter_target": "return target != player && target.is_alive()",
-    "content": "var card = event[\"cards\"][0]\nplayer.show_card(card, target)\nvar result = await target.choose([\"同意\", \"拒绝\"], \"是否同意交易？\")\nif result == \"同意\":\n\tvar cards2 = await target.choose_card(1, \"hand\")\n\tif cards2.size() > 0:\n\t\tvar card2 = cards2[0]\n\t\tplayer._remove_card_from_zone(card)\n\t\ttarget._remove_card_from_zone(card2)\n\t\ttarget.hand.append(card)\n\t\tplayer.hand.append(card2)"
+    "limit_per_turn": 1,
+    "target_selector": {
+      "target_type": "human",
+      "condition": "is_self == false && is_alive == true && on_same_map_block == true",
+      "select_count": 1,
+      "range": "short"
+    },
+    "costs": [
+      {
+        "cost_type": "select_card_from_hand",
+        "card_type": "scavenge_card",
+        "amount": 1
+      }
+    ],
+    "effects": [
+      {
+        "effect_type": "trade_card",
+        "target": "selected_target",
+        "trade_initiator_card": "selected_card",
+        "requires_target_consent": true,
+        "target_card_type": "scavenge_card",
+        "target_card_amount": 1
+      }
+    ]
   },
   {
     "skill_name": "加油",
@@ -70,10 +134,24 @@
     "skill_description": "消耗一个燃料装备的1点填充物，为另一燃料装备补充1点填充物",
     "skill_type": "common",
     "active": "action",
-    "target_type": "equipment",
-    "usable": -1,
-    "filter": "return player.in_phase == \"action\"",
-    "filter_target": "return target != null && target.has_method(\"get_charge\") && target.get(\"charge_type\") == \"fuel\" && target.get_charge() < target.get(\"charge_max\")",
-    "content": "var source = null\nfor e in player.equipment_zone:\n\tif e.get(\"charge_type\") == \"fuel\" && e.get_charge() > 0:\n\t\tsource = e\n\t\tbreak\nif source != null:\n\tsource.consume_charge(1)\n\ttarget.refill(1)"
+    "target_selector": {
+      "target_type": "equipment",
+      "condition": "charge_type == 'fuel' && current_charge < max_charge",
+      "select_count": 1
+    },
+    "costs": [
+      {
+        "cost_type": "charge",
+        "target_equipment_condition": "charge_type == 'fuel' && current_charge > 0 && is_not_selected_target == true",
+        "amount": 1
+      }
+    ],
+    "effects": [
+      {
+        "effect_type": "refill_charge",
+        "target_equipment": "selected_target",
+        "amount": 1
+      }
+    ]
   }
 ]

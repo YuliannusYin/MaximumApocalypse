@@ -1,259 +1,489 @@
-﻿{
-  "$schema": "scavenge_pack",
-  "color": "blue",
-  "cards": [
-    {
-      "card_name": "弹药（少量）",
-      "english_name": "ammo_small",
-      "card_type": "action",
-      "value": 2,
-      "skills": [
-        {
-          "skill_name": "弹药（少量）",
-          "english_name": "ammo_small",
-          "skill_description": "行动：向一张武器卡填装2发弹药。",
-          "skill_type": "action",
-          "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "select_target": 1,
-          "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\" && target.charge_current < target.charge_max",
-          "content": "player.consume_action(1)\ntarget.add_charge(2, \"ammo\")"
-        }
-      ]
-    },
-    {
-      "card_name": "弹药（半盒）",
-      "english_name": "ammo_half_box",
-      "card_type": "action",
-      "value": 3,
-      "skills": [
-        {
-          "skill_name": "弹药（半盒）",
-          "english_name": "ammo_half_box",
-          "skill_description": "行动：向一张武器卡填装3发弹药。",
-          "skill_type": "action",
-          "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "select_target": 1,
-          "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\" && target.charge_current < target.charge_max",
-          "content": "player.consume_action(1)\ntarget.add_charge(3, \"ammo\")"
-        }
-      ]
-    },
-    {
-      "card_name": "弹药（足量）",
-      "english_name": "ammo_full",
-      "card_type": "action",
-      "value": 4,
-      "skills": [
-        {
-          "skill_name": "弹药（足量）",
-          "english_name": "ammo_full",
-          "skill_description": "行动：向一张武器卡填装4发弹药。",
-          "skill_type": "action",
-          "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "select_target": 1,
-          "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\" && target.charge_current < target.charge_max",
-          "content": "player.consume_action(1)\ntarget.add_charge(4, \"ammo\")"
-        }
-      ]
-    },
-    {
-      "card_name": "弹药（大量）",
-      "english_name": "ammo_large",
-      "card_type": "action",
-      "value": 5,
-      "skills": [
-        {
-          "skill_name": "弹药（大量）",
-          "english_name": "ammo_large",
-          "skill_description": "行动：向一张武器卡填装5发弹药。",
-          "skill_type": "action",
-          "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "select_target": 1,
-          "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\" && target.charge_current < target.charge_max",
-          "content": "player.consume_action(1)\ntarget.add_charge(5, \"ammo\")"
-        }
-      ]
-    },
-    {
-      "card_name": "弹药（整盒）",
-      "english_name": "ammo_full_box",
-      "card_type": "action",
-      "skills": [
-        {
-          "skill_name": "弹药（整盒）",
-          "english_name": "ammo_full_box",
-          "skill_description": "行动：将一张武器卡填装到满弹药。",
-          "skill_type": "action",
-          "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "select_target": 1,
-          "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\" && target.charge_current < target.charge_max",
-          "content": "player.consume_action(1)\ntarget.fill_charge()"
-        }
-      ]
-    },
-    {
-      "card_name": "防弹背心",
-      "english_name": "bulletproof_vest",
-      "card_type": "equipment",
-      "size": 1,
-      "skills": [
-        {
-          "skill_name": "防弹背心",
-          "english_name": "bulletproof_vest",
-          "skill_description": "被动：受到的伤害减少2点，使用三次后销毁。",
-          "skill_type": "equipment",
-          "trigger": "on_take_damage",
-          "filter": "return true",
-          "forced": true,
-          "content": "event.num -= 2\nplayer.add_mark(\"bulletproof_vest_uses\")\nif player.count_mark(\"bulletproof_vest_uses\") >= 3:\n\tplayer.remove_card(\"bulletproof_vest\", \"equipment\")"
-        }
-      ]
-    },
-    {
-      "card_name": "对讲机",
-      "english_name": "walkie_talkie",
-      "card_type": "equipment",
-      "size": 1,
-      "skills": [
-        {
-          "skill_name": "对讲机",
-          "english_name": "walkie_talkie",
-          "skill_description": "行动：选择另一名玩家，该玩家立即执行一个行动。",
-          "skill_type": "equipment",
-          "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "select_target": 1,
-          "filter_target": "return target.type == \"human\" && target != player",
-          "filter_target_range": "infinity",
-          "content": "player.consume_action(1)\ntarget.execute_immediate_action(1)"
-        }
-      ]
-    },
-    {
-      "card_name": "手枪",
-      "english_name": "pistol",
-      "card_type": "equipment",
-      "size": 1,
-      "charge_type": "ammo",
-      "charge_max": 4,
-      "charge_initial": 4,
-      "skills": [
-        {
-          "skill_name": "手枪",
-          "english_name": "pistol",
-          "skill_description": "行动：对一个目标造成2点伤害。",
+﻿[
+  {
+    "card_name": "弹药（少量）",
+    "english_name": "ammo_small",
+    "card_color": "blue",
+    "card_type": "action",
+    "value": 2,
+    "count": 1,
+    "skills": [
+      {
+        "skill_name": "弹药（少量）",
+        "english_name": "ammo_small",
+        "skill_description": "行动：向一张武器卡填装2发弹药。",
+        "skill_type": "action",
+        "active": "action",
+        "costs": [
+          {
+            "cost_type": "action_point",
+            "amount": 1
+          }
+        ],
+        "target_selector": {
+          "target_type": "card",
+          "zone": "equipment",
+          "charge_type": "ammo",
+          "condition": "charge_not_full",
+          "count": 1
+        },
+        "effects": [
+          {
+            "effect_type": "add_charge",
+            "target": "selected_target",
+            "charge_type": "ammo",
+            "amount": 2
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "card_name": "弹药（半盒）",
+    "english_name": "ammo_half_box",
+    "card_color": "blue",
+    "card_type": "action",
+    "value": 3,
+    "count": 1,
+    "skills": [
+      {
+        "skill_name": "弹药（半盒）",
+        "english_name": "ammo_half_box",
+        "skill_description": "行动：向一张武器卡填装3发弹药。",
+        "skill_type": "action",
+        "active": "action",
+        "costs": [
+          {
+            "cost_type": "action_point",
+            "amount": 1
+          }
+        ],
+        "target_selector": {
+          "target_type": "card",
+          "zone": "equipment",
+          "charge_type": "ammo",
+          "condition": "charge_not_full",
+          "count": 1
+        },
+        "effects": [
+          {
+            "effect_type": "add_charge",
+            "target": "selected_target",
+            "charge_type": "ammo",
+            "amount": 3
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "card_name": "弹药（足量）",
+    "english_name": "ammo_full",
+    "card_color": "blue",
+    "card_type": "action",
+    "value": 4,
+    "count": 1,
+    "skills": [
+      {
+        "skill_name": "弹药（足量）",
+        "english_name": "ammo_full",
+        "skill_description": "行动：向一张武器卡填装4发弹药。",
+        "skill_type": "action",
+        "active": "action",
+        "costs": [
+          {
+            "cost_type": "action_point",
+            "amount": 1
+          }
+        ],
+        "target_selector": {
+          "target_type": "card",
+          "zone": "equipment",
+          "charge_type": "ammo",
+          "condition": "charge_not_full",
+          "count": 1
+        },
+        "effects": [
+          {
+            "effect_type": "add_charge",
+            "target": "selected_target",
+            "charge_type": "ammo",
+            "amount": 4
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "card_name": "弹药（大量）",
+    "english_name": "ammo_large",
+    "card_color": "blue",
+    "card_type": "action",
+    "value": 5,
+    "count": 1,
+    "skills": [
+      {
+        "skill_name": "弹药（大量）",
+        "english_name": "ammo_large",
+        "skill_description": "行动：向一张武器卡填装5发弹药。",
+        "skill_type": "action",
+        "active": "action",
+        "costs": [
+          {
+            "cost_type": "action_point",
+            "amount": 1
+          }
+        ],
+        "target_selector": {
+          "target_type": "card",
+          "zone": "equipment",
+          "charge_type": "ammo",
+          "condition": "charge_not_full",
+          "count": 1
+        },
+        "effects": [
+          {
+            "effect_type": "add_charge",
+            "target": "selected_target",
+            "charge_type": "ammo",
+            "amount": 5
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "card_name": "弹药（整盒）",
+    "english_name": "ammo_full_box",
+    "card_color": "blue",
+    "card_type": "action",
+    "value": 0,
+    "count": 1,
+    "skills": [
+      {
+        "skill_name": "弹药（整盒）",
+        "english_name": "ammo_full_box",
+        "skill_description": "行动：将一张武器卡填装到满弹药。",
+        "skill_type": "action",
+        "active": "action",
+        "costs": [
+          {
+            "cost_type": "action_point",
+            "amount": 1
+          }
+        ],
+        "target_selector": {
+          "target_type": "card",
+          "zone": "equipment",
+          "charge_type": "ammo",
+          "condition": "charge_not_full",
+          "count": 1
+        },
+        "effects": [
+          {
+            "effect_type": "fill_charge",
+            "target": "selected_target",
+            "charge_type": "ammo"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "card_name": "防弹背心",
+    "english_name": "bulletproof_vest",
+    "card_color": "blue",
+    "card_type": "equipment",
+    "size": 1,
+    "count": 1,
+    "skills": [
+      {
+        "skill_name": "防弹背心",
+        "english_name": "bulletproof_vest",
+        "skill_description": "被动：受到的伤害减少2点，使用三次后销毁。",
+        "skill_type": "equipment",
+        "trigger": "on_take_damage",
+        "forced": true,
+        "max_uses": 3,
+        "effects": [
+          {
+            "effect_type": "modify_damage",
+            "amount": -2
+          },
+          {
+            "effect_type": "consume_use_counter",
+            "amount": 1
+          },
+          {
+            "effect_type": "destroy_self_on_counter_depleted"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "card_name": "对讲机",
+    "english_name": "walkie_talkie",
+    "card_color": "blue",
+    "card_type": "equipment",
+    "size": 1,
+    "count": 1,
+    "skills": [
+      {
+        "skill_name": "对讲机",
+        "english_name": "walkie_talkie",
+        "skill_description": "行动：选择另一名玩家，该玩家立即执行一个行动。",
+        "skill_type": "equipment",
+        "active": "action",
+        "costs": [
+          {
+            "cost_type": "action_point",
+            "amount": 1
+          }
+        ],
+        "target_selector": {
+          "target_type": "player",
+          "range": "infinite",
+          "exclude_self": true,
+          "count": 1
+        },
+        "effects": [
+          {
+            "effect_type": "grant_action",
+            "target": "selected_target",
+            "amount": 1,
+            "immediate": true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "card_name": "手枪",
+    "english_name": "pistol",
+    "card_color": "blue",
+    "card_type": "equipment",
+    "size": 1,
+    "charge_type": "ammo",
+    "charge_max": 4,
+    "charge_initial": 4,
+    "count": 1,
+    "skills": [
+      {
+        "skill_name": "手枪",
+        "english_name": "pistol",
+        "skill_description": "行动：对一个目标造成2点伤害。",
+        "skill_type": "equipment",
+        "active": "action",
+        "range": "medium",
+        "costs": [
+          {
+            "cost_type": "action_point",
+            "amount": 1
+          },
+          {
+            "cost_type": "charge",
+            "charge_type": "ammo",
+            "amount": 1
+          }
+        ],
+        "target_selector": {
+          "target_type": "all_units",
           "range": "medium",
-          "skill_type": "equipment",
-          "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"pistol\") > 0",
-          "select_target": 1,
-          "filter_target": "return true",
-          "filter_target_range": "medium",
-          "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"pistol\"), 1)\ntarget.damage(2, player)"
-        }
-      ]
-    },
-    {
-      "card_name": "背包",
-      "english_name": "backpack",
-      "card_type": "equipment",
-      "size": 0,
-      "skills": [
-        {
-          "skill_name": "背包",
-          "english_name": "backpack",
-          "skill_description": "被动：玩家增加1格装备栏。",
-          "skill_type": "equipment",
-          "trigger": "on_card_enter_equipment、on_card_leave_equipment",
-          "filter": "return event.card.english_name == \"backpack\"",
-          "forced": true,
-          "content": "if event.trigger_name == \"on_card_enter_equipment\":\n\tplayer.increase_equipment_slot(1)\nelif event.trigger_name == \"on_card_leave_equipment\":\n\tplayer.decrease_equipment_slot(1)"
-        }
-      ]
-    },
-    {
-      "card_name": "手电筒",
-      "english_name": "flashlight",
-      "card_type": "equipment",
-      "size": 1,
-      "skills": [
-        {
-          "skill_name": "手电筒",
-          "english_name": "flashlight",
-          "skill_description": "被动：当你执行拾荒行动时，改为展示牌堆顶两张牌，然后你选择保留其中一张，将另一张置于牌堆底。",
-          "skill_type": "equipment",
-          "trigger": "before_draw_scavenge_card",
-          "filter": "return true",
-          "forced": true,
-          "content": "event.cancel()\nvar pile = event.pile\nvar top_two = pile.peek_top(2)\nvar keep = await player.choose(top_two)\nplayer.gain(keep)\nfor card in top_two:\n\tif card != keep:\n\t\tpile.put_bottom(card)"
-        }
-      ]
-    },
-    {
-      "card_name": "双筒望远镜",
-      "english_name": "binoculars",
-      "card_type": "equipment",
-      "size": 1,
-      "skills": [
-        {
-          "skill_name": "双筒望远镜",
-          "english_name": "binoculars",
-          "skill_description": "行动：展示一张地图块，且不触发它的展示效果。",
+          "count": 1
+        },
+        "effects": [
+          {
+            "effect_type": "damage",
+            "target": "selected_target",
+            "amount": 2,
+            "source": "caster"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "card_name": "背包",
+    "english_name": "backpack",
+    "card_color": "blue",
+    "card_type": "equipment",
+    "size": 0,
+    "count": 1,
+    "skills": [
+      {
+        "skill_name": "背包-装备",
+        "english_name": "backpack_equip",
+        "skill_description": "被动：玩家增加1格装备栏。",
+        "skill_type": "equipment",
+        "trigger": "on_card_enter_equipment",
+        "forced": true,
+        "effects": [
+          {
+            "effect_type": "modify_equipment_slot",
+            "target": "owner",
+            "amount": 1
+          }
+        ]
+      },
+      {
+        "skill_name": "背包-卸下",
+        "english_name": "backpack_unequip",
+        "skill_description": "被动：玩家减少1格装备栏。",
+        "skill_type": "equipment",
+        "trigger": "on_card_leave_equipment",
+        "forced": true,
+        "effects": [
+          {
+            "effect_type": "modify_equipment_slot",
+            "target": "owner",
+            "amount": -1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "card_name": "手电筒",
+    "english_name": "flashlight",
+    "card_color": "blue",
+    "card_type": "equipment",
+    "size": 1,
+    "count": 1,
+    "skills": [
+      {
+        "skill_name": "手电筒",
+        "english_name": "flashlight",
+        "skill_description": "被动：当你执行拾荒行动时，改为展示牌堆顶两张牌，然后你选择保留其中一张，将另一张置于牌堆底。",
+        "skill_type": "equipment",
+        "trigger": "before_draw_scavenge_card",
+        "forced": true,
+        "effects": [
+          {
+            "effect_type": "cancel_event"
+          },
+          {
+            "effect_type": "scavenge_selection",
+            "peek_count": 2,
+            "keep_count": 1,
+            "discard_location": "deck_bottom"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "card_name": "双筒望远镜",
+    "english_name": "binoculars",
+    "card_color": "blue",
+    "card_type": "equipment",
+    "size": 1,
+    "count": 1,
+    "skills": [
+      {
+        "skill_name": "双筒望远镜",
+        "english_name": "binoculars",
+        "skill_description": "行动：展示一张地图块，且不触发它的展示效果。",
+        "skill_type": "equipment",
+        "active": "action",
+        "range": "long",
+        "costs": [
+          {
+            "cost_type": "action_point",
+            "amount": 1
+          }
+        ],
+        "target_selector": {
+          "target_type": "map_block",
           "range": "long",
-          "skill_type": "equipment",
-          "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "select_target": 1,
-          "filter_target": "return target.is_map_block() && !target.is_revealed()",
-          "filter_target_range": "long",
-          "content": "player.consume_action(1)\ntarget.reveal(false, player)"
-        }
-      ]
-    },
-    {
-      "card_name": "炸药",
-      "english_name": "dynamite",
-      "card_type": "action",
-      "skills": [
-        {
-          "skill_name": "炸药",
-          "english_name": "dynamite",
-          "skill_description": "行动：移除一个没有怪物标记的地块上的所有目标标记，并对地块上的所有目标造成8点伤害。",
+          "condition": "unrevealed",
+          "count": 1
+        },
+        "effects": [
+          {
+            "effect_type": "reveal_map_block",
+            "target": "selected_target",
+            "trigger_on_reveal_events": false
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "card_name": "炸药",
+    "english_name": "dynamite",
+    "card_color": "blue",
+    "card_type": "action",
+    "count": 1,
+    "skills": [
+      {
+        "skill_name": "炸药",
+        "english_name": "dynamite",
+        "skill_description": "行动：移除一个没有怪物标记的地块上的所有目标标记，并对地块上的所有目标造成8点伤害。",
+        "skill_type": "action",
+        "active": "action",
+        "range": "long",
+        "costs": [
+          {
+            "cost_type": "action_point",
+            "amount": 1
+          }
+        ],
+        "target_selector": {
+          "target_type": "map_block",
           "range": "long",
-          "skill_type": "action",
-          "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "select_target": 1,
-          "filter_target": "return target.is_map_block() && !target.has_monster_mark()",
-          "filter_target_range": "long",
-          "content": "player.consume_action(1)\ntarget.remove_all_objective_marks()\nvar list = game.get_target(target)\nfor i in list:\n\ti.damage(8, player)"
-        }
-      ]
-    },
-    {
-      "card_name": "大炸药",
-      "english_name": "mega_dynamite",
-      "card_type": "action",
-      "skills": [
-        {
-          "skill_name": "大炸药",
-          "english_name": "mega_dynamite",
-          "skill_description": "行动：摧毁一个地图板块。",
+          "condition": "no_monster_mark",
+          "count": 1
+        },
+        "effects": [
+          {
+            "effect_type": "remove_map_marks",
+            "target": "selected_target",
+            "mark_type": "objective_mark",
+            "amount": "all"
+          },
+          {
+            "effect_type": "damage",
+            "target": "all_units_on_map_block",
+            "amount": 8,
+            "source": "caster"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "card_name": "大炸药",
+    "english_name": "mega_dynamite",
+    "card_color": "blue",
+    "card_type": "action",
+    "count": 1,
+    "skills": [
+      {
+        "skill_name": "大炸药",
+        "english_name": "mega_dynamite",
+        "skill_description": "行动：摧毁一个地图板块。",
+        "skill_type": "action",
+        "active": "action",
+        "range": "medium",
+        "costs": [
+          {
+            "cost_type": "action_point",
+            "amount": 1
+          }
+        ],
+        "target_selector": {
+          "target_type": "map_block",
           "range": "medium",
-          "skill_type": "action",
-          "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "select_target": 1,
-          "filter_target": "return target.is_map_block() && target.is_revealed() && target.is_alive()",
-          "filter_target_range": "medium",
-          "content": "player.consume_action(1)\nawait game.destroy_map_block(target, player)"
-        }
-      ]
-    }
-  ]
-}
+          "condition": "revealed_and_active",
+          "count": 1
+        },
+        "effects": [
+          {
+            "effect_type": "destroy_map_block",
+            "target": "selected_target"
+          }
+        ]
+      }
+    ]
+  }
+]

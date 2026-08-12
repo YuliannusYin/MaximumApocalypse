@@ -1,135 +1,247 @@
-{
-  "$schema": "scavenge_pack",
-  "color": "green",
-  "cards": [
-    {
-      "card_name": "食物（微量）",
-      "english_name": "food_trace",
-      "card_type": "action",
-      "value": 1,
-      "skills": [
-        {
-          "skill_name": "食物（微量）",
-          "english_name": "food_trace",
-          "skill_description": "玩家饥饿值减少1点。",
-          "skill_type": "action",
-          "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_number(\"hunger_value\") > 1",
-          "select_target": 1,
-          "filter_target": "return target == player",
-          "content": "player.consume_action(1)\nplayer.decrease_hunger(1)"
-        }
-      ]
-    },
-    {
-      "card_name": "食物（小额）",
-      "english_name": "food_small",
-      "card_type": "action",
-      "value": 2,
-      "skills": [
-        {
-          "skill_name": "食物（小额）",
-          "english_name": "food_small",
-          "skill_description": "玩家饥饿值减少2点。",
-          "skill_type": "action",
-          "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_number(\"hunger_value\") > 1",
-          "select_target": 1,
-          "filter_target": "return target == player",
-          "content": "player.consume_action(1)\nplayer.decrease_hunger(2)"
-        }
-      ]
-    },
-    {
-      "card_name": "食物（标准）",
-      "english_name": "food_standard",
-      "card_type": "action",
-      "value": 3,
-      "skills": [
-        {
-          "skill_name": "食物（标准）",
-          "english_name": "food_standard",
-          "skill_description": "玩家饥饿值减少3点。",
-          "skill_type": "action",
-          "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_number(\"hunger_value\") > 1",
-          "select_target": 1,
-          "filter_target": "return target == player",
-          "content": "player.consume_action(1)\nplayer.decrease_hunger(3)"
-        }
-      ]
-    },
-    {
-      "card_name": "食物（足量）",
-      "english_name": "food_full",
-      "card_type": "action",
-      "value": 4,
-      "skills": [
-        {
-          "skill_name": "食物（足量）",
-          "english_name": "food_full",
-          "skill_description": "玩家饥饿值减少4点。",
-          "skill_type": "action",
-          "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_number(\"hunger_value\") > 1",
-          "select_target": 1,
-          "filter_target": "return target == player",
-          "content": "player.consume_action(1)\nplayer.decrease_hunger(4)"
-        }
-      ]
-    },
-    {
-      "card_name": "食物（大量）",
-      "english_name": "food_large",
-      "card_type": "action",
-      "value": 5,
-      "skills": [
-        {
-          "skill_name": "食物（大量）",
-          "english_name": "food_large",
-          "skill_description": "玩家饥饿值减少5点。",
-          "skill_type": "action",
-          "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_number(\"hunger_value\") > 1",
-          "select_target": 1,
-          "filter_target": "return target == player",
-          "content": "player.consume_action(1)\nplayer.decrease_hunger(5)"
-        }
-      ]
-    },
-    {
-      "card_name": "食物（小箱）",
-      "english_name": "food_small_box",
-      "card_type": "action",
-      "value": 1,
-      "skills": [
-        {
-          "skill_name": "食物（小箱）",
-          "english_name": "food_small_box",
-          "skill_description": "所有玩家的饥饿值减少1点。",
-          "skill_type": "action",
-          "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "content": "player.consume_action(1)\nvar list = game.get_all_players()\nfor i in list:\n\ti.decrease_hunger(1)"
-        }
-      ]
-    },
-    {
-      "card_name": "食物（大箱）",
-      "english_name": "food_large_box",
-      "card_type": "action",
-      "value": 2,
-      "skills": [
-        {
-          "skill_name": "食物（大箱）",
-          "english_name": "food_large_box",
-          "skill_description": "所有玩家的饥饿值减少2点。",
-          "skill_type": "action",
-          "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "content": "player.consume_action(1)\nvar list = game.get_all_players()\nfor i in list:\n\ti.decrease_hunger(2)"
-        }
-      ]
-    }
-  ]
-}
+[
+  {
+    "card_name": "食物（微量）",
+    "english_name": "food_trace",
+    "card_color": "green",
+    "card_type": "action",
+    "value": 1,
+    "count": 1,
+    "skills": [
+      {
+        "skill_name": "食物（微量）",
+        "english_name": "food_trace",
+        "skill_description": "玩家饥饿值减少1点。",
+        "skill_type": "action",
+        "active": "action",
+        "costs": [
+          {
+            "cost_type": "action_point",
+            "amount": 1
+          }
+        ],
+        "target_selector": {
+          "target_type": "player",
+          "target_scope": "self"
+        },
+        "effects": [
+          {
+            "effect_type": "modify_status",
+            "target": "self",
+            "status_type": "hunger",
+            "amount": -1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "card_name": "食物（小额）",
+    "english_name": "food_small",
+    "card_color": "green",
+    "card_type": "action",
+    "value": 2,
+    "count": 1,
+    "skills": [
+      {
+        "skill_name": "食物（小额）",
+        "english_name": "food_small",
+        "skill_description": "玩家饥饿值减少2点。",
+        "skill_type": "action",
+        "active": "action",
+        "costs": [
+          {
+            "cost_type": "action_point",
+            "amount": 1
+          }
+        ],
+        "target_selector": {
+          "target_type": "player",
+          "target_scope": "self"
+        },
+        "effects": [
+          {
+            "effect_type": "modify_status",
+            "target": "self",
+            "status_type": "hunger",
+            "amount": -2
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "card_name": "食物（标准）",
+    "english_name": "food_standard",
+    "card_color": "green",
+    "card_type": "action",
+    "value": 3,
+    "count": 1,
+    "skills": [
+      {
+        "skill_name": "食物（标准）",
+        "english_name": "food_standard",
+        "skill_description": "玩家饥饿值减少3点。",
+        "skill_type": "action",
+        "active": "action",
+        "costs": [
+          {
+            "cost_type": "action_point",
+            "amount": 1
+          }
+        ],
+        "target_selector": {
+          "target_type": "player",
+          "target_scope": "self"
+        },
+        "effects": [
+          {
+            "effect_type": "modify_status",
+            "target": "self",
+            "status_type": "hunger",
+            "amount": -3
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "card_name": "食物（足量）",
+    "english_name": "food_full",
+    "card_color": "green",
+    "card_type": "action",
+    "value": 4,
+    "count": 1,
+    "skills": [
+      {
+        "skill_name": "食物（足量）",
+        "english_name": "food_full",
+        "skill_description": "玩家饥饿值减少4点。",
+        "skill_type": "action",
+        "active": "action",
+        "costs": [
+          {
+            "cost_type": "action_point",
+            "amount": 1
+          }
+        ],
+        "target_selector": {
+          "target_type": "player",
+          "target_scope": "self"
+        },
+        "effects": [
+          {
+            "effect_type": "modify_status",
+            "target": "self",
+            "status_type": "hunger",
+            "amount": -4
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "card_name": "食物（大量）",
+    "english_name": "food_large",
+    "card_color": "green",
+    "card_type": "action",
+    "value": 5,
+    "count": 1,
+    "skills": [
+      {
+        "skill_name": "食物（大量）",
+        "english_name": "food_large",
+        "skill_description": "玩家饥饿值减少5点。",
+        "skill_type": "action",
+        "active": "action",
+        "costs": [
+          {
+            "cost_type": "action_point",
+            "amount": 1
+          }
+        ],
+        "target_selector": {
+          "target_type": "player",
+          "target_scope": "self"
+        },
+        "effects": [
+          {
+            "effect_type": "modify_status",
+            "target": "self",
+            "status_type": "hunger",
+            "amount": -5
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "card_name": "食物（小箱）",
+    "english_name": "food_small_box",
+    "card_color": "green",
+    "card_type": "action",
+    "value": 1,
+    "count": 1,
+    "skills": [
+      {
+        "skill_name": "食物（小箱）",
+        "english_name": "food_small_box",
+        "skill_description": "所有玩家的饥饿值减少1点。",
+        "skill_type": "action",
+        "active": "action",
+        "costs": [
+          {
+            "cost_type": "action_point",
+            "amount": 1
+          }
+        ],
+        "target_selector": {
+          "target_type": "player",
+          "target_scope": "all_players"
+        },
+        "effects": [
+          {
+            "effect_type": "modify_status",
+            "target": "all_players",
+            "status_type": "hunger",
+            "amount": -1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "card_name": "食物（大箱）",
+    "english_name": "food_large_box",
+    "card_color": "green",
+    "card_type": "action",
+    "value": 2,
+    "count": 1,
+    "skills": [
+      {
+        "skill_name": "食物（大箱）",
+        "english_name": "food_large_box",
+        "skill_description": "所有玩家的饥饿值减少2点。",
+        "skill_type": "action",
+        "active": "action",
+        "costs": [
+          {
+            "cost_type": "action_point",
+            "amount": 1
+          }
+        ],
+        "target_selector": {
+          "target_type": "player",
+          "target_scope": "all_players"
+        },
+        "effects": [
+          {
+            "effect_type": "modify_status",
+            "target": "all_players",
+            "status_type": "hunger",
+            "amount": -2
+          }
+        ]
+      }
+    ]
+  }
+]

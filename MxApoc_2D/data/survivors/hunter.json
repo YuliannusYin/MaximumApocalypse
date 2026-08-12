@@ -1,5 +1,4 @@
 {
-  "$schema": "survivor",
   "character_name": "猎人",
   "english_name": "hunter",
   "max_hp": 24,
@@ -12,9 +11,27 @@
       "skill_name": "侦察",
       "english_name": "scout",
       "skill_description": "行动：最多展示两个相邻的地图块，且不触发任何地块触发效果。",
+      "skill_type": "intrinsic",
       "active": "action",
-      "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_current_block().has_adjacent_unrevealed_block()",
-      "content": "player.consume_action(1)\nvar max_reveal = 2\nvar count = 0\nwhile count < max_reveal:\n\ttarget = await player.choose_map_block({\"filter_target\": \"return target.is_revealed() == false\", \"filter_target_range\": \"medium\"})\n\tif target == null:\n\t\tbreak\n\ttarget.reveal(false, player)\n\tcount += 1\n\tif count < max_reveal:\n\t\tvar choice = await player.choose([\"继续展示\", \"停止展示\"])\n\t\tif choice == \"停止展示\":\n\t\t\tbreak"
+      "costs": [
+        {
+          "cost_type": "action_point",
+          "amount": 1
+        }
+      ],
+      "target_selector": {
+        "target_type": "map_block",
+        "condition": "is_adjacent && is_unrevealed",
+        "select_count": 2,
+        "optional": true
+      },
+      "effects": [
+        {
+          "effect_type": "reveal_map_block",
+          "target": "selected_target",
+          "trigger_tile_events": false
+        }
+      ]
     }
   ],
   "deck": [
@@ -30,10 +47,32 @@
           "english_name": "backpack",
           "skill_description": "被动：增加一格角色装备栏。",
           "skill_type": "equipment",
-          "trigger": "on_card_enter_equipment、on_card_leave_equipment",
-          "filter": "return event.card.english_name == \"backpack\"",
-          "forced": true,
-          "content": "if event.trigger_name == \"on_card_enter_equipment\":\n\tplayer.increase_equipment_slot(1)\nelif event.trigger_name == \"on_card_leave_equipment\":\n\tplayer.decrease_equipment_slot(1)"
+          "triggers": [
+            {
+              "trigger": "on_card_enter_equipment",
+              "condition": "event.card.english_name == 'backpack'",
+              "forced": true,
+              "effects": [
+                {
+                  "effect_type": "modify_equipment_slots",
+                  "target": "self",
+                  "amount": 1
+                }
+              ]
+            },
+            {
+              "trigger": "on_card_leave_equipment",
+              "condition": "event.card.english_name == 'backpack'",
+              "forced": true,
+              "effects": [
+                {
+                  "effect_type": "modify_equipment_slots",
+                  "target": "self",
+                  "amount": -1
+                }
+              ]
+            }
+          ]
         }
       ]
     },
@@ -47,14 +86,33 @@
           "skill_name": "爆头",
           "english_name": "headshot",
           "skill_description": "行动：使用装备区里的【弓】或【弩】，对一个目标造成6点伤害。",
-          "range": "long",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && (player.has_equipment(\"bow\") || player.has_equipment(\"crossbow\"))",
-          "select_target": 1,
-          "filter_target": "return true",
-          "filter_target_range": "long",
-          "content": "target.damage(6, player)"
+          "costs": [
+            {
+              "cost_type": "action_point",
+              "amount": 1
+            },
+            {
+              "cost_type": "require_equipped",
+              "card_english_names": [
+                "bow",
+                "crossbow"
+              ]
+            }
+          ],
+          "target_selector": {
+            "target_type": "any",
+            "select_count": 1,
+            "range": "long"
+          },
+          "effects": [
+            {
+              "effect_type": "damage",
+              "target": "selected_target",
+              "amount": 6
+            }
+          ]
         }
       ]
     },
@@ -69,14 +127,25 @@
           "skill_name": "捕熊陷阱",
           "english_name": "bear_trap",
           "skill_description": "弃置：弃置此装备，对射程内的一个目标造成4点伤害。",
-          "range": "short",
           "skill_type": "equipment",
           "active": "action",
-          "filter": "return player.in_phase == \"action\"",
-          "select_target": 1,
-          "filter_target": "return true",
-          "filter_target_range": "short",
-          "content": "player.discard(\"bear_trap\", \"equipment\")\ntarget.damage(4, player)"
+          "costs": [
+            {
+              "cost_type": "discard_self"
+            }
+          ],
+          "target_selector": {
+            "target_type": "any",
+            "select_count": 1,
+            "range": "short"
+          },
+          "effects": [
+            {
+              "effect_type": "damage",
+              "target": "selected_target",
+              "amount": 4
+            }
+          ]
         }
       ]
     },
@@ -91,14 +160,26 @@
           "skill_name": "弓",
           "english_name": "bow",
           "skill_description": "行动：对一个目标造成2点伤害。",
-          "range": "medium",
           "skill_type": "equipment",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "select_target": 1,
-          "filter_target": "return true",
-          "filter_target_range": "medium",
-          "content": "player.consume_action(1)\ntarget.damage(2, player)"
+          "costs": [
+            {
+              "cost_type": "action_point",
+              "amount": 1
+            }
+          ],
+          "target_selector": {
+            "target_type": "any",
+            "select_count": 1,
+            "range": "medium"
+          },
+          "effects": [
+            {
+              "effect_type": "damage",
+              "target": "selected_target",
+              "amount": 2
+            }
+          ]
         }
       ]
     },
@@ -116,14 +197,38 @@
           "skill_name": "火焰箭",
           "english_name": "fire_arrow",
           "skill_description": "行动：使用装备区里的【弓】或【弩】，对一个目标造成4点伤害。",
-          "range": "medium",
           "skill_type": "equipment",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"fire_arrow\") > 0 && (player.has_equipment(\"bow\") || player.has_equipment(\"crossbow\"))",
-          "select_target": 1,
-          "filter_target": "return true",
-          "filter_target_range": "medium",
-          "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"fire_arrow\"), 1)\ntarget.damage(4, player)"
+          "costs": [
+            {
+              "cost_type": "action_point",
+              "amount": 1
+            },
+            {
+              "cost_type": "charge",
+              "target_equipment": "fire_arrow",
+              "amount": 1
+            },
+            {
+              "cost_type": "require_equipped",
+              "card_english_names": [
+                "bow",
+                "crossbow"
+              ]
+            }
+          ],
+          "target_selector": {
+            "target_type": "any",
+            "select_count": 1,
+            "range": "medium"
+          },
+          "effects": [
+            {
+              "effect_type": "damage",
+              "target": "selected_target",
+              "amount": 4
+            }
+          ]
         }
       ]
     },
@@ -138,14 +243,26 @@
           "skill_name": "砍刀",
           "english_name": "machete",
           "skill_description": "行动：对一个目标造成3点伤害。",
-          "range": "short",
           "skill_type": "equipment",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "select_target": 1,
-          "filter_target": "return true",
-          "filter_target_range": "short",
-          "content": "player.consume_action(1)\ntarget.damage(3, player)"
+          "costs": [
+            {
+              "cost_type": "action_point",
+              "amount": 1
+            }
+          ],
+          "target_selector": {
+            "target_type": "any",
+            "select_count": 1,
+            "range": "short"
+          },
+          "effects": [
+            {
+              "effect_type": "damage",
+              "target": "selected_target",
+              "amount": 3
+            }
+          ]
         }
       ]
     },
@@ -165,8 +282,29 @@
           "skill_description": "行动：消耗1点燃料，最多移动3格。",
           "skill_type": "equipment",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"motorcycle\") > 0",
-          "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"motorcycle\"), 1)\nvar max_steps = 3\nvar steps = 0\nwhile steps < max_steps:\n\tif steps > 0:\n\t\tvar choice = await player.choose([\"继续移动\", \"停止移动\"])\n\t\tif choice == \"停止移动\":\n\t\t\tbreak\n\ttarget = await player.choose_map_block({\"filter_target\": \"return target != player.get_current_block()\", \"filter_target_range\": \"medium\"})\n\tvar success = player.move_to(target)\n\tif not success:\n\t\tbreak\n\tsteps += 1"
+          "costs": [
+            {
+              "cost_type": "action_point",
+              "amount": 1
+            },
+            {
+              "cost_type": "charge",
+              "target_equipment": "motorcycle",
+              "amount": 1
+            }
+          ],
+          "target_selector": {
+            "target_type": "player",
+            "target_scope": "self"
+          },
+          "effects": [
+            {
+              "effect_type": "move",
+              "max_steps": 3,
+              "optional_stop": true,
+              "range": "medium"
+            }
+          ]
         }
       ]
     },
@@ -184,14 +322,31 @@
           "skill_name": "弩",
           "english_name": "crossbow",
           "skill_description": "行动：消耗1点弹药，对一个目标造成3点伤害。",
-          "range": "medium",
           "skill_type": "equipment",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"crossbow\") > 0",
-          "select_target": 1,
-          "filter_target": "return true",
-          "filter_target_range": "medium",
-          "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"crossbow\"), 1)\ntarget.damage(3, player)"
+          "costs": [
+            {
+              "cost_type": "action_point",
+              "amount": 1
+            },
+            {
+              "cost_type": "charge",
+              "target_equipment": "crossbow",
+              "amount": 1
+            }
+          ],
+          "target_selector": {
+            "target_type": "any",
+            "select_count": 1,
+            "range": "medium"
+          },
+          "effects": [
+            {
+              "effect_type": "damage",
+              "target": "selected_target",
+              "amount": 3
+            }
+          ]
         }
       ]
     },
@@ -205,14 +360,32 @@
           "skill_name": "圈套",
           "english_name": "snare",
           "skill_description": "行动：对一个怪物造成1点伤害并击晕，直到你的下个回合开始。",
-          "range": "medium",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "select_target": 1,
-          "filter_target": "return target.type == \"monster\"",
-          "filter_target_range": "medium",
-          "content": "target.damage(1, player)\ntarget.stun(player, \"before_next_turn_start\")"
+          "costs": [
+            {
+              "cost_type": "action_point",
+              "amount": 1
+            }
+          ],
+          "target_selector": {
+            "target_type": "monster",
+            "select_count": 1,
+            "range": "medium"
+          },
+          "effects": [
+            {
+              "effect_type": "damage",
+              "target": "selected_target",
+              "amount": 1
+            },
+            {
+              "effect_type": "apply_status",
+              "status_type": "stun",
+              "target": "selected_target",
+              "duration": "before_next_turn_start"
+            }
+          ]
         }
       ]
     },
@@ -228,8 +401,22 @@
           "skill_description": "行动：使场上所有玩家的饥饿值降低1点。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "content": "var list = game.get_all_players()\nfor i in list:\n\ti.decrease_hunger(1)"
+          "costs": [
+            {
+              "cost_type": "action_point",
+              "amount": 1
+            }
+          ],
+          "target_selector": {
+            "target_type": "all_players"
+          },
+          "effects": [
+            {
+              "effect_type": "modify_hunger",
+              "target": "all_players",
+              "amount": -1
+            }
+          ]
         }
       ]
     },
@@ -245,8 +432,24 @@
           "skill_description": "行动：从场上所有弃牌堆中选一张装备牌，将其置入场上任一玩家的装备区中。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && game.has_equipment_in_discard_piles()",
-          "content": "var list = game.get_all_discard_pile_equipments()\nvar card = await player.choose_card(list)\ntarget = await player.choose_target({\"select_target\": 1, \"filter_target\": \"return target.type == \\\"human\\\"\", \"filter_target_range\": \"infinity\"})\ntarget.equip(card)"
+          "costs": [
+            {
+              "cost_type": "action_point",
+              "amount": 1
+            }
+          ],
+          "target_selector": {
+            "target_type": "human",
+            "select_count": 1,
+            "range": "infinite"
+          },
+          "effects": [
+            {
+              "effect_type": "equip_from_discard_piles",
+              "target_player": "selected_target",
+              "card_filter": "card_type == 'equipment'"
+            }
+          ]
         }
       ]
     },
@@ -262,10 +465,32 @@
           "english_name": "camouflage_stealth",
           "skill_description": "被动：角色的潜行值加2。",
           "skill_type": "equipment",
-          "trigger": "on_card_enter_equipment、on_card_leave_equipment",
-          "filter": "return event.card.english_name == \"camouflage\"",
-          "forced": true,
-          "content": "if event.trigger_name == \"on_card_enter_equipment\":\n\tplayer.add_sneak(2)\nelif event.trigger_name == \"on_card_leave_equipment\":\n\tplayer.reduce_sneak(2)"
+          "triggers": [
+            {
+              "trigger": "on_card_enter_equipment",
+              "condition": "event.card.english_name == 'camouflage'",
+              "forced": true,
+              "effects": [
+                {
+                  "effect_type": "modify_stealth",
+                  "target": "self",
+                  "amount": 2
+                }
+              ]
+            },
+            {
+              "trigger": "on_card_leave_equipment",
+              "condition": "event.card.english_name == 'camouflage'",
+              "forced": true,
+              "effects": [
+                {
+                  "effect_type": "modify_stealth",
+                  "target": "self",
+                  "amount": -2
+                }
+              ]
+            }
+          ]
         },
         {
           "skill_name": "迷彩服·弃置",
@@ -273,8 +498,27 @@
           "skill_description": "弃置：受到3点伤害，然后弃置掉你面前的一张非首领怪物，并替换为一个怪物标记。",
           "skill_type": "equipment",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.has_non_boss_monster()",
-          "content": "player.discard(\"camouflage\", \"equipment\")\nplayer.damage(3, player)\nawait player.discard_non_boss_monster_to_mark()"
+          "costs": [
+            {
+              "cost_type": "discard_self"
+            }
+          ],
+          "target_selector": {
+            "target_type": "engaged_monster",
+            "condition": "is_boss == false",
+            "select_count": 1
+          },
+          "effects": [
+            {
+              "effect_type": "damage",
+              "target": "self",
+              "amount": 3
+            },
+            {
+              "effect_type": "convert_engaged_monster_to_token",
+              "target": "selected_target"
+            }
+          ]
         }
       ]
     },
@@ -290,8 +534,24 @@
           "skill_description": "行动：从任一拾荒牌堆中抓取3张牌，然后弃置一张拾荒牌。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "content": "var result = await player.choose(\"请选择拾荒堆颜色：\", [\"red\", \"green\", \"blue\"])\nvar scavenge_pile = player.get_scavenge_pile(result)\nplayer.draw_scavenge(3, scavenge_pile)\nplayer.choose_to_discard(1, \"hand\", \"scavenge\")"
+          "costs": [
+            {
+              "cost_type": "action_point",
+              "amount": 1
+            }
+          ],
+          "effects": [
+            {
+              "effect_type": "draw_scavenge_card",
+              "choose_color": "player_choice",
+              "amount": 3
+            },
+            {
+              "effect_type": "discard_scavenge_card",
+              "target": "self",
+              "amount": 1
+            }
+          ]
         }
       ]
     }

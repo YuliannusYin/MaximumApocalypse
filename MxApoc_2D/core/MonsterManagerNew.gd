@@ -1,33 +1,67 @@
 # MonsterManagerNew.gd
 class_name MonsterManagerNew
-extends RefCounted
+extends Node
 
-# 4种怪物卡组枚举（对应传入的整型 0, 1, 2, 3）
-enum MonsterType {
-	ALIEN,
-	MUTANT,
-	ROBOT,
-	ZOMBIE
-}
+## 当前激活的任务实体
+var current_mission: Mission = null
 
-# 配置文件路径映射 (请根据你的项目实际路径调整)
-const DECK_PATHS: Dictionary = {
-	MonsterType.ALIEN: "res://data/monsters/alien.json",
-	MonsterType.MUTANT: "res://data/monsters/mutant.json",
-	MonsterType.ROBOT: "res://data/monsters/robot.json",
-	MonsterType.ZOMBIE: "res://data/monsters/zombie.json"
-}
+## 内存缓存字典: "卡牌中文名" -> 卡牌 JSON 原始 Dictionary
+var scavenge_card_templates: Dictionary = {}
 
-## 核心接口：接收一个整型 (0, 1, 2, 3)，读取对应 JSON 并返回实例化后的 MonsterCard 数组
-static func load_monster_deck_by_id(type_int: MonsterType) -> Array[MonsterCard]:
-	if not DECK_PATHS.has(type_int):
-		push_error("[MonsterManager] 未知的怪物卡组类型整型值: %d" % type_int)
-		return []
+
+# ==============================================================================
+# 1. 模板预加载 API
+# ==============================================================================
+
+## 预加载所有拾荒卡 JSON 数据到内存字典中
+## 示例: mission_manager.preload_scavenge_cards(["res://data/scavenge_blue.json", "res://data/scavenge_red.json"])
+func preload_scavenge_cards(file_paths: Array[String]) -> void:
+	scavenge_card_templates.clear()
+	
+	for path in file_paths:
+		_load_scavenge_json_file(path)
 		
-	var file_path: String = DECK_PATHS[type_int]
+	print("[MissionManager] 拾荒卡模板预加载完成，共加载 %d 种卡牌模板。" % scavenge_card_templates.size())
+
+
+## 读取单个拾荒卡 JSON 文件并塞入模板字典
+func _load_scavenge_json_file(file_path: String) -> void:
 	if not FileAccess.file_exists(file_path):
-		push_error("[MonsterManager] 找不到配置文件: %s" % file_path)
-		return []
+		push_error("[MissionManager] 拾荒卡 JSON 文件不存在: %s" % file_path)
+		return
+		
+	var file = FileAccess.open(file_path, FileAccess.READ)
+	var json_text = file.get_as_text()
+	file.close()
+	
+	var json = JSON.new()
+	if json.parse(json_text) != OK:
+		push_error("[MissionManager] 拾荒卡 JSON 解析失败: %s, 错误: %s" % [file_path, json.get_error_message()])
+		return
+		
+	var data_list = json.get_data()
+	if not data_list is Array:
+		push_error("[MissionManager] 拾荒卡 JSON 根节点必须是 Array: %s" % file_path)
+		return
+		
+	for card_data in data_list:
+		if card_data is Dictionary:
+			var c_name: String = card_data.get("card_name", "")
+			if c_name != "":
+				scavenge_card_templates[c_name] = card_data
+			else:
+				push_warning("[MissionManager] 发现没有 card_name 的卡牌配置: %s" % file_path)
+
+
+# ==============================================================================
+# 2. 任务加载 API
+# ==============================================================================
+
+## 从指定的 JSON 文件路径加载任务
+func load_mission_from_file(file_path: String) -> Mission:
+	if not FileAccess.file_exists(file_path):
+		push_error("[MissionManager] 任务 JSON 文件不存在: %s" % file_path)
+		return null
 		
 	var file = FileAccess.open(file_path, FileAccess.READ)
 	var json_string = file.get_as_text()
@@ -35,31 +69,89 @@ static func load_monster_deck_by_id(type_int: MonsterType) -> Array[MonsterCard]
 	
 	var json = JSON.new()
 	if json.parse(json_string) != OK:
-		push_error("[MonsterManager] JSON 解析失败: %s" % json.get_error_message())
-		return []
+		push_error("[MissionManager] 任务 JSON 解析失败: %s, 错误: %s" % [file_path, json.get_error_message()])
+		return null
 		
-	var raw_data = json.data
-	if not raw_data is Array:
-		push_error("[MonsterManager] JSON 顶层结构必须是 Array！")
-		return []
+	var data = json.get_data()
+	if not data is Dictionary:
+		push_error("[MissionManager] 任务 JSON 格式错误，根节点必须为 Dictionary: %s" % file_path)
+		return null
 		
-	var card_instances: Array[MonsterCard] = []
+	var mission = Mission.new()
+	mission.init_from_json_dict(data)
+	current_mission = mission
+	return mission
+
+
+# ==============================================================================
+# 3. 拾荒卡实例化 & 牌堆构建 API
+# ==============================================================================
+
+## 根据卡牌中文名，从预加载模板中实例化一张独立的 ScavengeCard
+func create_scavenge_card_by_name(card_name: String) -> ScavengeCard:
+	if not scavenge_card_templates.has(card_name):
+		push_error("[MissionManager] 未找到名为 '%s' 的拾荒卡模板！" % card_name)
+		return null
+		
+	var template_dict: Dictionary = scavenge_card_templates[card_name]
 	
-	for raw_card in raw_data:
-		if not raw_card is Dictionary:
+	# 实例化新的 ScavengeCard 实体
+	var new_card: ScavengeCard = ScavengeCard.new()
+	new_card.init_from_json_dict(template_dict)
+	
+	return new_card
+
+
+## 构建任务所需的三个拾荒抽牌堆
+## 返回格式: { ScavengeCard.ScavengeDeckType.RED_DECK: Array[ScavengeCard], ... }
+func build_scavenge_decks() -> Dictionary:
+	var result_decks: Dictionary = {
+		ScavengeCard.ScavengeDeckType.RED_DECK: [] as Array[ScavengeCard],
+		ScavengeCard.ScavengeDeckType.GREEN_DECK: [] as Array[ScavengeCard],
+		ScavengeCard.ScavengeDeckType.BLUE_DECK: [] as Array[ScavengeCard]
+	}
+	
+	if current_mission == null:
+		push_error("[MissionManager] 构建拾荒牌堆失败：当前未加载任何 Mission！")
+		return result_decks
+		
+	var config: Dictionary = current_mission.scavenge_config
+	
+	for color_key in config:
+		var deck_type: ScavengeCard.ScavengeDeckType = _parse_deck_type_from_string(color_key)
+		if deck_type == ScavengeCard.ScavengeDeckType.NONE:
 			continue
 			
-		var card_dict: Dictionary = raw_card.duplicate(true)
+		var card_configs: Array = config.get(color_key, [])
+		var target_deck_array: Array[ScavengeCard] = result_decks[deck_type]
 		
-		# 自动注入/覆盖整型 monster_type，保证卡牌知晓自己的种族 ID
-		card_dict["monster_type"] = type_int
-		
-		# 提取 count，并展开生成对应数量的 MonsterCard 对象
-		var count: int = card_dict.get("count", 1)
-		for i in range(count):
-			var card = MonsterCard.new()
-			card.init_from_json_dict(card_dict)
-			card_instances.append(card)
+		for item in card_configs:
+			if not item is Dictionary:
+				continue
+				
+			var card_name: String = item.get("card_name", "")
+			var count: int = item.get("count", 1)
 			
-	print("[MonsterManager] 成功实例化卡组类型 [%d]，共生成 %d 张怪物牌！" % [type_int, card_instances.size()])
-	return card_instances
+			# 直接在 MissionManager 内部实例化卡牌对象
+			for i in range(count):
+				var card_instance: ScavengeCard = create_scavenge_card_by_name(card_name)
+				if card_instance:
+					# 标记当前分配给哪个地图抽牌堆
+					card_instance.current_scavenge_deck = deck_type
+					target_deck_array.append(card_instance)
+					
+	return result_decks
+
+
+## 字符串转拾荒牌堆类型枚举 Helper
+func _parse_deck_type_from_string(color_str: String) -> ScavengeCard.ScavengeDeckType:
+	match color_str.to_lower():
+		"red":
+			return ScavengeCard.ScavengeDeckType.RED_DECK
+		"green":
+			return ScavengeCard.ScavengeDeckType.GREEN_DECK
+		"blue":
+			return ScavengeCard.ScavengeDeckType.BLUE_DECK
+		_:
+			push_warning("[MissionManager] 未知的拾荒牌堆颜色配置: %s" % color_str)
+			return ScavengeCard.ScavengeDeckType.NONE
