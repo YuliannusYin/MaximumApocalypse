@@ -55,7 +55,7 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.dog.get_hp() > 0",
           "select_target": 1,
-          "filter_target": "return true",
+          "filter_target": "return target != player",
           "filter_target_range": "medium",
           "content": "player.consume_action(1)\ntarget.damage(3, player.dog)\nplayer.dog.damage(1, player)"
         }
@@ -78,7 +78,7 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.dog.get_hp() > 0",
           "select_target": [1, 3],
-          "filter_target": "return true",
+          "filter_target": "return target != player",
           "filter_target_range": "medium",
           "content": "var list = event.targets\nfor i in list:\n\ti.damage(3, player)"
         }
@@ -126,7 +126,7 @@
           "skill_type": "equipment",
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.dog.get_hp() > 0",
-          "content": "player.consume_action(1)\ntarget = await player.choose_map_block({\"filter_target\": \"return target.count_monster_mark() > 0\", \"filter_target_range\": \"long\"})\ntarget.remove_monster_mark(1)\nplayer.dog.damage(2, player)"
+          "content": "player.consume_action(1)\nvar _candidates = player.get_current_block().get_blocks_in_range(\"long\")\nvar _valid = []\nfor _b in _candidates:\n\ttarget = _b\n\tif target.count_monster_mark() > 0:\n\t\t_valid.append(_b)\n\ttarget = _b\nvar _blocks = await player.choose_block_inline(_valid, \"\", 1)\ntarget = _blocks[0] if _blocks.size() > 0 else null\ntarget.remove_monster_mark(1)\nplayer.dog.damage(2, player)"
         }
       ]
     },
@@ -208,7 +208,7 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"m1_garand\") > 0",
           "select_target": 1,
-          "filter_target": "return true",
+          "filter_target": "return target != player",
           "filter_target_range": "long",
           "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"m1_garand\"), 1)\ntarget.damage(8, player.veteran)"
         }
@@ -232,7 +232,7 @@
           "skill_type": "equipment",
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"mortar\") > 0",
-          "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"mortar\"), 1)\ntarget = await player.choose_map_block({\"filter_target\": \"return target.is_revealed()\", \"filter_target_range\": \"long\"})\nvar choice = await player.choose([\"移除怪物标记\", \"造成伤害\"])\nif choice == \"移除怪物标记\":\n\ttarget.remove_all_monster_marks()\nelif choice == \"造成伤害\":\n\tvar list = game.get_target(target)\n\tfor i in list:\n\t\ti.damage(6, player.veteran)"
+          "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"mortar\"), 1)\nvar _candidates = player.get_current_block().get_blocks_in_range(\"long\")\nvar _valid = []\nfor _b in _candidates:\n\ttarget = _b\n\tif target.is_revealed():\n\t\t_valid.append(_b)\n\ttarget = _b\nvar _blocks = await player.choose_block_inline(_valid, \"\", 1)\ntarget = _blocks[0] if _blocks.size() > 0 else null\nvar choice = await player.choose([\"移除怪物标记\", \"造成伤害\"])\nif choice == \"移除怪物标记\":\n\ttarget.remove_all_monster_marks()\nelif choice == \"造成伤害\":\n\tvar list = game.get_target(target)\n\tfor i in list:\n\t\ti.damage(6, player.veteran)"
         }
       ]
     },
@@ -272,7 +272,7 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"luger\") > 0",
           "select_target": 1,
-          "filter_target": "return true",
+          "filter_target": "return target != player",
           "filter_target_range": "medium",
           "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"luger\"), 1)\ntarget.damage(4, player.veteran)"
         }
@@ -291,7 +291,7 @@
           "skill_type": "action",
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.dog.get_hp() > 0",
-          "content": "var max_reveal = 2\nvar count = 0\nwhile count < max_reveal:\n\ttarget = await player.choose_map_block({\"filter_target\": \"return target.is_revealed() == false\", \"filter_target_range\": \"medium\"})\n\tif target == null:\n\t\tbreak\n\ttarget.reveal(false, player)\n\tcount += 1\n\tif count < max_reveal:\n\t\tvar choice = await player.choose([\"继续展示\", \"停止展示\"])\n\t\tif choice == \"停止展示\":\n\t\t\tbreak"
+          "content": "var max_reveal = 2\nvar count = 0\nwhile count < max_reveal:\n\tvar _candidates = player.get_current_block().get_blocks_in_range(\"medium\")\n\tvar _valid = []\n\tfor _b in _candidates:\n\t\ttarget = _b\n\t\tif target.is_revealed() == false:\n\t\t\t_valid.append(_b)\n\t\ttarget = _b\n\tvar _blocks = await player.choose_block_inline(_valid, \"\", 1)\n\ttarget = _blocks[0] if _blocks.size() > 0 else null\n\tif target == null:\n\t\tbreak\n\ttarget.reveal(false, player)\n\tcount += 1\n\tif count < max_reveal:\n\t\tvar choice = await player.choose([\"继续展示\", \"停止展示\"])\n\t\tif choice == \"停止展示\":\n\t\t\tbreak"
         }
       ]
     },
@@ -327,7 +327,7 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.dog.get_hp() > 0",
           "select_target": 1,
-          "filter_target": "return true",
+          "filter_target": "return target != player",
           "filter_target_range": "medium",
           "content": "target.damage(2, player.dog)\ntarget.stun(player.dog, \"before_next_turn_start\")"
         }

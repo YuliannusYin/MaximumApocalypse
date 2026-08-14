@@ -15,7 +15,7 @@
       "range": "short",
       "active": "action",
       "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-      "filter_target": "return true",
+      "filter_target": "return target != player",
       "filter_target_range": "short",
       "select_target": 1,
       "content": "player.consume_action(1)\ntarget.damage(2, player)"
@@ -106,7 +106,7 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"shotgun\") > 0",
           "select_target": 1,
-          "filter_target": "return true",
+          "filter_target": "return target != player",
           "filter_target_range": "medium",
           "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"shotgun\"), 1)\ntarget.damage(4, player)\nvar list = game.get_target(player.get_current_block())\nfor i in list:\n\tif i != player:\n\t\ti.damage(2, player)"
         }
@@ -227,7 +227,8 @@
           "skill_type": "action",
           "active": "action",
           "filter": "return player.in_phase == \"action\"",
-          "content": "var max_steps = 3\nvar steps = 0\nwhile steps < max_steps:\n\tif steps > 0:\n\t\tvar choice = await player.choose([\"继续移动\", \"停止移动\"])\n\t\tif choice == \"停止移动\":\n\t\t\tbreak\n\ttarget = await player.choose_map_block({\"filter_target\": \"return target != player.get_current_block()\", \"filter_target_range\": \"medium\"})\n\tvar success = player.move_to(target)\n\tif not success:\n\t\tbreak\n\tsteps += 1\nplayer.draw(1)"
+          "defer_action_cost": true,
+          "content": "var max_steps = 3\nvar steps = 0\nwhile steps < max_steps:\n\tvar prompt = \"\\\"消防员的耐力\\\": （\" + str(steps + 1) + \"/3）选择目标地图块\"\n\tvar blocks = await player.choose_block_inline(player.get_current_block().get_adjacent_blocks(), prompt, 1)\n\ttarget = blocks[0] if blocks.size() > 0 else null\n\tif target == null:\n\t\tif steps == 0:\n\t\t\tEventSystem.cancel(event)\n\t\t\treturn\n\t\tbreak\n\tif steps == 0:\n\t\tplayer.consume_action(1)\n\tvar success = await player.move_to(target)\n\tif not success:\n\t\tbreak\n\tsteps += 1\nplayer.draw(1)"
         }
       ]
     },

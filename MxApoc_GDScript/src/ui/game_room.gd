@@ -5,16 +5,17 @@ const MAX_SEATS := 4
 const MIN_SEATS := 1
 const RANDOM_MISSION_IDX := 0
 
-@onready var _back_button: Button = $MarginContainer/VBoxContainer/TopBar/BackButton
-@onready var _mission_option: OptionButton = $MarginContainer/VBoxContainer/Content/LeftPanel/ScrollContainer/VBoxContainer/MissionSection/MissionOption
-@onready var _variant_list: VBoxContainer = $MarginContainer/VBoxContainer/Content/LeftPanel/ScrollContainer/VBoxContainer/VariantSection/VariantList
-@onready var _mission_name_label: Label = $MarginContainer/VBoxContainer/Content/MiddlePanel/VBoxContainer/MissionNameLabel
-@onready var _difficulty_label: Label = $MarginContainer/VBoxContainer/Content/MiddlePanel/VBoxContainer/DifficultyLabel
-@onready var _detail_rich: RichTextLabel = $MarginContainer/VBoxContainer/Content/MiddlePanel/VBoxContainer/ScrollContainer/DetailRich
-@onready var _start_game_button: Button = $MarginContainer/VBoxContainer/Content/MiddlePanel/VBoxContainer/StartGameButton
-@onready var _add_seat_button: Button = $MarginContainer/VBoxContainer/Content/RightPanel/VBoxContainer/SeatsHeader/AddSeatButton
-@onready var _remove_seat_button: Button = $MarginContainer/VBoxContainer/Content/RightPanel/VBoxContainer/SeatsHeader/RemoveSeatButton
-@onready var _seat_list: VBoxContainer = $MarginContainer/VBoxContainer/Content/RightPanel/VBoxContainer/SeatList
+@onready var _back_button: Button = $BottomBar/BackButton
+@onready var _reset_button: Button = $BottomBar/ResetButton
+@onready var _mission_option: OptionButton = $MissionSelectArea/ScrollContainer/VBoxContainer/MissionSection/MissionOption
+@onready var _variant_list: VBoxContainer = $MissionSelectArea/ScrollContainer/VBoxContainer/VariantSection/VariantList
+@onready var _mission_name_label: Label = $MissionDetailArea/VBoxContainer/MissionNameLabel
+@onready var _difficulty_label: Label = $MissionDetailArea/VBoxContainer/DifficultyLabel
+@onready var _detail_rich: RichTextLabel = $MissionDetailArea/VBoxContainer/ScrollContainer/DetailRich
+@onready var _start_game_button: Button = $BottomBar/StartGameButton
+@onready var _add_seat_button: Button = $PlayerSettingArea/VBoxContainer/SeatsHeader/AddSeatButton
+@onready var _remove_seat_button: Button = $PlayerSettingArea/VBoxContainer/SeatsHeader/RemoveSeatButton
+@onready var _seat_list: VBoxContainer = $PlayerSettingArea/VBoxContainer/SeatList
 
 var _variant_checkboxes: Dictionary = {}
 
@@ -25,6 +26,7 @@ func _ready() -> void:
 	_rebuild_seats()
 	_update_start_button()
 	_back_button.pressed.connect(_on_back)
+	_reset_button.pressed.connect(_on_reset)
 	_mission_option.item_selected.connect(_on_mission_selected)
 	_start_game_button.pressed.connect(_on_start_game)
 	_add_seat_button.pressed.connect(_on_add_seat)
@@ -182,3 +184,16 @@ func _on_start_game() -> void:
 
 func _on_back() -> void:
 	get_tree().change_scene_to_file("res://scenes/MainMenu.tscn")
+
+func _on_reset() -> void:
+	RoomState.clear()
+	# 刷新任务选择下拉框选中项
+	_mission_option.select(RANDOM_MISSION_IDX)
+	# 刷新变体复选框
+	for key in _variant_checkboxes:
+		_variant_checkboxes[key].set_pressed_no_signal(false)
+	# 重建座位
+	_rebuild_seats()
+	# 刷新详情面板与开始按钮状态
+	_refresh_detail_panel()
+	_update_start_button()

@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://babl7vqe66gqc" path="res://src/ui/main_menu.gd" id="1_mm"]
 [ext_resource type="Texture2D" uid="uid://cv20vs3nyu1dg" path="res://images/main-menu.png" id="2_bg"]
 
-[node name="MainMenu" type="Control" unique_id=1227772836]
+[node name="MainMenu" type="Control"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -12,7 +12,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_mm")
 
-[node name="Background" type="TextureRect" parent="." unique_id=1603196859]
+[node name="Background" type="TextureRect" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -23,58 +23,70 @@ texture = ExtResource("2_bg")
 expand_mode = 1
 stretch_mode = 6
 
-[node name="MarginContainer" type="MarginContainer" parent="." unique_id=575561781]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-theme_override_constants/margin_left = 40
-theme_override_constants/margin_top = 40
-theme_override_constants/margin_right = 40
-theme_override_constants/margin_bottom = 60
-
-[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer" unique_id=1263522914]
-layout_mode = 2
-size_flags_vertical = 3
-theme_override_constants/separation = 24
-alignment = 2
-
-[node name="StartGameButton" type="Button" parent="MarginContainer/VBoxContainer" unique_id=1498989740]
-custom_minimum_size = Vector2(200, 56)
-layout_mode = 2
+[node name="CreateRoomButton" type="Button" parent="."]
+offset_left = 615.0
+offset_top = 500.0
+offset_right = 815.0
+offset_bottom = 550.0
 theme_override_font_sizes/font_size = 20
-size_flags_horizontal = 4
-text = "开始游戏"
+text = "创建房间"
 
-[node name="SettingsButton" type="Button" parent="MarginContainer/VBoxContainer"]
-layout_mode = 2
-custom_minimum_size = Vector2(200, 56)
+[node name="JoinRoomButton" type="Button" parent="."]
+offset_left = 615.0
+offset_top = 580.0
+offset_right = 815.0
+offset_bottom = 630.0
 theme_override_font_sizes/font_size = 20
-size_flags_horizontal = 4
-text = "设置"
+disabled = true
+text = "加入房间"
 
-[node name="QuitButton" type="Button" parent="MarginContainer/VBoxContainer" unique_id=1998524085]
-custom_minimum_size = Vector2(200, 56)
-layout_mode = 2
+[node name="QuitButton" type="Button" parent="."]
+offset_left = 615.0
+offset_top = 650.0
+offset_right = 815.0
+offset_bottom = 700.0
 theme_override_font_sizes/font_size = 20
-size_flags_horizontal = 4
 text = "退出游戏"
 
-[node name="VersionLabel" type="Label" parent="." unique_id=1475388743]
-layout_mode = 1
-anchors_preset = 3
-anchor_left = 1.0
-anchor_top = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -100.0
-offset_top = -40.0
-offset_right = -20.0
-offset_bottom = -20.0
-grow_horizontal = 0
-grow_vertical = 0
+[node name="SettingsButton" type="Button" parent="."]
+offset_left = 1370.0
+offset_top = 20.0
+offset_right = 1410.0
+offset_bottom = 60.0
+theme_override_font_sizes/font_size = 12
+text = "设置"
+
+[node name="WikiButton" type="Button" parent="."]
+offset_left = 1370.0
+offset_top = 70.0
+offset_right = 1410.0
+offset_bottom = 110.0
+theme_override_font_sizes/font_size = 10
+disabled = true
+text = "WIKI"
+
+[node name="AchievementButton" type="Button" parent="."]
+offset_left = 1370.0
+offset_top = 120.0
+offset_right = 1410.0
+offset_bottom = 160.0
+theme_override_font_sizes/font_size = 12
+disabled = true
+text = "成就"
+
+[node name="GithubButton" type="Button" parent="."]
+offset_left = 20.0
+offset_top = 720.0
+offset_right = 60.0
+offset_bottom = 760.0
+theme_override_font_sizes/font_size = 12
+text = "GH"
+
+[node name="VersionLabel" type="Label" parent="."]
+offset_left = 1330.0
+offset_top = 740.0
+offset_right = 1410.0
+offset_bottom = 760.0
 theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 0.8)
 text = "v0.1.0"
 horizontal_alignment = 2

@@ -259,7 +259,19 @@
       "english_name": "van",
       "scavenge_colors": [],
       "monster_spawn_value": 6,
-      "skills": []
+      "skills": [
+        {
+          "skill_name": "面包车",
+          "english_name": "van",
+          "skill_description": "给面包车添加燃料或启动面包车逃离",
+          "skill_type": "block",
+          "active": "action",
+          "usable": -1,
+          "filter": "if player.in_phase != \"action\" or player.get_number(\"action_count\") <= 0:\n\treturn false\nvar block = player.get_current_block()\nif block == null or not block.has_skill(\"van\"):\n\treturn false\nif game.mission_config == null or game.mission_config.van_fuel_required <= 0:\n\treturn false\nif block.get_van_fuel() < block.get_van_fuel_max():\n\treturn player.get_equipment(\"fuel\") != null\nif block.has_monster() or block.has_monster_mark():\n\treturn false\nfor p in game.get_all_players():\n\tif p.is_alive() and p.get_current_block() != block:\n\t\treturn false\nreturn true",
+          "confirm_prompt": "var block = player.get_current_block()\nif block.get_van_fuel() < block.get_van_fuel_max():\n\treturn '行动：是否给 \"面包车\" 添加一桶燃料'\nelse:\n\treturn '行动：是否启动 \"面包车\" 离开'",
+          "content": "player.consume_action(1)\nvar block = player.get_current_block()\nif block.get_van_fuel() < block.get_van_fuel_max():\n\tblock.add_van_fuel(1)\n\tvar fuel_equip = player.get_equipment(\"fuel\")\n\tif fuel_equip != null:\n\t\tawait player.discard(fuel_equip)\nelse:\n\tgame.game_over(\"win\")"
+        }
+      ]
     },
     {
       "block_name": "墓地",

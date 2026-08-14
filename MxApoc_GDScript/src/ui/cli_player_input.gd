@@ -13,6 +13,7 @@ var _choose_card_queue: Array = []
 var _choose_target_queue: Array = []
 var _choose_block_queue: Array = []
 var _confirm_queue: Array = []
+var _redraw_decision_queue: Array = []
 
 
 func queue_action(result: Variant) -> void:
@@ -37,6 +38,10 @@ func queue_choose_block(result: Variant) -> void:
 
 func queue_confirm(result: bool) -> void:
 	_confirm_queue.append(result)
+
+
+func queue_redraw_decision(result: bool) -> void:
+	_redraw_decision_queue.append(result)
 
 
 func wait_action(player: Variant) -> Variant:
@@ -73,6 +78,22 @@ func choose_map_block(blocks: Array, prompt: String = "") -> Variant:
 	return null
 
 
+func choose_block_inline(valid_blocks: Array, prompt: String, count: int) -> Array:
+	if _choose_block_queue.size() > 0:
+		var queued: Variant = _choose_block_queue.pop_front()
+		if queued is Array:
+			return queued
+		if queued != null:
+			return [queued]
+		return []
+	if valid_blocks.is_empty():
+		return []
+	var n: int = maxi(count, 1)
+	if n > valid_blocks.size():
+		n = valid_blocks.size()
+	return valid_blocks.slice(0, n)
+
+
 func confirm(message: String) -> bool:
 	if _confirm_queue.size() > 0:
 		return _confirm_queue.pop_front()
@@ -81,3 +102,13 @@ func confirm(message: String) -> bool:
 
 func show_card(card: Card, target: Variant) -> void:
 	pass  # 命令行模式静默
+
+
+func set_prompt(text: String) -> void:
+	print("[Prompt] " + text)
+
+
+func wait_redraw_decision(player: Variant) -> bool:
+	if _redraw_decision_queue.size() > 0:
+		return _redraw_decision_queue.pop_front()
+	return false  # 默认不重调

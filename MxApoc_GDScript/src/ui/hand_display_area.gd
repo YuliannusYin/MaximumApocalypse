@@ -5,9 +5,9 @@ extends Control
 ## 水平排列当前玩家的手牌。支持悬停上浮、单击选中。
 ## 选中状态由外部（game_scene_2d.gd 的确认按钮）驱动卡牌使用流程。
 
-const AREA_X := 265
+const AREA_X := 315
 const AREA_Y := 620
-const AREA_W := 900
+const AREA_W := 800
 const AREA_H := 150
 const CARD_W := 110
 const CARD_H := 150

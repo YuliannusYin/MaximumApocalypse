@@ -99,7 +99,7 @@
         {
           "skill_name": "加油",
           "english_name": "refuel",
-          "skill_description": "选择一个未满的燃料装备，将其填充物填满，然后弃置装备区内最先进入的燃料",
+          "skill_description": "行动：选择一个未满的燃料装备，将其填充物填满，然后弃置装备区内最先进入的燃料",
           "skill_type": "equipment",
           "active": "action",
           "target_type": "equipment",

@@ -44,6 +44,35 @@ func trigger(trigger_name: String, event: Dictionary) -> void:
 			break
 
 
+## 仅在指定技能列表中触发匹配 trigger_name 的技能。
+## 用于 on_draw_scavenge_card 等自身反应触发器，避免已装备卡牌的同名触发器重复触发。
+func trigger_only(trigger_name: String, event: Dictionary, skill_list: Array) -> void:
+	EventSystem.set_trigger_name(event, trigger_name)
+	for s in skill_list:
+		if not s.matches_trigger(trigger_name):
+			continue
+		if not s.execute_filter(self, event):
+			continue
+		# 输出触发日志
+		if Game != null and is_instance_valid(Game):
+			var _trigger_actor: Variant = self
+			if has_method("is_monster") and is_monster() and event.has("player"):
+				_trigger_actor = event["player"]
+			var _actor_name: String = ""
+			if _trigger_actor.has_method("is_player") and _trigger_actor.is_player():
+				_actor_name = _trigger_actor.get("player_name")
+			elif _trigger_actor.has_method("is_monster") and _trigger_actor.is_monster():
+				_actor_name = _trigger_actor.get("monster_name")
+			elif "block_name" in _trigger_actor:
+				_actor_name = str(_trigger_actor.block_name)
+			var _skill_name: String = s.skill_name if s.skill_name != "" else s.english_name
+			if _actor_name != "":
+				Game.log_message(LogColors.player(_actor_name) + " 触发了 " + LogColors.skill_by_type(_skill_name, s.skill_type))
+		await s.execute_content(self, event)
+		if EventSystem.is_cancelled(event):
+			break
+
+
 # === 2. 技能挂载 ===
 
 ## 返回该实体身上的所有技能列表。
@@ -94,8 +123,15 @@ func damage(num: int, source: Entity, type: Variant = "", card: Card = null) -> 
 		return
 
 	# 5. 系统扣血（非钩子节点）
+	var hp_before: int = get_hp()
 	reduce_hp(event["num"])
-	# 5.5 日志记录（玩家/怪物受伤时区分来源）
+	var actual_damage: int = hp_before - get_hp()
+	# 5.5 统计信号：仅统计实际扣血量（trigger 可能修改/取消伤害）
+	if actual_damage > 0 and EventBus != null and is_instance_valid(EventBus):
+		EventBus.damage_taken.emit(self, source, actual_damage)
+		if source != null:
+			EventBus.damage_dealt.emit(source, self, actual_damage)
+	# 5.6 日志记录（玩家/怪物受伤时区分来源）
 	if is_player() and event["num"] > 0 and Game != null and is_instance_valid(Game):
 		var p_name: String = self.get("player_name")
 		var dmg_num: int = event["num"]

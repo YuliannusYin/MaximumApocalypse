@@ -11,21 +11,5 @@
     "usable": 1,
     "filter": "return player.in_phase == \"action\"",
     "content": "var cards = event[\"cards\"]\nawait player.discard(cards)\nawait player.draw(1)"
-  },
-  {
-    "skill_name": "交易",
-    "english_name": "trade",
-    "skill_description": "选择一张拾荒牌和同地块内另一玩家，与其交换一张拾荒牌",
-    "skill_type": "common",
-    "active": "action",
-    "target_type": "entity",
-    "filter_target_range": "short",
-    "select_target": 1,
-    "select_card": 1,
-    "position": "hand",
-    "usable": 1,
-    "filter": "return player.in_phase == \"action\" && player.get_current_block() != null && player.get_current_block().get_players().size() > 1",
-    "filter_target": "return target != player && target.is_alive()",
-    "content": "var card = event[\"cards\"][0]\nplayer.show_card(card, target)\nvar result = await target.choose([\"同意\", \"拒绝\"], \"是否同意交易？\")\nif result == \"同意\":\n\tvar cards2 = await target.choose_card(1, \"hand\")\n\tif cards2.size() > 0:\n\t\tvar card2 = cards2[0]\n\t\tplayer._remove_card_from_zone(card)\n\t\ttarget._remove_card_from_zone(card2)\n\t\ttarget.hand.append(card)\n\t\tplayer.hand.append(card2)"
   }
 ]

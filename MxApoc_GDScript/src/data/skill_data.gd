@@ -23,6 +23,8 @@ var range: String = ""
 var usable: int = -1
 var content: String = ""
 var target_type: String = ""
+var confirm_prompt: String = ""
+var defer_action_cost: bool = false
 
 
 func _init(data: Dictionary = {}) -> void:
@@ -44,3 +46,5 @@ func _init(data: Dictionary = {}) -> void:
 	usable = int(data.get("usable", -1))
 	content = data.get("content", "")
 	target_type = data.get("target_type", "")
+	confirm_prompt = data.get("confirm_prompt", "")
+	defer_action_cost = data.get("defer_action_cost", false)

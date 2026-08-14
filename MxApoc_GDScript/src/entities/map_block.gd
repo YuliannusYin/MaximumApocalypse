@@ -30,6 +30,9 @@ var block_state: String = "alive"
 ## 目标标记列表。null/空表示无标记
 var objective_marks: Array = []
 
+## 面包车当前燃料值（仅"面包车"地块使用）
+var van_fuel: int = 0
+
 
 # === 展示 ===
 
@@ -246,6 +249,35 @@ func get_players() -> Array:
 			if player.get_current_block() == self:
 				players.append(player)
 	return players
+
+
+# === 面包车燃料管理 ===
+
+## 返回面包车当前燃料值。
+func get_van_fuel() -> int:
+	return van_fuel
+
+
+## 返回面包车油箱容量（当前任务的 van_fuel_required）。
+## 若 mission_config 不存在或 van_fuel_required <= 0 则返回0。
+func get_van_fuel_max() -> int:
+	if Game == null or not is_instance_valid(Game):
+		return 0
+	if Game.mission_config == null:
+		return 0
+	if Game.mission_config.van_fuel_required <= 0:
+		return 0
+	return Game.mission_config.van_fuel_required
+
+
+## 增加面包车燃料（不超过 max），输出日志。
+func add_van_fuel(n: int = 1) -> void:
+	var max_fuel: int = get_van_fuel_max()
+	var before: int = van_fuel
+	van_fuel = mini(van_fuel + n, max_fuel)
+	var actual: int = van_fuel - before
+	if actual > 0 and Game != null and is_instance_valid(Game):
+		Game.log_message(LogColors.block(block_name) + " 添加了 " + str(actual) + " 桶燃料 (当前: " + str(van_fuel) + "/" + str(max_fuel) + ")")
 
 
 # === 目标标记管理 ===

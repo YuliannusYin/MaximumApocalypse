@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c8ng0hk3g5vxy"
-path="res://.godot/imported/外科医生头像.png-693358bd8ea3fc3a0a9f42cffa9a0ced.ctex"
+uid="uid://dn7deoajcgrjr"
+path="res://.godot/imported/外科医生角色头像.png-9fa1eafdd3d628c656bbeda1fe80bbb0.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://images/survivor/surgeon/外科医生头像.png"
-dest_files=["res://.godot/imported/外科医生头像.png-693358bd8ea3fc3a0a9f42cffa9a0ced.ctex"]
+source_file="res://images/survivor/surgeon/外科医生角色头像.png"
+dest_files=["res://.godot/imported/外科医生角色头像.png-9fa1eafdd3d628c656bbeda1fe80bbb0.ctex"]
 
 [params]
 

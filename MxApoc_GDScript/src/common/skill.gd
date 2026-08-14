@@ -42,6 +42,10 @@ var usable: int = -1
 var content: Callable = Callable()
 ## 目标类型（""/"block"/"entity"/"pile"/"equipment"），用于 use_active_skill 目标选择
 var target_type: String = ""
+## 动态确认提示函数，返回 String。Callable() 表示使用默认格式
+var confirm_prompt: Callable = Callable()
+## 是否延迟结算行动消耗
+var defer_action_cost: bool = false
 
 ## 运行时：本回合已使用次数（用于 usable 限制）
 var used_count: int = 0
@@ -66,9 +70,17 @@ func execute_filter(player: Variant, event: Dictionary) -> bool:
 
 ## 执行 content。
 ## player 为触发技能的实体，event 中可能包含 target 字段。
+## content 代码可通过 EventSystem.cancel(event) 取消事件，调用方用 EventSystem.is_cancelled(event) 检查。
 func execute_content(player: Variant, event: Dictionary) -> void:
 	if content.is_valid():
 		await content.call(player, event.get("target", null), event, Game)
+
+
+## 执行 confirm_prompt，返回动态确认提示文本。无有效 Callable 时返回空字符串。
+func execute_confirm_prompt(player: Variant) -> String:
+	if not confirm_prompt.is_valid():
+		return ""
+	return confirm_prompt.call(player, null, {}, Game)
 
 
 ## 本回合是否仍可使用（受 usable 限制）。

@@ -20,6 +20,7 @@ var players: Array = []
 # === 状态机 ===
 var state_machine: GameStateMachine = null
 var mission_config: MissionConfig = null
+var stats_tracker: StatsTracker = null
 var coop_death_mode: bool = false
 var current_mission: Variant = null  # 可能是 Dictionary 或 Resource，类型不确定
 var removed_cards: Array = []
@@ -33,6 +34,7 @@ var game_result: String = ""
 func _ready() -> void:
 	state_machine = GameStateMachine.new()
 	state_machine.init()
+	stats_tracker = StatsTracker.new()
 
 
 ## 日志输出。方法名避开 GDScript 内置 log()（自然对数）。
@@ -577,6 +579,8 @@ func _create_skill_from_data(skill_data: SkillData) -> Skill:
 	skill.content = CodeExecutor.compile_content(skill_data.content)
 	skill.filter_target = CodeExecutor.compile_filter_target(skill_data.filter_target)
 	skill.filter_card = CodeExecutor.compile_filter_card(skill_data.filter_card)
+	skill.confirm_prompt = CodeExecutor.compile_confirm_prompt(skill_data.confirm_prompt)
+	skill.defer_action_cost = skill_data.defer_action_cost
 	return skill
 
 
