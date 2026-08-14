@@ -47,6 +47,15 @@ signal action_consumed(player: Variant, num: int)
 # === 日志信号 ===
 signal log_message(message: String)
 
+# === 统计信号 ===
+signal damage_dealt(source: Variant, target: Variant, amount: int) ## 实体造成伤害时（source 为伤害来源）
+signal damage_taken(target: Variant, source: Variant, amount: int) ## 实体受到伤害时（target 为受伤者）
+signal hp_recovered(player: Variant, amount: int) ## 玩家回复生命值时
+signal healing_done(source: Variant, target: Variant, amount: int) ## 玩家治疗他人时（source 为治疗者，target 为被治疗者）
+signal hunger_reduced(player: Variant, amount: int) ## 玩家减少饥饿值时
+signal skill_used(player: Variant, skill: Variant) ## 玩家使用主动技能时
+signal player_turn_started(player: Variant) ## 玩家回合开始时
+
 
 ## 发布日志消息（供 UI 日志面板订阅）。
 func publish_log(message: String) -> void:

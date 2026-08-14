@@ -10,7 +10,7 @@ const CARD_H := 140
 const PANEL_W := 110
 const PANEL_H := 150
 const BORDER := 5
-const SELECTED_OFFSET := 20.0
+const SELECTED_OFFSET := 15.0
 const SELECTED_BORDER_COLOR := Color(1.0, 0.84, 0.0, 1.0)
 const SELECTED_BORDER_WIDTH := 3
 
@@ -90,7 +90,7 @@ func get_card() -> Variant:
 	return _card
 
 
-## 选中状态（上移 20px + 金色边框 + z_index 提升）。
+## 选中状态（上移 15px + 金色边框 + z_index 提升）。
 func set_selected(selected: bool) -> void:
 	_is_selected = selected
 	if selected:

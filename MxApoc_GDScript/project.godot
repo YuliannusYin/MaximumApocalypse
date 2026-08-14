@@ -18,8 +18,8 @@ config/icon="res://icon.svg"
 [autoload]
 
 DataManager="*res://src/data/data_manager.gd"
-Game="*res://src/game/game.gd"
 EventBus="*res://src/core/event_bus.gd"
+Game="*res://src/game/game.gd"
 RoomState="*res://src/ui/room_state.gd"
 Settings="*res://src/ui/settings.gd"
 

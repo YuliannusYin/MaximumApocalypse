@@ -9,6 +9,7 @@ extends RefCounted
 
 const _FILTER_PREFIX := "extends RefCounted\nfunc _fn(player, target, event, game) -> bool:\n"
 const _CONTENT_PREFIX := "extends RefCounted\nfunc _fn(player, target, event, game) -> void:\n"
+const _CONFIRM_PROMPT_PREFIX := "extends RefCounted\nfunc _fn(player, target, event, game) -> String:\n"
 
 
 ## 编译 filter 代码字符串为 Callable。
@@ -57,6 +58,21 @@ static func compile_filter_target(code: String) -> Callable:
 ## 编译 filter_card 代码字符串为 Callable。
 static func compile_filter_card(code: String) -> Callable:
 	return compile_filter_target(code)
+
+
+## 编译 confirm_prompt 代码字符串为 Callable。
+## 返回的 Callable 签名: (player, target, event, game) -> String
+## 空字符串返回空 Callable（调用方视为使用默认格式）。
+static func compile_confirm_prompt(code: String) -> Callable:
+	if code.strip_edges().is_empty():
+		return Callable()
+	var indented: String = code.indent("\t")
+	var full_code: String = _CONFIRM_PROMPT_PREFIX + indented
+	var instance: Object = _compile(full_code)
+	if instance == null:
+		push_warning("CodeExecutor: confirm_prompt 编译失败，降级为默认格式: " + code)
+		return Callable()
+	return Callable(instance, "_fn")
 
 
 static var _scripts: Array[GDScript] = []

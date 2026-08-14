@@ -71,7 +71,8 @@ func is_alive() -> bool:
 # === 一、状态管理 ===
 
 ## 回复生命值（4 节点：前/时/系统加血/后）。
-func recover(num: int) -> void:
+## source 为治疗来源（默认 null 表示自行回复）；source != self 时额外发射 healing_done。
+func recover(num: int, source: Variant = null) -> void:
 	if num <= 0:
 		return
 	var event: Dictionary = EventSystem.create_recover_event(self, num)
@@ -82,9 +83,17 @@ func recover(num: int) -> void:
 	var max_recover: int = get_max_hp() - get_hp()
 	if event["num"] > max_recover:
 		event["num"] = max_recover
+	var hp_before: int = get_hp()
 	add_hp(event["num"])
-	if Game != null and is_instance_valid(Game):
-		Game.log_message(LogColors.player(player_name) + " 回复了 " + str(event["num"]) + " 点生命值")
+	var actual_heal: int = get_hp() - hp_before
+	if actual_heal > 0 and Game != null and is_instance_valid(Game):
+		Game.log_message(LogColors.player(player_name) + " 回复了 " + str(actual_heal) + " 点生命值")
+	if actual_heal > 0 and EventBus != null and is_instance_valid(EventBus):
+		EventBus.hp_recovered.emit(self, actual_heal)
+		if source != null and source != self:
+			EventBus.healing_done.emit(source, self, actual_heal)
+		else:
+			EventBus.healing_done.emit(self, self, actual_heal)
 	await trigger("after_recover", event)
 
 
@@ -139,6 +148,8 @@ func decrease_hunger(num: int) -> void:
 		remove_mark("hunger_damage_level")
 	if role_card != null and not role_card.is_front():
 		role_card.flip()
+	if EventBus != null and is_instance_valid(EventBus):
+		EventBus.hunger_reduced.emit(self, num)
 
 
 ## 中毒结算。中毒标记数 = 受到无来源伤害值。
@@ -218,17 +229,13 @@ func draw_scavenge(n: int, pile: Pile) -> void:
 		event["cards"].append(card)
 		event["card"] = card
 		# 3. 抓取拾荒牌时（每张触发）
-		# 临时挂载抓到卡的 forced trigger 技能（如一无所获/伏击/燃料），使其 on_draw_scavenge_card 触发器生效
+		# 仅触发被抓取卡自身的 forced on_draw_scavenge_card 技能，避免已装备的同名卡（如燃料）重复触发
 		var mounted_skills: Array = []
 		if card.has_method("get_all_skills"):
 			for s in card.get_all_skills():
 				if s.forced and s.matches_trigger("on_draw_scavenge_card"):
-					add_skill(s)
 					mounted_skills.append(s)
-		await trigger("on_draw_scavenge_card", event)
-		# 触发完成后卸载临时挂载的技能
-		for s in mounted_skills:
-			remove_skill(s)
+		await trigger_only("on_draw_scavenge_card", event, mounted_skills)
 	# 4. 抓取拾荒牌后
 	await trigger("after_draw_scavenge_card", event)
 
@@ -584,8 +591,15 @@ func use_card(card: Card) -> bool:
 	await trigger("on_use_card", event)
 	if EventSystem.is_cancelled(event):
 		return false
-	# 3. 系统结算：统一消耗 1 点行动次数（输出"消耗了"日志）
-	consume_action(1)
+	# 3. 系统结算：消耗 1 点行动次数（defer_action_cost 的技能延迟到 content 中消耗）
+	var deferred: bool = false
+	if card.card_type != "equipment":
+		for _skill in card.get_all_skills():
+			if _skill.active == "action" and _skill.defer_action_cost:
+				deferred = true
+				break
+	if not deferred:
+		consume_action(1)
 	# 按卡牌类型分流
 	if card.card_type == "equipment":
 		if Game != null and is_instance_valid(Game):
@@ -628,14 +642,17 @@ func use_card(card: Card) -> bool:
 				else:
 					Game.log_message(LogColors.player(player_name) + " 使用了 " + LogColors.card(card.card_name))
 				use_logged = true
-			# 执行 content
+			# 执行 content（content 可通过 EventSystem.cancel(event) 取消，如第一步未确认目标）
 			await skill.execute_content(self, event)
+			if deferred and EventSystem.is_cancelled(event):
+				# 延迟消耗的技能在 content 中取消：牌退回手牌，不弃牌，不触发 after_use_card
+				return false
 			skill_executed = true
 		# 若所有 skill 的 filter 均不通过，仍输出"使用了"日志
 		if not use_logged and Game != null and is_instance_valid(Game):
 			Game.log_message(LogColors.player(player_name) + " 使用了 " + LogColors.card(card.card_name))
 		# 弃牌（在 content 执行后，静默弃置不输出"弃置了"日志）
-		discard(card, "", 1, "", true)
+		await discard(card, "", 1, "", true)
 	# 4. 使用卡牌后
 	await trigger("after_use_card", event)
 	if EventBus != null and is_instance_valid(EventBus):
@@ -938,7 +955,11 @@ func add_hunger(n: int) -> void:
 
 
 func reduce_hunger(n: int) -> void:
+	var hunger_before: int = hunger
 	hunger = maxi(hunger - n, 1)
+	var actual_reduce: int = hunger_before - hunger
+	if actual_reduce > 0 and EventBus != null and is_instance_valid(EventBus):
+		EventBus.hunger_reduced.emit(self, actual_reduce)
 
 
 ## 潜行值（含饥饿状态修正）
@@ -1283,8 +1304,34 @@ func choose_map_block(param: Variant, prompt: String = "") -> Variant:
 		return await input.choose_map_block(param, prompt)
 
 
+## 内联选取地块（使用地图内联高亮，非弹窗）。
+## valid_blocks 为候选地块列表，委托 input 层用内联高亮方式选取。
+## 返回选中的地块数组（取消/无可选地块返回空数组）。
+func choose_block_inline(valid_blocks: Array, prompt: String = "", count: int = 1) -> Array:
+	if valid_blocks.is_empty():
+		return []
+	if count >= valid_blocks.size():
+		return valid_blocks.duplicate()
+	if input == null or not is_instance_valid(input):
+		return []
+	return await input.choose_block_inline(valid_blocks, prompt, count)
+
+
 func show_card(card: Card, target: Variant) -> void:
 	input.show_card(card, target)
+
+
+## 设置 prompt 区文本（content 代码调用入口）。
+func set_prompt(text: String) -> void:
+	if input != null and is_instance_valid(input):
+		input.set_prompt(text)
+
+
+## 等待玩家重调决策（第零轮专用）。返回 true 表示确定重调，false 表示取消。
+func wait_redraw_decision() -> bool:
+	if input == null or not is_instance_valid(input):
+		return false
+	return await input.wait_redraw_decision(self)
 
 
 ## 行动阶段循环：等待玩家操作（使用卡牌/使用主动技能/结束回合）。
@@ -1470,6 +1517,9 @@ func use_active_skill(skill: Skill) -> void:
 	await skill.execute_content(self, event)
 	# 6. 记录使用
 	skill.record_use()
+	# 7. 统计信号：技能成功使用
+	if EventBus != null and is_instance_valid(EventBus):
+		EventBus.skill_used.emit(self, skill)
 
 
 ## 内部方法：用 skill.filter_target 过滤候选目标列表。
@@ -1482,6 +1532,80 @@ func _filter_targets(skill: Skill, candidates: Array, event: Dictionary) -> Arra
 		else:
 			filtered.append(candidate)
 	return filtered
+
+
+## 构建技能的合法目标候选列表（按 target_type 与 filter_target_range 构建并经 filter_target 过滤）。
+## 逻辑与 game_scene_2d.gd._on_choose_target_requested 保持一致，供可用性判断复用。
+func get_skill_valid_targets(skill: Variant) -> Array:
+	if skill == null or not is_instance_valid(skill):
+		return []
+	var target_type: String = skill.target_type
+	var filter_target_range: String = skill.filter_target_range
+	if filter_target_range == "":
+		filter_target_range = "short"
+	var event: Dictionary = EventSystem.create_event({
+		"player": self,
+		"target": null,
+		"card": null,
+		"targets": [],
+		"cards": [],
+	})
+	var candidates: Array = []
+	match target_type:
+		"block":
+			if current_block != null and is_instance_valid(current_block):
+				candidates = current_block.get_blocks_in_range(filter_target_range)
+		"equipment":
+			candidates = equipment_zone.duplicate()
+		_:
+			# entity 默认分支：当前地块射程内玩家 + 当前地块所有玩家 + 当前玩家怪物区怪物
+			if current_block != null and is_instance_valid(current_block):
+				candidates = current_block.get_players_in_range(filter_target_range)
+				candidates.append_array(current_block.get_players())
+			if monster_zone != null:
+				for m in monster_zone:
+					if m != null and is_instance_valid(m):
+						candidates.append(m)
+			# 去重（按实例 id）
+			var seen: Dictionary = {}
+			var deduped: Array = []
+			for c in candidates:
+				if c == null or not is_instance_valid(c):
+					continue
+				var key: int = c.get_instance_id()
+				if seen.has(key):
+					continue
+				seen[key] = true
+				deduped.append(c)
+			candidates = deduped
+	return _filter_targets(skill, candidates, event)
+
+
+## 判断主动技能当前是否可使用（供 UI 确认按钮置灰判断）。
+## 依次检查：active 非空、usable 次数、filter 通过；若技能需要选目标则要求存在合法候选。
+func can_use_active_skill(skill: Variant) -> bool:
+	if skill == null or not is_instance_valid(skill):
+		return false
+	if skill.active.is_empty():
+		return false
+	if not skill.is_usable():
+		return false
+	var event: Dictionary = EventSystem.create_event({
+		"player": self,
+		"target": null,
+		"targets": [],
+		"cards": [],
+	})
+	if not skill.execute_filter(self, event):
+		return false
+	# 需要选目标的技能（target_type 非空 或 select_target 非 0）：要求候选非空
+	var target_type: String = skill.target_type
+	var select_n: int = skill.select_target
+	if target_type != "" or select_n != 0:
+		var valid_targets: Array = get_skill_valid_targets(skill)
+		if valid_targets.is_empty():
+			return false
+	return true
 
 
 ## 获取数值型状态。

@@ -97,7 +97,7 @@ func test_start_game_draws_initial_hand_and_monster() -> void:
 	Game.monster_pile.add(_make_monster_card("z1"))
 	Game.mission_config = _make_winning_mission_config()
 	await Game.state_machine.start_game()
-	# CliPlayerInput 默认 choose 返回第一项 "进行重调"，但 choose_card 返回空 → 不重调
+	# CliPlayerInput 默认 wait_redraw_decision 返回 false → 不重调
 	# 应抓 4 张初始手牌 + 1 张 start_turn 抓牌 = 5 张
 	# 但 start_turn 中可能discard了一些，这里只验证至少抓了 4 张初始牌
 	assert_true(p.hand.size() >= 4, "应至少抓 4 张初始手牌，实际 " + str(p.hand.size()))

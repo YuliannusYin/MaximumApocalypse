@@ -22,6 +22,9 @@ var game_result: int = -1
 ## 当前回合玩家。
 var current_player: Variant = null
 
+## 游戏结束时保存的最后回合玩家，供结算场景高亮。
+var last_player: Variant = null
+
 ## 回合队列。队首为下一个行动玩家。包含标准回合与额外回合。
 var turn_queue: Array = []
 
@@ -66,6 +69,9 @@ func start_game() -> void:
 	transition_to(GameState.PLAYING)
 	if EventBus != null and is_instance_valid(EventBus):
 		EventBus.game_started.emit()
+	if Game != null and is_instance_valid(Game) and Game.stats_tracker != null:
+		Game.stats_tracker.reset(Game.players)
+		Game.stats_tracker.start_timer()
 	if Game == null or not is_instance_valid(Game):
 		return
 	# 1. 每个玩家抓 4 张初始手牌
@@ -73,19 +79,6 @@ func start_game() -> void:
 		if player == null or not is_instance_valid(player):
 			continue
 		player.draw(4)
-		# 可选一次重调
-		if player.has_method("choose"):
-			var choice: Variant = await player.choose(["进行重调", "不进行重调"])
-			if choice == "进行重调":
-				# 把最多 4 张刚抓的牌洗回牌堆，抓等量牌
-				var max_return: int = mini(4, player.hand.size())
-				var to_return: Array = await player.choose_card(max_return, "hand") if player.has_method("choose_card") else []
-				if to_return != null and to_return.size() > 0:
-					for card in to_return:
-						player.hand.erase(card)
-						player.game_deck.add(card)
-					player.game_deck.shuffle()
-					player.draw(to_return.size())
 	# 2. 每个玩家抓 1 张初始怪物卡
 	for player in Game.players:
 		if player == null or not is_instance_valid(player):
@@ -97,8 +90,52 @@ func start_game() -> void:
 			continue
 		var event: Dictionary = EventSystem.create_event({"player": player})
 		await player.trigger("on_game_start", event)
-	# 4. 进入第一玩家回合
+	# 4. 第零轮：重调阶段
+	await _round_zero()
+	# 5. 进入第一玩家回合
 	await next_turn()
+
+
+# === 第零轮：重调阶段 ===
+
+## 第零轮：每个存活玩家依次进行特殊重调回合。
+## 玩家可选择"确定"返回全部手牌并重新抓取等量牌，或"取消"跳过。
+## 此回合不执行 start_turn() 的21节点流程，不增加饥饿值、不被怪物攻击。
+func _round_zero() -> void:
+	if Game == null or not is_instance_valid(Game):
+		return
+	if EventBus != null and is_instance_valid(EventBus):
+		EventBus.log_message.emit("==== 第0轮（重调阶段）====")
+	for player in Game.players:
+		if player == null or not is_instance_valid(player):
+			continue
+		if not player.is_alive():
+			continue
+		# 设置当前回合玩家
+		current_player = player
+		player.set("in_phase", "round_zero")
+		if EventBus != null and is_instance_valid(EventBus):
+			EventBus.turn_started.emit(player)
+			EventBus.player_turn_started.emit(player)
+		# 循环等待玩家重调决策（支持多次重调，直到取消或超时）
+		while true:
+			var redraw: bool = await player.wait_redraw_decision()
+			if not redraw:
+				break
+			# 返回全部手牌 → 洗牌 → 重抓等量
+			var count: int = player.hand.size()
+			for card in player.hand:
+				player.game_deck.add(card)
+			player.hand.clear()
+			player.game_deck.shuffle()
+			player.draw(count)
+			if EventBus != null and is_instance_valid(EventBus):
+				EventBus.log_message.emit(LogColors.player(player.player_name) + " 执行了重调。")
+		# 结束第零轮回合
+		player.set("in_phase", "idle")
+		if EventBus != null and is_instance_valid(EventBus):
+			EventBus.turn_ended.emit(player)
+	current_player = null
 
 
 # === 游戏结束 ===
@@ -110,6 +147,9 @@ func game_over(result: int) -> void:
 		return
 	current_state = GameState.GAME_OVER
 	game_result = result
+	if Game != null and is_instance_valid(Game) and Game.stats_tracker != null:
+		Game.stats_tracker.stop_timer()
+	last_player = current_player
 	current_player = null
 	turn_queue.clear()
 	# 日志输出
@@ -149,6 +189,8 @@ func next_turn() -> void:
 			Game.log_message("==== " + LogColors.player(player.player_name) + " 回合开始 ====")
 		if EventBus != null and is_instance_valid(EventBus):
 			EventBus.turn_started.emit(player)
+			if current_player != null:
+				EventBus.player_turn_started.emit(current_player)
 		# 3. 执行玩家回合
 		await player.start_turn()
 		if Game != null and is_instance_valid(Game) and current_state == GameState.PLAYING:
@@ -248,10 +290,7 @@ func check_win_condition() -> bool:
 	var van: MapBlock = van_blocks[0]
 	if van == null:
 		return false
-	var fuel: Variant = van.get("current_fuel")
-	if fuel == null:
-		fuel = 0
-	if fuel < Game.mission_config.van_fuel_required:
+	if van.van_fuel < Game.mission_config.van_fuel_required:
 		return false
 	# 3. 所有存活玩家都返回到了面包车
 	for player in Game.players:

@@ -21,37 +21,36 @@ const CURRENT_TURN_BORDER_WIDTH := 3
 
 # 布局配置：is_self → {element_key → Rect2(position, size)}
 const SELF_LAYOUT: Dictionary = {
-	"A": Rect2(40, 560, 30, 30),
-	"B": Rect2(40, 560, 120, 180),
-	"C": Rect2(50, 680, 100, 50),
-	"D": Rect2(160, 560, 60, 30),
-	"E": Rect2(160, 590, 60, 30),
-	"F": Rect2(160, 620, 60, 30),
-	"G": Rect2(160, 650, 60, 30),
-	"H": Rect2(160, 680, 60, 60),
-	"I": Rect2(220, 560, 60, 60),
-	"J": Rect2(220, 620, 60, 60),
-	"K": Rect2(220, 680, 60, 60),
+	"A": Rect2(120, 560, 25, 25),
+	"B": Rect2(120, 560, 120, 210),
+	"C": Rect2(120, 680, 120, 90),
+	"D": Rect2(240, 560, 60, 30),
+	"E": Rect2(240, 590, 60, 30),
+	"F": Rect2(240, 620, 60, 30),
+	"G": Rect2(240, 650, 60, 30),
+	"I": Rect2(240, 680, 60, 30),
+	"J": Rect2(240, 710, 60, 30),
+	"K": Rect2(240, 740, 60, 30),
 }
 const TEAMMATE_LAYOUT: Dictionary = {
-	"A": Rect2(20, 20, 20, 20),
-	"B": Rect2(20, 20, 100, 150),
-	"C": Rect2(30, 120, 80, 40),
-	"D": Rect2(120, 20, 50, 25),
-	"E": Rect2(120, 45, 50, 25),
-	"F": Rect2(120, 70, 50, 25),
-	"G": Rect2(120, 95, 50, 25),
-	"H": Rect2(120, 120, 50, 50),
-	"I": Rect2(170, 20, 50, 50),
-	"J": Rect2(170, 70, 50, 50),
-	"K": Rect2(170, 120, 50, 50),
+	"A": Rect2(10, 10, 20, 20),
+	"B": Rect2(10, 10, 100, 175),
+	"C": Rect2(10, 110, 100, 75),
+	"D": Rect2(110, 10, 50, 25),
+	"E": Rect2(110, 35, 50, 25),
+	"F": Rect2(110, 60, 50, 25),
+	"G": Rect2(110, 85, 50, 25),
+	"I": Rect2(110, 110, 50, 25),
+	"J": Rect2(110, 135, 50, 25),
+	"K": Rect2(110, 160, 50, 25),
 }
 
 var _player: Variant = null
 var _is_self: bool = false
 var _is_current_turn: bool = false
 var _layout: Dictionary = {}
-var _y_offset: int = 0  # 队友面板的 y 偏移（队友2=180, 队友3=360）
+var _x_offset: int = 0  # 队友面板的 x 偏移（队友2=155, 队友3=310）
+var _y_offset: int = 0  # 队友面板的 y 偏移（保留字段，始终为 0）
 
 # 元素节点引用
 var _seat_label: Label
@@ -74,13 +73,15 @@ func _ready() -> void:
 	_build_layout()
 
 
-## 设置面板索引（0=self, 1=队友1, 2=队友2, 3=队友3），计算 y 偏移。
+## 设置面板索引（0=self, 1=队友1, 2=队友2, 3=队友3），计算 x 偏移。
 func set_panel_index(idx: int) -> void:
-	var new_offset: int = 0
-	if idx >= 2:
-		new_offset = (idx - 1) * 180
-	if new_offset != _y_offset:
-		_y_offset = new_offset
+	var new_x: int = 0
+	match idx:
+		2: new_x = 155
+		3: new_x = 310
+	if new_x != _x_offset or _y_offset != 0:
+		_x_offset = new_x
+		_y_offset = 0
 		if is_inside_tree():
 			_build_layout()
 			refresh(false)
@@ -141,7 +142,7 @@ func _build_layout() -> void:
 	# 边框（围绕内容区域）
 	var content_rect: Rect2 = _compute_content_rect()
 	_border = Panel.new()
-	_border.position = Vector2(content_rect.position.x, content_rect.position.y + _y_offset)
+	_border.position = Vector2(content_rect.position.x + _x_offset, content_rect.position.y + _y_offset)
 	_border.size = content_rect.size
 	_border.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_border)
@@ -155,6 +156,10 @@ func _build_layout() -> void:
 	add_child(_role_card_panel)
 	_role_card_texture = TextureRect.new()
 	_role_card_texture.set_anchors_preset(PRESET_FULL_RECT)
+	_role_card_texture.offset_left = 5
+	_role_card_texture.offset_top = 5
+	_role_card_texture.offset_right = -5
+	_role_card_texture.offset_bottom = -5
 	_role_card_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_role_card_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	_role_card_texture.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
@@ -165,10 +170,10 @@ func _build_layout() -> void:
 	_role_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_role_name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_role_name_label.add_theme_font_size_override("font_size", 12)
-	_role_name_label.offset_left = 4
-	_role_name_label.offset_top = 4
-	_role_name_label.offset_right = -4
-	_role_name_label.offset_bottom = -4
+	_role_name_label.offset_left = 5
+	_role_name_label.offset_top = 5
+	_role_name_label.offset_right = -5
+	_role_name_label.offset_bottom = -5
 	_role_card_panel.add_child(_role_name_label)
 	_role_state_label = Label.new()
 	_role_state_label.set_anchors_preset(PRESET_CENTER_BOTTOM)
@@ -193,9 +198,6 @@ func _build_layout() -> void:
 	_action_label = _make_label(_layout["G"], 12)
 	_action_label.visible = false
 	add_child(_action_label)
-	# H: 空（仅装饰）
-	var h_panel: Panel = _make_panel(_layout["H"])
-	add_child(h_panel)
 	# I: 怪物区按钮
 	_monster_button = _make_button(_layout["I"], "×0")
 	_monster_button.pressed.connect(_on_monster_clicked)
@@ -257,7 +259,7 @@ func _update_role_card() -> void:
 		bg = Color(0.3, 0.15, 0.15, 0.9)
 	elif role != null and is_instance_valid(role) and not is_front:
 		bg = Color(0.35, 0.25, 0.15, 1.0)
-	_role_card_panel.add_theme_stylebox_override("panel", _make_fill_style(bg))
+	_role_card_panel.add_theme_stylebox_override("panel", _make_fill_style(bg, 5))
 
 
 func _update_marks() -> void:
@@ -361,7 +363,7 @@ func _clear_children() -> void:
 
 func _make_label(rect: Rect2, font_size: int) -> Label:
 	var label := Label.new()
-	label.position = Vector2(rect.position.x, rect.position.y + _y_offset)
+	label.position = Vector2(rect.position.x + _x_offset, rect.position.y + _y_offset)
 	label.size = rect.size
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -371,7 +373,7 @@ func _make_label(rect: Rect2, font_size: int) -> Label:
 
 func _make_panel(rect: Rect2) -> Panel:
 	var panel := Panel.new()
-	panel.position = Vector2(rect.position.x, rect.position.y + _y_offset)
+	panel.position = Vector2(rect.position.x + _x_offset, rect.position.y + _y_offset)
 	panel.size = rect.size
 	panel.add_theme_stylebox_override("panel", _make_fill_style(Color(0.20, 0.22, 0.26, 1.0)))
 	return panel
@@ -379,7 +381,7 @@ func _make_panel(rect: Rect2) -> Panel:
 
 func _make_button(rect: Rect2, text: String) -> Button:
 	var btn := Button.new()
-	btn.position = Vector2(rect.position.x, rect.position.y + _y_offset)
+	btn.position = Vector2(rect.position.x + _x_offset, rect.position.y + _y_offset)
 	btn.size = rect.size
 	btn.text = text
 	btn.add_theme_font_size_override("font_size", 11)
@@ -403,13 +405,13 @@ func _compute_content_rect() -> Rect2:
 	return Rect2(min_x, min_y, max_x - min_x, max_y - min_y)
 
 
-func _make_fill_style(color: Color) -> StyleBoxFlat:
+func _make_fill_style(color: Color, border_width: int = 1) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = color
-	style.border_width_left = 1
-	style.border_width_top = 1
-	style.border_width_right = 1
-	style.border_width_bottom = 1
+	style.border_width_left = border_width
+	style.border_width_top = border_width
+	style.border_width_right = border_width
+	style.border_width_bottom = border_width
 	style.border_color = Color(0.15, 0.15, 0.15, 1.0)
 	return style
 

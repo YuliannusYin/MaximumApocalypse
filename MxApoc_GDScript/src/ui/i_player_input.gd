@@ -39,6 +39,12 @@ func choose_map_block(blocks: Array, prompt: String = "") -> Variant:
 	return null
 
 
+## 内联选取地块（使用地图内联高亮，非弹窗）。返回选中的地块数组（取消返回空数组）。
+func choose_block_inline(valid_blocks: Array, prompt: String, count: int) -> Array:
+	_push_override_error("choose_block_inline")
+	return []
+
+
 ## 确认对话框，返回 true/false。
 func confirm(message: String) -> bool:
 	_push_override_error("confirm")
@@ -48,6 +54,17 @@ func confirm(message: String) -> bool:
 ## 向目标展示一张牌。
 func show_card(card: Card, target: Variant) -> void:
 	_push_override_error("show_card")
+
+
+## 设置 prompt 区文本（单向通知，不等待响应）。
+func set_prompt(text: String) -> void:
+	_push_override_error("set_prompt")
+
+
+## 等待玩家重调决策。返回 true 表示确定重调，false 表示取消。
+func wait_redraw_decision(player: Variant) -> bool:
+	_push_override_error("wait_redraw_decision")
+	return false
 
 
 func _push_override_error(method_name: String) -> void:

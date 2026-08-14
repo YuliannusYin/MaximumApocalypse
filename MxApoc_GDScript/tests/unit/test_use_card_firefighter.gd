@@ -232,3 +232,169 @@ func test_game_get_target() -> void:
 	assert_eq(targets.size(), 2, "应返回 2 个目标（玩家 + 怪物）")
 	assert_true(targets.has(p), "目标列表应含玩家")
 	assert_true(targets.has(m), "目标列表应含怪物")
+
+
+# 测试 8: 消防员的耐力 — 第一步取消：牌退回手牌，不消耗行动次数
+# defer_action_cost=true 时 use_card 不预先扣行动；content 第一步取消返回 false → 牌退回手牌，不弃牌
+func test_firefighter_stamina_cancel_at_step1() -> void:
+	var p: Player = _make_firefighter_player()
+	_setup_game_for_player(p)
+	p.action_count = 2
+	# 构建地图：中心块 (1,1) + 四向相邻块
+	var center: MapBlock = _make_block("center", 1, 1)
+	var north: MapBlock = _make_block("north", 1, 0)
+	var south: MapBlock = _make_block("south", 1, 2)
+	var east: MapBlock = _make_block("east", 2, 1)
+	var west: MapBlock = _make_block("west", 0, 1)
+	Game.map_area = [center, north, south, east, west]
+	p.current_block = center
+	# 创建消防员的耐力卡牌
+	var card: Card = _make_firefighter_card("消防员的耐力")
+	p.hand.append(card)
+	# mock input：第一步选取时取消（返回 null）
+	var cli: CliPlayerInput = CliPlayerInput.new()
+	cli.queue_choose_block([])  # 第一步取消（空数组表示取消）
+	p.input = cli
+	var result: bool = await p.use_card(card)
+	assert_false(result, "第一步取消应返回 false")
+	assert_eq(p.action_count, 2, "不应消耗行动次数")
+	assert_eq(p.hand.size(), 1, "牌应退回手牌")
+	assert_eq(p.hand[0].card_name, "消防员的耐力", "手牌中应为消防员的耐力")
+	assert_eq(p.game_discard_pile.get_all().size(), 0, "弃牌堆应为空")
+
+
+# 测试 9: 消防员的耐力 — 完成 3 步移动：消耗 1 行动，抓 1 张牌
+func test_firefighter_stamina_complete_3_steps() -> void:
+	var p: Player = _make_firefighter_player()
+	_setup_game_for_player(p)
+	p.action_count = 2
+	# 构建线性地图：(0,1) <-> (1,1) <-> (2,1) <-> (3,1)
+	var b01: MapBlock = _make_block("b01", 0, 1)
+	var b11: MapBlock = _make_block("b11", 1, 1)
+	var b21: MapBlock = _make_block("b21", 2, 1)
+	var b31: MapBlock = _make_block("b31", 3, 1)
+	Game.map_area = [b01, b11, b21, b31]
+	p.current_block = b11
+	# 牌堆需要有牌才能 draw(1)
+	p.game_deck.add(_make_card("drawn1"))
+	# 创建消防员的耐力卡牌
+	var card: Card = _make_firefighter_card("消防员的耐力")
+	p.hand.append(card)
+	# mock input：依次选择 b21, b31, b21（来回走）
+	var cli: CliPlayerInput = CliPlayerInput.new()
+	cli.queue_choose_block([b21])  # 步骤1: b11 -> b21（数组形式，单元素数组）
+	cli.queue_choose_block([b31])  # 步骤2: b21 -> b31
+	cli.queue_choose_block([b21])  # 步骤3: b31 -> b21
+	p.input = cli
+	var result: bool = await p.use_card(card)
+	assert_true(result, "使用消防员的耐力应成功")
+	assert_eq(p.action_count, 1, "应消耗 1 点行动次数")
+	assert_eq(p.current_block, b21, "应最终在 b21")
+	assert_eq(p.hand.size(), 1, "手牌应有 1 张（抓到的牌，消防员的耐力已弃置）")
+	assert_eq(p.game_discard_pile.get_all().size(), 1, "弃牌堆应有 1 张（消防员的耐力）")
+
+
+# 测试 10: 消防员的耐力 — 第二步取消：结束移动，抓 1 张牌
+func test_firefighter_stamina_cancel_at_step2() -> void:
+	var p: Player = _make_firefighter_player()
+	_setup_game_for_player(p)
+	p.action_count = 2
+	# 构建线性地图：(0,1) <-> (1,1) <-> (2,1) <-> (3,1)
+	var b01: MapBlock = _make_block("b01", 0, 1)
+	var b11: MapBlock = _make_block("b11", 1, 1)
+	var b21: MapBlock = _make_block("b21", 2, 1)
+	var b31: MapBlock = _make_block("b31", 3, 1)
+	Game.map_area = [b01, b11, b21, b31]
+	p.current_block = b11
+	# 牌堆需要有牌才能 draw(1)
+	p.game_deck.add(_make_card("drawn1"))
+	# 创建消防员的耐力卡牌
+	var card: Card = _make_firefighter_card("消防员的耐力")
+	p.hand.append(card)
+	# mock input：第一步选 b21，第二步取消
+	var cli: CliPlayerInput = CliPlayerInput.new()
+	cli.queue_choose_block([b21])  # 步骤1: b11 -> b21（数组形式，单元素数组）
+	cli.queue_choose_block([])  # 步骤2: 取消（空数组表示取消）
+	p.input = cli
+	var result: bool = await p.use_card(card)
+	assert_true(result, "第二步取消应正常结束（返回 true）")
+	assert_eq(p.action_count, 1, "应消耗 1 点行动次数（第一步移动时消耗）")
+	assert_eq(p.current_block, b21, "应在 b21")
+	assert_eq(p.hand.size(), 1, "手牌应有 1 张（抓到的牌）")
+	assert_eq(p.game_discard_pile.get_all().size(), 1, "弃牌堆应有 1 张（消防员的耐力）")
+
+
+# 测试 11: choose_block_inline 多选场景（count=2 时返回 2 个地块）
+# 验证 content 代码调用 player.choose_block_inline(valid_blocks, prompt, 2)
+# 时，CLI mock 注入的数组队列被正确消费并返回多块。
+func test_choose_block_inline_multi_select_count_2() -> void:
+	var p: Player = _make_firefighter_player()
+	_setup_game_for_player(p)
+	var b1: MapBlock = _make_block("b1", 0, 0)
+	var b2: MapBlock = _make_block("b2", 1, 0)
+	var b3: MapBlock = _make_block("b3", 2, 0)
+	var cli: CliPlayerInput = CliPlayerInput.new()
+	cli.queue_choose_block([b1, b3])  # 注入两个地块（数组包数组）
+	p.input = cli
+	var blocks: Array = await p.choose_block_inline([b1, b2, b3], "选择两个地块", 2)
+	assert_eq(blocks.size(), 2, "应返回 2 个地块")
+	assert_eq(blocks[0], b1, "第一个应为 b1")
+	assert_eq(blocks[1], b3, "第二个应为 b3")
+
+
+# 测试 12: choose_block_inline 队列默认行为（未注入时返回前 count 块）
+# CliPlayerInput 在队列为空时默认选取前 count 块。
+func test_choose_block_inline_default_returns_first_count() -> void:
+	var p: Player = _make_firefighter_player()
+	_setup_game_for_player(p)
+	var b1: MapBlock = _make_block("b1", 0, 0)
+	var b2: MapBlock = _make_block("b2", 1, 0)
+	var b3: MapBlock = _make_block("b3", 2, 0)
+	var cli: CliPlayerInput = CliPlayerInput.new()
+	p.input = cli
+	# 队列为空时，CliPlayerInput 默认返回前 count 块
+	var blocks: Array = await p.choose_block_inline([b1, b2, b3], "默认选取", 2)
+	assert_eq(blocks.size(), 2, "应返回 2 个地块（默认前 2 项）")
+	assert_eq(blocks[0], b1, "第一个应为 b1")
+	assert_eq(blocks[1], b2, "第二个应为 b2")
+
+
+# 测试 13: choose_block_inline 空候选返回空数组（不调用 input）
+# player.choose_block_inline 在 valid_blocks 为空时直接返回 []，不委托 input。
+func test_choose_block_inline_empty_candidates_returns_empty() -> void:
+	var p: Player = _make_firefighter_player()
+	_setup_game_for_player(p)
+	var cli: CliPlayerInput = CliPlayerInput.new()
+	p.input = cli
+	var blocks: Array = await p.choose_block_inline([], "无可选地块", 1)
+	assert_eq(blocks.size(), 0, "空候选应返回空数组")
+
+
+## 记录 set_prompt 文本的探针 input（CliPlayerInput 子类）。
+## 用于验证 player.set_prompt 是否将文本正确委托到 input 层。
+class _PromptSpyInput extends CliPlayerInput:
+	var last_prompt: String = ""
+
+	func set_prompt(text: String) -> void:
+		last_prompt = text
+
+
+# 测试 14: player.set_prompt 委托给 input 层
+# 验证 content 代码调用 player.set_prompt(text) 后文本正确传递到 input。
+func test_player_set_prompt_delegates_to_input() -> void:
+	var p: Player = _make_firefighter_player()
+	_setup_game_for_player(p)
+	var spy: _PromptSpyInput = _PromptSpyInput.new()
+	p.input = spy
+	p.set_prompt("请选择目标地块")
+	assert_eq(spy.last_prompt, "请选择目标地块", "set_prompt 应将文本传递给 input")
+
+
+# 测试 15: player.set_prompt 在无 input 时不崩溃
+# input 为 null 时 set_prompt 应安全返回，不报错。
+func test_player_set_prompt_no_input_no_crash() -> void:
+	var p: Player = _make_firefighter_player()
+	_setup_game_for_player(p)
+	p.input = null
+	p.set_prompt("无 input 时不应崩溃")
+	assert_true(true, "无 input 时 set_prompt 应安全返回不报错")

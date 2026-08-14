@@ -34,7 +34,7 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
           "select_target": 1,
-          "filter_target": "return true",
+          "filter_target": "return target != player",
           "filter_target_range": "short",
           "content": "player.consume_action(1)\ntarget.damage(2, player)"
         }
@@ -241,7 +241,7 @@
           "skill_type": "action",
           "active": "action",
           "filter": "return player.in_phase == \"action\"",
-          "content": "target = await player.choose_map_block({\"filter_target\": \"return target.is_revealed()\", \"filter_target_range\": \"infinity\"})\ntarget.remove_all_monster_marks()"
+          "content": "var _candidates = player.get_current_block().get_blocks_in_range(\"infinity\")\nvar _valid = []\nfor _b in _candidates:\n\ttarget = _b\n\tif target.is_revealed():\n\t\t_valid.append(_b)\n\ttarget = _b\nvar _blocks = await player.choose_block_inline(_valid, \"\", 1)\ntarget = _blocks[0] if _blocks.size() > 0 else null\ntarget.remove_all_monster_marks()"
         }
       ]
     },
