@@ -7,6 +7,7 @@
   "stealth": 7,
   "hunger_stealth": 6,
   "equipment_slot": 4,
+  "hand_size_limit": 10,
   "intrinsic_skills": [
     {
       "skill_name": "快速拔枪",
@@ -32,7 +33,7 @@
           "range": "long",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter": "return player.in_phase == \"action\"",
           "complex_target": true,
           "filter_target_1": "return target.in_equipment_area && target.charge_type == \"ammo\" && target.charge_current > 0",
           "filter_target_2": "return true",
@@ -53,7 +54,7 @@
           "skill_description": "行动：本回合可以额外执行两个行动。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter": "return player.in_phase == \"action\"",
           "content": "player.increase_max_action(2)\nplayer.add_temp_skill(\"pull_trigger_happy_clear\", \"before_turn_end\")\nplayer.add_action(2)",
           "sub_skills": {
             "clear": {
@@ -79,7 +80,7 @@
           "skill_description": "行动：销毁本牌然后将一张弹药类武器填装满【空尖弹】弹药，这种弹药会让武器牌额外造成两点伤害。武器弹药耗尽时弃置武器牌。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.has_fillable_weapon()",
+          "filter": "return player.in_phase == \"action\" && player.has_fillable_weapon()",
           "select_target": 1,
           "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\"",
           "content": "player.remove_card(\"hollow_point\", \"resolution\")\nplayer.add_skill(\"hollow_point_damage\")\nplayer.add_skill(\"hollow_point_remove\")\ntarget.change_charge_type(\"hollow_point\")\ntarget.fill_charge()",
@@ -117,7 +118,7 @@
           "range": "medium",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_total_charge_count(\"ammo\") > 0",
+          "filter": "return player.in_phase == \"action\" && player.get_total_charge_count(\"ammo\") > 0",
           "filter_target": "return target != player",
           "select_target": 1,
           "filter_target_range": "medium",
@@ -138,7 +139,7 @@
           "range": "medium",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter": "return player.in_phase == \"action\"",
           "filter_target": "return target != player",
           "select_target": 1,
           "filter_target_range": "medium",
@@ -158,7 +159,7 @@
           "skill_description": "行动：直到你的回合结束，你每杀死一个怪物就随机从一个拾荒牌堆抓取一张牌（无地块拾荒颜色限制）。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter": "return player.in_phase == \"action\"",
           "filter_target": "return target == player",
           "content": "player.add_temp_skill(\"search_corpse_draw\", \"before_turn_end\")",
           "sub_skills": {
@@ -187,7 +188,7 @@
           "range": "medium",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter": "return player.in_phase == \"action\"",
           "select_target": 1,
           "filter_target": "return target.type == \"monster\"",
           "filter_target_range": "medium",
@@ -207,7 +208,7 @@
           "skill_description": "行动：选择另一名玩家，使其立即执行一个行动。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter": "return player.in_phase == \"action\"",
           "select_target": 1,
           "filter_target": "return target.type == \"human\" && target != player",
           "filter_target_range": "infinity",
@@ -253,7 +254,7 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"colt_pistol\") > 0",
           "select_target": 1,
-          "filter_target": "return true",
+          "filter_target": "return target != player",
           "filter_target_range": "medium",
           "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"colt_pistol\"), 1)\ntarget.damage(2, player)"
         }
@@ -273,7 +274,7 @@
           "skill_type": "equipment",
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "content": "player.consume_action(1)\nvar max_steps = 2\nvar steps = 0\nwhile steps < max_steps:\n\tif steps > 0:\n\t\tvar choice = player.choose([\"继续移动\", \"停止移动\"])\n\t\tif choice == \"停止移动\":\n\t\t\tbreak\n\tvar target = player.choose_map_block({\"filter_target\": \"return target != player.get_current_block()\", \"filter_target_range\": \"medium\"})\n\tvar success = player.move_to(target)\n\tif not success:\n\t\tbreak\n\tsteps += 1"
+          "content": "player.consume_action(1)\nvar max_steps = 2\nvar steps = 0\nwhile steps < max_steps:\n\tif steps > 0:\n\t\tvar choice = await player.choose([\"继续移动\", \"停止移动\"])\n\t\tif choice == \"停止移动\":\n\t\t\tbreak\n\tvar _candidates = player.get_current_block().get_blocks_in_range(\"medium\")\n\tvar _valid = []\n\tfor _b in _candidates:\n\t\ttarget = _b\n\t\tif target != player.get_current_block():\n\t\t\t_valid.append(_b)\n\t\ttarget = _b\n\tvar _blocks = await player.choose_block_inline(_valid, \"\", 1)\n\ttarget = _blocks[0] if _blocks.size() > 0 else null\n\tvar success = player.move_to(target)\n\tif not success:\n\t\tbreak\n\tsteps += 1"
         },
         {
           "skill_name": "马·弃置",
@@ -334,9 +335,9 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"revolver\") > 0",
           "select_target": 1,
-          "filter_target": "return true",
+          "filter_target": "return target != player",
           "filter_target_range": "medium",
-          "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"revolver\"), 1)\ntarget.damage(3, player)\nif player.get_charge_count(\"revolver\") > 0 && player.choose([\"继续攻击\", \"停止\"]) == \"继续攻击\":\n\tvar target2 = player.choose_target({\"select_target\": 1, \"filter_target\": \"return target2 != target\", \"filter_target_range\": \"medium\"})\n\tplayer.consume_charge(player.get_equipment(\"revolver\"), 1)\n\ttarget2.damage(3, player)"
+          "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"revolver\"), 1)\ntarget.damage(3, player)\nif player.get_charge_count(\"revolver\") > 0 && await player.choose([\"继续攻击\", \"停止\"]) == \"继续攻击\":\n\tvar target2 = player.choose_target({\"select_target\": 1, \"filter_target\": \"return target2 != target\", \"filter_target_range\": \"medium\"})\n\tplayer.consume_charge(player.get_equipment(\"revolver\"), 1)\n\ttarget2.damage(3, player)"
         }
       ]
     }

@@ -17,12 +17,58 @@ var skills: Array[Skill] = []
 ## 若 trigger 为取消点，技能可调用 event["cancel"].call() 或 EventSystem.cancel(event) 终止流程。
 func trigger(trigger_name: String, event: Dictionary) -> void:
 	EventSystem.set_trigger_name(event, trigger_name)
-	for s in skills:
+	# 迭代副本：技能 content 可能挂载/移除技能（如燃料 on_draw 调用 equip），
+	# 避免新挂载的同触发器技能在当前迭代中重复触发导致死循环。
+	for s in skills.duplicate():
 		if not s.matches_trigger(trigger_name):
 			continue
-		if not s.execute_filter(event):
+		if not s.execute_filter(self, event):
 			continue
-		s.execute_content(event)
+		# 输出触发日志
+		if Game != null and is_instance_valid(Game):
+			var _trigger_actor: Variant = self
+			if has_method("is_monster") and is_monster() and event.has("player"):
+				_trigger_actor = event["player"]
+			var _actor_name: String = ""
+			if _trigger_actor.has_method("is_player") and _trigger_actor.is_player():
+				_actor_name = _trigger_actor.get("player_name")
+			elif _trigger_actor.has_method("is_monster") and _trigger_actor.is_monster():
+				_actor_name = _trigger_actor.get("monster_name")
+			elif "block_name" in _trigger_actor:
+				_actor_name = str(_trigger_actor.block_name)
+			var _skill_name: String = s.skill_name if s.skill_name != "" else s.english_name
+			if _actor_name != "":
+				Game.log_message(LogColors.player(_actor_name) + " 触发了 " + LogColors.skill_by_type(_skill_name, s.skill_type))
+		await s.execute_content(self, event)
+		if EventSystem.is_cancelled(event):
+			break
+
+
+## 仅在指定技能列表中触发匹配 trigger_name 的技能。
+## 用于 on_draw_scavenge_card 等自身反应触发器，避免已装备卡牌的同名触发器重复触发。
+func trigger_only(trigger_name: String, event: Dictionary, skill_list: Array) -> void:
+	EventSystem.set_trigger_name(event, trigger_name)
+	for s in skill_list:
+		if not s.matches_trigger(trigger_name):
+			continue
+		if not s.execute_filter(self, event):
+			continue
+		# 输出触发日志
+		if Game != null and is_instance_valid(Game):
+			var _trigger_actor: Variant = self
+			if has_method("is_monster") and is_monster() and event.has("player"):
+				_trigger_actor = event["player"]
+			var _actor_name: String = ""
+			if _trigger_actor.has_method("is_player") and _trigger_actor.is_player():
+				_actor_name = _trigger_actor.get("player_name")
+			elif _trigger_actor.has_method("is_monster") and _trigger_actor.is_monster():
+				_actor_name = _trigger_actor.get("monster_name")
+			elif "block_name" in _trigger_actor:
+				_actor_name = str(_trigger_actor.block_name)
+			var _skill_name: String = s.skill_name if s.skill_name != "" else s.english_name
+			if _actor_name != "":
+				Game.log_message(LogColors.player(_actor_name) + " 触发了 " + LogColors.skill_by_type(_skill_name, s.skill_type))
+		await s.execute_content(self, event)
 		if EventSystem.is_cancelled(event):
 			break
 
@@ -61,30 +107,59 @@ func damage(num: int, source: Entity, type: Variant = "", card: Card = null) -> 
 
 	# 1-2. before_deal_damage / before_take_damage
 	if source != null:
-		source.trigger("before_deal_damage", event)
-		trigger("before_take_damage", event)
+		await source.trigger("before_deal_damage", event)
+		await trigger("before_take_damage", event)
 	else:
-		trigger("before_take_damage", event)
+		await trigger("before_take_damage", event)
 
 	# 3. on_deal_damage（可修改 event.num）
 	if source != null:
-		source.trigger("on_deal_damage", event)
+		await source.trigger("on_deal_damage", event)
 
 	# 4. on_take_damage（取消点：可修改 event.num 或 event.cancel()）
-	trigger("on_take_damage", event)
+	await trigger("on_take_damage", event)
 
 	if EventSystem.is_cancelled(event):
 		return
 
 	# 5. 系统扣血（非钩子节点）
+	var hp_before: int = get_hp()
 	reduce_hp(event["num"])
+	var actual_damage: int = hp_before - get_hp()
+	# 5.5 统计信号：仅统计实际扣血量（trigger 可能修改/取消伤害）
+	if actual_damage > 0 and EventBus != null and is_instance_valid(EventBus):
+		EventBus.damage_taken.emit(self, source, actual_damage)
+		if source != null:
+			EventBus.damage_dealt.emit(source, self, actual_damage)
+	# 5.6 日志记录（玩家/怪物受伤时区分来源）
+	if is_player() and event["num"] > 0 and Game != null and is_instance_valid(Game):
+		var p_name: String = self.get("player_name")
+		var dmg_num: int = event["num"]
+		var dmg_type: String = str(type) if type != null else ""
+		if dmg_type == "monster_attack" and source != null and is_instance_valid(source) and source.is_monster():
+			Game.log_message(LogColors.player(p_name) + " 受到 " + LogColors.monster(source.get("monster_name")) + " 造成的 " + str(dmg_num) + " 点伤害")
+		elif dmg_type == "hunger":
+			Game.log_message(LogColors.player(p_name) + " 因饥饿受到 " + str(dmg_num) + " 点伤害")
+		elif dmg_type == "poison":
+			Game.log_message(LogColors.player(p_name) + " 因中毒受到 " + str(dmg_num) + " 点伤害")
+		elif dmg_type == "block_destroy":
+			Game.log_message(LogColors.player(p_name) + " 因地块摧毁受到 " + str(dmg_num) + " 点伤害")
+		else:
+			Game.log_message(LogColors.player(p_name) + " 受到 " + str(dmg_num) + " 点伤害")
+	elif is_monster() and event["num"] > 0 and Game != null and is_instance_valid(Game):
+		var m_name: String = self.get("monster_name")
+		var dmg_num_m: int = event["num"]
+		if source != null and is_instance_valid(source) and source.is_player():
+			Game.log_message(LogColors.monster(m_name) + " 受到 " + LogColors.player(source.get("player_name")) + " 造成的 " + str(dmg_num_m) + " 点伤害")
+		else:
+			Game.log_message(LogColors.monster(m_name) + " 受到 " + str(dmg_num_m) + " 点伤害")
 
 	# 6. after_deal_damage
 	if source != null:
-		source.trigger("after_deal_damage", event)
+		await source.trigger("after_deal_damage", event)
 
 	# 7. after_take_damage
-	trigger("after_take_damage", event)
+	await trigger("after_take_damage", event)
 
 	# 8. 死亡判定（多态调用）
 	if get_hp() <= 0:

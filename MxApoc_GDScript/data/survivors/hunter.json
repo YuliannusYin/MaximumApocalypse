@@ -7,6 +7,7 @@
   "stealth": 9,
   "hunger_stealth": 8,
   "equipment_slot": 4,
+  "hand_size_limit": 10,
   "intrinsic_skills": [
     {
       "skill_name": "侦察",
@@ -14,7 +15,7 @@
       "skill_description": "行动：最多展示两个相邻的地图块，且不触发任何地块触发效果。",
       "active": "action",
       "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_current_block().has_adjacent_unrevealed_block()",
-      "content": "player.consume_action(1)\nvar max_reveal = 2\nvar count = 0\nwhile count < max_reveal:\n\tvar target = player.choose_map_block({\"filter_target\": \"return target.is_revealed() == false\", \"filter_target_range\": \"medium\"})\n\tif target == null:\n\t\tbreak\n\ttarget.reveal(false, player)\n\tcount += 1\n\tif count < max_reveal:\n\t\tvar choice = player.choose([\"继续展示\", \"停止展示\"])\n\t\tif choice == \"停止展示\":\n\t\t\tbreak"
+      "content": "player.consume_action(1)\nvar max_reveal = 2\nvar count = 0\nwhile count < max_reveal:\n\tvar _candidates = player.get_current_block().get_blocks_in_range(\"medium\")\n\tvar _valid = []\n\tfor _b in _candidates:\n\t\ttarget = _b\n\t\tif target.is_revealed() == false:\n\t\t\t_valid.append(_b)\n\t\ttarget = _b\n\tvar _blocks = await player.choose_block_inline(_valid, \"\", 1)\n\ttarget = _blocks[0] if _blocks.size() > 0 else null\n\tif target == null:\n\t\tbreak\n\ttarget.reveal(false, player)\n\tcount += 1\n\tif count < max_reveal:\n\t\tvar choice = await player.choose([\"继续展示\", \"停止展示\"])\n\t\tif choice == \"停止展示\":\n\t\t\tbreak"
     }
   ],
   "deck": [
@@ -50,9 +51,9 @@
           "range": "long",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && (player.has_equipment(\"bow\") || player.has_equipment(\"crossbow\"))",
+          "filter": "return player.in_phase == \"action\" && (player.has_equipment(\"bow\") || player.has_equipment(\"crossbow\"))",
           "select_target": 1,
-          "filter_target": "return true",
+          "filter_target": "return target != player",
           "filter_target_range": "long",
           "content": "target.damage(6, player)"
         }
@@ -74,7 +75,7 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\"",
           "select_target": 1,
-          "filter_target": "return true",
+          "filter_target": "return target != player",
           "filter_target_range": "short",
           "content": "player.discard(\"bear_trap\", \"equipment\")\ntarget.damage(4, player)"
         }
@@ -96,7 +97,7 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
           "select_target": 1,
-          "filter_target": "return true",
+          "filter_target": "return target != player",
           "filter_target_range": "medium",
           "content": "player.consume_action(1)\ntarget.damage(2, player)"
         }
@@ -121,7 +122,7 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"fire_arrow\") > 0 && (player.has_equipment(\"bow\") || player.has_equipment(\"crossbow\"))",
           "select_target": 1,
-          "filter_target": "return true",
+          "filter_target": "return target != player",
           "filter_target_range": "medium",
           "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"fire_arrow\"), 1)\ntarget.damage(4, player)"
         }
@@ -143,7 +144,7 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
           "select_target": 1,
-          "filter_target": "return true",
+          "filter_target": "return target != player",
           "filter_target_range": "short",
           "content": "player.consume_action(1)\ntarget.damage(3, player)"
         }
@@ -166,7 +167,7 @@
           "skill_type": "equipment",
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"motorcycle\") > 0",
-          "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"motorcycle\"), 1)\nvar max_steps = 3\nvar steps = 0\nwhile steps < max_steps:\n\tif steps > 0:\n\t\tvar choice = player.choose([\"继续移动\", \"停止移动\"])\n\t\tif choice == \"停止移动\":\n\t\t\tbreak\n\tvar target = player.choose_map_block({\"filter_target\": \"return target != player.get_current_block()\", \"filter_target_range\": \"medium\"})\n\tvar success = player.move_to(target)\n\tif not success:\n\t\tbreak\n\tsteps += 1"
+          "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"motorcycle\"), 1)\nvar max_steps = 3\nvar steps = 0\nwhile steps < max_steps:\n\tif steps > 0:\n\t\tvar choice = await player.choose([\"继续移动\", \"停止移动\"])\n\t\tif choice == \"停止移动\":\n\t\t\tbreak\n\tvar _candidates = player.get_current_block().get_blocks_in_range(\"medium\")\n\tvar _valid = []\n\tfor _b in _candidates:\n\t\ttarget = _b\n\t\tif target != player.get_current_block():\n\t\t\t_valid.append(_b)\n\t\ttarget = _b\n\tvar _blocks = await player.choose_block_inline(_valid, \"\", 1)\n\ttarget = _blocks[0] if _blocks.size() > 0 else null\n\tvar success = player.move_to(target)\n\tif not success:\n\t\tbreak\n\tsteps += 1"
         }
       ]
     },
@@ -189,7 +190,7 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"crossbow\") > 0",
           "select_target": 1,
-          "filter_target": "return true",
+          "filter_target": "return target != player",
           "filter_target_range": "medium",
           "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"crossbow\"), 1)\ntarget.damage(3, player)"
         }
@@ -208,7 +209,7 @@
           "range": "medium",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter": "return player.in_phase == \"action\"",
           "select_target": 1,
           "filter_target": "return target.type == \"monster\"",
           "filter_target_range": "medium",
@@ -228,7 +229,7 @@
           "skill_description": "行动：使场上所有玩家的饥饿值降低1点。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter": "return player.in_phase == \"action\"",
           "content": "var list = game.get_all_players()\nfor i in list:\n\ti.decrease_hunger(1)"
         }
       ]
@@ -245,8 +246,8 @@
           "skill_description": "行动：从场上所有弃牌堆中选一张装备牌，将其置入场上任一玩家的装备区中。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && game.has_equipment_in_discard_piles()",
-          "content": "var list = game.get_all_discard_pile_equipments()\nvar card = player.choose_card(list)\nvar target = player.choose_target({\"select_target\": 1, \"filter_target\": \"return target.type == \\\"human\\\"\", \"filter_target_range\": \"infinity\"})\ntarget.equip(card)"
+          "filter": "return player.in_phase == \"action\" && game.has_equipment_in_discard_piles()",
+          "content": "var list = game.get_all_discard_pile_equipments()\nvar card = await player.choose_card(list)\ntarget = await player.choose_target({\"select_target\": 1, \"filter_target\": \"return target.type == \\\"human\\\"\", \"filter_target_range\": \"infinity\"})\ntarget.equip(card)"
         }
       ]
     },
@@ -274,7 +275,7 @@
           "skill_type": "equipment",
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.has_non_boss_monster()",
-          "content": "player.discard(\"camouflage\", \"equipment\")\nplayer.damage(3, player)\nplayer.discard_non_boss_monster_to_mark()"
+          "content": "player.discard(\"camouflage\", \"equipment\")\nplayer.damage(3, player)\nawait player.discard_non_boss_monster_to_mark()"
         }
       ]
     },
@@ -290,8 +291,8 @@
           "skill_description": "行动：从任一拾荒牌堆中抓取3张牌，然后弃置一张拾荒牌。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "content": "var result = player.choose(\"请选择拾荒堆颜色：\", [\"red\", \"green\", \"blue\"])\nvar scavenge_pile = player.get_scavenge_pile(result)\nplayer.draw_scavenge(3, scavenge_pile)\nplayer.choose_to_discard(1, \"hand\", \"scavenge\")"
+          "filter": "return player.in_phase == \"action\"",
+          "content": "var result = await player.choose(\"请选择拾荒堆颜色：\", [\"red\", \"green\", \"blue\"])\nvar scavenge_pile = player.get_scavenge_pile(result)\nplayer.draw_scavenge(3, scavenge_pile)\nplayer.choose_to_discard(1, \"hand\", \"scavenge\")"
         }
       ]
     }

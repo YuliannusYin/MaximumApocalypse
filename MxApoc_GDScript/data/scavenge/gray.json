@@ -47,8 +47,9 @@
           "skill_description": "行动：从你的弃牌堆将一张牌返回手牌。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "content": "player.consume_action(1)\nvar list = player.get_discard_pile()\nif list.size() == 0:\n\tgame.log(\"玩家没有弃牌堆中的牌\")\n\treturn\nvar card = player.choose_card(1, list)\nplayer.gain(card)"
+          "defer_action_cost": true,
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_discard_pile().size() > 0",
+          "content": "var list = player.get_discard_pile().get_all()\nif list.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar card = await player.choose_card(1, list)\nif card.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nplayer.get_discard_pile().cards.erase(card[0])\nplayer.consume_action(1)\nplayer.gain(card[0])"
         }
       ]
     },

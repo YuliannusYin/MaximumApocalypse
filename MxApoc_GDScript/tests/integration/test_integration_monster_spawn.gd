@@ -74,7 +74,7 @@ func test_draw_monster_instantiates_and_enters_zone() -> void:
 	var mc: MonsterCard = _make_monster_card("zombie1")
 	Game.monster_pile.add(mc)
 	# draw_monster 应实体化怪物并进入怪物区
-	p.draw_monster(1)
+	await p.draw_monster(1)
 	assert_eq(p.monster_zone.size(), 1, "怪物区应有 1 个怪物")
 	var m: Monster = p.monster_zone[0]
 	assert_eq(m.monster_name, "zombie1", "怪物名应来自卡牌")
@@ -91,7 +91,7 @@ func test_monster_act_attacks_target_player() -> void:
 	p.monster_zone.append(m)
 	# 怪物行动：range=none 只攻击纠缠玩家
 	var initial_hp: int = p.hp
-	m.act()
+	await m.act()
 	assert_eq(p.hp, initial_hp - 4, "玩家应受到 4 点伤害")
 
 
@@ -117,7 +117,7 @@ func test_draw_monster_empty_pile_reshuffles_discard() -> void:
 	var mc: MonsterCard = _make_monster_card("zombie1")
 	Game.monster_discard_pile.add(mc)
 	# draw_monster 应重洗弃牌堆
-	p.draw_monster(1)
+	await p.draw_monster(1)
 	assert_eq(p.monster_zone.size(), 1, "应实体化 1 个怪物")
 	assert_eq(Game.monster_pile.get_all().size(), 0, "牌堆应再次空")
 	assert_eq(Game.monster_discard_pile.get_all().size(), 0, "弃牌堆应清空")
@@ -129,6 +129,6 @@ func test_draw_monster_empty_pile_and_discard_triggers_lose() -> void:
 	Game.monster_pile = Pile.new()
 	Game.monster_discard_pile = Pile.new()
 	# 牌堆与弃牌堆均空
-	p.draw_monster(1)
+	await p.draw_monster(1)
 	assert_true(Game.game_over_called, "无怪可抽应触发 game_over")
 	assert_eq(Game.game_result, "lose")

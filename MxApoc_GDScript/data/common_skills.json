@@ -1,0 +1,16 @@
+[
+  {
+    "skill_name": "制衡",
+    "english_name": "balance",
+    "skill_description": "弃置两张求生者游戏牌，然后从游戏牌堆抓取一张牌",
+    "skill_type": "common",
+    "active": "action",
+    "target_type": "",
+    "select_card": 2,
+    "position": "hand",
+    "filter_card": "return target.source != \"scavenge\"",
+    "usable": 1,
+    "filter": "return player.in_phase == \"action\"",
+    "content": "var cards = event[\"cards\"]\nawait player.discard(cards)\nawait player.draw(1)"
+  }
+]

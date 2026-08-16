@@ -32,7 +32,7 @@ func _populate_survivors() -> void:
 	_survivor_option.clear()
 	_survivor_option.add_item("未选择", 0)
 	_survivor_option.set_item_metadata(0, null)
-	var survivors := DataManager.get_all_survivors()
+	var survivors := DataManager.get_available_survivors()
 	for i in range(survivors.size()):
 		var survivor = survivors[i]
 		_survivor_option.add_item(survivor.character_name, i + 1)

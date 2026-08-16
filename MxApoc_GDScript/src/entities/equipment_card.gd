@@ -15,6 +15,9 @@ var charge_max: int = 0
 ## 当前填充物数量。耗尽时触发「填充物耗尽时」trigger
 var charge_current: int = 0
 
+## 装备区标记：是否在玩家装备区内
+var in_equipment_area: bool = false
+
 
 ## 消耗 n 个填充物。成功返回 true，不足返回 false。
 func consume_charge(n: int) -> bool:
@@ -39,6 +42,47 @@ func refill(n: int) -> void:
 	charge_current = mini(charge_current + n, charge_max)
 
 
+## 添加指定类型的填充物。
+## 当 type 匹配 charge_type（或 charge_type 为空时接受任意类型）时，
+## 将 charge_current 增加 amount，但不超过 charge_max。
+## type 不匹配则什么都不做（用于弹药/燃料等 content 代码按类型补充）。
+func add_charge(amount: int, type: String) -> void:
+	if charge_type != "" and charge_type != type:
+		return
+	charge_current = mini(charge_current + amount, charge_max)
+
+
+## 将填充物填满到上限。
+func fill_charge() -> void:
+	charge_current = charge_max
+
+
+## 修改填充物类型。
+func change_charge_type(type: String) -> void:
+	charge_type = type
+
+
 ## 是否为武器牌（用于 damage 流程的 card 参数判断）。
 func is_weapon_card() -> bool:
 	return range != "none" and card_subtype == "equipment"
+
+
+## 实体化：复制卡面数据到 Equipment 实例。
+## 由 Player.equip 调用。装备区持有实体，来源卡通过 equipment_card 回引。
+func instantiate(player: Player = null) -> Equipment:
+	var eq: Equipment = Equipment.new()
+	eq.equipment_name = card_name
+	eq.card_name = card_name
+	eq.english_name = english_name
+	eq.card_type = card_type
+	eq.card_subtype = card_subtype
+	eq.source = source
+	eq.size = size
+	eq.range = range
+	eq.charge_type = charge_type
+	eq.charge_max = charge_max
+	eq.in_equipment_area = true
+	eq.equipment_card = self
+	for s in skills:
+		eq.add_skill(s)
+	return eq

@@ -15,11 +15,15 @@ run/main_scene="res://scenes/MainMenu.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
 config/icon="res://icon.svg"
 
+[audio]
+
+default_bus_layout="res://default_bus_layout.tres"
+
 [autoload]
 
 DataManager="*res://src/data/data_manager.gd"
-Game="*res://src/game/game.gd"
 EventBus="*res://src/core/event_bus.gd"
+Game="*res://src/game/game.gd"
 RoomState="*res://src/ui/room_state.gd"
 Settings="*res://src/ui/settings.gd"
 
@@ -28,7 +32,6 @@ Settings="*res://src/ui/settings.gd"
 window/size/viewport_width=1430
 window/size/viewport_height=780
 window/stretch/mode="canvas_items"
-window/stretch/aspect="expand"
 window/size/viewport=Vector2i(1430, 780)
 window/size/minimum_size=Vector2i(1024, 600)
 

@@ -16,17 +16,17 @@ func test_cli_default_wait_action_returns_null() -> void:
 func test_cli_default_choose_returns_first_option() -> void:
 	var input: CliPlayerInput = CliPlayerInput.new()
 	var options: Array = ["a", "b", "c"]
-	assert_eq(input.choose(options), "a", "默认应返回第一项")
+	assert_eq(await input.choose(options), "a", "默认应返回第一项")
 
 
 func test_cli_default_choose_empty_returns_null() -> void:
 	var input: CliPlayerInput = CliPlayerInput.new()
-	assert_null(input.choose([]), "空列表应返回 null")
+	assert_null(await input.choose([]), "空列表应返回 null")
 
 
 func test_cli_default_choose_card_returns_empty() -> void:
 	var input: CliPlayerInput = CliPlayerInput.new()
-	assert_eq(input.choose_card(2).size(), 0, "默认应返回空数组")
+	assert_eq(await input.choose_card(2).size(), 0, "默认应返回空数组")
 
 
 func test_cli_default_choose_target_returns_empty() -> void:
@@ -38,12 +38,12 @@ func test_cli_default_choose_map_block_returns_first() -> void:
 	var input: CliPlayerInput = CliPlayerInput.new()
 	var block1: Dictionary = {"name": "block1"}
 	var block2: Dictionary = {"name": "block2"}
-	assert_eq(input.choose_map_block([block1, block2]), block1, "默认应返回第一个地块")
+	assert_eq(await input.choose_map_block([block1, block2]), block1, "默认应返回第一个地块")
 
 
 func test_cli_default_choose_map_block_empty_returns_null() -> void:
 	var input: CliPlayerInput = CliPlayerInput.new()
-	assert_null(input.choose_map_block([]), "空列表应返回 null")
+	assert_null(await input.choose_map_block([]), "空列表应返回 null")
 
 
 func test_cli_default_confirm_returns_true() -> void:
@@ -72,18 +72,18 @@ func test_cli_queue_choose_returns_in_order() -> void:
 	var input: CliPlayerInput = CliPlayerInput.new()
 	input.queue_choose("picked1")
 	input.queue_choose("picked2")
-	assert_eq(input.choose(["default"]), "picked1")
-	assert_eq(input.choose(["default"]), "picked2")
-	assert_eq(input.choose(["default"]), "default", "队列空后返回默认第一项")
+	assert_eq(await input.choose(["default"]), "picked1")
+	assert_eq(await input.choose(["default"]), "picked2")
+	assert_eq(await input.choose(["default"]), "default", "队列空后返回默认第一项")
 
 
 func test_cli_queue_choose_card_returns_in_order() -> void:
 	var input: CliPlayerInput = CliPlayerInput.new()
 	input.queue_choose_card(["card1", "card2"])
 	input.queue_choose_card(["card3"])
-	assert_eq(input.choose_card(2), ["card1", "card2"])
-	assert_eq(input.choose_card(1), ["card3"])
-	assert_eq(input.choose_card(1).size(), 0, "队列空后返回空")
+	assert_eq(await input.choose_card(2), ["card1", "card2"])
+	assert_eq(await input.choose_card(1), ["card3"])
+	assert_eq(await input.choose_card(1).size(), 0, "队列空后返回空")
 
 
 func test_cli_queue_choose_target_returns_in_order() -> void:
@@ -98,8 +98,8 @@ func test_cli_queue_choose_block_returns_in_order() -> void:
 	var block1: Dictionary = {"name": "b1"}
 	var block2: Dictionary = {"name": "b2"}
 	input.queue_choose_block(block2)
-	assert_eq(input.choose_map_block([block1, block2]), block2, "应返回队列中的项")
-	assert_eq(input.choose_map_block([block1, block2]), block1, "队列空后返回默认第一项")
+	assert_eq(await input.choose_map_block([block1, block2]), block2, "应返回队列中的项")
+	assert_eq(await input.choose_map_block([block1, block2]), block1, "队列空后返回默认第一项")
 
 
 func test_cli_queue_confirm_returns_in_order() -> void:
@@ -121,7 +121,7 @@ func test_cli_player_input_is_i_player_input() -> void:
 func test_cli_overrides_choose_returns_value_not_null() -> void:
 	# 验证 CliPlayerInput 确实 override 了 choose（基类返回 null，子类返回第一项）
 	var input: CliPlayerInput = CliPlayerInput.new()
-	assert_not_null(input.choose(["x"]), "CliPlayerInput.choose 应 override 返回非 null")
+	assert_not_null(await input.choose(["x"]), "CliPlayerInput.choose 应 override 返回非 null")
 
 
 func test_cli_overrides_confirm_returns_true_not_false() -> void:
@@ -134,4 +134,4 @@ func test_cli_overrides_choose_map_block_returns_value_not_null() -> void:
 	# 验证 CliPlayerInput 确实 override 了 choose_map_block
 	var input: CliPlayerInput = CliPlayerInput.new()
 	var block: Dictionary = {"name": "b"}
-	assert_not_null(input.choose_map_block([block]), "CliPlayerInput.choose_map_block 应 override 返回非 null")
+	assert_not_null(await input.choose_map_block([block]), "CliPlayerInput.choose_map_block 应 override 返回非 null")

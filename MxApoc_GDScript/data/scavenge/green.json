@@ -14,10 +14,10 @@
           "skill_description": "玩家饥饿值减少1点。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_number(\"hunger_value\") > 1",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"hunger\") > 1",
           "select_target": 1,
           "filter_target": "return target == player",
-          "content": "player.consume_action(1)\nplayer.decrease_hunger(1)"
+          "content": "player.decrease_hunger(1)"
         }
       ]
     },
@@ -33,10 +33,10 @@
           "skill_description": "玩家饥饿值减少2点。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_number(\"hunger_value\") > 1",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"hunger\") > 1",
           "select_target": 1,
           "filter_target": "return target == player",
-          "content": "player.consume_action(1)\nplayer.decrease_hunger(2)"
+          "content": "player.decrease_hunger(2)"
         }
       ]
     },
@@ -52,10 +52,10 @@
           "skill_description": "玩家饥饿值减少3点。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_number(\"hunger_value\") > 1",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"hunger\") > 1",
           "select_target": 1,
           "filter_target": "return target == player",
-          "content": "player.consume_action(1)\nplayer.decrease_hunger(3)"
+          "content": "player.decrease_hunger(3)"
         }
       ]
     },
@@ -71,10 +71,10 @@
           "skill_description": "玩家饥饿值减少4点。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_number(\"hunger_value\") > 1",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"hunger\") > 1",
           "select_target": 1,
           "filter_target": "return target == player",
-          "content": "player.consume_action(1)\nplayer.decrease_hunger(4)"
+          "content": "player.decrease_hunger(4)"
         }
       ]
     },
@@ -90,10 +90,10 @@
           "skill_description": "玩家饥饿值减少5点。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_number(\"hunger_value\") > 1",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"hunger\") > 1",
           "select_target": 1,
           "filter_target": "return target == player",
-          "content": "player.consume_action(1)\nplayer.decrease_hunger(5)"
+          "content": "player.decrease_hunger(5)"
         }
       ]
     },
@@ -109,8 +109,8 @@
           "skill_description": "所有玩家的饥饿值减少1点。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "content": "player.consume_action(1)\nvar list = game.get_all_players()\nfor i in list:\n\ti.decrease_hunger(1)"
+          "filter": "return player.in_phase == \"action\"",
+          "content": "var list = game.get_all_players()\nfor i in list:\n\ti.decrease_hunger(1)"
         }
       ]
     },
@@ -126,8 +126,8 @@
           "skill_description": "所有玩家的饥饿值减少2点。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "content": "player.consume_action(1)\nvar list = game.get_all_players()\nfor i in list:\n\ti.decrease_hunger(2)"
+          "filter": "return player.in_phase == \"action\"",
+          "content": "var list = game.get_all_players()\nfor i in list:\n\ti.decrease_hunger(2)"
         }
       ]
     }

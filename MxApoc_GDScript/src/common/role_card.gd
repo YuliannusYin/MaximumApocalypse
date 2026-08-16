@@ -12,6 +12,9 @@ var is_front_side: bool = true
 ## 角色名称（如"猎人"、"消防员"）
 var role_name: String = ""
 
+## 英文标识符（如"firefighter"），用于图片资源路径查找
+var english_name: String = ""
+
 ## 生命值上限
 var max_hp: int = 0
 
@@ -26,6 +29,9 @@ var hunger_sneak: int = 0
 
 ## 装备栏格数上限
 var equipment_capacity: int = 5
+
+## 手牌上限
+var hand_size_limit: int = 10
 
 ## 角色固有技能（开局即拥有，非卡牌）
 var intrinsic_skills: Array[Skill] = []

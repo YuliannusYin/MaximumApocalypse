@@ -7,6 +7,7 @@
   "stealth": 8,
   "hunger_stealth": 7,
   "equipment_slot": 4,
+  "hand_size_limit": 10,
   "intrinsic_skills": [
     {
       "skill_name": "维修",
@@ -14,7 +15,7 @@
       "skill_description": "行动：从任一弃牌堆中选择一张装备牌，并把它放置在场上任一玩家的装备区中。",
       "active": "action",
       "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && game.has_equipment_in_discard_piles()",
-      "content": "player.consume_action(1)\nvar list = game.get_all_discard_pile_equipments()\nvar card = player.choose_card(list)\nvar target = player.choose_target({\"select_target\": 1, \"filter_target\": \"return target.type == \\\"human\\\"\", \"filter_target_range\": \"infinity\"})\ntarget.equip(card)"
+      "content": "player.consume_action(1)\nvar list = game.get_all_discard_pile_equipments()\nvar card = await player.choose_card(list)\ntarget = await player.choose_target({\"select_target\": 1, \"filter_target\": \"return target.type == \\\"human\\\"\", \"filter_target_range\": \"infinity\"})\ntarget.equip(card)"
     }
   ],
   "deck": [
@@ -34,7 +35,7 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
           "select_target": 1,
-          "filter_target": "return true",
+          "filter_target": "return target != player",
           "filter_target_range": "short",
           "content": "player.consume_action(1)\ntarget.damage(2, player)"
         }
@@ -52,7 +53,7 @@
           "skill_description": "行动：对射程内的最多3个怪物各造成5点伤害",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter": "return player.in_phase == \"action\"",
           "select_target": [1, 3],
           "filter_target": "return target.type == \"monster\"",
           "filter_target_range": "medium",
@@ -110,7 +111,7 @@
           "skill_description": "行动：所有玩家造成的伤害增加1，直到其回合结束。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter": "return player.in_phase == \"action\"",
           "content": "var list = game.get_all_players()\nfor i in list:\n\ti.add_temp_skill(\"check_weapon_damage\", \"before_turn_end\")",
           "sub_skills": {
             "damage": {
@@ -162,7 +163,7 @@
           "skill_description": "行动：将任一玩家移动到任一已展示的地图块。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter": "return player.in_phase == \"action\"",
           "complex_target": true,
           "filter_target_1": "return target.type == \"human\"",
           "filter_target_1_range": "infinity",
@@ -185,7 +186,7 @@
           "range": "medium",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter": "return player.in_phase == \"action\"",
           "select_target": 1,
           "filter_target": "return target.card_type == \"equipment\"",
           "filter_target_range": "medium",
@@ -240,8 +241,8 @@
           "skill_description": "行动：从1个地图块上移除所有怪物标记。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "content": "var target = player.choose_map_block({\"filter_target\": \"return target.is_revealed()\", \"filter_target_range\": \"infinity\"})\ntarget.remove_all_monster_marks()"
+          "filter": "return player.in_phase == \"action\"",
+          "content": "var _candidates = player.get_current_block().get_blocks_in_range(\"infinity\")\nvar _valid = []\nfor _b in _candidates:\n\ttarget = _b\n\tif target.is_revealed():\n\t\t_valid.append(_b)\n\ttarget = _b\nvar _blocks = await player.choose_block_inline(_valid, \"\", 1)\ntarget = _blocks[0] if _blocks.size() > 0 else null\ntarget.remove_all_monster_marks()"
         }
       ]
     },
@@ -258,7 +259,7 @@
           "range": "medium",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter": "return player.in_phase == \"action\"",
           "complex_target": true,
           "filter_target_1": "return target.in_equipment_area",
           "filter_target_2": "return target.type == \"human\" && target != player",
@@ -302,7 +303,7 @@
           "range": "short",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter": "return player.in_phase == \"action\"",
           "select_target": 1,
           "filter_target": "return target.card_type == \"equipment\" && target.charge_type != null",
           "filter_target_range": "short",

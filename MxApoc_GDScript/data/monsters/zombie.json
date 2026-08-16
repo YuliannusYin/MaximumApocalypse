@@ -6,6 +6,7 @@
       "monster_name": "僵尸女王",
       "english_name": "zombie_queen",
       "monster_level": "boss",
+      "count": 1,
       "max_hp": 18,
       "initial_hp": 18,
       "attack_damage": 5,
@@ -27,6 +28,7 @@
       "monster_name": "一大波僵尸",
       "english_name": "zombie_horde",
       "monster_level": "boss",
+      "count": 1,
       "max_hp": 16,
       "initial_hp": 16,
       "attack_damage": 4,
@@ -48,6 +50,7 @@
       "monster_name": "僵尸狗",
       "english_name": "zombie_dog",
       "monster_level": "normal",
+      "count": 6,
       "max_hp": 5,
       "initial_hp": 5,
       "attack_damage": 4,
@@ -58,6 +61,7 @@
       "monster_name": "僵尸士兵",
       "english_name": "zombie_soldier",
       "monster_level": "normal",
+      "count": 6,
       "max_hp": 8,
       "initial_hp": 8,
       "attack_damage": 4,
@@ -68,6 +72,7 @@
       "monster_name": "僵尸步行者",
       "english_name": "zombie_walker",
       "monster_level": "normal",
+      "count": 6,
       "max_hp": 4,
       "initial_hp": 4,
       "attack_damage": 2,
@@ -78,6 +83,7 @@
       "monster_name": "僵尸步行者（精英）",
       "english_name": "zombie_walker_elite",
       "monster_level": "elite",
+      "count": 6,
       "max_hp": 4,
       "initial_hp": 4,
       "attack_damage": 2,
@@ -99,6 +105,7 @@
       "monster_name": "僵尸喷吐者",
       "english_name": "zombie_spitter",
       "monster_level": "elite",
+      "count": 6,
       "max_hp": 6,
       "initial_hp": 6,
       "attack_damage": 2,
@@ -109,6 +116,7 @@
       "monster_name": "僵尸潜行者",
       "english_name": "zombie_stalker",
       "monster_level": "elite",
+      "count": 6,
       "max_hp": 12,
       "initial_hp": 12,
       "attack_damage": 5,
@@ -122,7 +130,7 @@
           "trigger": "after_monster_attack",
           "forced": true,
           "filter": "return true",
-          "content": "var list = game.get_all_players()\nvar target = list[0]\nfor p in list:\n\tif p.get_hp() < target.get_hp():\n\t\ttarget = p\nself.change_engaged_target(target)"
+          "content": "var list = game.get_alive_players()\ntarget = list[0]\nfor p in list:\n\tif p.get_hp() < target.get_hp():\n\t\ttarget = p\nevent.monster.change_engaged_target(target)"
         }
       ]
     }

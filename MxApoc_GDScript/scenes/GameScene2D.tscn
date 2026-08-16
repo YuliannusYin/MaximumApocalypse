@@ -1,0 +1,227 @@
+[gd_scene load_steps=2 format=3 uid="uid://d_game_scene_2d_beta"]
+
+[ext_resource type="Script" path="res://src/ui/game_scene_2d.gd" id="1_gs2d"]
+
+[node name="GameScene2D" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_gs2d")
+
+[node name="TableLayer" type="CanvasLayer" parent="."]
+layer = 0
+
+[node name="UILayer" type="CanvasLayer" parent="."]
+layer = 1
+
+[node name="PopupLayer" type="CanvasLayer" parent="."]
+layer = 2
+
+[node name="TopBar" type="HBoxContainer" parent="UILayer"]
+layout_mode = 1
+offset_left = 475.0
+offset_top = 5.0
+offset_right = 955.0
+offset_bottom = 35.0
+theme_override_constants/separation = 16
+
+[node name="PhaseLabel" type="Label" parent="UILayer/TopBar"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "准备中..."
+
+[node name="CurrentPlayerLabel" type="Label" parent="UILayer/TopBar"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = ""
+
+[node name="LogButton" type="Button" parent="UILayer"]
+layout_mode = 1
+offset_left = 1290.0
+offset_top = 260.0
+offset_right = 1410.0
+offset_bottom = 290.0
+theme_override_font_sizes/font_size = 11
+text = "事件日志"
+
+[node name="RedScavengePile" type="Panel" parent="UILayer"]
+layout_mode = 1
+offset_left = 1130.0
+offset_top = 20.0
+offset_right = 1200.0
+offset_bottom = 110.0
+
+[node name="CountLabel" type="Label" parent="UILayer/RedScavengePile"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 12
+text = "红拾荒\n×0"
+
+[node name="GreenScavengePile" type="Panel" parent="UILayer"]
+layout_mode = 1
+offset_left = 1210.0
+offset_top = 20.0
+offset_right = 1280.0
+offset_bottom = 110.0
+
+[node name="CountLabel" type="Label" parent="UILayer/GreenScavengePile"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 12
+text = "绿拾荒\n×0"
+
+[node name="BlueScavengePile" type="Panel" parent="UILayer"]
+layout_mode = 1
+offset_left = 1290.0
+offset_top = 20.0
+offset_right = 1360.0
+offset_bottom = 110.0
+
+[node name="CountLabel" type="Label" parent="UILayer/BlueScavengePile"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 12
+text = "蓝拾荒\n×0"
+
+[node name="GameDeckPile" type="Panel" parent="UILayer"]
+layout_mode = 1
+offset_left = 1050.0
+offset_top = 20.0
+offset_right = 1120.0
+offset_bottom = 110.0
+
+[node name="CountLabel" type="Label" parent="UILayer/GameDeckPile"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 12
+text = "游戏牌堆\n×0"
+
+[node name="MonsterPile" type="Panel" parent="UILayer"]
+layout_mode = 1
+offset_left = 970.0
+offset_top = 20.0
+offset_right = 1040.0
+offset_bottom = 110.0
+
+[node name="CountLabel" type="Label" parent="UILayer/MonsterPile"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 12
+text = "怪物牌堆\n×0"
+
+[node name="MissionButton" type="Button" parent="UILayer"]
+layout_mode = 1
+offset_left = 1290.0
+offset_top = 220.0
+offset_right = 1410.0
+offset_bottom = 250.0
+theme_override_font_sizes/font_size = 11
+text = "查看任务"
+
+[node name="ActiveSkillPanel" type="Control" parent="UILayer"]
+layout_mode = 1
+offset_left = 1130.0
+offset_top = 595.0
+offset_right = 1300.0
+offset_bottom = 770.0
+
+[node name="ActiveSkillGrid" type="GridContainer" parent="UILayer/ActiveSkillPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/h_separation = 10
+theme_override_constants/v_separation = 5
+columns = 2
+
+[node name="SettingsButton" type="Button" parent="UILayer"]
+layout_mode = 1
+offset_left = 1370.0
+offset_top = 20.0
+offset_right = 1410.0
+offset_bottom = 60.0
+theme_override_font_sizes/font_size = 11
+text = "设置"
+
+[node name="WikiButton" type="Button" parent="UILayer"]
+layout_mode = 1
+offset_left = 1370.0
+offset_top = 70.0
+offset_right = 1410.0
+offset_bottom = 110.0
+theme_override_font_sizes/font_size = 11
+text = "WIKI"
+disabled = true
+
+[node name="ScavengeDiscardPile" type="Panel" parent="UILayer"]
+layout_mode = 1
+offset_left = 1260.0
+offset_top = 120.0
+offset_right = 1330.0
+offset_bottom = 210.0
+
+[node name="CountLabel" type="Label" parent="UILayer/ScavengeDiscardPile"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 10
+text = "拾荒弃牌\n×0"
+
+[node name="GameDiscardPile" type="Panel" parent="UILayer"]
+layout_mode = 1
+offset_left = 1340.0
+offset_top = 120.0
+offset_right = 1410.0
+offset_bottom = 210.0
+
+[node name="CountLabel" type="Label" parent="UILayer/GameDiscardPile"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 10
+text = "角色弃牌\n×0"

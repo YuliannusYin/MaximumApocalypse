@@ -14,10 +14,10 @@
           "skill_description": "恢复2点生命值",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_hp() < player.get_max_hp()",
+          "filter": "return player.in_phase == \"action\" && player.get_hp() < player.get_max_hp()",
           "select_target": 1,
           "filter_target": "return target == player",
-          "content": "player.consume_action(1)\nplayer.recover(2)"
+          "content": "player.recover(2)"
         }
       ]
     },
@@ -33,10 +33,10 @@
           "skill_description": "恢复4点生命值",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_hp() < player.get_max_hp()",
+          "filter": "return player.in_phase == \"action\" && player.get_hp() < player.get_max_hp()",
           "select_target": 1,
           "filter_target": "return target == player",
-          "content": "player.consume_action(1)\nplayer.recover(4)"
+          "content": "player.recover(4)"
         }
       ]
     },
@@ -52,10 +52,10 @@
           "skill_description": "恢复6点生命值",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_hp() < player.get_max_hp()",
+          "filter": "return player.in_phase == \"action\" && player.get_hp() < player.get_max_hp()",
           "select_target": 1,
           "filter_target": "return target == player",
-          "content": "player.consume_action(1)\nplayer.recover(6)"
+          "content": "player.recover(6)"
         }
       ]
     },
@@ -70,10 +70,10 @@
           "skill_description": "清除所有的异常状态效果",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter": "return player.in_phase == \"action\"",
           "select_target": 1,
           "filter_target": "return target == player",
-          "content": "player.consume_action(1)\nplayer.cure_all_status_effects()"
+          "content": "player.heal_all_status()"
         }
       ]
     },
@@ -94,7 +94,19 @@
           "trigger": "on_draw_scavenge_card",
           "forced": true,
           "filter": "return event.card.english_name == \"fuel\"",
-          "content": "var card = event.card\nvar choice = player.choose([\"装备燃料\", \"弃掉燃料\"])\nif choice == \"装备燃料\":\n\tplayer.equip(card)\nelse:\n\tplayer.discard(card)"
+          "content": "var card = event.card\nvar ok = await player.confirm('是否立即装备 \"燃料\", 否则立即弃置')\nif ok:\n\tplayer.equip(card)\nelse:\n\tplayer.discard(card)"
+        },
+        {
+          "skill_name": "加油",
+          "english_name": "refuel",
+          "skill_description": "行动：选择一个未满的燃料装备，将其填充物填满，然后弃置装备区内最先进入的燃料",
+          "skill_type": "equipment",
+          "active": "action",
+          "target_type": "equipment",
+          "usable": -1,
+          "filter": "return player.in_phase == \"action\"",
+          "filter_target": "return target != null && target.has_method(\"get_charge\") && target.get(\"charge_type\") == \"fuel\" && target.get_charge() < target.get(\"charge_max\")",
+          "content": "player.fill_charge_to(target)\nvar fuel_to_discard = null\nfor e in player.equipment_zone:\n\tif e.get(\"english_name\") == \"fuel\":\n\t\tfuel_to_discard = e\n\t\tbreak\nif fuel_to_discard != null:\n\tawait player.discard(fuel_to_discard)"
         }
       ]
     }

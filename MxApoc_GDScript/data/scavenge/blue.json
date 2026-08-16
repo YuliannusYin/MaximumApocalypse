@@ -14,10 +14,11 @@
           "skill_description": "行动：向一张武器卡填装2发弹药。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "target_type": "equipment",
+          "filter": "return player.in_phase == \"action\"",
           "select_target": 1,
           "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\" && target.charge_current < target.charge_max",
-          "content": "player.consume_action(1)\ntarget.add_charge(2, \"ammo\")"
+          "content": "player.add_charge_to(target, 2, \"ammo\")"
         }
       ]
     },
@@ -33,10 +34,11 @@
           "skill_description": "行动：向一张武器卡填装3发弹药。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "target_type": "equipment",
+          "filter": "return player.in_phase == \"action\"",
           "select_target": 1,
           "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\" && target.charge_current < target.charge_max",
-          "content": "player.consume_action(1)\ntarget.add_charge(3, \"ammo\")"
+          "content": "player.add_charge_to(target, 3, \"ammo\")"
         }
       ]
     },
@@ -52,10 +54,11 @@
           "skill_description": "行动：向一张武器卡填装4发弹药。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "target_type": "equipment",
+          "filter": "return player.in_phase == \"action\"",
           "select_target": 1,
           "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\" && target.charge_current < target.charge_max",
-          "content": "player.consume_action(1)\ntarget.add_charge(4, \"ammo\")"
+          "content": "player.add_charge_to(target, 4, \"ammo\")"
         }
       ]
     },
@@ -71,10 +74,11 @@
           "skill_description": "行动：向一张武器卡填装5发弹药。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "target_type": "equipment",
+          "filter": "return player.in_phase == \"action\"",
           "select_target": 1,
           "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\" && target.charge_current < target.charge_max",
-          "content": "player.consume_action(1)\ntarget.add_charge(5, \"ammo\")"
+          "content": "player.add_charge_to(target, 5, \"ammo\")"
         }
       ]
     },
@@ -89,10 +93,11 @@
           "skill_description": "行动：将一张武器卡填装到满弹药。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "target_type": "equipment",
+          "filter": "return player.in_phase == \"action\"",
           "select_target": 1,
           "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\" && target.charge_current < target.charge_max",
-          "content": "player.consume_action(1)\ntarget.fill_charge()"
+          "content": "player.fill_charge_to(target)"
         }
       ]
     },
@@ -128,9 +133,9 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
           "select_target": 1,
-          "filter_target": "return target.type == \"human\" && target != player",
+          "filter_target": "return target.is_player() && target != player",
           "filter_target_range": "infinity",
-          "content": "player.consume_action(1)\ntarget.execute_immediate_action(1)"
+          "content": "player.consume_action(1)\ntarget.execute_action_immediately(1)"
         }
       ]
     },
@@ -152,7 +157,7 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"pistol\") > 0",
           "select_target": 1,
-          "filter_target": "return true",
+          "filter_target": "return target != player",
           "filter_target_range": "medium",
           "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"pistol\"), 1)\ntarget.damage(2, player)"
         }
@@ -169,10 +174,10 @@
           "english_name": "backpack",
           "skill_description": "被动：玩家增加1格装备栏。",
           "skill_type": "equipment",
-          "trigger": "on_card_enter_equipment、on_card_leave_equipment",
+          "trigger": "on_equip、on_unequip",
           "filter": "return event.card.english_name == \"backpack\"",
           "forced": true,
-          "content": "if event.trigger_name == \"on_card_enter_equipment\":\n\tplayer.increase_equipment_slot(1)\nelif event.trigger_name == \"on_card_leave_equipment\":\n\tplayer.decrease_equipment_slot(1)"
+          "content": "if event.trigger_name == \"on_equip\":\n\tplayer.increase_equipment_slot(1)\nelif event.trigger_name == \"on_unequip\":\n\tplayer.decrease_equipment_slot(1)"
         }
       ]
     },
@@ -190,7 +195,7 @@
           "trigger": "before_draw_scavenge_card",
           "filter": "return true",
           "forced": true,
-          "content": "event.cancel()\nvar pile = event.pile\nvar top_two = pile.peek_top(2)\nvar keep = player.choose(top_two)\nplayer.gain(keep)\nfor card in top_two:\n\tif card != keep:\n\t\tpile.put_bottom(card)"
+          "content": "EventSystem.cancel(event)\nvar pile = event[\"pile\"]\nvar top_two = []\nwhile top_two.size() < 2 and not pile.is_empty():\n\ttop_two.append(pile.draw())\nif top_two.size() == 0:\n\treturn\nif top_two.size() == 1:\n\tgame.log_message(LogColors.player(player.player_name) + \" 从拾荒牌堆获得了 \" + LogColors.card(top_two[0].card_name) + \"（牌堆不足 2 张）\")\n\tawait player.draw_scavenge_card(top_two[0], pile, event)\n\treturn\nvar names = []\nfor c in top_two:\n\tnames.append(c.card_name)\ngame.log_message(LogColors.player(player.player_name) + \" 展示了拾荒牌堆顶 2 张牌: \" + \", \".join(names))\nvar chosen = await player.choose_card(1, top_two)\nvar keep = top_two[0]\nif chosen.size() > 0:\n\tkeep = chosen[0]\ngame.log_message(LogColors.player(player.player_name) + \" 保留了 \" + LogColors.card(keep.card_name))\nawait player.draw_scavenge_card(keep, pile, event)\nfor card in top_two:\n\tif card != keep:\n\t\tpile.put_bottom(card)\n\t\tgame.log_message(LogColors.player(player.player_name) + \" 将 \" + LogColors.card(card.card_name) + \" 置于拾荒牌堆底\")"
         }
       ]
     },
@@ -208,10 +213,7 @@
           "skill_type": "equipment",
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "select_target": 1,
-          "filter_target": "return target.is_map_block() && !target.is_revealed()",
-          "filter_target_range": "long",
-          "content": "player.consume_action(1)\ntarget.reveal(false, player)"
+          "content": "var blocks = player.get_current_block().get_blocks_in_range(\"long\")\nvar candidates = []\nfor b in blocks:\n\tif not b.is_revealed():\n\t\tcandidates.append(b)\nif candidates.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar chosen = await player.choose_block_inline(candidates, \"\\\"双筒望远镜\\\": 选择目标地图块\", 1)\nif chosen.is_empty():\n\tEventSystem.cancel(event)\n\treturn\ntarget = chosen[0]\nplayer.consume_action(1)\ntarget.reveal(false, player)"
         }
       ]
     },
@@ -227,11 +229,9 @@
           "range": "long",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "select_target": 1,
-          "filter_target": "return target.is_map_block() && !target.has_monster_mark()",
-          "filter_target_range": "long",
-          "content": "player.consume_action(1)\ntarget.remove_all_objective_marks()\nvar list = game.get_target(target)\nfor i in list:\n\ti.damage(8, player)"
+          "defer_action_cost": true,
+          "filter": "return player.in_phase == \"action\"",
+          "content": "var blocks = player.get_current_block().get_blocks_in_range(\"long\")\nvar candidates = []\nfor b in blocks:\n\tif not b.has_monster_mark():\n\t\tcandidates.append(b)\nif candidates.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar chosen = await player.choose_block_inline(candidates, \"\\\"炸药\\\": 选择目标地图块\", 1)\nif chosen.is_empty():\n\tEventSystem.cancel(event)\n\treturn\ntarget = chosen[0]\nplayer.consume_action(1)\ntarget.remove_all_objective_marks()\nvar list = game.get_target(target)\nfor i in list:\n\ti.damage(8, player)"
         }
       ]
     },
@@ -247,11 +247,9 @@
           "range": "medium",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "select_target": 1,
-          "filter_target": "return target.is_map_block() && target.is_revealed() && target.is_alive()",
-          "filter_target_range": "medium",
-          "content": "player.consume_action(1)\ngame.destroy_map_block(target, player)"
+          "defer_action_cost": true,
+          "filter": "return player.in_phase == \"action\"",
+          "content": "var blocks = player.get_current_block().get_blocks_in_range(\"medium\")\nvar candidates = []\nfor b in blocks:\n\tif b.is_revealed() and b.is_alive():\n\t\tcandidates.append(b)\nif candidates.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar chosen = await player.choose_block_inline(candidates, \"\\\"大炸药\\\": 选择目标地图块\", 1)\nif chosen.is_empty():\n\tEventSystem.cancel(event)\n\treturn\ntarget = chosen[0]\nplayer.consume_action(1)\nawait game.destroy_map_block(target, player)"
         }
       ]
     }
