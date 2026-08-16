@@ -101,6 +101,7 @@ func recover(num: int, source: Variant = null) -> void:
 func increase_hunger(num: int) -> void:
 	if num <= 0:
 		return
+	var old_hunger: int = hunger
 	if Game != null and is_instance_valid(Game):
 		Game.log_message(LogColors.player(player_name) + " 增加了 " + str(num) + " 点饥饿值")
 	while num > 0:
@@ -130,7 +131,7 @@ func increase_hunger(num: int) -> void:
 				Game.log_message(LogColors.player(player_name) + " 被饿死了")
 				damage(get_max_hp(), null, "hunger")
 		num -= 1
-
+	EventBus.player_hunger_changed.emit(self, old_hunger, hunger)
 
 ## 减少饥饿值。最低降至 1，减少后清除饥饿伤害标记并恢复角色卡正面。
 func decrease_hunger(num: int) -> void:
@@ -465,6 +466,7 @@ func judge() -> int:
 ## 潜行检定（4 节点）。
 func sneak_judge(block_param: MapBlock = null) -> bool:
 	var block: MapBlock = block_param if block_param != null else current_block
+	EventBus.sneak_judge_triggered.emit(self, block)
 	var monster_count: int = 0
 	var mark_count: int = 0
 	if block != null:
@@ -916,6 +918,7 @@ func start_turn() -> void:
 		return
 	# 节点 8：行动阶段前（含潜行检定）
 	in_phase = "action"
+	EventBus.phase_changed.emit(self, "", "action")
 	if current_block != null and current_block.has_method("has_monster_mark"):
 		if current_block.has_monster_mark():
 			if not await sneak_judge():

@@ -5,6 +5,8 @@ extends Control
 ## 游戏流程：_ready() → 创建子模块 → initialize_game() → 注入 GUIPlayerInput → start_game()。
 
 const SETTINGS_DIALOG_SCENE := preload("res://scenes/SettingsDialog.tscn")
+const TUTORIAL_DIALOG_SCENE := preload("res://scenes/TutorialDialog.tscn")
+const TutorialManager = preload("res://src/ui/tutorial_manager.gd")
 
 # === 层节点（来自 .tscn）===
 @onready var _table_layer: CanvasLayer = $TableLayer
@@ -160,6 +162,14 @@ func _start_game_flow() -> void:
 		EventBus.card_used.connect(_on_player_stat_changed)
 		EventBus.scavenge_drawn.connect(_on_pile_drawn)
 		EventBus.monster_card_drawn.connect(_on_pile_drawn)
+
+	# 教程系统
+	if Settings.tutorial_mode:
+		var tutorial_dialog: CanvasLayer = TUTORIAL_DIALOG_SCENE.instantiate()
+		add_child(tutorial_dialog)
+		var tutorial_manager: Node = TutorialManager.new()
+		add_child(tutorial_manager)
+		tutorial_manager.start(tutorial_dialog)
 
 	Game.start_game()
 
