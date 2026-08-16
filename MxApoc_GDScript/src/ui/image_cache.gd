@@ -5,15 +5,19 @@ extends RefCounted
 ## 扫描 images/mapblock/ 和 images/survivor/ 目录，提供按名称查询图片的接口。
 ## 首次调用任意查询方法时自动初始化（惰性加载）。
 
-static var _block_textures: Dictionary = {}  # block_name → Array[Texture2D]
+static var _block_textures: Dictionary = {}  # block_name → Dictionary[variant_key → Texture2D]
 static var _block_back_texture: Texture2D = null
 static var _role_card_front: Dictionary = {}  # english_name → Texture2D
 static var _role_card_back: Dictionary = {}  # english_name → Texture2D
 static var _player_avatars: Dictionary = {}  # english_name → Texture2D
 static var _monster_mark_texture: Texture2D = null
+static var _objective_mark_texture: Texture2D = null
 static var _monster_textures: Dictionary = {}  # monster_name → Texture2D
 static var _card_textures: Dictionary = {}  # card_name → Texture2D
 static var _initialized: bool = false
+
+## 中文→英文颜色映射（图片文件名用中文，地块数据用英文）
+const _COLOR_MAP: Dictionary = {"红": "red", "绿": "green", "蓝": "blue"}
 
 
 static func _ensure_initialized() -> void:
@@ -40,15 +44,46 @@ static func _scan_block_images() -> void:
 			if clean_name == "地图块背面":
 				_block_back_texture = load("res://images/mapblock/" + file)
 			else:
+				# 解析文件名格式：block_name[color1、color2...][spawn_value]
 				var bracket_idx := clean_name.find("[")
 				if bracket_idx > 0:
 					var block_name := clean_name.substr(0, bracket_idx)
 					var tex: Texture2D = load("res://images/mapblock/" + file)
 					if tex != null:
+						var variant_key := _parse_variant_key(clean_name, bracket_idx)
 						if not _block_textures.has(block_name):
-							_block_textures[block_name] = []
-						_block_textures[block_name].append(tex)
+							_block_textures[block_name] = {}
+						_block_textures[block_name][variant_key] = tex
 		file = dir.get_next()
+
+
+## 从文件名解析变体键。格式：block_name[color1、color2...][spawn_value]
+## bracket_idx 为第一个 [ 的位置。
+static func _parse_variant_key(clean_name: String, bracket_idx: int) -> String:
+	# 提取第一个方括号内容（颜色）
+	var first_bracket_end := clean_name.find("]", bracket_idx)
+	var colors_str := ""
+	if first_bracket_end > bracket_idx:
+		colors_str = clean_name.substr(bracket_idx + 1, first_bracket_end - bracket_idx - 1)
+	# 提取第二个方括号内容（刷怪点数）
+	var second_bracket_start := clean_name.find("[", first_bracket_end)
+	var spawn_value := ""
+	if second_bracket_start > 0:
+		var second_bracket_end := clean_name.find("]", second_bracket_start)
+		if second_bracket_end > second_bracket_start:
+			spawn_value = clean_name.substr(second_bracket_start + 1, second_bracket_end - second_bracket_start - 1)
+	# 转换中文颜色为英文
+	var english_colors: Array = []
+	if colors_str != "":
+		for part in colors_str.split("、"):
+			var trimmed := part.strip_edges()
+			if _COLOR_MAP.has(trimmed):
+				english_colors.append(_COLOR_MAP[trimmed])
+			else:
+				english_colors.append(trimmed)
+	english_colors.sort()
+	var sorted_colors := ",".join(english_colors)
+	return sorted_colors + "|" + spawn_value
 
 
 static func _scan_role_card_images() -> void:
@@ -90,6 +125,8 @@ static func _scan_gamemark_images() -> void:
 			var stem: String = file.get_basename()
 			if stem == "怪物标记":
 				_monster_mark_texture = load("res://images/gamemark/" + file)
+			elif stem == "任务标记":
+				_objective_mark_texture = load("res://images/gamemark/" + file)
 		file = dir.get_next()
 
 
@@ -167,15 +204,26 @@ static func _is_texture_imported(path: String) -> bool:
 	return FileAccess.file_exists(imported_path)
 
 
-## 随机返回指定地块名的一张变体纹理。无匹配时返回 null。
-static func get_block_texture(block_name: String) -> Texture2D:
+## 按变体精确匹配返回纹理。无匹配时回退到该地块任意一张纹理。
+static func get_block_texture(block_name: String, scavenge_colors: PackedStringArray = PackedStringArray(), monster_spawn_value: int = -1) -> Texture2D:
 	_ensure_initialized()
 	if not _block_textures.has(block_name):
 		return null
-	var variants: Array = _block_textures[block_name]
+	var variants: Dictionary = _block_textures[block_name]
 	if variants.is_empty():
 		return null
-	return variants[randi() % variants.size()]
+	# 构建变体键进行精确匹配
+	if monster_spawn_value >= 0:
+		var english_colors: Array = []
+		for c in scavenge_colors:
+			english_colors.append(c)
+		english_colors.sort()
+		var variant_key := ",".join(english_colors) + "|" + str(monster_spawn_value)
+		if variants.has(variant_key):
+			return variants[variant_key]
+	# 回退：返回任意一张可用纹理
+	var first_key: Variant = variants.keys()[0]
+	return variants[first_key]
 
 
 ## 返回未展示地块的背面纹理。无则返回 null。
@@ -201,6 +249,12 @@ static func get_player_avatar(english_name: String) -> Texture2D:
 static func get_monster_mark_texture() -> Texture2D:
 	_ensure_initialized()
 	return _monster_mark_texture
+
+
+## 返回任务标记图标纹理。无则返回 null。
+static func get_objective_mark_texture() -> Texture2D:
+	_ensure_initialized()
+	return _objective_mark_texture
 
 
 ## 返回指定怪物的图片纹理。无匹配时返回 null。

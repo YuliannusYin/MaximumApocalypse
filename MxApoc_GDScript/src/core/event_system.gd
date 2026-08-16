@@ -145,9 +145,10 @@ static func create_consume_charge_event(player: Variant, equipment: Variant, num
 
 
 # === 潜行检定 event ===
-static func create_sneak_judge_event(player: Variant, sneak_value: int) -> Dictionary:
+static func create_sneak_judge_event(player: Variant, sneak_value: int, block: Variant = null) -> Dictionary:
 	return create_event({
 		"player": player,
+		"block": block,
 		"sneak_value": sneak_value,
 		"result": {"value": 0, "success": false},
 		"skip_judge": false,

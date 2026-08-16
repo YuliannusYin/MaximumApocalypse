@@ -177,3 +177,65 @@ func test_initialize_game_state_machine_initialized() -> void:
 	var seats: Array = _make_seats(["firefighter"])
 	Game.initialize_game(mission, {}, seats)
 	assert_eq(Game.state_machine.get_game_state(), GameStateMachine.GameState.WAITING, "状态应为WAITING")
+
+
+## 测试：build_map 后出生点（code 0）、结束点（code 2）已翻开，随机地块（code 1）未翻开。
+func test_initialize_game_reveals_spawn_and_end_blocks() -> void:
+	var mission: MissionData = DataManager.get_mission(0)
+	assert_not_null(mission, "任务0应存在")
+	var seats: Array = _make_seats(["firefighter"])
+	Game.initialize_game(mission, {}, seats)
+	# 任务0：出生点（code 0）= 购物中心；结束点（code 2）= 面包车
+	var spawn_block: MapBlock = null
+	var end_block: MapBlock = null
+	for block in Game.map_area:
+		if block.block_name == "购物中心":
+			spawn_block = block
+		elif block.block_name == "面包车":
+			end_block = block
+	assert_not_null(spawn_block, "应找到出生点地块（购物中心）")
+	assert_not_null(end_block, "应找到结束点地块（面包车）")
+	assert_true(spawn_block.is_revealed(), "出生点（code 0）应已翻开")
+	assert_true(end_block.is_revealed(), "结束点（code 2）应已翻开")
+	# 至少一个随机地块（code 1）应未翻开
+	var has_unrevealed_random: bool = false
+	for block in Game.map_area:
+		if block.block_name != "购物中心" and block.block_name != "面包车":
+			if not block.is_revealed():
+				has_unrevealed_random = true
+				break
+	assert_true(has_unrevealed_random, "至少一个随机地块（code 1）应未翻开")
+
+
+## 测试：_create_map_block 按 variant_index 取变体值；默认 -1 取顶层值。
+func test_create_map_block_uses_variant_values() -> void:
+	# 城市街道有 3 个变体：
+	#   variant 0: scavenge_colors=[red],  monster_spawn_value=6
+	#   variant 1: scavenge_colors=[green], monster_spawn_value=8
+	#   variant 2: scavenge_colors=[blue],  monster_spawn_value=5
+	var block_v0: MapBlock = Game._create_map_block("城市街道", 0)
+	assert_not_null(block_v0, "应创建 variant 0 地块")
+	assert_eq(block_v0.scavenge_colors, PackedStringArray(["red"]), "variant 0 拾荒颜色应为 [red]")
+	assert_eq(block_v0.monster_spawn_value, 6, "variant 0 怪物生成值应为 6")
+	var block_v1: MapBlock = Game._create_map_block("城市街道", 1)
+	assert_not_null(block_v1, "应创建 variant 1 地块")
+	assert_eq(block_v1.scavenge_colors, PackedStringArray(["green"]), "variant 1 拾荒颜色应为 [green]")
+	assert_eq(block_v1.monster_spawn_value, 8, "variant 1 怪物生成值应为 8")
+	var block_v2: MapBlock = Game._create_map_block("城市街道", 2)
+	assert_not_null(block_v2, "应创建 variant 2 地块")
+	assert_eq(block_v2.scavenge_colors, PackedStringArray(["blue"]), "variant 2 拾荒颜色应为 [blue]")
+	assert_eq(block_v2.monster_spawn_value, 5, "variant 2 怪物生成值应为 5")
+	# 不传 variant_index（默认 -1）使用顶层值：scavenge_colors=[red], monster_spawn_value=6
+	var block_default: MapBlock = Game._create_map_block("城市街道")
+	assert_not_null(block_default, "应创建默认地块")
+	assert_eq(block_default.scavenge_colors, PackedStringArray(["red"]), "默认顶层拾荒颜色应为 [red]")
+	assert_eq(block_default.monster_spawn_value, 6, "默认顶层怪物生成值应为 6")
+
+
+## 测试：无 variants 数组的地块（购物中心）使用顶层值，行为不变。
+func test_create_map_block_single_variant_block_unchanged() -> void:
+	# 购物中心无 variants，顶层：scavenge_colors=[blue], monster_spawn_value=8
+	var block: MapBlock = Game._create_map_block("购物中心")
+	assert_not_null(block, "应创建购物中心地块")
+	assert_eq(block.scavenge_colors, PackedStringArray(["blue"]), "购物中心拾荒颜色应为 [blue]")
+	assert_eq(block.monster_spawn_value, 8, "购物中心怪物生成值应为 8")

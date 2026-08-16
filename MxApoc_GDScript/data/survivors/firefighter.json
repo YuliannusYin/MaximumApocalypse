@@ -7,6 +7,7 @@
   "stealth": 6,
   "hunger_stealth": 5,
   "equipment_slot": 4,
+  "hand_size_limit": 10,
   "intrinsic_skills": [
     {
       "skill_name": "拳打",
@@ -173,7 +174,7 @@
           "skill_description": "被动：自动通过河流地图块的检定。弃置：抓取怪物卡前，可以弃置此装备，然后跳过抓取怪物卡的步骤。",
           "trigger": "before_sneak_judge、before_draw_monster_card",
           "filter": "return true",
-          "content": "if event.trigger_name == \"before_sneak_judge\" && event.name == \"河流\":\n\tevent.skip_judge = true\n\tevent.result = {\"value\": 0, \"success\": true}\nelif event.trigger_name == \"before_draw_monster_card\":\n\tif await player.choose([\"是\", \"否\"]) == \"是\":\n\t\tplayer.discard(\"ladder\", \"equipment\")\n\t\tevent.cancel()"
+          "content": "if event.trigger_name == \"before_sneak_judge\" && event[\"block\"] != null && event[\"block\"].has_skill(\"river\"):\n\tevent[\"skip_judge\"] = true\n\tevent[\"result\"] = {\"value\": 0, \"success\": true}\nelif event.trigger_name == \"before_draw_monster_card\":\n\tif await player.confirm(\"\\\"梯子\\\": 是否弃置装备区中的 \\\"梯子\\\" 取消此次抓怪\"):\n\t\tplayer.discard(\"ladder\", \"equipment\")\n\t\tEventSystem.cancel(event)"
         }
       ]
     },
@@ -206,11 +207,11 @@
         {
           "skill_name": "我的斧子去哪儿了？",
           "english_name": "where_is_my_axe",
-          "skill_description": "行动：将游戏牌堆中的【值得信赖的斧子】置入你的装备区。并抓取一张拾荒卡。",
+          "skill_description": "行动：将游戏牌堆中的【值得信赖的斧子】置入你的装备区。并随机抓取一张拾荒卡。",
           "skill_type": "action",
           "active": "action",
           "filter": "return player.in_phase == \"action\"",
-          "content": "var pile = player.get_pile(\"deck\")\nvar card = game.get_card(\"reliable_axe\", pile)\nif card == null:\n\tgame.log(\"玩家游戏牌堆中没有【值得信赖的斧子】牌\")\nelse:\n\tplayer.equip(card)\nvar result = await player.choose(\"请选择你抓取的拾荒卡颜色：\", [\"red\", \"green\", \"blue\"])\nvar scavenge_pile = player.get_scavenge_pile(result)\nplayer.draw_scavenge(1, scavenge_pile)"
+          "content": "var pile = player.get_pile(\"deck\")\nvar card = game.get_card(\"reliable_axe\", pile)\nif card == null:\n\tgame.log(\"玩家游戏牌堆中没有【值得信赖的斧子】牌\")\nelse:\n\tplayer.equip(card)\nvar non_empty = []\nif game.red_scavenge_pile != null and not game.red_scavenge_pile.is_empty():\n\tnon_empty.append(game.red_scavenge_pile)\nif game.green_scavenge_pile != null and not game.green_scavenge_pile.is_empty():\n\tnon_empty.append(game.green_scavenge_pile)\nif game.blue_scavenge_pile != null and not game.blue_scavenge_pile.is_empty():\n\tnon_empty.append(game.blue_scavenge_pile)\nif non_empty.is_empty():\n\tgame.log(\"所有拾荒牌堆均为空，跳过随机抓取\")\nelse:\n\tvar chosen = non_empty[randi() % non_empty.size()]\n\tplayer.draw_scavenge(1, chosen)"
         }
       ]
     },

@@ -128,7 +128,7 @@ func _attack() -> void:
 		var block: MapBlock = attack_target.get_current_block()
 		if block == null:
 			return
-		targets = block.get_players_in_range(range)
+		targets = block.get_players_in_range(range, true)
 
 	for target in targets:
 		if target != null and is_instance_valid(target) and target.is_alive():
@@ -157,6 +157,15 @@ func death(source: Entity) -> void:
 
 	# 2. on_monster_death（如僵尸女王、爆破机器人、方阵机器人）
 	await trigger("on_monster_death", event)
+	# 向所有玩家怪物区中的其他存活怪物广播，使跨怪物监听技能（如僵尸女王）能触发
+	if Game != null and is_instance_valid(Game):
+		for _p in Game.players:
+			if _p == null or not is_instance_valid(_p):
+				continue
+			for _m in _p.monster_zone:
+				if _m == null or not is_instance_valid(_m) or _m == self:
+					continue
+				await _m.trigger("on_monster_death", event)
 
 	# 3. after_monster_death：从纠缠玩家怪物区移除 + 进入怪物弃牌堆
 	if attack_target != null and is_instance_valid(attack_target):

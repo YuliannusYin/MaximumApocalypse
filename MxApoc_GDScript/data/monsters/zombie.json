@@ -130,7 +130,7 @@
           "trigger": "after_monster_attack",
           "forced": true,
           "filter": "return true",
-          "content": "var list = game.get_all_players()\ntarget = list[0]\nfor p in list:\n\tif p.get_hp() < target.get_hp():\n\t\ttarget = p\nevent.monster.change_engaged_target(target)"
+          "content": "var list = game.get_alive_players()\ntarget = list[0]\nfor p in list:\n\tif p.get_hp() < target.get_hp():\n\t\ttarget = p\nevent.monster.change_engaged_target(target)"
         }
       ]
     }

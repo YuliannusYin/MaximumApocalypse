@@ -138,6 +138,13 @@ func refresh_pile_highlights() -> void:
 		var block: Variant = current.get("current_block")
 		if block != null and is_instance_valid(block):
 			block_colors = block.get("scavenge_colors")
+	# 手牌达上限时不高亮可操作牌堆
+	if can_act and current != null and is_instance_valid(current):
+		var role: Variant = current.get("role_card")
+		if role != null and is_instance_valid(role):
+			var hand_arr: Array = current.get("hand")
+			if hand_arr.size() >= role.get("hand_size_limit"):
+				can_act = false
 	for config in PILE_CONFIGS:
 		var highlight: bool = false
 		if can_act:
@@ -162,6 +169,12 @@ func is_pile_clickable(pile_key: String) -> bool:
 		return false
 	if current.get("in_phase") != "action" or current.get("action_count") <= 0:
 		return false
+	# 手牌达上限时不可点击
+	var role: Variant = current.get("role_card")
+	if role != null and is_instance_valid(role):
+		var hand_arr: Array = current.get("hand")
+		if hand_arr.size() >= role.get("hand_size_limit"):
+			return false
 	match pile_key:
 		"game_deck":
 			return _get_current_player_deck_count() > 0

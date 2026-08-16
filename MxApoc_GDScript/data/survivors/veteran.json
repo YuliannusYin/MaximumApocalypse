@@ -7,6 +7,7 @@
   "stealth": 7,
   "hunger_stealth": 6,
   "equipment_slot": 4,
+  "hand_size_limit": 10,
   "intrinsic_skills": [],
   "sub_survivors": [
     {
@@ -17,6 +18,7 @@
       "stealth": 7,
       "hunger_stealth": 6,
       "equipment_slot": 4,
+      "hand_size_limit": 10,
       "intrinsic_skills": [
         {
           "skill_name": "把你的爪子拿开",
@@ -46,6 +48,7 @@
       "stealth": 9,
       "hunger_stealth": 8,
       "equipment_slot": 0,
+      "hand_size_limit": 10,
       "intrinsic_skills": [
         {
           "skill_name": "咬他们",

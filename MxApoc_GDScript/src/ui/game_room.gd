@@ -172,6 +172,20 @@ func _refresh_detail_panel() -> void:
 	bbcode += "[b]任务介绍：[/b]\n%s\n\n" % mission.intro_text
 	bbcode += "[b]任务目标：[/b]\n%s\n\n" % mission.objective_text
 	bbcode += "[b]特殊设置：[/b]%s" % mission.special_setup
+	# 地图块配置
+	var block_parts: PackedStringArray = []
+	for block_name in mission.map_blocks_config:
+		block_parts.append("%s×%d" % [block_name, mission.map_blocks_config[block_name]])
+	bbcode += "\n\n[b]地图块配置：[/b]\n%s" % ", ".join(block_parts)
+	# 拾荒牌堆配置
+	var color_names: Dictionary = {"red": "红色", "green": "绿色", "blue": "蓝色"}
+	bbcode += "\n\n[b]拾荒牌堆配置：[/b]"
+	for color in ["red", "green", "blue"]:
+		var card_entries: Array = mission.scavenge_config.get(color, [])
+		var card_parts: PackedStringArray = []
+		for entry in card_entries:
+			card_parts.append("%s×%d" % [entry.get("card_name", ""), int(entry.get("count", 0))])
+		bbcode += "\n%s：%s" % [color_names[color], ", ".join(card_parts)]
 	_detail_rich.text = bbcode
 
 func _update_start_button() -> void:

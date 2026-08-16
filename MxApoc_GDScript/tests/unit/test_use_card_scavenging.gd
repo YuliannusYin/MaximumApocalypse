@@ -479,10 +479,32 @@ func test_flashlight_replaces_draw_scavenge() -> void:
 	pile.add(c1)
 	pile.add(c2)
 	var cli: CliPlayerInput = CliPlayerInput.new()
-	cli.queue_choose(c1)  # 选择保留 c1
+	cli.queue_choose_card([c1])  # 选择保留 c1
 	p.input = cli
 	await p.draw_scavenge(1, pile)
 	assert_true(p.hand.has(c1), "应保留 c1 并进入手牌")
+	assert_false(p.hand.has(c2), "c2 不应进入手牌")
+	assert_eq(pile.size(), 1, "牌堆应剩 1 张（c2 置于牌堆底）")
+	assert_eq(pile.get_all()[0], c2, "c2 应在牌堆底")
+
+
+# "手电筒"保留"一无所获"时触发 on_draw_scavenge_card（该牌应被弃掉）
+func test_flashlight_retained_card_triggers_draw_effect() -> void:
+	var p: Player = _make_player(10, 10)
+	_setup_game_for_player(p)
+	var flashlight: Card = _make_scavenge_card("手电筒")
+	await p.equip(flashlight)
+	var pile: Pile = Pile.new()
+	var nothing: Card = _make_scavenge_card("一无所获")
+	var c2: Card = _make_scavenge_card("老报纸")
+	pile.add(nothing)
+	pile.add(c2)
+	var cli: CliPlayerInput = CliPlayerInput.new()
+	cli.queue_choose_card([nothing])  # 选择保留"一无所获"
+	p.input = cli
+	await p.draw_scavenge(1, pile)
+	# "一无所获"的 on_draw_scavenge_card 技能应触发 discard，牌不应留在手牌
+	assert_false(p.hand.has(nothing), "\"一无所获\"应被弃掉，不留在手牌")
 	assert_false(p.hand.has(c2), "c2 不应进入手牌")
 	assert_eq(pile.size(), 1, "牌堆应剩 1 张（c2 置于牌堆底）")
 	assert_eq(pile.get_all()[0], c2, "c2 应在牌堆底")

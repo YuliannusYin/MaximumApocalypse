@@ -214,30 +214,35 @@ func draw_scavenge(n: int, pile: Pile) -> void:
 		if pile == null or pile.is_empty():
 			break
 		var card: Card = pile.draw()
-		hand.append(card)
-		if Game != null and is_instance_valid(Game):
-			var _pile_name: String = "拾荒牌堆"
-			if pile == Game.red_scavenge_pile:
-				_pile_name = "红色拾荒牌堆"
-			elif pile == Game.green_scavenge_pile:
-				_pile_name = "绿色拾荒牌堆"
-			elif pile == Game.blue_scavenge_pile:
-				_pile_name = "蓝色拾荒牌堆"
-			Game.log_message(LogColors.player(player_name) + " 从 \"" + _pile_name + "\" 中抓取了拾荒牌 " + LogColors.card(card.card_name))
-		if EventBus != null and is_instance_valid(EventBus):
-			EventBus.scavenge_drawn.emit(self, card)
-		event["cards"].append(card)
-		event["card"] = card
-		# 3. 抓取拾荒牌时（每张触发）
-		# 仅触发被抓取卡自身的 forced on_draw_scavenge_card 技能，避免已装备的同名卡（如燃料）重复触发
-		var mounted_skills: Array = []
-		if card.has_method("get_all_skills"):
-			for s in card.get_all_skills():
-				if s.forced and s.matches_trigger("on_draw_scavenge_card"):
-					mounted_skills.append(s)
-		await trigger_only("on_draw_scavenge_card", event, mounted_skills)
+		await draw_scavenge_card(card, pile, event)
 	# 4. 抓取拾荒牌后
 	await trigger("after_draw_scavenge_card", event)
+
+
+## 处理单张拾荒牌的抓取流程（加入手牌、日志、信号、触发抓取效果）。
+## card 为已从 pile 取出的牌；pile 用于判断牌堆名称；event 为 draw_scavenge 事件。
+func draw_scavenge_card(card: Card, pile: Pile, event: Dictionary) -> void:
+	hand.append(card)
+	if Game != null and is_instance_valid(Game):
+		var _pile_name: String = "拾荒牌堆"
+		if pile == Game.red_scavenge_pile:
+			_pile_name = "红色拾荒牌堆"
+		elif pile == Game.green_scavenge_pile:
+			_pile_name = "绿色拾荒牌堆"
+		elif pile == Game.blue_scavenge_pile:
+			_pile_name = "蓝色拾荒牌堆"
+		Game.log_message(LogColors.player(player_name) + " 从 \"" + _pile_name + "\" 中抓取了拾荒牌 " + LogColors.card(card.card_name))
+	if EventBus != null and is_instance_valid(EventBus):
+		EventBus.scavenge_drawn.emit(self, card)
+	event["cards"].append(card)
+	event["card"] = card
+	# 触发被抓取卡自身的 forced on_draw_scavenge_card 技能（避免已装备同名卡重复触发）
+	var mounted_skills: Array = []
+	if card.has_method("get_all_skills"):
+		for s in card.get_all_skills():
+			if s.forced and s.matches_trigger("on_draw_scavenge_card"):
+				mounted_skills.append(s)
+	await trigger_only("on_draw_scavenge_card", event, mounted_skills)
 
 
 ## 从怪物牌堆抓 n 张怪物卡（7 节点）。
@@ -279,8 +284,10 @@ func draw_monster(n: int) -> void:
 		if Game != null and is_instance_valid(Game):
 			Game.log_message(LogColors.monster(monster.monster_name) + " 纠缠了 " + LogColors.player(player_name))
 		await trigger("on_monster_enter_zone", event)
+		await monster.trigger("on_monster_enter_zone", event)
 		# f. 怪物卡进入求生者怪物区后（每张触发）
 		await trigger("after_monster_enter_zone", event)
+		await monster.trigger("after_monster_enter_zone", event)
 	# 3. 抓取怪物卡后（整体触发一次）
 	await trigger("after_draw_monster_card", event)
 
@@ -426,6 +433,9 @@ func move_to(target: MapBlock) -> bool:
 		source._clear_skills_for_player(self)
 	# 8. 进入地块时（一次性效果）
 	await trigger("on_enter_block", event)
+	# 8.5 若 on_enter_block 期间玩家被移动到其他地块，跳过后续步骤
+	if current_block != target:
+		return false
 	# 9. 进入地块后（展示未展示的地块）
 	if target != null and target.has_method("is_revealed"):
 		if not target.is_revealed():
@@ -453,8 +463,8 @@ func judge() -> int:
 
 
 ## 潜行检定（4 节点）。
-func sneak_judge() -> bool:
-	var block: MapBlock = current_block
+func sneak_judge(block_param: MapBlock = null) -> bool:
+	var block: MapBlock = block_param if block_param != null else current_block
 	var monster_count: int = 0
 	var mark_count: int = 0
 	if block != null:
@@ -463,7 +473,7 @@ func sneak_judge() -> bool:
 		if block.has_method("count_monster_mark"):
 			mark_count = block.count_monster_mark()
 	var sneak_value: int = get_sneak() - (monster_count + mark_count)
-	var event: Dictionary = EventSystem.create_sneak_judge_event(self, sneak_value)
+	var event: Dictionary = EventSystem.create_sneak_judge_event(self, sneak_value, block)
 	# 1. 潜行检定前
 	await trigger("before_sneak_judge", event)
 	# 2. 系统投骰（若未跳过）
@@ -678,8 +688,13 @@ func is_card_usable(card: Card) -> bool:
 	for skill in card.get_all_skills():
 		if skill.active != "action":
 			continue
-		if skill.execute_filter(self, event):
-			return true
+		if not skill.execute_filter(self, event):
+			continue
+		if skill.select_target > 0:
+			var valid_targets: Array = get_skill_valid_targets(skill)
+			if valid_targets.is_empty():
+				continue
+		return true
 	return false
 
 
@@ -702,7 +717,25 @@ func equip(card: Card) -> bool:
 				same_name.append(e)
 		for e in same_name:
 			discard(e)
-	# b. 装备栏容量校验（简化：不强制，阶段 1 容量由 RoleCard.equipment_capacity 约束）
+	# b. 装备栏容量校验
+	if role_card != null:
+		var new_size: int = 0
+		if card.get("size") != null:
+			new_size = int(card.get("size"))
+		var total_size: int = 0
+		for e in equipment_zone:
+			if e != null and is_instance_valid(e):
+				total_size += int(e.get("size"))
+		while total_size + new_size > role_card.equipment_capacity and not equipment_zone.is_empty():
+			var selected: Array = await choose_card(1, equipment_zone)
+			if selected.is_empty():
+				EventSystem.cancel(event)
+				return false
+			await discard(selected[0])
+			total_size = 0
+			for e in equipment_zone:
+				if e != null and is_instance_valid(e):
+					total_size += int(e.get("size"))
 	# 2. 卡牌进入装备区时
 	hand.erase(card)
 	# 实体化：装备区持有 Equipment 实体；非 EquipmentCard 时保底直接入区
@@ -1491,7 +1524,7 @@ func use_active_skill(skill: Skill) -> void:
 			event["targets"] = targets
 	# 3. 卡牌选择
 	if skill.select_card > 0:
-		var cards: Array = await choose_card(skill.select_card, skill.position)
+		var cards: Array = await choose_card(skill.select_card, skill.position, skill.filter_card)
 		if cards.size() < skill.select_card:
 			return
 		event["cards"] = cards
@@ -1515,6 +1548,9 @@ func use_active_skill(skill: Skill) -> void:
 			Game.log_message(LogColors.player(player_name) + " 使用了 " + LogColors.skill(_skill_name))
 	# 5. 执行 content
 	await skill.execute_content(self, event)
+	# 5.5 取消检查：content 中通过 EventSystem.cancel(event) 取消时不记录使用
+	if EventSystem.is_cancelled(event):
+		return
 	# 6. 记录使用
 	skill.record_use()
 	# 7. 统计信号：技能成功使用

@@ -7,6 +7,7 @@
   "stealth": 9,
   "hunger_stealth": 8,
   "equipment_slot": 4,
+  "hand_size_limit": 10,
   "intrinsic_skills": [
     {
       "skill_name": "侦察",
