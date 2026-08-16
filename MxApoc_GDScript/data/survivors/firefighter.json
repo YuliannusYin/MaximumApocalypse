@@ -247,7 +247,7 @@
           "skill_type": "equipment",
           "active": "action",
           "usable": -1,
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"hunger_value\") < 6",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"hunger\") < 6",
           "content": "player.increase_hunger(1)\nplayer.add_action(1)"
         }
       ]

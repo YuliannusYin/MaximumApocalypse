@@ -45,6 +45,7 @@ signal monster_card_drawn(player: Variant, card: Variant)
 # === 回合阶段信号 ===
 signal phase_changed(player: Variant, old_phase: String, new_phase: String)
 signal action_consumed(player: Variant, num: int)
+signal sneak_judge_triggered(player: Variant, block: Variant) ## 玩家执行潜行检定时
 
 # === 日志信号 ===
 signal log_message(message: String)

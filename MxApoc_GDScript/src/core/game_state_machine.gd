@@ -315,7 +315,7 @@ func _check_mission_win_condition() -> bool:
 		return false
 	if Game.mission_config.check_win_condition.is_valid():
 		return Game.mission_config.check_win_condition.call()
-	return false
+	return true
 
 
 # === 查询方法 ===

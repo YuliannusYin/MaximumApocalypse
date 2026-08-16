@@ -2,8 +2,10 @@ class_name ImageCache
 extends RefCounted
 
 ## 图片资源缓存。
-## 扫描 images/mapblock/ 和 images/survivor/ 目录，提供按名称查询图片的接口。
+## 通过预生成的清单 data/image_manifest.json 加载图片资源路径，提供按名称查询图片的接口。
 ## 首次调用任意查询方法时自动初始化（惰性加载）。
+## 导出版本中 .png/.jpg 会被编译为 .ctex 并重映射，源文件不在 PCK 中，
+## 因此不扫描目录，而是依赖清单中已记录的 res:// 路径加载。
 
 static var _block_textures: Dictionary = {}  # block_name → Dictionary[variant_key → Texture2D]
 static var _block_back_texture: Texture2D = null
@@ -15,6 +17,7 @@ static var _objective_mark_texture: Texture2D = null
 static var _monster_textures: Dictionary = {}  # monster_name → Texture2D
 static var _card_textures: Dictionary = {}  # card_name → Texture2D
 static var _initialized: bool = false
+static var _manifest: Dictionary = {}
 
 ## 中文→英文颜色映射（图片文件名用中文，地块数据用英文）
 const _COLOR_MAP: Dictionary = {"红": "red", "绿": "green", "蓝": "blue"}
@@ -24,6 +27,21 @@ static func _ensure_initialized() -> void:
 	if _initialized:
 		return
 	_initialized = true
+	var path := "res://data/image_manifest.json"
+	if not FileAccess.file_exists(path):
+		push_error("ImageCache: 清单文件不存在: " + path)
+		return
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		push_error("ImageCache: 无法打开清单文件: " + path)
+		return
+	var text := f.get_as_text()
+	f.close()
+	var parsed: Variant = JSON.parse_string(text)
+	if typeof(parsed) != TYPE_DICTIONARY:
+		push_error("ImageCache: 清单文件解析失败: " + path)
+		return
+	_manifest = parsed
 	_scan_block_images()
 	_scan_role_card_images()
 	_scan_gamemark_images()
@@ -32,29 +50,25 @@ static func _ensure_initialized() -> void:
 
 
 static func _scan_block_images() -> void:
-	var dir := DirAccess.open("res://images/mapblock")
-	if dir == null:
-		push_warning("ImageCache: 无法打开 res://images/mapblock 目录")
+	if not _manifest.has("mapblock"):
 		return
-	dir.list_dir_begin()
-	var file := dir.get_next()
-	while file != "":
-		if not dir.current_is_dir() and file.ends_with(".png"):
-			var clean_name := file.trim_suffix(".png").strip_edges()
-			if clean_name == "地图块背面":
-				_block_back_texture = load("res://images/mapblock/" + file)
-			else:
-				# 解析文件名格式：block_name[color1、color2...][spawn_value]
-				var bracket_idx := clean_name.find("[")
-				if bracket_idx > 0:
-					var block_name := clean_name.substr(0, bracket_idx)
-					var tex: Texture2D = load("res://images/mapblock/" + file)
-					if tex != null:
-						var variant_key := _parse_variant_key(clean_name, bracket_idx)
-						if not _block_textures.has(block_name):
-							_block_textures[block_name] = {}
-						_block_textures[block_name][variant_key] = tex
-		file = dir.get_next()
+	var paths: Array = _manifest["mapblock"]
+	for path in paths:
+		var p: String = path
+		var clean_name := p.get_file().get_basename().strip_edges()
+		if clean_name == "地图块背面":
+			_block_back_texture = load(p)
+		else:
+			# 解析文件名格式：block_name[color1、color2...][spawn_value]
+			var bracket_idx := clean_name.find("[")
+			if bracket_idx > 0:
+				var block_name := clean_name.substr(0, bracket_idx)
+				var tex: Texture2D = load(p)
+				if tex != null:
+					var variant_key := _parse_variant_key(clean_name, bracket_idx)
+					if not _block_textures.has(block_name):
+						_block_textures[block_name] = {}
+					_block_textures[block_name][variant_key] = tex
 
 
 ## 从文件名解析变体键。格式：block_name[color1、color2...][spawn_value]
@@ -87,121 +101,72 @@ static func _parse_variant_key(clean_name: String, bracket_idx: int) -> String:
 
 
 static func _scan_role_card_images() -> void:
-	var survivor_dir := DirAccess.open("res://images/survivor")
-	if survivor_dir == null:
-		push_warning("ImageCache: 无法打开 res://images/survivor 目录")
+	if not _manifest.has("survivor"):
 		return
-	survivor_dir.list_dir_begin()
-	var folder := survivor_dir.get_next()
-	while folder != "":
-		if survivor_dir.current_is_dir() and not folder.begins_with("."):
-			var sub_dir := DirAccess.open("res://images/survivor/" + folder)
-			if sub_dir != null:
-				sub_dir.list_dir_begin()
-				var file := sub_dir.get_next()
-				while file != "":
-					if not sub_dir.current_is_dir() and (file.ends_with(".jpg") or file.ends_with(".png")):
-						# 精确匹配文件主名以「角色牌正面/背面」结尾，排除「角色牌正面头像」等近似文件
-						var stem: String = file.get_basename()
-						if stem.ends_with("角色牌正面"):
-							_role_card_front[folder] = load("res://images/survivor/" + folder + "/" + file)
-						elif stem.ends_with("角色牌背面"):
-							_role_card_back[folder] = load("res://images/survivor/" + folder + "/" + file)
-						elif stem.ends_with("角色头像"):
-							_player_avatars[folder] = load("res://images/survivor/" + folder + "/" + file)
-					file = sub_dir.get_next()
-		folder = survivor_dir.get_next()
+	var survivor: Dictionary = _manifest["survivor"]
+	for role_name in survivor.keys():
+		var paths: Array = survivor[role_name]
+		for path in paths:
+			var p: String = path
+			# 精确匹配文件主名以「角色牌正面/背面」结尾，排除「角色牌正面头像」等近似文件
+			var stem: String = p.get_file().get_basename().strip_edges()
+			if stem.ends_with("角色牌正面"):
+				_role_card_front[role_name] = load(p)
+			elif stem.ends_with("角色牌背面"):
+				_role_card_back[role_name] = load(p)
+			elif stem.ends_with("角色头像"):
+				_player_avatars[role_name] = load(p)
 
 
 static func _scan_gamemark_images() -> void:
-	var dir := DirAccess.open("res://images/gamemark")
-	if dir == null:
-		push_warning("ImageCache: 无法打开 res://images/gamemark 目录")
+	if not _manifest.has("gamemark"):
 		return
-	dir.list_dir_begin()
-	var file := dir.get_next()
-	while file != "":
-		if not dir.current_is_dir() and file.ends_with(".png"):
-			var stem: String = file.get_basename()
-			if stem == "怪物标记":
-				_monster_mark_texture = load("res://images/gamemark/" + file)
-			elif stem == "任务标记":
-				_objective_mark_texture = load("res://images/gamemark/" + file)
-		file = dir.get_next()
+	var paths: Array = _manifest["gamemark"]
+	for path in paths:
+		var p: String = path
+		var stem: String = p.get_file().get_basename()
+		if stem == "怪物标记":
+			_monster_mark_texture = load(p)
+		elif stem == "任务标记":
+			_objective_mark_texture = load(p)
 
 
 static func _scan_monster_images() -> void:
-	var root := DirAccess.open("res://images/monster")
-	if root == null:
-		push_warning("ImageCache: 无法打开 res://images/monster 目录")
+	if not _manifest.has("monster"):
 		return
-	root.list_dir_begin()
-	var sub := root.get_next()
-	while sub != "":
-		if root.current_is_dir() and not sub.begins_with("."):
-			var type_dir := DirAccess.open("res://images/monster/" + sub)
-			if type_dir != null:
-				type_dir.list_dir_begin()
-				var file := type_dir.get_next()
-				while file != "":
-					if not type_dir.current_is_dir() and file.ends_with(".png"):
-						var stem: String = file.get_basename()
-						_monster_textures[stem] = load("res://images/monster/" + sub + "/" + file)
-					file = type_dir.get_next()
-		sub = root.get_next()
+	var monster: Dictionary = _manifest["monster"]
+	for _type in monster.keys():
+		var paths: Array = monster[_type]
+		for path in paths:
+			var p: String = path
+			var stem: String = p.get_file().get_basename()
+			_monster_textures[stem] = load(p)
 
 
-## 扫描卡牌图片：images/survivor/*/ 下所有卡牌 + images/scavenging/。
+## 扫描卡牌图片：survivor 下各角色目录 + scavenging。
 ## 排除非卡牌图片（角色牌正面/背面/头像/游戏牌背面等），按 card_name 索引。
+## 清单中列出的图片均已导入（含 .import 文件），直接 load() 即可。
 static func _scan_card_images() -> void:
 	# 扫描各角色目录下的卡牌图片
-	var survivor_dir := DirAccess.open("res://images/survivor")
-	if survivor_dir != null:
-		survivor_dir.list_dir_begin()
-		var folder := survivor_dir.get_next()
-		while folder != "":
-			if survivor_dir.current_is_dir() and not folder.begins_with("."):
-				_scan_card_images_in_dir("res://images/survivor/" + folder)
-			folder = survivor_dir.get_next()
+	if _manifest.has("survivor"):
+		var survivor: Dictionary = _manifest["survivor"]
+		for role_name in survivor.keys():
+			var paths: Array = survivor[role_name]
+			for path in paths:
+				_add_card_texture(path)
 	# 扫描拾荒卡图包
-	_scan_card_images_in_dir("res://images/scavenging")
+	if _manifest.has("scavenging"):
+		var paths: Array = _manifest["scavenging"]
+		for path in paths:
+			_add_card_texture(path)
 
 
-## 扫描单个目录下的卡牌图片，按文件主名（card_name）索引。
+## 根据单个图片路径登记卡牌纹理，按文件主名（card_name）索引。
 ## 排除文件名包含"角色牌"、"头像"、"游戏牌背面"的非卡牌图片。
-## 未导入的资源（如 headless 模式下 texture 未生成 .ctex）注册为 null，避免引擎报错。
-static func _scan_card_images_in_dir(dir_path: String) -> void:
-	var dir := DirAccess.open(dir_path)
-	if dir == null:
-		return
-	dir.list_dir_begin()
-	var file := dir.get_next()
-	while file != "":
-		if not dir.current_is_dir() and (file.ends_with(".png") or file.ends_with(".jpg")):
-			var stem: String = file.get_basename().strip_edges()
-			if stem.find("角色牌") < 0 and stem.find("头像") < 0 and stem.find("游戏牌背面") < 0:
-				var path := dir_path + "/" + file
-				if _is_texture_imported(path):
-					_card_textures[stem] = load(path)
-				else:
-					_card_textures[stem] = null
-		file = dir.get_next()
-
-
-## 检查纹理资源是否已完成导入（.import 文件 [remap] 段含 path 字段指向已生成的 .ctex）。
-## ResourceLoader.exists() 对仅有 .import 但未生成 .ctex 的资源仍返回 true，
-## 直接 load() 会触发引擎 ERROR。headless 无 GPU 环境下纹理无法导入，需提前规避。
-static func _is_texture_imported(path: String) -> bool:
-	var import_path := path + ".import"
-	if not FileAccess.file_exists(import_path):
-		return true  # 无 .import 文件，按可加载处理（让 load() 自行决定）
-	var cfg := ConfigFile.new()
-	if cfg.load(import_path) != OK:
-		return false
-	var imported_path: String = cfg.get_value("remap", "path", "")
-	if imported_path == "":
-		return false  # 未导入（.import 含 valid=false，无 path 字段）
-	return FileAccess.file_exists(imported_path)
+static func _add_card_texture(path: String) -> void:
+	var stem: String = path.get_file().get_basename().strip_edges()
+	if stem.find("角色牌") < 0 and stem.find("头像") < 0 and stem.find("游戏牌背面") < 0:
+		_card_textures[stem] = load(path)
 
 
 ## 按变体精确匹配返回纹理。无匹配时回退到该地块任意一张纹理。

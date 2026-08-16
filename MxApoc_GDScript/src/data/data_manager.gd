@@ -167,6 +167,18 @@ func get_all_survivors() -> Array:
 	return _survivors.values()
 
 
+## 获取可用求生者（player 模式仅返回消防员）。
+func get_available_survivors() -> Array:
+	if Settings.dev_mode:
+		return get_all_survivors()
+	var result: Array = []
+	for survivor in _survivors.values():
+		if survivor.english_name == "firefighter":
+			result.append(survivor)
+			break
+	return result
+
+
 ## 检查求生者是否存在。
 func has_survivor(english_name: String) -> bool:
 	return _survivors.has(english_name)
@@ -193,6 +205,19 @@ func get_mission(mission_id: int) -> MissionData:
 ## 获取所有任务数据（按 mission_id 排序）。
 func get_all_missions() -> Array:
 	var result: Array = _missions.values()
+	result.sort_custom(func(a, b): return a.mission_id < b.mission_id)
+	return result
+
+
+## 获取可用任务（player 模式仅返回 mission_id == 0）。
+func get_available_missions() -> Array:
+	if Settings.dev_mode:
+		return get_all_missions()
+	var result: Array = []
+	for mission in _missions.values():
+		if mission.mission_id == 0:
+			result.append(mission)
+			break
 	result.sort_custom(func(a, b): return a.mission_id < b.mission_id)
 	return result
 

@@ -34,13 +34,21 @@ func _ready() -> void:
 
 func _populate_missions() -> void:
 	_mission_option.clear()
-	_mission_option.add_item("随机任务", 0)
-	_mission_option.set_item_metadata(0, null)
-	var missions := DataManager.get_all_missions()
-	for i in range(missions.size()):
-		var mission = missions[i]
-		_mission_option.add_item("%s（%s）" % [mission.mission_name, mission.difficulty_display], i + 1)
-		_mission_option.set_item_metadata(i + 1, mission)
+	var missions := DataManager.get_available_missions()
+	if missions.size() > 1:
+		_mission_option.add_item("随机任务", 0)
+		_mission_option.set_item_metadata(0, null)
+		for i in range(missions.size()):
+			var mission = missions[i]
+			_mission_option.add_item("%s（%s）" % [mission.mission_name, mission.difficulty_display], i + 1)
+			_mission_option.set_item_metadata(i + 1, mission)
+	else:
+		for i in range(missions.size()):
+			var mission = missions[i]
+			_mission_option.add_item("%s（%s）" % [mission.mission_name, mission.difficulty_display], i)
+			_mission_option.set_item_metadata(i, mission)
+		_mission_option.select(0)
+		_on_mission_selected(0)
 
 func _populate_variants() -> void:
 	for child in _variant_list.get_children():
