@@ -27,6 +27,7 @@ var _table_map_controller: TableMapController
 var _pile_manager: PileManager
 var _action_selection_controller: ActionSelectionController
 var _active_skill_bar: ActiveSkillBar
+var _event_log_panel: EventLogPanel
 
 # === 游戏状态 ===
 var _gui_input: GUIPlayerInput
@@ -76,6 +77,9 @@ func _create_modules() -> void:
 	_active_skill_bar = ActiveSkillBar.new()
 	_active_skill_bar.setup(_active_skill_grid)
 	add_child(_active_skill_bar)
+
+	_event_log_panel = EventLogPanel.new()
+	_ui_layer.add_child(_event_log_panel)
 
 	_table_map_controller.block_clicked.connect(_on_block_clicked)
 	_table_map_controller.avatar_clicked.connect(_on_avatar_clicked)
@@ -135,10 +139,14 @@ func _start_game_flow() -> void:
 		EventBus.turn_started.connect(_on_turn_started)
 		EventBus.phase_changed.connect(_on_phase_changed)
 		EventBus.log_message.connect(_on_log_message)
+		EventBus.log_message.connect(_event_log_panel.add_message)
+		_event_log_panel.set_messages(_event_log)
 		EventBus.game_over.connect(_on_game_over)
 		EventBus.player_moved.connect(_on_player_moved)
 		EventBus.block_revealed.connect(_on_block_revealed)
 		EventBus.block_destroyed.connect(_on_block_destroyed)
+		EventBus.monster_mark_changed.connect(_on_block_mark_changed)
+		EventBus.objective_mark_changed.connect(_on_block_mark_changed)
 		EventBus.monster_spawned.connect(_on_monster_changed)
 		EventBus.monster_died.connect(_on_monster_changed)
 		EventBus.player_hp_changed.connect(_on_player_stat_changed)
@@ -387,7 +395,7 @@ func _on_confirm_requested(message: String) -> void:
 	_action_selection_controller.set_confirm_mode(message)
 
 
-func _on_choose_card_requested(n: int, param: Variant) -> void:
+func _on_choose_card_requested(n: int, param: Variant, filter: Variant) -> void:
 	var current: Variant = Game.get_current_player()
 	if current == null or not is_instance_valid(current):
 		_gui_input.respond_choose_card([])
@@ -404,7 +412,36 @@ func _on_choose_card_requested(n: int, param: Variant) -> void:
 		if current.has_method("get_cards"):
 			cards = current.get_cards(position)
 		label = position
-	_popup_manager.show_card_select_popup(cards, n, label)
+	# filter_card 过滤候选卡牌
+	if filter is Callable and filter.is_valid():
+		var filtered: Array = []
+		for card in cards:
+			if filter.call(current, card, {}, Game):
+				filtered.append(card)
+		cards = filtered
+	# 构建区域标签（单一区域时不显示，混合区域时自动显示）
+	var zone_labels: Array = []
+	var zone_name: String = ""
+	if typeof(param) == TYPE_ARRAY:
+		# Array 模式：根据每张卡牌实际所在区域设置标签
+		for card in cards:
+			if card is Equipment:
+				zone_labels.append("装备区")
+			elif current.has_method("get") and "hand" in current and current.hand.has(card):
+				zone_labels.append("手牌区")
+			else:
+				zone_labels.append("候选列表")
+	else:
+		match param:
+			"hand":
+				zone_name = "手牌区"
+			"equipment":
+				zone_name = "装备区"
+			_:
+				zone_name = str(param)
+		for i in range(cards.size()):
+			zone_labels.append(zone_name)
+	_popup_manager.show_card_select_popup(cards, n, label, zone_labels)
 
 
 func _on_choose_target_requested(n: int, skill: Variant) -> void:
@@ -480,7 +517,12 @@ func _on_choose_target_requested(n: int, skill: Variant) -> void:
 		_gui_input.respond_choose_target.call_deferred(filtered)
 		return
 	# 弹出目标选择区
-	_popup_manager.show_target_select_area(filtered, select_n)
+	var zone_labels: Array = []
+	if target_type == "equipment":
+		zone_labels = ["装备区"]
+		for i in range(1, filtered.size()):
+			zone_labels.append("装备区")
+	_popup_manager.show_target_select_area(filtered, select_n, zone_labels)
 
 
 ## 判断 target 是否通过 skill.filter_target 过滤。
@@ -561,6 +603,21 @@ func _on_block_destroyed(block: Variant, _source: Variant) -> void:
 	var view: Variant = block_views.get(block.get_instance_id())
 	if view != null and is_instance_valid(view):
 		view.refresh(false)
+
+
+func _on_block_mark_changed(block: Variant) -> void:
+	if block == null or not is_instance_valid(block):
+		return
+	var block_views: Dictionary = _table_map_controller.get_block_views()
+	var view: Variant = block_views.get(block.get_instance_id())
+	if view != null and is_instance_valid(view):
+		var current: Variant = Game.get_current_player()
+		var current_block: Variant = null
+		if current != null and is_instance_valid(current):
+			current_block = current.get("current_block")
+		var is_current: bool = (current_block != null and is_instance_valid(current_block)
+			and block == current_block)
+		view.refresh(is_current, current)
 
 
 func _on_monster_changed(_monster: Variant, _player: Variant) -> void:

@@ -24,6 +24,8 @@ signal block_revealed(block: Variant, player: Variant)
 signal block_destroyed(block: Variant, source: Variant)
 signal player_moved(player: Variant, source_block: Variant, target_block: Variant)
 signal objective_mark_triggered(player: Variant, block: Variant, mark: Variant)
+signal monster_mark_changed(block: Variant)
+signal objective_mark_changed(block: Variant)
 
 # === 游戏流程信号 ===
 signal game_started()

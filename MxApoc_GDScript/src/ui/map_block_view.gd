@@ -19,6 +19,7 @@ var _name_label: Label
 var _grid_cells: Array[TextureRect] = []  # 3×3 九宫格，索引 = row*3+col
 var _highlight_panel: Panel  # 高亮覆盖层，渲染在最顶层
 var _move_highlight_panel: Panel  # 移动选取高亮覆盖层（绿色/金黄色）
+var _objective_mark_icon: TextureRect  # 任务标记图标（固定位置）
 var _block_texture: Texture2D  # 缓存已选中的地块变体纹理（revealed 后锁定，destroyed 复用）
 
 signal block_clicked(block: Variant)
@@ -113,6 +114,17 @@ func _build_content() -> void:
 	_move_highlight_panel.visible = false
 	add_child(_move_highlight_panel)
 
+	# 任务标记图标：固定在右上角
+	_objective_mark_icon = TextureRect.new()
+	_objective_mark_icon.position = Vector2(BLOCK_SIZE - ICON_SIZE - 4, 4)
+	_objective_mark_icon.size = Vector2(ICON_SIZE, ICON_SIZE)
+	_objective_mark_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_objective_mark_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_objective_mark_icon.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	_objective_mark_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_objective_mark_icon.visible = false
+	add_child(_objective_mark_icon)
+
 
 func _apply_unrevealed_style() -> void:
 	var back: Texture2D = ImageCache.get_block_back_texture()
@@ -129,7 +141,7 @@ func _apply_unrevealed_style() -> void:
 
 func _apply_revealed_style() -> void:
 	if _block_texture == null:
-		_block_texture = ImageCache.get_block_texture(_block.block_name)
+		_block_texture = ImageCache.get_block_texture(_block.block_name, _block.scavenge_colors, _block.monster_spawn_value)
 	if _block_texture != null:
 		_texture_rect.texture = _block_texture
 		_texture_rect.modulate = Color(1, 1, 1, 1)
@@ -164,29 +176,30 @@ func _update_grid(current_player: Variant = null) -> void:
 			cell.gui_input.disconnect(_on_avatar_cell_input)
 	if _block == null or not is_instance_valid(_block):
 		return
-	if not _block.is_revealed() or _block.is_destroyed():
+	if _block.is_destroyed():
 		return
 	var idx: int = 0
-	# 玩家头像
-	for player in _block.get_players():
-		if player == null or not is_instance_valid(player):
-			continue
-		if idx >= _grid_cells.size():
-			break
-		var role: Variant = player.get("role_card")
-		var tex: Texture2D = null
-		if role != null and is_instance_valid(role):
-			var eng: String = role.get("english_name")
-			if not eng.is_empty():
-				tex = ImageCache.get_player_avatar(eng)
-		if tex != null:
-			_grid_cells[idx].texture = tex
-			_grid_cells[idx].visible = true
-			if current_player != null and player == current_player:
-				_grid_cells[idx].mouse_filter = Control.MOUSE_FILTER_STOP
-				if not _grid_cells[idx].is_connected("gui_input", _on_avatar_cell_input):
-					_grid_cells[idx].gui_input.connect(_on_avatar_cell_input)
-			idx += 1
+	# 玩家头像（仅已展示地块显示）
+	if _block.is_revealed():
+		for player in _block.get_players():
+			if player == null or not is_instance_valid(player):
+				continue
+			if idx >= _grid_cells.size():
+				break
+			var role: Variant = player.get("role_card")
+			var tex: Texture2D = null
+			if role != null and is_instance_valid(role):
+				var eng: String = role.get("english_name")
+				if not eng.is_empty():
+					tex = ImageCache.get_player_avatar(eng)
+			if tex != null:
+				_grid_cells[idx].texture = tex
+				_grid_cells[idx].visible = true
+				if current_player != null and player == current_player:
+					_grid_cells[idx].mouse_filter = Control.MOUSE_FILTER_STOP
+					if not _grid_cells[idx].is_connected("gui_input", _on_avatar_cell_input):
+						_grid_cells[idx].gui_input.connect(_on_avatar_cell_input)
+				idx += 1
 	# 怪物标记
 	var mark_tex: Texture2D = ImageCache.get_monster_mark_texture()
 	var mark_count: int = _block.monster_marks
@@ -197,6 +210,13 @@ func _update_grid(current_player: Variant = null) -> void:
 			_grid_cells[idx].texture = mark_tex
 			_grid_cells[idx].visible = true
 			idx += 1
+	# 任务标记图标
+	var obj_tex: Texture2D = ImageCache.get_objective_mark_texture()
+	if obj_tex != null:
+		_objective_mark_icon.texture = obj_tex
+		_objective_mark_icon.visible = _block.has_objective_mark()
+	else:
+		_objective_mark_icon.visible = false
 	# 地块名始终显示（中心偏下），不因九宫格内容而隐藏
 
 

@@ -204,7 +204,9 @@ func test_get_blocks_in_range_short() -> void:
 	var far: MapBlock = _make_block("F", 2, 5)  # 距离 3
 	_setup_game_map([center, adjacent, far])
 	var blocks: Array = center.get_blocks_in_range("short")
-	assert_eq(blocks.size(), 1, "短距离只包含距离 1 的地块")
+	assert_eq(blocks.size(), 1, "短距离只包含距离 0 的地块（同地块）")
+	assert(blocks.has(center), "短距离应包含 center（d=0）")
+	assert(not blocks.has(adjacent), "短距离不应包含 adjacent（d=1）")
 
 
 func test_get_blocks_in_range_medium() -> void:
@@ -214,7 +216,10 @@ func test_get_blocks_in_range_medium() -> void:
 	var d3: MapBlock = _make_block("D", 2, 5)  # 距离 3
 	_setup_game_map([center, d1, d2, d3])
 	var blocks: Array = center.get_blocks_in_range("medium")
-	assert_eq(blocks.size(), 2, "中距离包含距离 1-2 的地块")
+	assert_eq(blocks.size(), 2, "中距离包含距离 0-1 的地块（同地块+相邻）")
+	assert(blocks.has(center), "中距离应包含 center（d=0）")
+	assert(blocks.has(d1), "中距离应包含 d1（d=1）")
+	assert(not blocks.has(d2), "中距离不应包含 d2（d=2）")
 
 
 func test_get_blocks_in_range_long() -> void:
@@ -225,7 +230,25 @@ func test_get_blocks_in_range_long() -> void:
 	var d4: MapBlock = _make_block("E", 2, 6)  # 距离 4
 	_setup_game_map([center, d1, d2, d3, d4])
 	var blocks: Array = center.get_blocks_in_range("long")
-	assert_eq(blocks.size(), 2, "长距离包含距离 2-3 的地块（不含 1）")
+	assert_eq(blocks.size(), 2, "长距离包含距离 1-2 的地块（不含 0）")
+	assert(blocks.has(d1), "长距离应包含 d1（d=1）")
+	assert(blocks.has(d2), "长距离应包含 d2（d=2）")
+	assert(not blocks.has(center), "长距离不应包含 center（d=0）")
+	assert(not blocks.has(d3), "长距离不应包含 d3（d=3）")
+
+
+func test_get_blocks_in_range_long_for_monster() -> void:
+	var center: MapBlock = _make_block("C", 2, 2)
+	var d1: MapBlock = _make_block("A", 2, 3)  # 距离 1
+	var d2: MapBlock = _make_block("B", 2, 4)  # 距离 2
+	var d3: MapBlock = _make_block("D", 2, 5)  # 距离 3
+	_setup_game_map([center, d1, d2, d3])
+	var blocks: Array = center.get_blocks_in_range("long", true)
+	assert_eq(blocks.size(), 3, "怪物长距离包含距离 0-2 的地块（含同地块）")
+	assert(blocks.has(center), "怪物长距离应包含 center（d=0）")
+	assert(blocks.has(d1), "怪物长距离应包含 d1（d=1）")
+	assert(blocks.has(d2), "怪物长距离应包含 d2（d=2）")
+	assert(not blocks.has(d3), "怪物长距离不应包含 d3（d=3）")
 
 
 func test_get_blocks_in_range_infinity() -> void:

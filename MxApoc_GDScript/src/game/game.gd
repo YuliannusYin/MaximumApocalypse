@@ -153,8 +153,17 @@ func build_map(mission_config_arg: Variant) -> void:
 				count -= spawn_cell_count
 			elif block_name == end_name:
 				count -= end_cell_count
-			for i in max(0, count):
-				block_pool.append(block_name)
+			var block_def: MapBlockData = DataManager.get_map_block_def_by_name(block_name)
+			if block_def != null and block_def.variants.size() > 0:
+				var variant_indices: Array = []
+				for i in block_def.variants.size():
+					variant_indices.append(i)
+				variant_indices.shuffle()
+				for i in max(0, count):
+					block_pool.append({"block_name": block_name, "variant_index": variant_indices[i % variant_indices.size()]})
+			else:
+				for i in max(0, count):
+					block_pool.append({"block_name": block_name, "variant_index": -1})
 	for y in map_height:
 		for x in map_width:
 			var code: int = map_template[y][x]
@@ -162,24 +171,37 @@ func build_map(mission_config_arg: Variant) -> void:
 				continue
 			var block_name: String = ""
 			var block: MapBlock = null
+			var variant_index: int = -1
 			if code == 0:
 				block_name = spawn_name
+				var spawn_def: MapBlockData = DataManager.get_map_block_def_by_name(spawn_name)
+				if spawn_def != null and spawn_def.variants.size() > 0:
+					variant_index = randi() % spawn_def.variants.size()
 			elif code == 1:
 				if block_pool.is_empty():
 					continue
 				var idx: int = randi() % block_pool.size()
-				block_name = block_pool.pop_at(idx)
+				var entry: Dictionary = block_pool.pop_at(idx)
+				block_name = entry["block_name"]
+				variant_index = entry.get("variant_index", -1)
 			elif code == 2:
 				block_name = end_name
+				var end_def: MapBlockData = DataManager.get_map_block_def_by_name(end_name)
+				if end_def != null and end_def.variants.size() > 0:
+					variant_index = randi() % end_def.variants.size()
 			elif code == 3:
 				if block_pool.is_empty():
 					continue
 				var idx3: int = randi() % block_pool.size()
-				block_name = block_pool.pop_at(idx3)
-			block = _create_map_block(block_name)
+				var entry3: Dictionary = block_pool.pop_at(idx3)
+				block_name = entry3["block_name"]
+				variant_index = entry3.get("variant_index", -1)
+			block = _create_map_block(block_name, variant_index)
 			if block == null:
 				continue
 			block.set_coordinate(x, y)
+			if code == 0 or code == 2 or code == 3:
+				block.revealed = true
 			if code == 3:
 				var marks: Variant = _config_get(mission_config_arg, "objective_marks")
 				if marks != null and not marks.is_empty():
@@ -202,13 +224,18 @@ func _config_get(config: Variant, field: String, default: Variant = null) -> Var
 
 
 ## 内部方法：根据地块名创建 MapBlock 实例。从 DataManager 加载完整地块数据。
-func _create_map_block(block_name: String) -> MapBlock:
+func _create_map_block(block_name: String, variant_index: int = -1) -> MapBlock:
 	var block: MapBlock = MapBlock.new()
 	block.block_name = block_name
 	var block_def: MapBlockData = DataManager.get_map_block_def_by_name(block_name)
 	if block_def != null:
-		block.scavenge_colors = PackedStringArray(block_def.scavenge_colors)
-		block.monster_spawn_value = block_def.monster_spawn_value
+		if variant_index >= 0 and variant_index < block_def.variants.size():
+			var variant: Dictionary = block_def.variants[variant_index]
+			block.scavenge_colors = PackedStringArray(variant.get("scavenge_colors", []))
+			block.monster_spawn_value = int(variant.get("monster_spawn_value", 0))
+		else:
+			block.scavenge_colors = PackedStringArray(block_def.scavenge_colors)
+			block.monster_spawn_value = block_def.monster_spawn_value
 		for skill_data in block_def.skills:
 			var skill: Skill = _create_skill_from_data(skill_data)
 			block.add_skill(skill)
@@ -436,7 +463,6 @@ func initialize_game(mission: MissionData, variants: Dictionary, seats: Array) -
 	if spawn_block != null:
 		for player in players:
 			player.current_block = spawn_block
-			spawn_block.revealed = true
 
 	# 6. 初始化全局牌堆
 	_init_global_piles(mission)
@@ -594,6 +620,7 @@ func _create_role_card_from_survivor(survivor: SurvivorData) -> RoleCard:
 	rc.sneak = survivor.stealth
 	rc.hunger_sneak = survivor.hunger_stealth
 	rc.equipment_capacity = survivor.equipment_slot
+	rc.hand_size_limit = survivor.hand_size_limit
 	for skill_data in survivor.intrinsic_skills:
 		rc.intrinsic_skills.append(_create_skill_from_data(skill_data))
 	return rc

@@ -77,6 +77,37 @@ func _option_display_name(option: Variant) -> String:
 	return str(option)
 
 
+## 检查目标列表是否全部为卡牌（Card 或 Equipment）。
+func _is_all_card_targets(targets: Array) -> bool:
+	if targets.is_empty():
+		return false
+	for target in targets:
+		if not (target is Card or target is Equipment):
+			return false
+	return true
+
+
+## 检查目标列表是否全部为实体（Monster 或 Player）。
+func _is_all_entity_targets(targets: Array) -> bool:
+	if targets.is_empty():
+		return false
+	for target in targets:
+		if not (target is Monster or target is Player):
+			return false
+	return true
+
+
+## 检查区域标签数组是否包含多种不同的区域值。
+func _has_mixed_zones(zone_labels: Array) -> bool:
+	if zone_labels.is_empty():
+		return false
+	var seen: Dictionary = {}
+	for label in zone_labels:
+		if label is String and not label.is_empty():
+			seen[label] = true
+	return seen.size() > 1
+
+
 ## 选项弹窗（choose）：点击选项立即响应
 func show_option_popup(options: Array, prompt: String) -> void:
 	if options.is_empty():
@@ -163,7 +194,7 @@ func _on_confirm_responded(result: bool) -> void:
 
 
 ## 卡牌选择弹窗（choose_card）：选择 N 张卡牌
-func show_card_select_popup(cards: Array, n: int, position: String) -> void:
+func show_card_select_popup(cards: Array, n: int, position: String, zone_labels: Array = []) -> void:
 	if cards.is_empty():
 		cards_selected.emit([])
 		return
@@ -199,11 +230,16 @@ func show_card_select_popup(cards: Array, n: int, position: String) -> void:
 	vbox.add_child(grid)
 
 	_popup_item_views.clear()
-	for card in cards:
+	var show_zone: bool = _has_mixed_zones(zone_labels)
+	for i in range(cards.size()):
+		var card = cards[i]
 		var view := CardView.new()
 		view.set_card(card)
+		if show_zone and i < zone_labels.size():
+			view.set_zone_label(zone_labels[i])
 		view.gui_input.connect(_on_card_select_clicked.bind(card, view))
 		grid.add_child(view)
+		view.mouse_filter = Control.MOUSE_FILTER_STOP
 		_popup_item_views.append(view)
 
 	var hbox := HBoxContainer.new()
@@ -254,10 +290,169 @@ func _on_card_select_cancelled() -> void:
 
 
 ## 目标选择区（315,120 800×420）：仅选目标时弹出。
-func show_target_select_area(targets: Array, n: int) -> void:
+func show_target_select_area(targets: Array, n: int, zone_labels: Array = []) -> void:
 	if targets.is_empty():
 		targets_selected.emit([])
 		return
+	# 卡牌目标：使用 CardView 网格布局
+	if _is_all_card_targets(targets):
+		var overlay := _create_modal_overlay()
+		_popup_required_n = n
+		_popup_selected.clear()
+
+		var panel := Panel.new()
+		panel.position = Vector2(215, 80)
+		panel.size = Vector2(1000, 560)
+		overlay.add_child(panel)
+
+		var vbox := VBoxContainer.new()
+		vbox.set_anchors_preset(PRESET_FULL_RECT)
+		vbox.offset_left = 10
+		vbox.offset_top = 8
+		vbox.offset_right = -10
+		vbox.offset_bottom = -8
+		vbox.add_theme_constant_override("separation", 6)
+		panel.add_child(vbox)
+
+		var title := Label.new()
+		title.text = "选择 %d 个目标" % n
+		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		title.add_theme_font_size_override("font_size", 14)
+		vbox.add_child(title)
+
+		var scroll := ScrollContainer.new()
+		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		vbox.add_child(scroll)
+
+		var grid := GridContainer.new()
+		grid.columns = 8
+		grid.add_theme_constant_override("h_separation", 6)
+		grid.add_theme_constant_override("v_separation", 6)
+		grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		scroll.add_child(grid)
+
+		_popup_item_views.clear()
+		var show_zone: bool = _has_mixed_zones(zone_labels)
+		for i in range(targets.size()):
+			var target = targets[i]
+			var view := CardView.new()
+			view.set_card(target)
+			if show_zone and i < zone_labels.size():
+				view.set_zone_label(zone_labels[i])
+			view.gui_input.connect(_on_target_card_clicked.bind(target, view))
+			grid.add_child(view)
+			view.mouse_filter = Control.MOUSE_FILTER_STOP
+			_popup_item_views.append(view)
+
+		var hbox := HBoxContainer.new()
+		hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+		hbox.add_theme_constant_override("separation", 20)
+		vbox.add_child(hbox)
+
+		var ok_btn := Button.new()
+		ok_btn.text = "确认（0/%d）" % n
+		ok_btn.custom_minimum_size = Vector2(140, 30)
+		ok_btn.disabled = true
+		ok_btn.pressed.connect(_on_target_card_confirmed)
+		hbox.add_child(ok_btn)
+		_popup_ok_button = ok_btn
+
+		var cancel_btn := Button.new()
+		cancel_btn.text = "取消"
+		cancel_btn.custom_minimum_size = Vector2(80, 30)
+		cancel_btn.pressed.connect(_on_target_card_cancelled)
+		hbox.add_child(cancel_btn)
+		return
+	# 实体目标：使用卡片网格布局（Monster/Player）
+	if _is_all_entity_targets(targets):
+		var overlay := _create_modal_overlay()
+		_popup_required_n = n
+		_popup_selected.clear()
+
+		var panel := Panel.new()
+		panel.position = Vector2(215, 80)
+		panel.size = Vector2(1000, 560)
+		overlay.add_child(panel)
+
+		var vbox := VBoxContainer.new()
+		vbox.set_anchors_preset(PRESET_FULL_RECT)
+		vbox.offset_left = 10
+		vbox.offset_top = 8
+		vbox.offset_right = -10
+		vbox.offset_bottom = -8
+		vbox.add_theme_constant_override("separation", 6)
+		panel.add_child(vbox)
+
+		var title := Label.new()
+		title.text = "选择 %d 个目标" % n
+		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		title.add_theme_font_size_override("font_size", 14)
+		vbox.add_child(title)
+
+		var scroll := ScrollContainer.new()
+		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		vbox.add_child(scroll)
+
+		var grid := GridContainer.new()
+		grid.columns = 7
+		grid.add_theme_constant_override("h_separation", 8)
+		grid.add_theme_constant_override("v_separation", 8)
+		grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		scroll.add_child(grid)
+
+		_popup_item_views.clear()
+		for target in targets:
+			var card_panel: Panel = null
+			if target is Monster:
+				card_panel = _build_monster_card(target, 120, 180)
+				# 添加"纠缠: 玩家名"标签
+				var m: Monster = target
+				if m.attack_target != null and is_instance_valid(m.attack_target):
+					var inner: Panel = card_panel.get_child(0)
+					var entangle_lbl := Label.new()
+					entangle_lbl.text = "纠缠: " + m.attack_target.player_name
+					entangle_lbl.position = Vector2(2, 2)
+					entangle_lbl.size = Vector2(116, 14)
+					entangle_lbl.add_theme_font_size_override("font_size", 9)
+					entangle_lbl.add_theme_color_override("font_color", Color.WHITE)
+					entangle_lbl.add_theme_color_override("font_outline_color", Color.BLACK)
+					entangle_lbl.add_theme_constant_override("outline_size", 3)
+					inner.add_child(entangle_lbl)
+					# 若同时存在"眩晕"标签，移至下方避免重叠
+					if m.stunned:
+						for child in inner.get_children():
+							if child is Label and child.text == "眩晕":
+								child.position = Vector2(4, 16)
+								break
+			elif target is Player:
+				card_panel = _build_player_card(target, 120, 180)
+			if card_panel != null:
+				card_panel.gui_input.connect(_on_entity_card_clicked.bind(target, card_panel))
+				grid.add_child(card_panel)
+				_popup_item_views.append(card_panel)
+
+		var hbox := HBoxContainer.new()
+		hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+		hbox.add_theme_constant_override("separation", 20)
+		vbox.add_child(hbox)
+
+		var ok_btn := Button.new()
+		ok_btn.text = "确认（0/%d）" % n
+		ok_btn.custom_minimum_size = Vector2(140, 30)
+		ok_btn.disabled = true
+		ok_btn.pressed.connect(_on_entity_card_confirmed)
+		hbox.add_child(ok_btn)
+		_popup_ok_button = ok_btn
+
+		var cancel_btn := Button.new()
+		cancel_btn.text = "取消"
+		cancel_btn.custom_minimum_size = Vector2(80, 30)
+		cancel_btn.pressed.connect(_on_entity_card_cancelled)
+		hbox.add_child(cancel_btn)
+		return
+	# 非卡牌目标：原有 Button 布局（完全不变）
 	var overlay := _create_modal_overlay()
 	_popup_required_n = n
 	_popup_selected.clear()
@@ -335,6 +530,60 @@ func _on_target_area_confirmed() -> void:
 
 
 func _on_target_area_cancelled() -> void:
+	_close_popup()
+	targets_selected.emit([])
+
+
+func _on_target_card_clicked(event: InputEvent, target: Variant, view: CardView) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		var idx: int = _popup_selected.find(target)
+		if idx >= 0:
+			_popup_selected.remove_at(idx)
+			view.set_selected(false)
+		else:
+			if _popup_selected.size() >= _popup_required_n:
+				return
+			_popup_selected.append(target)
+			view.set_selected(true)
+		if _popup_ok_button != null and is_instance_valid(_popup_ok_button):
+			_popup_ok_button.text = "确认（%d/%d）" % [_popup_selected.size(), _popup_required_n]
+			_popup_ok_button.disabled = _popup_selected.size() != _popup_required_n
+
+
+func _on_target_card_confirmed() -> void:
+	var targets: Array = _popup_selected.duplicate()
+	_close_popup()
+	targets_selected.emit(targets)
+
+
+func _on_target_card_cancelled() -> void:
+	_close_popup()
+	targets_selected.emit([])
+
+
+func _on_entity_card_clicked(event: InputEvent, target: Variant, panel: Panel) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		var idx: int = _popup_selected.find(target)
+		if idx >= 0:
+			_popup_selected.remove_at(idx)
+			_set_entity_card_selected(panel, false)
+		else:
+			if _popup_selected.size() >= _popup_required_n:
+				return
+			_popup_selected.append(target)
+			_set_entity_card_selected(panel, true)
+		if _popup_ok_button != null and is_instance_valid(_popup_ok_button):
+			_popup_ok_button.text = "确认（%d/%d）" % [_popup_selected.size(), _popup_required_n]
+			_popup_ok_button.disabled = _popup_selected.size() != _popup_required_n
+
+
+func _on_entity_card_confirmed() -> void:
+	var targets: Array = _popup_selected.duplicate()
+	_close_popup()
+	targets_selected.emit(targets)
+
+
+func _on_entity_card_cancelled() -> void:
 	_close_popup()
 	targets_selected.emit([])
 
@@ -459,7 +708,22 @@ func show_block_detail_popup(block: Variant) -> void:
 		unrevealed_title.text = "未探索 %s" % coord_str
 		unrevealed_title.add_theme_font_size_override("font_size", 16)
 		vbox.add_child(unrevealed_title)
-		panel.size = Vector2(240, 90)
+		# 怪物标记数
+		var mm_lbl := Label.new()
+		mm_lbl.text = "怪物标记：%d" % block.get("monster_marks")
+		mm_lbl.add_theme_font_size_override("font_size", 13)
+		vbox.add_child(mm_lbl)
+		# 目标标记数
+		var om_arr: Array = block.get("objective_marks")
+		var om_count: int = 0
+		for om in om_arr:
+			if not om.get("removed", false):
+				om_count += 1
+		var om_lbl := Label.new()
+		om_lbl.text = "目标标记：%d" % om_count
+		om_lbl.add_theme_font_size_override("font_size", 13)
+		vbox.add_child(om_lbl)
+		panel.size = Vector2(240, 150)
 		var u_close := Button.new()
 		u_close.text = "关闭"
 		u_close.custom_minimum_size = Vector2(80, 30)
@@ -602,30 +866,75 @@ func show_mission_detail_popup() -> void:
 	info.add_theme_font_size_override("font_size", 12)
 	vbox.add_child(info)
 
+	# 可滚动内容区域
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	vbox.add_child(scroll)
+
+	var content := VBoxContainer.new()
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content.add_theme_constant_override("separation", 6)
+	scroll.add_child(content)
+
 	var obj_label := Label.new()
 	obj_label.text = "目标："
 	obj_label.add_theme_font_size_override("font_size", 13)
-	vbox.add_child(obj_label)
+	content.add_child(obj_label)
 
 	var obj_text := Label.new()
 	obj_text.text = mission.get("objective_text")
 	obj_text.add_theme_font_size_override("font_size", 12)
 	obj_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	obj_text.custom_minimum_size = Vector2(660, 0)
-	vbox.add_child(obj_text)
+	content.add_child(obj_text)
 
 	var intro_label := Label.new()
 	intro_label.text = "简介："
 	intro_label.add_theme_font_size_override("font_size", 13)
-	vbox.add_child(intro_label)
+	content.add_child(intro_label)
 
 	var intro_text := Label.new()
 	intro_text.text = mission.get("intro_text")
 	intro_text.add_theme_font_size_override("font_size", 12)
 	intro_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	intro_text.custom_minimum_size = Vector2(660, 0)
-	intro_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	vbox.add_child(intro_text)
+	content.add_child(intro_text)
+
+	# 地图块配置
+	var block_label := Label.new()
+	block_label.text = "地图块配置："
+	block_label.add_theme_font_size_override("font_size", 13)
+	content.add_child(block_label)
+	var block_parts: PackedStringArray = []
+	var map_blocks_config: Dictionary = mission.get("map_blocks_config")
+	for block_name in map_blocks_config:
+		block_parts.append("%s×%d" % [block_name, map_blocks_config[block_name]])
+	var block_text := Label.new()
+	block_text.text = ", ".join(block_parts)
+	block_text.add_theme_font_size_override("font_size", 12)
+	block_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	block_text.custom_minimum_size = Vector2(660, 0)
+	content.add_child(block_text)
+
+	# 拾荒牌堆配置
+	var scavenge_label := Label.new()
+	scavenge_label.text = "拾荒牌堆配置："
+	scavenge_label.add_theme_font_size_override("font_size", 13)
+	content.add_child(scavenge_label)
+	var color_names: Dictionary = {"red": "红色", "green": "绿色", "blue": "蓝色"}
+	var scavenge_config: Dictionary = mission.get("scavenge_config")
+	for color in ["red", "green", "blue"]:
+		var card_entries: Array = scavenge_config.get(color, [])
+		var card_parts: PackedStringArray = []
+		for entry in card_entries:
+			card_parts.append("%s×%d" % [entry.get("card_name", ""), int(entry.get("count", 0))])
+		var color_text := Label.new()
+		color_text.text = "%s：%s" % [color_names[color], ", ".join(card_parts)]
+		color_text.add_theme_font_size_override("font_size", 12)
+		color_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		color_text.custom_minimum_size = Vector2(660, 0)
+		content.add_child(color_text)
 
 	var ok_btn := Button.new()
 	ok_btn.text = "关闭"
@@ -963,6 +1272,75 @@ func _build_monster_card(m: Variant, w: int, h: int) -> Panel:
 		inner.add_child(stun_lbl)
 
 	return card
+
+
+## 构建玩家目标卡片（外层 w+10×h+10 黑色边框 + 内层 w×h 蓝色背景）。
+func _build_player_card(p: Variant, w: int, h: int) -> Panel:
+	var card := Panel.new()
+	card.custom_minimum_size = Vector2(w + 10, h + 10)
+	card.size = Vector2(w + 10, h + 10)
+
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color.BLACK
+	card.add_theme_stylebox_override("panel", style)
+
+	var inner := Panel.new()
+	inner.position = Vector2(5, 5)
+	inner.size = Vector2(w, h)
+	var inner_style := StyleBoxFlat.new()
+	inner_style.bg_color = Color(0.15, 0.25, 0.40, 1.0)
+	inner.add_theme_stylebox_override("panel", inner_style)
+	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(inner)
+
+	# 玩家名（中下）
+	var name_lbl := Label.new()
+	name_lbl.text = p.get("player_name")
+	name_lbl.position = Vector2(4, h - 52)
+	name_lbl.size = Vector2(w - 8, 20)
+	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_lbl.add_theme_font_size_override("font_size", 13)
+	name_lbl.add_theme_color_override("font_outline_color", Color.BLACK)
+	name_lbl.add_theme_constant_override("outline_size", 3)
+	inner.add_child(name_lbl)
+
+	# "玩家"标识（名字下方）
+	var role_lbl := Label.new()
+	role_lbl.text = "玩家"
+	role_lbl.position = Vector2(4, h - 32)
+	role_lbl.size = Vector2(w - 8, 18)
+	role_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	role_lbl.add_theme_font_size_override("font_size", 11)
+	role_lbl.add_theme_color_override("font_color", Color(0.6, 0.8, 1.0, 1.0))
+	role_lbl.add_theme_color_override("font_outline_color", Color.BLACK)
+	role_lbl.add_theme_constant_override("outline_size", 3)
+	inner.add_child(role_lbl)
+
+	# HP/MaxHP（右上角）
+	var hp_lbl := Label.new()
+	hp_lbl.text = "%d/%d" % [p.get("hp"), p.get("max_hp")]
+	hp_lbl.position = Vector2(w - 58, 4)
+	hp_lbl.size = Vector2(54, 16)
+	hp_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	hp_lbl.add_theme_font_size_override("font_size", 12)
+	hp_lbl.add_theme_color_override("font_outline_color", Color.BLACK)
+	hp_lbl.add_theme_constant_override("outline_size", 3)
+	inner.add_child(hp_lbl)
+
+	return card
+
+
+## 设置实体卡选中态（金色边框）。
+func _set_entity_card_selected(panel: Panel, selected: bool) -> void:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color.BLACK
+	if selected:
+		style.border_width_left = 3
+		style.border_width_top = 3
+		style.border_width_right = 3
+		style.border_width_bottom = 3
+		style.border_color = Color(1.0, 0.84, 0.0, 1.0)
+	panel.add_theme_stylebox_override("panel", style)
 
 
 func show_equipment_zone_popup(player: Variant) -> void:

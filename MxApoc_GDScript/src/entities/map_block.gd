@@ -77,6 +77,8 @@ func add_monster_mark(n: int = 1) -> void:
 	var _actual: int = monster_marks - _before
 	if _actual > 0 and Game != null and is_instance_valid(Game):
 		Game.log_message(LogColors.block(block_name) + " 添加了 " + str(_actual) + " 枚 \"怪物标记\"")
+	if _actual > 0 and EventBus != null and is_instance_valid(EventBus):
+		EventBus.monster_mark_changed.emit(self)
 
 
 ## 移除 n 个怪物标记。移除后检查目标标记移除条件。
@@ -86,12 +88,17 @@ func remove_monster_mark(n: int = 1) -> void:
 	var _actual: int = _before - monster_marks
 	if _actual > 0 and Game != null and is_instance_valid(Game):
 		Game.log_message(LogColors.block(block_name) + " 移除了 " + str(_actual) + " 枚 \"怪物标记\"")
+	if _actual > 0 and EventBus != null and is_instance_valid(EventBus):
+		EventBus.monster_mark_changed.emit(self)
 	_check_objective_mark_remove_conditions()
 
 
 ## 移除所有怪物标记（设为 0）。不触发「怪物死亡时」事件。
 func remove_all_monster_marks() -> void:
+	var _had_marks: bool = monster_marks > 0
 	monster_marks = 0
+	if _had_marks and EventBus != null and is_instance_valid(EventBus):
+		EventBus.monster_mark_changed.emit(self)
 	_check_objective_mark_remove_conditions()
 
 
@@ -211,7 +218,8 @@ func distance_to(other: MapBlock) -> int:
 
 ## 返回指定射程范围内的所有存活地块。
 ## range_str: "short" / "medium" / "long" / "infinity"
-func get_blocks_in_range(range_str: String) -> Array:
+## for_monster: 怪物"长距离"包含同地块（d=0），玩家"长距离"不含
+func get_blocks_in_range(range_str: String, for_monster: bool = false) -> Array:
 	var result: Array = []
 	if Game == null or not is_instance_valid(Game):
 		return result
@@ -219,21 +227,25 @@ func get_blocks_in_range(range_str: String) -> Array:
 		if not b.is_alive():
 			continue
 		var d: int = distance_to(b)
-		if range_str == "short" and d == 1:
+		if range_str == "short" and d == 0:
 			result.append(b)
-		elif range_str == "medium" and d >= 1 and d <= 2:
+		elif range_str == "medium" and d >= 0 and d <= 1:
 			result.append(b)
-		elif range_str == "long" and d >= 2 and d <= 3:
-			result.append(b)
+		elif range_str == "long":
+			if for_monster and d >= 0 and d <= 2:
+				result.append(b)
+			elif not for_monster and d >= 1 and d <= 2:
+				result.append(b)
 		elif range_str == "infinity":
 			result.append(b)
 	return result
 
 
 ## 返回指定射程范围内的所有玩家。
-func get_players_in_range(range_str: String) -> Array:
+## for_monster: 怪物"长距离"包含同地块（d=0），玩家"长距离"不含
+func get_players_in_range(range_str: String, for_monster: bool = false) -> Array:
 	var players: Array = []
-	var blocks: Array = get_blocks_in_range(range_str)
+	var blocks: Array = get_blocks_in_range(range_str, for_monster)
 	for b in blocks:
 		players.append_array(b.get_players())
 	return players
@@ -298,12 +310,16 @@ func get_objective_marks() -> Array:
 ## 添加目标标记（地图构建时使用）。
 func add_objective_mark(mark: Dictionary) -> void:
 	objective_marks.append(mark)
+	if EventBus != null and is_instance_valid(EventBus):
+		EventBus.objective_mark_changed.emit(self)
 
 
 ## 移除指定目标标记（设 removed=true 并从列表移除）。
 func remove_objective_mark(mark: Dictionary) -> void:
 	mark["removed"] = true
 	objective_marks.erase(mark)
+	if EventBus != null and is_instance_valid(EventBus):
+		EventBus.objective_mark_changed.emit(self)
 
 
 ## 移除所有未移除的目标标记。

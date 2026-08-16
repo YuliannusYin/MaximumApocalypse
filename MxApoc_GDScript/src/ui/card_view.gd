@@ -44,6 +44,8 @@ var _content_panel: Panel
 var _base_position: Vector2 = Vector2.ZERO
 var _is_selected: bool = false
 var _is_hovered: bool = false
+var _zone_label: Label
+var _charge_label: Label
 
 
 func _ready() -> void:
@@ -90,14 +92,12 @@ func get_card() -> Variant:
 	return _card
 
 
-## 选中状态（上移 15px + 金色边框 + z_index 提升）。
+## 选中状态（金色边框 + z_index 提升）。
 func set_selected(selected: bool) -> void:
 	_is_selected = selected
 	if selected:
-		position = _base_position + Vector2(0, -SELECTED_OFFSET)
 		z_index = 1
 	else:
-		position = _base_position
 		z_index = 0
 	_apply_style()
 
@@ -110,6 +110,16 @@ func is_selected() -> bool:
 func set_hovered(hovered: bool) -> void:
 	_is_hovered = hovered
 	# 悬停不再触发上浮，位置由选中状态决定
+
+
+## 设置区域标签文本（如"装备区"、"手牌区"）。空文本时隐藏。
+func set_zone_label(text: String) -> void:
+	if _zone_label != null and is_instance_valid(_zone_label):
+		if text.is_empty():
+			_zone_label.visible = false
+		else:
+			_zone_label.text = text
+			_zone_label.visible = true
 
 
 # === 构建 ===
@@ -181,6 +191,27 @@ func _build_content() -> void:
 	_effect_label.add_theme_font_size_override("font_size", 9)
 	_effect_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_content_panel.add_child(_effect_label)
+	# 区域标签（左下角，混合区域时显示）
+	_zone_label = Label.new()
+	_zone_label.position = Vector2(2, CARD_H - 12)
+	_zone_label.size = Vector2(44, 12)
+	_zone_label.add_theme_font_size_override("font_size", 9)
+	_zone_label.add_theme_color_override("font_color", Color.WHITE)
+	_zone_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	_zone_label.add_theme_constant_override("outline_size", 3)
+	_zone_label.visible = false
+	_content_panel.add_child(_zone_label)
+	# 填充物信息（右上角，装备牌有 charge_max > 0 时显示）
+	_charge_label = Label.new()
+	_charge_label.position = Vector2(CARD_W - 50, 4)
+	_charge_label.size = Vector2(46, 16)
+	_charge_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_charge_label.add_theme_font_size_override("font_size", 11)
+	_charge_label.add_theme_color_override("font_color", Color(0.9, 0.85, 0.3, 1.0))
+	_charge_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	_charge_label.add_theme_constant_override("outline_size", 3)
+	_charge_label.visible = false
+	_content_panel.add_child(_charge_label)
 	_refresh()
 
 
@@ -193,6 +224,10 @@ func _refresh() -> void:
 		_texture_rect.visible = false
 		_badge_label.visible = false
 		_range_label.visible = false
+		if _zone_label != null and is_instance_valid(_zone_label):
+			_zone_label.visible = false
+		if _charge_label != null and is_instance_valid(_charge_label):
+			_charge_label.visible = false
 		_apply_style()
 		return
 	var card_name: String = _card.get("card_name")
@@ -227,6 +262,7 @@ func _apply_image_layout(tex: Texture2D) -> void:
 	_type_label.visible = false
 	_cost_label.visible = false
 	_effect_label.visible = false
+	_apply_charge_display()
 
 
 ## 文字布局：保留原有的纯文字显示。
@@ -246,6 +282,7 @@ func _apply_text_layout() -> void:
 	_cost_label.visible = true
 	_effect_label.text = _effect_display()
 	_effect_label.visible = true
+	_apply_charge_display()
 
 
 ## 设置左上角标识：装备牌显示格子数，行动牌显示金色"行动"。
@@ -262,6 +299,23 @@ func _apply_badge() -> void:
 		_badge_label.visible = true
 	else:
 		_badge_label.visible = false
+
+
+## 显示填充物信息（右上角）：charge_max > 0 时显示"cur/max"。
+func _apply_charge_display() -> void:
+	if _charge_label == null or not is_instance_valid(_charge_label):
+		return
+	if _card == null or not is_instance_valid(_card):
+		_charge_label.visible = false
+		return
+	var charge_max_val: Variant = _card.get("charge_max")
+	if charge_max_val is int and charge_max_val > 0:
+		var charge_cur_val: Variant = _card.get("charge_current")
+		var cur: int = charge_cur_val if charge_cur_val is int else 0
+		_charge_label.text = "%d/%d" % [cur, charge_max_val]
+		_charge_label.visible = true
+	else:
+		_charge_label.visible = false
 
 
 func _apply_style() -> void:

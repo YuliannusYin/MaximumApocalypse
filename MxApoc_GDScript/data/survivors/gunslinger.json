@@ -7,6 +7,7 @@
   "stealth": 7,
   "hunger_stealth": 6,
   "equipment_slot": 4,
+  "hand_size_limit": 10,
   "intrinsic_skills": [
     {
       "skill_name": "快速拔枪",
