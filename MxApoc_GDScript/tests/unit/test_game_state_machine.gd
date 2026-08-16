@@ -38,6 +38,9 @@ class MockPlayer extends RefCounted:
 	func choose(options: Array) -> String:
 		return "不进行重调"
 
+	func wait_redraw_decision() -> bool:
+		return false
+
 
 # === 辅助方法 ===
 

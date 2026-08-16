@@ -24,6 +24,10 @@
       "english_name": "shelter",
       "scavenge_colors": [],
       "monster_spawn_value": 12,
+      "variants": [
+        {"scavenge_colors": [], "monster_spawn_value": 12},
+        {"scavenge_colors": [], "monster_spawn_value": 2}
+      ],
       "skills": [
         {
           "skill_name": "避难所",
@@ -33,7 +37,7 @@
           "trigger": "on_turn_start、on_take_damage",
           "filter": "return !player.has_mark_skill(\"shelter_disabled\")",
           "forced": true,
-          "content": "if event.trigger_name == \"on_turn_start\" && player.get_current_block().has_skill(\"shelter\"):\n\tplayer.add_mark_skill(\"shelter_disabled\", 1, \"turn_end\")\nelif event.trigger_name == \"on_take_damage\" && player.get_current_block().has_skill(\"shelter\"):\n\tevent.cancel()"
+          "content": "if event.trigger_name == \"on_turn_start\" && player.get_current_block().has_skill(\"shelter\"):\n\tplayer.add_mark_skill(\"shelter_disabled\", 1, \"turn_end\")\nelif event.trigger_name == \"on_take_damage\" && player.get_current_block().has_skill(\"shelter\"):\n\tevent[\"cancel\"].call()"
         }
       ]
     },
@@ -42,6 +46,11 @@
       "english_name": "city_street",
       "scavenge_colors": ["red"],
       "monster_spawn_value": 6,
+      "variants": [
+        {"scavenge_colors": ["red"], "monster_spawn_value": 6},
+        {"scavenge_colors": ["green"], "monster_spawn_value": 8},
+        {"scavenge_colors": ["blue"], "monster_spawn_value": 5}
+      ],
       "skills": [
         {
           "skill_name": "城市街道",
@@ -69,7 +78,7 @@
           "trigger": "on_reveal_block、on_enter_block",
           "filter": "return true",
           "forced": true,
-          "content": "if event.trigger_name == \"on_reveal_block\":\n\tplayer.discard(null, null, 0, \"food\")\nelif event.trigger_name == \"on_enter_block\" && player.get_current_block().has_skill(\"power_plant\"):\n\tplayer.add_poison(1)"
+          "content": "if event.trigger_name == \"on_reveal_block\":\n\tvar food_cards = []\n\tfor c in player.get_cards():\n\t\tif c.english_name.begins_with(\"food_\"):\n\t\t\tfood_cards.append(c)\n\tplayer.discard(food_cards)\nelif event.trigger_name == \"on_enter_block\" && player.get_current_block().has_skill(\"power_plant\"):\n\tplayer.add_poison(1)"
         }
       ]
     },
@@ -78,16 +87,20 @@
       "english_name": "river",
       "scavenge_colors": [],
       "monster_spawn_value": 10,
+      "variants": [
+        {"scavenge_colors": [], "monster_spawn_value": 10},
+        {"scavenge_colors": [], "monster_spawn_value": 11}
+      ],
       "skills": [
         {
           "skill_name": "河流",
           "english_name": "river",
-          "skill_description": "进入此地块前，进行一次潜行检定，成功：移动到本地；失败：返回之前的地图块",
+          "skill_description": "进入：进行一次 \"潜行检定\"，若失败则返回之前所在的地图块",
           "skill_type": "block",
-          "trigger": "before_enter_block",
-          "filter": "return true",
+          "trigger": "on_enter_block",
+          "filter": "return event.has(\"target_block\") && event[\"target_block\"] != null && event[\"target_block\"].has_skill(\"river\")",
           "forced": true,
-          "content": "if not player.sneak_judge():\n\tevent.cancel()"
+          "content": "var block = player.get_current_block()\nif block != null and not block.is_revealed():\n\tawait block.reveal(true, player)\nif not await player.sneak_judge():\n\tawait player.move_to(event[\"source_block\"])"
         }
       ]
     },
@@ -104,9 +117,7 @@
           "skill_type": "block",
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_current_block().has_skill(\"airport\") && !player.get_current_block().has_monster()",
-          "select_target": 1,
-          "filter_target": "return target.is_revealed() && !target.has_monster_mark() && target != player.get_current_block()",
-          "content": "player.consume_action(1)\nplayer.move_to(target)"
+          "content": "var candidates = []\nfor b in game.map_area:\n\tif b.is_revealed() and not b.has_monster_mark() and b != player.get_current_block():\n\t\tcandidates.append(b)\nif candidates.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar chosen = await player.choose_block_inline(candidates, \"\\\"机场\\\": 选择目标地图块\", 1)\nif chosen.is_empty():\n\tEventSystem.cancel(event)\n\treturn\ntarget = chosen[0]\nplayer.consume_action(1)\nawait player.move_to(target)"
         }
       ]
     },
@@ -142,7 +153,7 @@
           "trigger": "on_enter_block",
           "filter": "return true",
           "forced": true,
-          "content": "var list = game.get_engaged_monsters(player)\nfor i in list:\n\ti.damage(2, player)"
+          "content": "var list = game.get_engaged_monsters(player)\nfor i in list:\n\tawait i.damage(2, player)"
         }
       ]
     },
@@ -169,6 +180,10 @@
       "english_name": "wilderness",
       "scavenge_colors": [],
       "monster_spawn_value": 6,
+      "variants": [
+        {"scavenge_colors": [], "monster_spawn_value": 6},
+        {"scavenge_colors": [], "monster_spawn_value": 8}
+      ],
       "skills": [
         {
           "skill_name": "旷野",
@@ -223,6 +238,11 @@
       "english_name": "gas_station",
       "scavenge_colors": ["red"],
       "monster_spawn_value": 9,
+      "variants": [
+        {"scavenge_colors": ["red"], "monster_spawn_value": 9},
+        {"scavenge_colors": ["red"], "monster_spawn_value": 5},
+        {"scavenge_colors": ["red"], "monster_spawn_value": 4}
+      ],
       "skills": [
         {
           "skill_name": "加油站",
@@ -259,7 +279,19 @@
       "english_name": "van",
       "scavenge_colors": [],
       "monster_spawn_value": 6,
-      "skills": []
+      "skills": [
+        {
+          "skill_name": "面包车",
+          "english_name": "van",
+          "skill_description": "给面包车添加燃料或启动面包车逃离",
+          "skill_type": "block",
+          "active": "action",
+          "usable": -1,
+          "filter": "if player.in_phase != \"action\" or player.get_number(\"action_count\") <= 0:\n\treturn false\nvar block = player.get_current_block()\nif block == null or not block.has_skill(\"van\"):\n\treturn false\nif game.mission_config == null or game.mission_config.van_fuel_required <= 0:\n\treturn false\nif block.get_van_fuel() < block.get_van_fuel_max():\n\treturn player.get_equipment(\"fuel\") != null\nif block.has_monster() or block.has_monster_mark():\n\treturn false\nfor p in game.get_all_players():\n\tif p.is_alive() and p.get_current_block() != block:\n\t\treturn false\nreturn true",
+          "confirm_prompt": "var block = player.get_current_block()\nif block.get_van_fuel() < block.get_van_fuel_max():\n\treturn '行动：是否给 \"面包车\" 添加一桶燃料'\nelse:\n\treturn '行动：是否启动 \"面包车\" 离开'",
+          "content": "player.consume_action(1)\nvar block = player.get_current_block()\nif block.get_van_fuel() < block.get_van_fuel_max():\n\tblock.add_van_fuel(1)\n\tvar fuel_equip = player.get_equipment(\"fuel\")\n\tif fuel_equip != null:\n\t\tawait player.discard(fuel_equip)\nelse:\n\tgame.game_over(\"win\")"
+        }
+      ]
     },
     {
       "block_name": "墓地",
@@ -284,6 +316,10 @@
       "english_name": "farm",
       "scavenge_colors": ["green"],
       "monster_spawn_value": 3,
+      "variants": [
+        {"scavenge_colors": ["green"], "monster_spawn_value": 3},
+        {"scavenge_colors": ["green"], "monster_spawn_value": 11}
+      ],
       "skills": [
         {
           "skill_name": "农场",
@@ -302,16 +338,20 @@
       "english_name": "bandit_camp",
       "scavenge_colors": [],
       "monster_spawn_value": 9,
+      "variants": [
+        {"scavenge_colors": [], "monster_spawn_value": 9},
+        {"scavenge_colors": [], "monster_spawn_value": 3}
+      ],
       "skills": [
         {
           "skill_name": "强盗营地",
           "english_name": "bandit_camp",
-          "skill_description": "进入：弃掉一张已装备的装备卡或者受到5点伤害",
+          "skill_description": "进入：弃掉一张装备牌或者受到5点伤害",
           "skill_type": "block",
           "trigger": "on_enter_block",
           "filter": "return true",
           "forced": true,
-          "content": "if not player.has_card(\"equipment\"):\n\tplayer.damage(5, null)\nelse:\n\tvar result = player.choose([\"弃置装备\", \"受到伤害\"])\n\tif result == \"弃置装备\":\n\t\tplayer.choose_to_discard(1, \"equipment\")\n\telif result == \"受到伤害\":\n\t\tplayer.damage(5, null)"
+          "content": "var equip_cards = []\nfor c in player.get_cards():\n\tif c.card_type == \"equipment\":\n\t\tequip_cards.append(c)\nif equip_cards.is_empty():\n\tplayer.damage(5, null)\nelif await player.confirm(\"\\\"强盗营地\\\": 是否弃置一张装备牌，否则受到 5 点伤害\"):\n\tvar chosen = await player.choose_card(1, equip_cards)\n\tif chosen.is_empty():\n\t\tplayer.damage(5, null)\n\telse:\n\t\tplayer.discard(chosen)\nelse:\n\tplayer.damage(5, null)"
         }
       ]
     },
@@ -320,6 +360,10 @@
       "english_name": "mountain",
       "scavenge_colors": [],
       "monster_spawn_value": 9,
+      "variants": [
+        {"scavenge_colors": [], "monster_spawn_value": 9},
+        {"scavenge_colors": [], "monster_spawn_value": 5}
+      ],
       "skills": [
         {
           "skill_name": "山",
@@ -338,6 +382,10 @@
       "english_name": "tunnel",
       "scavenge_colors": [],
       "monster_spawn_value": 10,
+      "variants": [
+        {"scavenge_colors": [], "monster_spawn_value": 10},
+        {"scavenge_colors": [], "monster_spawn_value": 4}
+      ],
       "skills": [
         {
           "skill_name": "隧道",
@@ -346,9 +394,7 @@
           "skill_type": "block",
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_current_block().has_skill(\"tunnel\")",
-          "select_target": 1,
-          "filter_target": "return target.has_skill(\"tunnel\") && target != player.get_current_block()",
-          "content": "player.consume_action(1)\nplayer.move_to(target)"
+          "content": "var candidates = []\nfor b in game.map_area:\n\tif b.has_skill(\"tunnel\") and b != player.get_current_block():\n\t\tcandidates.append(b)\nif candidates.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar chosen = await player.choose_block_inline(candidates, \"\\\"隧道\\\": 选择目标地图块\", 1)\nif chosen.is_empty():\n\tEventSystem.cancel(event)\n\treturn\ntarget = chosen[0]\nplayer.consume_action(1)\nawait player.move_to(target)"
         }
       ]
     },
@@ -357,6 +403,10 @@
       "english_name": "forest",
       "scavenge_colors": [],
       "monster_spawn_value": 5,
+      "variants": [
+        {"scavenge_colors": [], "monster_spawn_value": 5},
+        {"scavenge_colors": [], "monster_spawn_value": 8}
+      ],
       "skills": [
         {
           "skill_name": "森林",
@@ -375,6 +425,10 @@
       "english_name": "desert",
       "scavenge_colors": [],
       "monster_spawn_value": 10,
+      "variants": [
+        {"scavenge_colors": [], "monster_spawn_value": 10},
+        {"scavenge_colors": [], "monster_spawn_value": 4}
+      ],
       "skills": [
         {
           "skill_name": "沙漠",
@@ -420,7 +474,7 @@
           "trigger": "on_enter_block、on_turn_end",
           "filter": "return true",
           "forced": true,
-          "content": "if event.trigger_name == \"on_enter_block\":\n\tplayer.add_hp(1)\nelif event.trigger_name == \"on_turn_end\":\n\tplayer.add_hp(2)"
+          "content": "if event.trigger_name == \"on_enter_block\":\n\tplayer.recover(1)\nelif event.trigger_name == \"on_turn_end\":\n\tplayer.recover(2)"
         }
       ]
     },

@@ -9,6 +9,7 @@ var block_name: String = ""
 var english_name: String = ""
 var scavenge_colors: Array = []  # Array[String]：["red", "green", "blue"]
 var monster_spawn_value: int = 0
+var variants: Array = []  # Array[Dictionary]：[{"scavenge_colors": [...], "monster_spawn_value": int}, ...]
 var skills: Array = []  # Array[SkillData]
 
 
@@ -17,6 +18,7 @@ func _init(data: Dictionary = {}) -> void:
 	english_name = data.get("english_name", "")
 	scavenge_colors = data.get("scavenge_colors", [])
 	monster_spawn_value = int(data.get("monster_spawn_value", 0))
+	variants = data.get("variants", [])
 	var raw_skills: Array = data.get("skills", [])
 	for raw in raw_skills:
 		if raw is Dictionary:

@@ -116,21 +116,21 @@ func test_remove_all_monster_marks() -> void:
 func test_reveal_sets_flag() -> void:
 	var b: MapBlock = MapBlock.new()
 	var p: MockPlayer = MockPlayer.new()
-	b.reveal(false, p)
+	await b.reveal(false, p)
 	assert_true(b.revealed, "reveal 后 revealed 应为 true")
 
 
-func test_reveal_triggers_on_block_revealed() -> void:
+func test_reveal_triggers_on_reveal_block() -> void:
 	var b: MapBlock = MapBlock.new()
 	var p: MockPlayer = MockPlayer.new()
-	b.reveal(true, p)
-	assert_eq(p.triggers_received, ["on_block_revealed"], "应触发 on_block_revealed")
+	await b.reveal(true, p)
+	assert_eq(p.triggers_received, ["on_reveal_block"], "应触发 on_reveal_block")
 
 
 func test_reveal_no_effect_does_not_trigger() -> void:
 	var b: MapBlock = MapBlock.new()
 	var p: MockPlayer = MockPlayer.new()
-	b.reveal(false, p)
+	await b.reveal(false, p)
 	assert_eq(p.triggers_received.size(), 0, "trigger_effect=false 时不应触发")
 
 
@@ -204,7 +204,9 @@ func test_get_blocks_in_range_short() -> void:
 	var far: MapBlock = _make_block("F", 2, 5)  # 距离 3
 	_setup_game_map([center, adjacent, far])
 	var blocks: Array = center.get_blocks_in_range("short")
-	assert_eq(blocks.size(), 1, "短距离只包含距离 1 的地块")
+	assert_eq(blocks.size(), 1, "短距离只包含距离 0 的地块（同地块）")
+	assert(blocks.has(center), "短距离应包含 center（d=0）")
+	assert(not blocks.has(adjacent), "短距离不应包含 adjacent（d=1）")
 
 
 func test_get_blocks_in_range_medium() -> void:
@@ -214,7 +216,10 @@ func test_get_blocks_in_range_medium() -> void:
 	var d3: MapBlock = _make_block("D", 2, 5)  # 距离 3
 	_setup_game_map([center, d1, d2, d3])
 	var blocks: Array = center.get_blocks_in_range("medium")
-	assert_eq(blocks.size(), 2, "中距离包含距离 1-2 的地块")
+	assert_eq(blocks.size(), 2, "中距离包含距离 0-1 的地块（同地块+相邻）")
+	assert(blocks.has(center), "中距离应包含 center（d=0）")
+	assert(blocks.has(d1), "中距离应包含 d1（d=1）")
+	assert(not blocks.has(d2), "中距离不应包含 d2（d=2）")
 
 
 func test_get_blocks_in_range_long() -> void:
@@ -225,7 +230,25 @@ func test_get_blocks_in_range_long() -> void:
 	var d4: MapBlock = _make_block("E", 2, 6)  # 距离 4
 	_setup_game_map([center, d1, d2, d3, d4])
 	var blocks: Array = center.get_blocks_in_range("long")
-	assert_eq(blocks.size(), 2, "长距离包含距离 2-3 的地块（不含 1）")
+	assert_eq(blocks.size(), 2, "长距离包含距离 1-2 的地块（不含 0）")
+	assert(blocks.has(d1), "长距离应包含 d1（d=1）")
+	assert(blocks.has(d2), "长距离应包含 d2（d=2）")
+	assert(not blocks.has(center), "长距离不应包含 center（d=0）")
+	assert(not blocks.has(d3), "长距离不应包含 d3（d=3）")
+
+
+func test_get_blocks_in_range_long_for_monster() -> void:
+	var center: MapBlock = _make_block("C", 2, 2)
+	var d1: MapBlock = _make_block("A", 2, 3)  # 距离 1
+	var d2: MapBlock = _make_block("B", 2, 4)  # 距离 2
+	var d3: MapBlock = _make_block("D", 2, 5)  # 距离 3
+	_setup_game_map([center, d1, d2, d3])
+	var blocks: Array = center.get_blocks_in_range("long", true)
+	assert_eq(blocks.size(), 3, "怪物长距离包含距离 0-2 的地块（含同地块）")
+	assert(blocks.has(center), "怪物长距离应包含 center（d=0）")
+	assert(blocks.has(d1), "怪物长距离应包含 d1（d=1）")
+	assert(blocks.has(d2), "怪物长距离应包含 d2（d=2）")
+	assert(not blocks.has(d3), "怪物长距离不应包含 d3（d=3）")
 
 
 func test_get_blocks_in_range_infinity() -> void:
@@ -351,11 +374,11 @@ func test_trigger_objective_marks_executes_effect_once() -> void:
 	var mark: Dictionary = _make_mark("m1", effect_called)
 	b.add_objective_mark(mark)
 	var p: MockPlayer = MockPlayer.new()
-	b.trigger_objective_marks(p)
+	await b.trigger_objective_marks(p)
 	assert_eq(effect_called.size(), 1, "效果应执行一次")
 	assert_true(mark["triggered"], "应标记为 triggered")
 	# 再次触发不应重复执行
-	b.trigger_objective_marks(p)
+	await b.trigger_objective_marks(p)
 	assert_eq(effect_called.size(), 1, "已触发的标记不应再次执行")
 
 
@@ -364,7 +387,7 @@ func test_trigger_objective_marks_triggers_hook() -> void:
 	var mark: Dictionary = _make_mark("m1")
 	b.add_objective_mark(mark)
 	var p: MockPlayer = MockPlayer.new()
-	b.trigger_objective_marks(p)
+	await b.trigger_objective_marks(p)
 	assert_eq(p.triggers_received, ["on_objective_mark_triggered"], "应触发 on_objective_mark_triggered")
 
 
@@ -375,7 +398,7 @@ func test_trigger_objective_marks_skips_removed() -> void:
 	mark["removed"] = true
 	b.add_objective_mark(mark)
 	var p: MockPlayer = MockPlayer.new()
-	b.trigger_objective_marks(p)
+	await b.trigger_objective_marks(p)
 	assert_eq(effect_called.size(), 0, "已移除的标记不应触发")
 
 

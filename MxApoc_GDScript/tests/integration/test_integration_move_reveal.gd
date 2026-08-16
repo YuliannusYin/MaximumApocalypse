@@ -72,7 +72,7 @@ func test_move_to_unrevealed_block_reveals_it() -> void:
 	Game.players = [p]
 	Game.map_area = [b1, b2]
 	# 移动到未展示地块
-	var result: bool = p.move_to(b2)
+	var result: bool = await p.move_to(b2)
 	assert_true(result, "移动应成功")
 	assert_true(b2.is_revealed(), "目标地块应已展示")
 	assert_eq(p.current_block, b2, "玩家应在 b2")
@@ -96,7 +96,7 @@ func test_move_to_block_with_objective_mark_triggers() -> void:
 	}
 	b2.add_objective_mark(mark)
 	# 移动到 b2
-	p.move_to(b2)
+	await p.move_to(b2)
 	assert_true(mark.get("triggered", false), "目标标记应已触发")
 	assert_eq(triggered.size(), 1, "效果应被调用一次")
 	assert_eq(triggered[0], p, "应传入玩家")
@@ -114,11 +114,11 @@ func test_move_to_cancel_before_enter_rolls_back() -> void:
 	# 添加取消技能：进入地块前取消
 	var cancel_skill: Skill = Skill.new()
 	cancel_skill.trigger = "before_enter_block"
-	cancel_skill.content = func(ev: Dictionary) -> void:
+	cancel_skill.content = func(_p, _t, ev: Dictionary, _g) -> void:
 		EventSystem.cancel(ev)
 	p.add_skill(cancel_skill)
 	# 移动应被取消
-	var result: bool = p.move_to(b2)
+	var result: bool = await p.move_to(b2)
 	assert_false(result, "移动应被取消")
 	assert_eq(p.current_block, b1, "玩家应仍在 b1（回滚）")
 	assert_false(p.has_mark("moved_this_turn"), "不应添加 moved 标记")
@@ -152,7 +152,7 @@ func test_move_to_block_with_monster_mark_sneak_fail_draws_monster() -> void:
 	# 移动到 b2，潜行失败应抽 2 个怪物
 	# 注：sneak_judge 内部用 randi_range，可能成功；这里多次运行取统计
 	# 改为直接验证：失败时怪物标记被清零
-	p.move_to(b2)
+	await p.move_to(b2)
 	# 由于 sneak 值极低，几乎必失败
 	# 怪物标记被移除（无论检定成功失败，失败时移除并抽怪）
 	# 这里只验证不崩溃 + 玩家位置变更

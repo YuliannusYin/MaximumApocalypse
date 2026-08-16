@@ -266,14 +266,14 @@ func test_destroy_map_block_basic() -> void:
 	var b1: MapBlock = _make_block("b1", 0, 0)
 	var b2: MapBlock = _make_block("b2", 1, 0)
 	Game.map_area = [b1, b2]
-	var result: bool = Game.destroy_map_block(b1, null)
+	var result: bool = await Game.destroy_map_block(b1, null)
 	assert_true(result)
 	assert_false(Game.map_area.has(b1))
 	assert_true(b1.is_destroyed())
 
 
 func test_destroy_map_block_null_returns_false() -> void:
-	var result: bool = Game.destroy_map_block(null, null)
+	var result: bool = await Game.destroy_map_block(null, null)
 	assert_false(result)
 
 
@@ -284,7 +284,7 @@ func test_destroy_map_block_cancel_prevents() -> void:
 	var p: Player = _make_player("P")
 	Game.players = [p]
 	p.add_skill(_make_cancel_skill("before_destroy_block"))
-	var result: bool = Game.destroy_map_block(b1, null)
+	var result: bool = await Game.destroy_map_block(b1, null)
 	assert_false(result)
 	assert_true(b1.is_alive())
 	assert_true(Game.map_area.has(b1))
@@ -297,7 +297,7 @@ func test_destroy_map_block_player_popup_to_adjacent() -> void:
 	var p: Player = _make_player("P")
 	Game.players = [p]
 	p.current_block = b1
-	Game.destroy_map_block(b1, null)
+	await Game.destroy_map_block(b1, null)
 	assert_eq(p.current_block, b2)
 
 
@@ -307,7 +307,7 @@ func test_destroy_map_block_no_adjacent_deals_damage() -> void:
 	var p: Player = _make_player("P", 10)
 	Game.players = [p]
 	p.current_block = b1
-	Game.destroy_map_block(b1, null)
+	await Game.destroy_map_block(b1, null)
 	assert_eq(p.hp, 5, "无相邻地块应受 5 点伤害")
 
 
@@ -316,7 +316,7 @@ func test_destroy_map_block_clears_monster_marks() -> void:
 	var b2: MapBlock = _make_block("b2", 1, 0)
 	Game.map_area = [b1, b2]
 	b1.add_monster_mark(3)
-	Game.destroy_map_block(b1, null)
+	await Game.destroy_map_block(b1, null)
 	assert_eq(b1.count_monster_mark(), 0)
 
 
@@ -330,7 +330,7 @@ func test_destroy_map_block_triggers_all_hooks() -> void:
 	p.add_skill(_make_skill_with_trigger("before_destroy_block", called))
 	p.add_skill(_make_skill_with_trigger("on_destroy_block", called))
 	p.add_skill(_make_skill_with_trigger("after_destroy_block", called))
-	Game.destroy_map_block(b1, null)
+	await Game.destroy_map_block(b1, null)
 	assert_eq(called, ["before_destroy_block", "on_destroy_block", "after_destroy_block"])
 
 
@@ -338,7 +338,7 @@ func test_destroy_map_block_triggers_all_hooks() -> void:
 
 func test_remove_card() -> void:
 	var c: Card = _make_card("c1")
-	Game.remove_card(c)
+	await Game.remove_card(c)
 	assert_eq(Game.removed_cards.size(), 1)
 	assert_eq(Game.removed_cards[0], c)
 
@@ -466,7 +466,7 @@ func test_get_step_toward_null_source() -> void:
 func _make_skill_with_trigger(trigger_name: String, called: Array) -> Skill:
 	var s: Skill = Skill.new()
 	s.trigger = trigger_name
-	s.content = func(_ev: Dictionary) -> void:
+	s.content = func(_p, _t, _ev: Dictionary, _g) -> void:
 		called.append(trigger_name)
 	return s
 
@@ -474,6 +474,6 @@ func _make_skill_with_trigger(trigger_name: String, called: Array) -> Skill:
 func _make_cancel_skill(trigger_name: String) -> Skill:
 	var s: Skill = Skill.new()
 	s.trigger = trigger_name
-	s.content = func(ev: Dictionary) -> void:
+	s.content = func(_p, _t, ev: Dictionary, _g) -> void:
 		EventSystem.cancel(ev)
 	return s

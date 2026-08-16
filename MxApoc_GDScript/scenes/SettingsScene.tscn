@@ -1,0 +1,74 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://src/ui/settings_scene.gd" id="1_ss"]
+
+[node name="SettingsScene" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_ss")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.12, 0.12, 0.14, 1)
+
+[node name="Panel" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -220.0
+offset_right = 200.0
+offset_bottom = 220.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 16
+
+[node name="TitleLabel" type="Label" parent="Panel"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "设置"
+horizontal_alignment = 1
+
+[node name="FullscreenCheckBox" type="CheckBox" parent="Panel"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "全屏模式"
+
+[node name="VolumeLabel" type="Label" parent="Panel"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "音量"
+
+[node name="VolumeSlider" type="HSlider" parent="Panel"]
+layout_mode = 2
+min_value = 0.0
+max_value = 100.0
+step = 1.0
+value = 100.0
+
+[node name="SkipTargetCheckBox" type="CheckBox" parent="Panel"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "跳过目标选择"
+
+[node name="TutorialModeCheckBox" type="CheckBox" parent="Panel"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "游戏教程模式"
+
+[node name="BackButton" type="Button" parent="Panel"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "返回"

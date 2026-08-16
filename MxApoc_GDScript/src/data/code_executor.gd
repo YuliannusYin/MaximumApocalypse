@@ -7,8 +7,9 @@ extends RefCounted
 ## 编译失败时降级为 no-op Callable（filter 返回 true，content 无操作）。
 ## 参考模式：addons/gut/dynamic_gdscript.gd
 
-const _FILTER_PREFIX := "extends RefCounted\nfunc _fn(player, target, event, game) -> bool:\n\t"
+const _FILTER_PREFIX := "extends RefCounted\nfunc _fn(player, target, event, game) -> bool:\n"
 const _CONTENT_PREFIX := "extends RefCounted\nfunc _fn(player, target, event, game) -> void:\n"
+const _CONFIRM_PROMPT_PREFIX := "extends RefCounted\nfunc _fn(player, target, event, game) -> String:\n"
 
 
 ## 编译 filter 代码字符串为 Callable。
@@ -17,7 +18,8 @@ const _CONTENT_PREFIX := "extends RefCounted\nfunc _fn(player, target, event, ga
 static func compile_filter(code: String) -> Callable:
 	if code.strip_edges().is_empty():
 		return Callable()
-	var full_code: String = _FILTER_PREFIX + code
+	var indented: String = code.indent("\t")
+	var full_code: String = _FILTER_PREFIX + indented
 	var instance: Object = _compile(full_code)
 	if instance == null:
 		push_warning("CodeExecutor: filter 编译失败，降级为恒真: " + code)
@@ -45,7 +47,8 @@ static func compile_content(code: String) -> Callable:
 static func compile_filter_target(code: String) -> Callable:
 	if code.strip_edges().is_empty() or code.strip_edges() == "true":
 		return Callable()
-	var full_code: String = _FILTER_PREFIX + code
+	var indented: String = code.indent("\t")
+	var full_code: String = _FILTER_PREFIX + indented
 	var instance: Object = _compile(full_code)
 	if instance == null:
 		return _create_noop_filter()
@@ -55,6 +58,21 @@ static func compile_filter_target(code: String) -> Callable:
 ## 编译 filter_card 代码字符串为 Callable。
 static func compile_filter_card(code: String) -> Callable:
 	return compile_filter_target(code)
+
+
+## 编译 confirm_prompt 代码字符串为 Callable。
+## 返回的 Callable 签名: (player, target, event, game) -> String
+## 空字符串返回空 Callable（调用方视为使用默认格式）。
+static func compile_confirm_prompt(code: String) -> Callable:
+	if code.strip_edges().is_empty():
+		return Callable()
+	var indented: String = code.indent("\t")
+	var full_code: String = _CONFIRM_PROMPT_PREFIX + indented
+	var instance: Object = _compile(full_code)
+	if instance == null:
+		push_warning("CodeExecutor: confirm_prompt 编译失败，降级为默认格式: " + code)
+		return Callable()
+	return Callable(instance, "_fn")
 
 
 static var _scripts: Array[GDScript] = []

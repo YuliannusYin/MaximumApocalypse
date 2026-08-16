@@ -34,6 +34,7 @@ $RECYCLE.BIN/
 
 # ---------- 通用构建 / 导出产物 ----------
 build/
+Build/
 dist/
 bin/
 *.zip
@@ -41,6 +42,8 @@ bin/
 *.tar.bz2
 *.7z
 *.rar
+*.exe
+*.pck
 
 # ---------- 日志与临时文件 ----------
 *.log
@@ -48,6 +51,7 @@ logs/
 tmp/
 temp/
 RecycleBin/
+docs/temp*.md
 
 # ---------- 依赖与第三方库 ----------
 node_modules/
