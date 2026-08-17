@@ -31,10 +31,10 @@
           "english_name": "backpack",
           "skill_description": "被动：增加一格角色装备栏。",
           "skill_type": "equipment",
-          "trigger": "on_card_enter_equipment、on_card_leave_equipment",
+          "trigger": "on_equip、on_unequip",
           "filter": "return event.card.english_name == \"backpack\"",
           "forced": true,
-          "content": "if event.trigger_name == \"on_card_enter_equipment\":\n\tplayer.increase_equipment_slot(1)\nelif event.trigger_name == \"on_card_leave_equipment\":\n\tplayer.decrease_equipment_slot(1)"
+          "content": "if event.trigger_name == \"on_equip\":\n\tplayer.increase_equipment_slot(1)\nelif event.trigger_name == \"on_unequip\":\n\tplayer.decrease_equipment_slot(1)"
         }
       ]
     },
@@ -77,7 +77,7 @@
           "select_target": 1,
           "filter_target": "return target != player",
           "filter_target_range": "short",
-          "content": "player.discard(\"bear_trap\", \"equipment\")\ntarget.damage(4, player)"
+          "content": "var weapon = player.get_equipment(\"bear_trap\")\nplayer.discard(\"bear_trap\", \"equipment\")\ntarget.damage(4, player, \"weapon_attack\", weapon.equipment_card)"
         }
       ]
     },
@@ -99,7 +99,7 @@
           "select_target": 1,
           "filter_target": "return target != player",
           "filter_target_range": "medium",
-          "content": "player.consume_action(1)\ntarget.damage(2, player)"
+          "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"bow\")\ntarget.damage(2, player, \"weapon_attack\", weapon.equipment_card)"
         }
       ]
     },
@@ -124,7 +124,7 @@
           "select_target": 1,
           "filter_target": "return target != player",
           "filter_target_range": "medium",
-          "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"fire_arrow\"), 1)\ntarget.damage(4, player)"
+          "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"fire_arrow\")\nplayer.consume_charge(weapon, 1)\ntarget.damage(4, player, \"weapon_attack\", weapon.equipment_card)"
         }
       ]
     },
@@ -146,7 +146,7 @@
           "select_target": 1,
           "filter_target": "return target != player",
           "filter_target_range": "short",
-          "content": "player.consume_action(1)\ntarget.damage(3, player)"
+          "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"machete\")\ntarget.damage(3, player, \"weapon_attack\", weapon.equipment_card)"
         }
       ]
     },
@@ -167,7 +167,8 @@
           "skill_type": "equipment",
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"motorcycle\") > 0",
-          "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"motorcycle\"), 1)\nvar max_steps = 3\nvar steps = 0\nwhile steps < max_steps:\n\tif steps > 0:\n\t\tvar choice = await player.choose([\"继续移动\", \"停止移动\"])\n\t\tif choice == \"停止移动\":\n\t\t\tbreak\n\tvar _candidates = player.get_current_block().get_blocks_in_range(\"medium\")\n\tvar _valid = []\n\tfor _b in _candidates:\n\t\ttarget = _b\n\t\tif target != player.get_current_block():\n\t\t\t_valid.append(_b)\n\t\ttarget = _b\n\tvar _blocks = await player.choose_block_inline(_valid, \"\", 1)\n\ttarget = _blocks[0] if _blocks.size() > 0 else null\n\tvar success = player.move_to(target)\n\tif not success:\n\t\tbreak\n\tsteps += 1"
+          "defer_action_cost": true,
+          "content": "var max_steps = 3\nvar steps = 0\nwhile steps < max_steps:\n\tvar prompt = \"\\\"摩托车\\\": （\" + str(steps + 1) + \"/3）选择目标地图块\"\n\tvar _candidates = player.get_current_block().get_blocks_in_range(\"medium\")\n\tvar _valid = []\n\tfor _b in _candidates:\n\t\ttarget = _b\n\t\tif target != player.get_current_block():\n\t\t\t_valid.append(_b)\n\t\ttarget = _b\n\tvar _blocks = await player.choose_block_inline(_valid, prompt, 1)\n\ttarget = _blocks[0] if _blocks.size() > 0 else null\n\tif target == null:\n\t\tif steps == 0:\n\t\t\tEventSystem.cancel(event)\n\t\t\treturn\n\t\tbreak\n\tif steps == 0:\n\t\tplayer.consume_action(1)\n\t\tawait player.consume_charge(player.get_equipment(\"motorcycle\"), 1)\n\tvar success = await player.move_to(target)\n\tif not success:\n\t\tbreak\n\tsteps += 1"
         }
       ]
     },
@@ -192,7 +193,7 @@
           "select_target": 1,
           "filter_target": "return target != player",
           "filter_target_range": "medium",
-          "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"crossbow\"), 1)\ntarget.damage(3, player)"
+          "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"crossbow\")\nplayer.consume_charge(weapon, 1)\ntarget.damage(3, player, \"weapon_attack\", weapon.equipment_card)"
         }
       ]
     },
@@ -211,7 +212,7 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\"",
           "select_target": 1,
-          "filter_target": "return target.type == \"monster\"",
+          "filter_target": "return target.is_monster()",
           "filter_target_range": "medium",
           "content": "target.damage(1, player)\ntarget.stun(player, \"before_next_turn_start\")"
         }
@@ -247,7 +248,7 @@
           "skill_type": "action",
           "active": "action",
           "filter": "return player.in_phase == \"action\" && game.has_equipment_in_discard_piles()",
-          "content": "var list = game.get_all_discard_pile_equipments()\nvar card = await player.choose_card(list)\ntarget = await player.choose_target({\"select_target\": 1, \"filter_target\": \"return target.type == \\\"human\\\"\", \"filter_target_range\": \"infinity\"})\ntarget.equip(card)"
+          "content": "var list = game.get_all_discard_pile_equipments()\nvar card = await player.choose_card(list)\ntarget = await player.choose_target({\"select_target\": 1, \"filter_target\": \"return target.is_player()\", \"filter_target_range\": \"infinity\"})\ntarget.equip(card)"
         }
       ]
     },
@@ -263,10 +264,10 @@
           "english_name": "camouflage_stealth",
           "skill_description": "被动：角色的潜行值加2。",
           "skill_type": "equipment",
-          "trigger": "on_card_enter_equipment、on_card_leave_equipment",
+          "trigger": "on_equip、on_unequip",
           "filter": "return event.card.english_name == \"camouflage\"",
           "forced": true,
-          "content": "if event.trigger_name == \"on_card_enter_equipment\":\n\tplayer.add_sneak(2)\nelif event.trigger_name == \"on_card_leave_equipment\":\n\tplayer.reduce_sneak(2)"
+          "content": "if event.trigger_name == \"on_equip\":\n\tplayer.add_sneak(2)\nelif event.trigger_name == \"on_unequip\":\n\tplayer.reduce_sneak(2)"
         },
         {
           "skill_name": "迷彩服·弃置",

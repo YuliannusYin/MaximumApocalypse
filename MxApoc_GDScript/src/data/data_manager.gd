@@ -167,15 +167,15 @@ func get_all_survivors() -> Array:
 	return _survivors.values()
 
 
-## 获取可用求生者（player 模式仅返回消防员）。
+## 获取可用求生者（player 模式返回消防员/枪手/猎人/外科医生/机械师）。
 func get_available_survivors() -> Array:
 	if Settings.dev_mode:
 		return get_all_survivors()
+	var playable_ids: Array = ["firefighter", "gunslinger", "hunter", "surgeon", "mechanic"]
 	var result: Array = []
 	for survivor in _survivors.values():
-		if survivor.english_name == "firefighter":
+		if survivor.english_name in playable_ids:
 			result.append(survivor)
-			break
 	return result
 
 

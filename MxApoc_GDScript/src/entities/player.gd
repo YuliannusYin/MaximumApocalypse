@@ -393,7 +393,8 @@ func remove_card(target: Variant, position: String = "", quantity: int = 1) -> v
 		event["cards"].append(src_card)
 		_remove_card_from_zone(card)
 		if Game != null:
-			Game.remove_card(src_card)
+			Game.remove_card(src_card, true)
+			Game.log_message(LogColors.player(player_name) + " 将 " + LogColors.card(src_card.card_name) + " 移出游戏")
 		await trigger("on_remove_card", event)
 	# 3. 销毁牌后
 	await trigger("after_remove_card", event)
@@ -631,14 +632,21 @@ func use_card(card: Card) -> bool:
 			var select_n: int = skill.select_target
 			var targets: Array = []
 			if select_n > 0:
-				targets = await choose_target(select_n, skill)
+				targets = await choose_target(select_n, skill, skill.window_prompt)
 				if targets.is_empty():
+					if deferred:
+						return false  # 延迟消耗的技能：玩家取消选取，牌退回手牌
 					continue  # 玩家取消
 				event["target"] = targets[0]
 				event["targets"] = targets
 			elif select_n == -1:
 				# 自动选取全部合法目标（由 UI 层 _on_choose_target_requested 处理）
-				targets = await choose_target(-1, skill)
+				targets = await choose_target(-1, skill, skill.window_prompt)
+				if targets.is_empty():
+					if deferred:
+						return false
+					else:
+						continue
 				event["target"] = targets[0] if not targets.is_empty() else null
 				event["targets"] = targets
 			# select_card 选牌（若有）
@@ -664,7 +672,11 @@ func use_card(card: Card) -> bool:
 		if not use_logged and Game != null and is_instance_valid(Game):
 			Game.log_message(LogColors.player(player_name) + " 使用了 " + LogColors.card(card.card_name))
 		# 弃牌（在 content 执行后，静默弃置不输出"弃置了"日志）
-		await discard(card, "", 1, "", true)
+		# 若 content 已销毁牌（移出游戏），跳过弃置
+		if Game != null and is_instance_valid(Game) and Game.removed_cards.has(card):
+			pass  # 牌已被 content 销毁，跳过弃置
+		else:
+			await discard(card, "", 1, "", true)
 	# 4. 使用卡牌后
 	await trigger("after_use_card", event)
 	if EventBus != null and is_instance_valid(EventBus):
@@ -861,6 +873,50 @@ func add_charge_to(equipment: Variant, amount: int, type: String) -> void:
 		Game.log_message(LogColors.player(player_name) + " 对 " + LogColors.card(equipment.card_name) + " 填装了 " + str(added) + " 发填充物")
 
 
+## 遍历装备区，累加所有 charge_type 匹配装备的当前填充物数量。
+## 用于"齐射"等卡牌：统计某类填充物（如 ammo）总数。
+func get_total_charge_count(charge_type: String) -> int:
+	var total: int = 0
+	for e in equipment_zone:
+		if e == null or not is_instance_valid(e):
+			continue
+		if e.charge_type == charge_type:
+			total += e.get_charge()
+	return total
+
+
+## 清空装备区内所有 charge_type 匹配装备的填充物。
+## 对每个耗尽的装备触发 on_charge_depleted 事件（与 consume_charge 一致）。
+## 用于"齐射"卡牌：弃掉所有弹药以造成 X×2 伤害。
+## 注意：先收集匹配装备到临时数组，避免迭代中 on_charge_depleted 的技能
+## 弃置装备导致 equipment_zone 变动。
+func clear_charge(charge_type: String) -> void:
+	var matched: Array = []
+	var total: int = 0
+	for e in equipment_zone:
+		if e == null or not is_instance_valid(e):
+			continue
+		if e.charge_type == charge_type:
+			matched.append(e)
+			total += e.get_charge()
+	# 先收集到临时数组，避免迭代中 equipment_zone 变动
+	for e in matched:
+		var num: int = e.get_charge()
+		if num <= 0:
+			continue
+		# 解析来源卡（与 consume_charge 一致）
+		var src_card: Variant = e
+		if e is Equipment and e.equipment_card != null:
+			src_card = e.equipment_card
+		var event: Dictionary = EventSystem.create_consume_charge_event(self, src_card, num)
+		# 清零填充物（直接设置，不经过 consume_charge 的 before/on_consume 取消点）
+		e.charge_current = 0
+		# 触发耗尽事件（可能触发 hollow_point_remove 等弃置武器技能）
+		await trigger("on_charge_depleted", event)
+	if total > 0 and Game != null and is_instance_valid(Game):
+		Game.log_message(LogColors.player(player_name) + " 弃掉了 " + str(total) + " 发 " + charge_type + " 弹药")
+
+
 ## 将装备填充物填满并输出日志。
 func fill_charge_to(equipment: Variant) -> void:
 	if equipment == null or not equipment.has_method("fill_charge"):
@@ -973,10 +1029,12 @@ func start_turn() -> void:
 ## 立即执行一个行动（仅含行动阶段）。
 func execute_action_immediately(num: int = 1) -> void:
 	var saved_phase: String = in_phase
+	var saved_action_count: int = action_count
 	in_phase = "action"
 	action_count = num
 	await wait_player_action()
 	in_phase = saved_phase
+	action_count = saved_action_count
 
 
 # === 十二、底层接口与工具方法 ===
@@ -1040,6 +1098,20 @@ func add_action(n: int) -> void:
 		action_count = 0
 	if Game != null and is_instance_valid(Game):
 		Game.log_message(LogColors.player(player_name) + " 增加了 " + str(n) + " 点行动点数")
+
+
+## 增加 n 点行动次数上限（扣动扳机让我快乐使用）。
+func increase_max_action(n: int) -> void:
+	max_action_count += n
+	if Game != null and is_instance_valid(Game):
+		Game.log_message(LogColors.player(player_name) + " 增加了 " + str(n) + " 点行动次数上限")
+
+
+## 减少 n 点行动次数上限（下限 0）。
+func decrease_max_action(n: int) -> void:
+	max_action_count = maxi(max_action_count - n, 0)
+	if Game != null and is_instance_valid(Game):
+		Game.log_message(LogColors.player(player_name) + " 减少了 " + str(n) + " 点行动次数上限")
 
 
 ## 区域管理
@@ -1210,6 +1282,14 @@ func has_equipment(name: String) -> bool:
 	return false
 
 
+## 装备区是否存在 charge_type == "ammo" 的装备（空尖弹 filter 用）。
+func has_ammo_weapon() -> bool:
+	for e in equipment_zone:
+		if e != null and e.charge_type == "ammo":
+			return true
+	return false
+
+
 ## 判断玩家是否持有指定类型的牌（无参时判断是否有任意牌）。
 func has_card(type: String = "") -> bool:
 	if type == "":
@@ -1260,28 +1340,6 @@ func get_discard_pile() -> Pile:
 	return game_discard_pile
 
 
-## 添加临时技能，在 expire_trigger 触发后自动移除。
-## skill_id 应为预定义的临时技能 ID（如 "energy_drink_satiety"）。
-## 简化实现：硬编码已知临时技能的 content；执行后由闭包自动 remove_skill。
-func add_temp_skill(skill_id: String, expire_trigger: String) -> void:
-	var skill := Skill.new()
-	skill.english_name = skill_id
-	skill.skill_name = skill_id
-	skill.trigger = expire_trigger
-	skill.forced = true
-	# 临时技能 content：硬编码已知临时技能效果，执行后自动移除自己
-	var skill_ref: Skill = skill
-	if skill_id == "energy_drink_satiety":
-		# 能量饮料饱腹 → 取消事件（如取消饥饿伤害）
-		skill.content = func(_player, _target, event: Dictionary, _game) -> void:
-			EventSystem.cancel(event)
-			remove_skill(skill_ref)
-	else:
-		skill.content = func(_player, _target, _event: Dictionary, _game) -> void:
-			remove_skill(skill_ref)
-	skills.append(skill)
-
-
 ## 选择器（委托 input）
 func choose(options: Array, prompt: String = "") -> Variant:
 	return await input.choose(options, prompt)
@@ -1304,8 +1362,8 @@ func choose_card(n: int, param: Variant = "hand", filter: Variant = null) -> Arr
 
 
 ## 选择目标。n 为选择数量（-1 表示全部），skill 为当前技能（含 target_type/filter_target 等）。
-func choose_target(n: int, skill: Variant = null) -> Array:
-	return await input.choose_target(n, skill)
+func choose_target(n: int, skill: Variant = null, prompt: String = "") -> Array:
+	return await input.choose_target(n, skill, prompt)
 
 
 ## 选择目标地块。
@@ -1515,14 +1573,16 @@ func use_active_skill(skill: Skill) -> void:
 		var select_n: int = skill.select_target
 		var targets: Array = []
 		if select_n > 0:
-			targets = await choose_target(select_n, skill)
+			targets = await choose_target(select_n, skill, skill.window_prompt)
 			if targets.is_empty():
 				return  # 玩家取消
 			event["target"] = targets[0]
 			event["targets"] = targets
 		elif select_n == -1:
 			# 自动选取全部合法目标
-			targets = await choose_target(-1, skill)
+			targets = await choose_target(-1, skill, skill.window_prompt)
+			if targets.is_empty():
+				return
 			event["target"] = targets[0] if not targets.is_empty() else null
 			event["targets"] = targets
 	# 3. 卡牌选择
@@ -1605,6 +1665,18 @@ func get_skill_valid_targets(skill: Variant) -> Array:
 				for m in monster_zone:
 					if m != null and is_instance_valid(m):
 						candidates.append(m)
+			# 新增：射程内其他玩家怪物区的怪物（与 game_scene_2d.gd 候选构建逻辑保持一致）
+			if current_block != null and is_instance_valid(current_block):
+				var players_in_range: Array = current_block.get_players_in_range(filter_target_range)
+				for other_player in players_in_range:
+					if other_player == null or not is_instance_valid(other_player):
+						continue
+					if other_player == self:
+						continue  # 自己的怪物区已在上面处理
+					if "monster_zone" in other_player:
+						for m in other_player.monster_zone:
+							if m != null and is_instance_valid(m) and not candidates.has(m):
+								candidates.append(m)
 			# 去重（按实例 id）
 			var seen: Dictionary = {}
 			var deduped: Array = []

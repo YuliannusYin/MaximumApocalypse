@@ -17,7 +17,7 @@
       "active": "action",
       "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
       "select_target": 1,
-      "filter_target": "return target.type == \"human\"",
+      "filter_target": "return target.is_player()",
       "filter_target_range": "short",
       "content": "player.consume_action(1)\ntarget.recover(1)"
     }
@@ -56,7 +56,7 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
           "select_target": 1,
-          "filter_target": "return target.type == \"human\" && target != player",
+          "filter_target": "return target.is_player() && target != player",
           "filter_target_range": "long",
           "content": "player.consume_action(1)\ntarget.pull_toward_one_block_no_effect(player)"
         }
@@ -77,7 +77,7 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\"",
           "select_target": -1,
-          "filter_target": "return target.type == \"monster\"",
+          "filter_target": "return target.is_monster()",
           "filter_target_range": "medium",
           "content": "var list = event.targets\nfor i in list:\n\ti.damage(3, player)"
         }
@@ -101,7 +101,7 @@
           "select_target": 1,
           "filter_target": "return true",
           "filter_target_range": "short",
-          "content": "player.consume_action(1)\ntarget.damage(2, player)"
+          "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"scalpel\")\ntarget.damage(2, player, \"weapon_attack\", weapon.equipment_card)"
         },
         {
           "skill_name": "手术刀·回复",
@@ -150,7 +150,7 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
           "select_target": 1,
-          "filter_target": "return target.type == \"monster\"",
+          "filter_target": "return target.is_monster()",
           "filter_target_range": "medium",
           "content": "player.consume_action(1)\ntarget.stun(player, \"before_next_turn_start\")"
         }
@@ -170,7 +170,7 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\"",
           "select_target": 1,
-          "filter_target": "return target.type == \"human\"",
+          "filter_target": "return target.is_player()",
           "filter_target_range": "infinity",
           "content": "target.recover(6)"
         }
@@ -192,7 +192,7 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
           "select_target": 1,
-          "filter_target": "return target.type == \"human\"",
+          "filter_target": "return target.is_player()",
           "filter_target_range": "short",
           "content": "player.consume_action(1)\nvar choice = await player.choose([\"治疗所有状态效果\", \"降低饥饿等级1点\"])\nif choice == \"治疗所有状态效果\":\n\ttarget.cure_all_status_effects()\nelif choice == \"降低饥饿等级1点\":\n\ttarget.decrease_hunger(1)"
         }
@@ -210,11 +210,12 @@
           "skill_description": "行动：选择一名玩家，该玩家可以立即打出2张牌。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\"",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
           "select_target": 1,
-          "filter_target": "return target.type == \"human\"",
+          "filter_target": "return target.is_player()",
           "filter_target_range": "infinity",
-          "content": "await target.play_card_immediately()\nawait target.play_card_immediately()"
+          "defer_action_cost": true,
+          "content": "player.consume_action(1)\nawait target.play_card_immediately()\nawait target.play_card_immediately()"
         }
       ]
     },
@@ -230,11 +231,12 @@
           "skill_description": "行动：选择一名玩家，该玩家可以立即执行2个行动。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\"",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
           "select_target": 1,
-          "filter_target": "return target.type == \"human\"",
+          "filter_target": "return target.is_player()",
           "filter_target_range": "infinity",
-          "content": "await target.execute_action_immediately(2)"
+          "defer_action_cost": true,
+          "content": "player.consume_action(1)\nawait target.execute_action_immediately(2)"
         }
       ]
     },
@@ -256,7 +258,7 @@
           "select_target": 1,
           "filter_target": "return true",
           "filter_target_range": "short",
-          "content": "player.consume_action(1)\ntarget.damage(3, player)"
+          "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"drill\")\ntarget.damage(3, player, \"weapon_attack\", weapon.equipment_card)"
         }
       ]
     }

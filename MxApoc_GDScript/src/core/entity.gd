@@ -80,14 +80,111 @@ func get_all_skills() -> Array[Skill]:
 	return skills
 
 
+## 判断实体身上是否已挂载指定 english_name 的技能。
+## 用于卡牌 filter 或方法内按 english_name 去重（如"搜索尸体"已挂载 search_corpse_draw 时禁用第二张）。
+func has_skill_by_english_name(english_name: String) -> bool:
+	for s in skills:
+		if s.english_name == english_name:
+			return true
+	return false
+
+
 ## 向实体挂载一个技能。
+## 若该技能含 sub_skills，按 english_name 去重后递归 auto-mount 子技能（持久模式）。
+## 同一 Skill 实例不重复挂载（防止 equip 流程中 auto-mount + 显式 add 重复）。
 func add_skill(skill: Skill) -> void:
+	if skills.has(skill):
+		return
 	skills.append(skill)
+	# auto-mount 子技能（按 english_name 去重）
+	for sub_skill in skill.sub_skills.values():
+		if sub_skill.english_name != "" and has_skill_by_english_name(sub_skill.english_name):
+			continue
+		add_skill(sub_skill)
 
 
 ## 从实体移除一个技能。
+## 若该技能含 sub_skills，递归 auto-unmount 仍挂载在实体上的子技能。
 func remove_skill(skill: Skill) -> void:
 	skills.erase(skill)
+	# auto-unmount 子技能（仍挂载在实体上的）
+	for sub_skill in skill.sub_skills.values():
+		if sub_skill.english_name != "":
+			for s in skills.duplicate():
+				if s.english_name == sub_skill.english_name:
+					remove_skill(s)
+					break
+
+
+## mount-on-use 模式：按 english_name 从全局子技能注册表查找 SkillData，编译为新鲜 Skill 挂载。
+## 与 add_skill 不同：mount_sub_skill 挂载的是"无父"独立技能（如空尖弹/搜索尸体的持久效果）。
+## 按 english_name 去重：已挂载则返回旧 Skill 实例。
+## 注册表中不存在时 push_error 并返回 null。
+func mount_sub_skill(english_name: String) -> Skill:
+	if Game == null or not is_instance_valid(Game):
+		push_error("mount_sub_skill: Game 单例不可用")
+		return null
+	var sub_data: SkillData = Game.get_sub_skill_data(english_name)
+	if sub_data == null:
+		push_error("mount_sub_skill: 注册表中未找到子技能 " + english_name)
+		return null
+	# 去重：已挂载则返回旧实例
+	for s in skills:
+		if s.english_name == english_name:
+			return s
+	# 编译并挂载（add_skill 会自动 auto-mount 其 sub_skills）
+	var new_skill: Skill = Game._create_skill_from_data(sub_data)
+	add_skill(new_skill)
+	return new_skill
+
+
+## 数据驱动临时模式：按 english_name 从全局子技能注册表查找 SkillData，
+## 编译为新鲜 Skill 挂载，在 expire_trigger 触发后清理。
+## - 若 expire_trigger == 子技能自身 trigger：包装 content 为"原 content + remove_skill(self)"
+## - 若 expire_trigger != 子技能自身 trigger：挂载子技能（保留原 trigger+content）+ 另挂载看护 Skill
+##   （english_name=english_name+"_expiry"、trigger=expire_trigger、forced=true、content=移除子技能+移除自身）
+## 替代旧 player.gd 中的硬编码 add_temp_skill 分支。
+func add_temp_skill(english_name: String, expire_trigger: String) -> void:
+	if Game == null or not is_instance_valid(Game):
+		push_error("add_temp_skill: Game 单例不可用")
+		return
+	var sub_data: SkillData = Game.get_sub_skill_data(english_name)
+	if sub_data == null:
+		push_error("add_temp_skill: 注册表中未找到子技能 " + english_name)
+		return
+	# 编译为新鲜 Skill，保留 JSON trigger / forced / filter / content
+	var skill: Skill = Game._create_skill_from_data(sub_data)
+	var skill_ref: Skill = skill
+	if expire_trigger == sub_data.trigger:
+		# 同 trigger：包装 content 为"原 content + remove_skill(self)"
+		var original_content: Callable = skill.content
+		skill.content = func(_player, _target, event: Dictionary, _game) -> void:
+			if original_content.is_valid():
+				await original_content.call(_player, _target, event, _game)
+			_player.remove_skill(skill_ref)
+		# 标记 expiry 名称（去重用）
+		skill.english_name = english_name + "_temp"
+		add_skill(skill)
+	else:
+		# 异 trigger：挂载子技能（保留原 trigger+content）+ 另挂载看护 Skill
+		# 子技能 english_name 保持原样（来自 JSON）
+		add_skill(skill)
+		# 看护 Skill
+		var watcher: Skill = Skill.new()
+		watcher.english_name = english_name + "_expiry"
+		watcher.skill_name = english_name + "_expiry"
+		watcher.trigger = expire_trigger
+		watcher.forced = true
+		var watcher_ref: Skill = watcher
+		watcher.content = func(_player, _target, _event: Dictionary, _game) -> void:
+			# 移除子技能
+			for s in _player.get_all_skills().duplicate():
+				if s.english_name == english_name:
+					_player.remove_skill(s)
+					break
+			# 移除自身
+			_player.remove_skill(watcher_ref)
+		add_skill(watcher)
 
 
 # === 3. 伤害流程（8 节点） ===

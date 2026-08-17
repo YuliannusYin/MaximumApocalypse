@@ -34,7 +34,7 @@
               "trigger": "on_take_damage",
               "forced": true,
               "filter": "return true",
-              "content": "event.cancel()"
+              "content": "EventSystem.cancel(event)"
             }
           }
         }
@@ -213,7 +213,7 @@
           "select_target": 1,
           "filter_target": "return target != player",
           "filter_target_range": "long",
-          "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"m1_garand\"), 1)\ntarget.damage(8, player.veteran)"
+          "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"m1_garand\")\nplayer.consume_charge(weapon, 1)\ntarget.damage(8, player.veteran, \"weapon_attack\", weapon.equipment_card)"
         }
       ]
     },
@@ -235,7 +235,7 @@
           "skill_type": "equipment",
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"mortar\") > 0",
-          "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"mortar\"), 1)\nvar _candidates = player.get_current_block().get_blocks_in_range(\"long\")\nvar _valid = []\nfor _b in _candidates:\n\ttarget = _b\n\tif target.is_revealed():\n\t\t_valid.append(_b)\n\ttarget = _b\nvar _blocks = await player.choose_block_inline(_valid, \"\", 1)\ntarget = _blocks[0] if _blocks.size() > 0 else null\nvar choice = await player.choose([\"移除怪物标记\", \"造成伤害\"])\nif choice == \"移除怪物标记\":\n\ttarget.remove_all_monster_marks()\nelif choice == \"造成伤害\":\n\tvar list = game.get_target(target)\n\tfor i in list:\n\t\ti.damage(6, player.veteran)"
+          "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"mortar\")\nplayer.consume_charge(weapon, 1)\nvar _candidates = player.get_current_block().get_blocks_in_range(\"long\")\nvar _valid = []\nfor _b in _candidates:\n\ttarget = _b\n\tif target.is_revealed():\n\t\t_valid.append(_b)\n\ttarget = _b\nvar _blocks = await player.choose_block_inline(_valid, \"\", 1)\ntarget = _blocks[0] if _blocks.size() > 0 else null\nvar choice = await player.choose([\"移除怪物标记\", \"造成伤害\"])\nif choice == \"移除怪物标记\":\n\ttarget.remove_all_monster_marks()\nelif choice == \"造成伤害\":\n\tvar list = game.get_target(target)\n\tfor i in list:\n\t\ti.damage(6, player.veteran, \"weapon_attack\", weapon.equipment_card)"
         }
       ]
     },
@@ -277,7 +277,7 @@
           "select_target": 1,
           "filter_target": "return target != player",
           "filter_target_range": "medium",
-          "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"luger\"), 1)\ntarget.damage(4, player.veteran)"
+          "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"luger\")\nplayer.consume_charge(weapon, 1)\ntarget.damage(4, player.veteran, \"weapon_attack\", weapon.equipment_card)"
         }
       ]
     },

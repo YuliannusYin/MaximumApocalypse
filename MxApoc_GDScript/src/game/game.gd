@@ -26,6 +26,11 @@ var current_mission: Variant = null  # 可能是 Dictionary 或 Resource，类�
 var removed_cards: Array = []
 var log_list: Array = []
 
+# === 子技能注册表 ===
+# 键为子技能 english_name（全局唯一），值为 SkillData。
+# 由 _create_skill_from_data 在编译父技能时按 english_name 自动注册（递归子技能）。
+var sub_skill_registry: Dictionary = {}
+
 # === 测试用标记（向后兼容，由 state_machine.game_over 同步设置） ===
 var game_over_called: bool = false
 var game_result: String = ""
@@ -330,8 +335,10 @@ func get_target(block: MapBlock) -> Array:
 # === 卡牌管理 ===
 
 ## 将卡牌移出游戏（区别于进入弃牌堆）。
-func remove_card(card: Card) -> void:
+func remove_card(card: Card, silent: bool = false) -> void:
 	removed_cards.append(card)
+	if not silent:
+		log_message(LogColors.card(card.card_name) + " 被移出游戏")
 
 
 ## 获取指定颜色的拾荒牌堆。
@@ -607,7 +614,23 @@ func _create_skill_from_data(skill_data: SkillData) -> Skill:
 	skill.filter_card = CodeExecutor.compile_filter_card(skill_data.filter_card)
 	skill.confirm_prompt = CodeExecutor.compile_confirm_prompt(skill_data.confirm_prompt)
 	skill.defer_action_cost = skill_data.defer_action_cost
+	skill.window_prompt = skill_data.window_prompt
+	# 递归编译子技能
+	for sub_key in skill_data.sub_skills.keys():
+		var sub_skill_data: SkillData = skill_data.sub_skills[sub_key]
+		var sub_skill: Skill = _create_skill_from_data(sub_skill_data)
+		skill.sub_skills[sub_key] = sub_skill
+		# 注册到全局 sub_skill_registry（按 english_name）
+		if sub_skill_data.english_name != "":
+			sub_skill_registry[sub_skill_data.english_name] = sub_skill_data
 	return skill
+
+
+## 从全局子技能注册表查询 SkillData。
+## 子技能由 _create_skill_from_data 在编译父技能时按 english_name 注册。
+## 不存在时返回 null。
+func get_sub_skill_data(english_name: String) -> SkillData:
+	return sub_skill_registry.get(english_name, null)
 
 
 ## 从 SurvivorData 创建 RoleCard 实例。

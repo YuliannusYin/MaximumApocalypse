@@ -65,3 +65,6 @@ addons/*/node_modules/
 credentials.json
 *.pem
 *.key
+
+# ---------- AI agent 本地指引（勿提交） ----------
+AGENT.md

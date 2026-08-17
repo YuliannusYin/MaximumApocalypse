@@ -290,7 +290,7 @@ func _on_card_select_cancelled() -> void:
 
 
 ## 目标选择区（315,120 800×420）：仅选目标时弹出。
-func show_target_select_area(targets: Array, n: int, zone_labels: Array = []) -> void:
+func show_target_select_area(targets: Array, n: int, zone_labels: Array = [], prompt: String = "") -> void:
 	if targets.is_empty():
 		targets_selected.emit([])
 		return
@@ -315,7 +315,7 @@ func show_target_select_area(targets: Array, n: int, zone_labels: Array = []) ->
 		panel.add_child(vbox)
 
 		var title := Label.new()
-		title.text = "选择 %d 个目标" % n
+		title.text = prompt if prompt != "" else "选择 %d 个目标" % n
 		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		title.add_theme_font_size_override("font_size", 14)
 		vbox.add_child(title)
@@ -385,7 +385,7 @@ func show_target_select_area(targets: Array, n: int, zone_labels: Array = []) ->
 		panel.add_child(vbox)
 
 		var title := Label.new()
-		title.text = "选择 %d 个目标" % n
+		title.text = prompt if prompt != "" else "选择 %d 个目标" % n
 		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		title.add_theme_font_size_override("font_size", 14)
 		vbox.add_child(title)
@@ -469,7 +469,7 @@ func show_target_select_area(targets: Array, n: int, zone_labels: Array = []) ->
 	vbox.add_theme_constant_override("separation", 6)
 	panel.add_child(vbox)
 	var title := Label.new()
-	title.text = "选择 %d 个目标" % n
+	title.text = prompt if prompt != "" else "选择 %d 个目标" % n
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 16)
 	vbox.add_child(title)

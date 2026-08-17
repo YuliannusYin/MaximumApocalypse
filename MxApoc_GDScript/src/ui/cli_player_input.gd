@@ -64,7 +64,7 @@ func choose_card(n: int, param: Variant = "hand", filter: Variant = null) -> Arr
 	return []  # 默认不选
 
 
-func choose_target(n: int, skill: Variant = null) -> Array:
+func choose_target(n: int, skill: Variant = null, prompt: String = "") -> Array:
 	if _choose_target_queue.size() > 0:
 		return _choose_target_queue.pop_front()
 	return []

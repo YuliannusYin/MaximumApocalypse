@@ -135,7 +135,8 @@
           "select_target": 1,
           "filter_target": "return target.is_player() && target != player",
           "filter_target_range": "infinity",
-          "content": "player.consume_action(1)\ntarget.execute_action_immediately(1)"
+          "content": "player.consume_action(1)\ntarget.execute_action_immediately(1)",
+          "defer_action_cost": true
         }
       ]
     },

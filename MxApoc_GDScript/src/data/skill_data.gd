@@ -25,6 +25,11 @@ var content: String = ""
 var target_type: String = ""
 var confirm_prompt: String = ""
 var defer_action_cost: bool = false
+var window_prompt: String = ""
+
+## 子技能：键为本地短名（如 "satiety"），值为 SkillData 实例。
+## 由 _init 递归解析 JSON 中的 sub_skills 对象。
+var sub_skills: Dictionary = {}
 
 
 func _init(data: Dictionary = {}) -> void:
@@ -48,3 +53,9 @@ func _init(data: Dictionary = {}) -> void:
 	target_type = data.get("target_type", "")
 	confirm_prompt = data.get("confirm_prompt", "")
 	defer_action_cost = data.get("defer_action_cost", false)
+	window_prompt = data.get("window_prompt", "")
+	# 递归解析 sub_skills
+	var raw_sub: Dictionary = data.get("sub_skills", {})
+	for sub_key in raw_sub.keys():
+		var sub_dict: Dictionary = raw_sub[sub_key]
+		sub_skills[sub_key] = SkillData.new(sub_dict)
