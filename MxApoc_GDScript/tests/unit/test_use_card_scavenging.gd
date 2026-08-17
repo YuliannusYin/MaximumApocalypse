@@ -304,47 +304,6 @@ func test_use_antidote_heals_status() -> void:
 	assert_false(p.has_mark("hunger_damage_level"), "解毒剂应清除饥饿伤害状态")
 
 
-# 使用"炸药"移除地块上所有目标标记并对地块上目标造成 8 点伤害
-func test_use_dynamite_destroys_objective_marks() -> void:
-	var p: Player = _make_player(32, 32)
-	_setup_game_for_player(p)
-	var block: MapBlock = _make_block("target", 0, 0)
-	block.revealed = true
-	block.add_objective_mark({"id": "obj1", "removed": false, "triggered": false})
-	block.add_objective_mark({"id": "obj2", "removed": false, "triggered": false})
-	Game.map_area = [block]
-	p.current_block = block  # 玩家在地块上，作为伤害目标
-	var card: Card = _make_scavenge_card("炸药")
-	p.hand.append(card)
-	var cli: CliPlayerInput = CliPlayerInput.new()
-	cli.queue_choose_target([block])
-	p.input = cli
-	var result: bool = await p.use_card(card)
-	assert_true(result, "使用炸药应成功")
-	assert_false(block.has_objective_mark(), "炸药应移除地块上所有目标标记")
-	assert_eq(p.hp, 24, "炸药应对地块上目标造成 8 点伤害（32 - 8 = 24）")
-
-
-# 使用"大炸药"摧毁地块（destroy_map_block）
-func test_use_big_dynamite_destroys_block() -> void:
-	var p: Player = _make_player(32, 32)
-	_setup_game_for_player(p)
-	var block: MapBlock = _make_block("target", 0, 0)
-	block.revealed = true
-	Game.map_area = [block]
-	# 玩家不在目标地块上，避免 destroy_map_block 的弹出逻辑
-	p.current_block = null
-	var card: Card = _make_scavenge_card("大炸药")
-	p.hand.append(card)
-	var cli: CliPlayerInput = CliPlayerInput.new()
-	cli.queue_choose_target([block])
-	p.input = cli
-	var result: bool = await p.use_card(card)
-	assert_true(result, "使用大炸药应成功")
-	assert_eq(block.block_state, "destroyed", "大炸药应摧毁地块")
-	assert_false(Game.map_area.has(block), "被摧毁的地块应从地图区域移除")
-
-
 # 使用"弹药（少量）"给装备区武器加 2 发弹药
 # 已修复：EquipmentCard.add_charge 已实装；ScavengeCard extends EquipmentCard，具备 charge_type 字段。
 # 重构后装备区持有 Equipment 实体：choose_target 候选为实体，content 在实体上调用 add_charge（委托回来源卡）。

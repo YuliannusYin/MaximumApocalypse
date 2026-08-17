@@ -18,6 +18,7 @@
           "filter": "return player.in_phase == \"action\"",
           "select_target": 1,
           "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\" && target.charge_current < target.charge_max",
+          "window_prompt": "\"弹药（少量）\": 选择要填装的武器",
           "content": "player.add_charge_to(target, 2, \"ammo\")"
         }
       ]
@@ -38,6 +39,7 @@
           "filter": "return player.in_phase == \"action\"",
           "select_target": 1,
           "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\" && target.charge_current < target.charge_max",
+          "window_prompt": "\"弹药（半盒）\": 选择要填装的武器",
           "content": "player.add_charge_to(target, 3, \"ammo\")"
         }
       ]
@@ -58,6 +60,7 @@
           "filter": "return player.in_phase == \"action\"",
           "select_target": 1,
           "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\" && target.charge_current < target.charge_max",
+          "window_prompt": "\"弹药（足量）\": 选择要填装的武器",
           "content": "player.add_charge_to(target, 4, \"ammo\")"
         }
       ]
@@ -78,6 +81,7 @@
           "filter": "return player.in_phase == \"action\"",
           "select_target": 1,
           "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\" && target.charge_current < target.charge_max",
+          "window_prompt": "\"弹药（大量）\": 选择要填装的武器",
           "content": "player.add_charge_to(target, 5, \"ammo\")"
         }
       ]
@@ -97,6 +101,7 @@
           "filter": "return player.in_phase == \"action\"",
           "select_target": 1,
           "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\" && target.charge_current < target.charge_max",
+          "window_prompt": "\"弹药（整盒）\": 选择要填装的武器",
           "content": "player.fill_charge_to(target)"
         }
       ]
@@ -159,6 +164,7 @@
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"pistol\") > 0",
           "select_target": 1,
           "filter_target": "return target != player",
+          "window_prompt": "\"手枪\": 选择攻击目标",
           "filter_target_range": "medium",
           "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"pistol\"), 1)\ntarget.damage(2, player)"
         }
@@ -195,6 +201,7 @@
           "skill_type": "equipment",
           "trigger": "before_draw_scavenge_card",
           "filter": "return true",
+          "window_prompt": "\"手电筒\": 选择保留的牌",
           "forced": true,
           "content": "EventSystem.cancel(event)\nvar pile = event[\"pile\"]\nvar top_two = []\nwhile top_two.size() < 2 and not pile.is_empty():\n\ttop_two.append(pile.draw())\nif top_two.size() == 0:\n\treturn\nif top_two.size() == 1:\n\tgame.log_message(LogColors.player(player.player_name) + \" 从拾荒牌堆获得了 \" + LogColors.card(top_two[0].card_name) + \"（牌堆不足 2 张）\")\n\tawait player.draw_scavenge_card(top_two[0], pile, event)\n\treturn\nvar names = []\nfor c in top_two:\n\tnames.append(c.card_name)\ngame.log_message(LogColors.player(player.player_name) + \" 展示了拾荒牌堆顶 2 张牌: \" + \", \".join(names))\nvar chosen = await player.choose_card(1, top_two)\nvar keep = top_two[0]\nif chosen.size() > 0:\n\tkeep = chosen[0]\ngame.log_message(LogColors.player(player.player_name) + \" 保留了 \" + LogColors.card(keep.card_name))\nawait player.draw_scavenge_card(keep, pile, event)\nfor card in top_two:\n\tif card != keep:\n\t\tpile.put_bottom(card)\n\t\tgame.log_message(LogColors.player(player.player_name) + \" 将 \" + LogColors.card(card.card_name) + \" 置于拾荒牌堆底\")"
         }

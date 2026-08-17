@@ -37,6 +37,19 @@ func _make_equipment(name: String = "test_equip") -> EquipmentCard:
 	return e
 
 
+## 创建一张非弹药类装备牌（用于 has_ammo_weapon 的 false 用例）。
+func _make_non_ammo_equipment(name: String = "test_armor") -> EquipmentCard:
+	var e: EquipmentCard = EquipmentCard.new()
+	e.card_name = name
+	e.card_type = "equipment"
+	e.card_subtype = "equipment"
+	e.source = "game"
+	e.charge_type = ""
+	e.charge_max = 0
+	e.charge_current = 0
+	return e
+
+
 func _make_scavenge_card(name: String = "test_scavenge", color: String = "blue") -> ScavengeCard:
 	var c: ScavengeCard = ScavengeCard.new()
 	c.card_name = name
@@ -124,6 +137,19 @@ func before_each() -> void:
 
 func after_each() -> void:
 	_clear_game()
+
+
+## 探针 input：记录 choose_target 调用参数（用于验证 prompt 传递）。
+class _ChooseTargetSpyInput extends CliPlayerInput:
+	var last_n: int = -1
+	var last_skill: Variant = null
+	var last_prompt: String = "__UNSET__"
+
+	func choose_target(n: int, skill: Variant = null, prompt: String = "") -> Array:
+		last_n = n
+		last_skill = skill
+		last_prompt = prompt
+		return await super.choose_target(n, skill, prompt)
 
 
 # === 1. 默认字段与 _init ===
@@ -1149,3 +1175,154 @@ func test_record_scientist_info() -> void:
 	Game.mission_config = mc
 	p.record_scientist_info()
 	assert_true(mc.mission_state.get("scientist_info_recorded", false), "应记录科学家信息")
+
+
+# === max_action 方法 ===
+
+# 测试 1: increase_max_action 存在且正确增加 max_action_count
+func test_increase_max_action_increases_max_action_count() -> void:
+	var p: Player = _make_player()
+	_setup_game_for_player(p)
+	assert_eq(p.max_action_count, 4, "初始 max_action_count 应为 4")
+	p.increase_max_action(2)
+	assert_eq(p.max_action_count, 6, "increase_max_action(2) 后 max_action_count 应为 6")
+
+
+# 测试 2: decrease_max_action 存在且正确减少 max_action_count
+func test_decrease_max_action_decreases_max_action_count() -> void:
+	var p: Player = _make_player()
+	_setup_game_for_player(p)
+	assert_eq(p.max_action_count, 4, "初始 max_action_count 应为 4")
+	p.decrease_max_action(2)
+	assert_eq(p.max_action_count, 2, "decrease_max_action(2) 后 max_action_count 应为 2")
+
+
+# 测试 3: decrease_max_action 下限为 0（不会变负数）
+func test_decrease_max_action_floored_at_zero() -> void:
+	var p: Player = _make_player()
+	_setup_game_for_player(p)
+	p.decrease_max_action(10)
+	assert_eq(p.max_action_count, 0, "decrease_max_action(10) 后 max_action_count 应为 0（下限）")
+
+
+# 测试 4: increase_max_action 与 decrease_max_action 配合还原
+func test_increase_then_decrease_restores_value() -> void:
+	var p: Player = _make_player()
+	_setup_game_for_player(p)
+	var original: int = p.max_action_count
+	p.increase_max_action(2)
+	p.decrease_max_action(2)
+	assert_eq(p.max_action_count, original, "increase(2) + decrease(2) 应还原原值")
+
+
+# === Merged mechanism tests (from cleanup) ===
+
+# 测试: player.choose_target 接受 prompt 参数并传递给 input
+func test_player_choose_target_passes_prompt_to_input() -> void:
+	var p: Player = _make_player()
+	_setup_game_for_player(p)
+	var spy: _ChooseTargetSpyInput = _ChooseTargetSpyInput.new()
+	# 队列注入一个空数组作为返回值，避免阻塞
+	spy.queue_choose_target([])
+	p.input = spy
+	var _r: Array = await p.choose_target(1, null, "测试 prompt 文本")
+	assert_eq(spy.last_prompt, "测试 prompt 文本", "choose_target 应将 prompt 传递给 input")
+	assert_eq(spy.last_n, 1, "choose_target 应将 n 传递给 input")
+
+
+# 测试: player.choose_target 的 prompt 参数默认为空字符串
+func test_player_choose_target_prompt_defaults_empty() -> void:
+	var p: Player = _make_player()
+	_setup_game_for_player(p)
+	var spy: _ChooseTargetSpyInput = _ChooseTargetSpyInput.new()
+	spy.queue_choose_target([])
+	p.input = spy
+	var _r: Array = await p.choose_target(1)
+	assert_eq(spy.last_prompt, "", "未传 prompt 时应默认为空字符串")
+
+
+# 测试: choose_target 接受 Dictionary 类型的 skill 参数（不崩溃）
+func test_choose_target_accepts_dictionary_skill_config() -> void:
+	var p: Player = _make_player()
+	_setup_game_for_player(p)
+	var cli: CliPlayerInput = CliPlayerInput.new()
+	cli.queue_choose_target([])
+	p.input = cli
+	var config: Dictionary = {
+		"filter_target_range": "long",
+		"filter_target": "return target != player"
+	}
+	# 应正常返回，不崩溃
+	var result: Array = await p.choose_target(1, config, "测试 Dictionary 配置")
+	assert_eq(result.size(), 0, "CLI 队列注入空数组时应返回空数组")
+
+
+# 测试: 装备区有弹药武器时返回 true
+func test_has_ammo_weapon_true() -> void:
+	var p: Player = _make_player()
+	_setup_game_for_player(p)
+	var weapon: EquipmentCard = _make_equipment("手枪")
+	await p.equip(weapon)
+	assert_true(p.has_ammo_weapon(), "装备区有弹药武器时应返回 true")
+
+
+# 测试: 装备区无弹药武器时返回 false
+func test_has_ammo_weapon_false_no_ammo() -> void:
+	var p: Player = _make_player()
+	_setup_game_for_player(p)
+	var armor: EquipmentCard = _make_non_ammo_equipment("护甲")
+	await p.equip(armor)
+	assert_false(p.has_ammo_weapon(), "装备区无弹药武器时应返回 false")
+
+
+# 测试: 空装备区时返回 false
+func test_has_ammo_weapon_false_empty() -> void:
+	var p: Player = _make_player()
+	_setup_game_for_player(p)
+	assert_false(p.has_ammo_weapon(), "空装备区时应返回 false")
+
+
+# 测试: remove_card 输出玩家销毁详细日志（不输出兜底日志）
+func test_remove_card_logs_player_destroy_message() -> void:
+	var p: Player = _make_player()
+	_setup_game_for_player(p)
+	Game.log_list = []
+	var c: Card = _make_card("测试牌")
+	p.hand.append(c)
+	await p.remove_card(c)
+	# 详细日志应包含 "TestPlayer" + "将" + "测试牌" + "移出游戏"
+	assert_true(
+		Game.log_list.any(func(l): return l.contains("TestPlayer") and l.contains("将") and l.contains("测试牌") and l.contains("移出游戏")),
+		"应输出玩家销毁详细日志：TestPlayer 将 测试牌 移出游戏"
+	)
+	# 不应出现兜底日志（"被移出游戏" + "测试牌"）
+	assert_false(
+		Game.log_list.any(func(l): return l.contains("被移出游戏") and l.contains("测试牌")),
+		"不应输出兜底销毁日志（玩家销毁日志已输出，silent 传递至 Game.remove_card）"
+	)
+
+
+# 测试: Game.remove_card 默认输出兜底日志
+func test_game_remove_card_fallback_log() -> void:
+	Game.log_list = []
+	var card: Card = Card.new()
+	card.card_name = "测试牌"
+	await Game.remove_card(card)
+	assert_true(
+		Game.log_list.any(func(l): return l.contains("测试牌") and l.contains("被移出游戏")),
+		"默认调用应输出兜底日志：测试牌 被移出游戏"
+	)
+	assert_true(Game.removed_cards.has(card), "卡牌应进入 removed_cards")
+
+
+# 测试: Game.remove_card silent=true 不输出日志
+func test_game_remove_card_silent_no_log() -> void:
+	Game.log_list = []
+	var card: Card = Card.new()
+	card.card_name = "测试牌"
+	await Game.remove_card(card, true)
+	assert_false(
+		Game.log_list.any(func(l): return l.contains("被移出游戏")),
+		"silent=true 时不应输出兜底销毁日志"
+	)
+	assert_true(Game.removed_cards.has(card), "卡牌应进入 removed_cards（数据行为保留）")
