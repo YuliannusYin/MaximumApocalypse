@@ -106,6 +106,7 @@
           "usable": -1,
           "filter": "return player.in_phase == \"action\"",
           "filter_target": "return target != null && target.has_method(\"get_charge\") && target.get(\"charge_type\") == \"fuel\" && target.get_charge() < target.get(\"charge_max\")",
+          "window_prompt": "\"加油\": 选择未满的燃料装备",
           "content": "player.fill_charge_to(target)\nvar fuel_to_discard = null\nfor e in player.equipment_zone:\n\tif e.get(\"english_name\") == \"fuel\":\n\t\tfuel_to_discard = e\n\t\tbreak\nif fuel_to_discard != null:\n\tawait player.discard(fuel_to_discard)"
         }
       ]

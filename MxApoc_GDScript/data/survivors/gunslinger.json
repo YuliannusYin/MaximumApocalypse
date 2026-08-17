@@ -125,6 +125,7 @@
           "filter": "return player.in_phase == \"action\" && player.get_total_charge_count(\"ammo\") > 0",
           "filter_target": "return target != player",
           "select_target": 1,
+          "window_prompt": "\"齐射\": 选择攻击目标",
           "filter_target_range": "medium",
           "defer_action_cost": true,
           "content": "player.consume_action(1)\nvar num = player.get_total_charge_count(\"ammo\")\nawait player.clear_charge(\"ammo\")\nfor i in range(num):\n\ttarget.damage(2, player)"
@@ -147,6 +148,7 @@
           "filter": "return player.in_phase == \"action\"",
           "filter_target": "return target != player",
           "select_target": 1,
+          "window_prompt": "\"手榴弹\": 选择攻击目标",
           "filter_target_range": "medium",
           "defer_action_cost": true,
           "content": "player.consume_action(1)\ntarget.damage(5, player)\nvar list = game.get_target(target.get_current_block())\nfor i in list:\n\tif i != target:\n\t\ti.damage(3, player)"
@@ -203,6 +205,7 @@
           "filter": "return player.in_phase == \"action\"",
           "select_target": 1,
           "filter_target": "return target.is_monster()",
+          "window_prompt": "\"套索\": 选择攻击目标",
           "filter_target_range": "medium",
           "defer_action_cost": true,
           "content": "player.consume_action(1)\ntarget.stun(player, \"before_next_turn_start\")\ntarget.change_engaged_target(player)"
@@ -224,6 +227,7 @@
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
           "select_target": 1,
           "filter_target": "return target.is_player() && target != player",
+          "window_prompt": "\"战术领导力\": 选择目标玩家",
           "filter_target_range": "infinity",
           "defer_action_cost": true,
           "content": "player.consume_action(1)\ntarget.execute_action_immediately(1)"
@@ -269,6 +273,7 @@
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"colt_pistol\") > 0",
           "select_target": 1,
           "filter_target": "return target != player",
+          "window_prompt": "\"柯尔特手枪\": 选择攻击目标",
           "filter_target_range": "medium",
           "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"colt_pistol\")\nplayer.consume_charge(weapon, 1)\ntarget.damage(2, player, \"weapon_attack\", weapon.equipment_card)"
         }
@@ -344,15 +349,16 @@
         {
           "skill_name": "左轮手枪",
           "english_name": "revolver",
-          "skill_description": "行动：对一个目标造成3点伤害，然后你可以再花费一个弹药来攻击另一个目标。",
+          "skill_description": "行动：对一个目标造成3点伤害，然后你可以再消耗一枚弹药再次攻击一个目标。",
           "range": "medium",
           "skill_type": "equipment",
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"revolver\") > 0",
           "select_target": 1,
           "filter_target": "return target != player",
+          "window_prompt": "\"左轮手枪\": 选择攻击目标",
           "filter_target_range": "medium",
-          "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"revolver\")\nplayer.consume_charge(weapon, 1)\ntarget.damage(3, player, \"weapon_attack\", weapon.equipment_card)\nif player.get_charge_count(\"revolver\") > 0 && await player.choose([\"继续攻击\", \"停止\"]) == \"继续攻击\":\n\tvar target2 = player.choose_target({\"select_target\": 1, \"filter_target\": \"return target2 != target\", \"filter_target_range\": \"medium\"})\n\tplayer.consume_charge(weapon, 1)\n\ttarget2.damage(3, player, \"weapon_attack\", weapon.equipment_card)"
+          "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"revolver\")\nawait player.consume_charge(weapon, 1)\nawait target.damage(3, player, \"weapon_attack\", weapon.equipment_card)\nif player.get_charge_count(\"revolver\") > 0:\n\tvar _selected = await player.choose_target(1, {\"filter_target_range\": \"medium\", \"filter_target\": \"return target != player\"}, \"\\\"左轮手枪\\\": 额外消耗弹药再次攻击\")\n\tif not _selected.is_empty():\n\t\tvar target2 = _selected[0]\n\t\tawait player.consume_charge(weapon, 1)\n\t\tawait target2.damage(3, player, \"weapon_attack\", weapon.equipment_card)"
         }
       ]
     }

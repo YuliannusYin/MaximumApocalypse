@@ -48,6 +48,61 @@ func _make_skill_with_trigger(trigger_name: String, called: Array) -> Skill:
 	return s
 
 
+func _make_player(player_name: String = "测试玩家", hp: int = 28, max_hp: int = 28) -> Player:
+	var p: Player = Player.new()
+	p.player_name = player_name
+	p.hp = hp
+	p.max_hp = max_hp
+	p.game_deck = Pile.new()
+	p.game_discard_pile = Pile.new()
+	p.in_phase = "action"
+	p.action_count = 2
+	return p
+
+
+## 多玩家场景下初始化 Game 单例。
+func _setup_game_for_players(players: Array) -> void:
+	Game.players = players
+	Game.map_area = []
+	Game.monster_pile = Pile.new()
+	Game.monster_discard_pile = Pile.new()
+	Game.scavenge_discard_pile = Pile.new()
+	Game.red_scavenge_pile = Pile.new()
+	Game.green_scavenge_pile = Pile.new()
+	Game.blue_scavenge_pile = Pile.new()
+	Game.coop_death_mode = false
+	Game.mission_config = null
+	Game.removed_cards = []
+	Game.game_over_called = false
+	Game.game_result = ""
+	Game.log_list = []
+	Game.sub_skill_registry = {}
+	if Game.state_machine != null and is_instance_valid(Game.state_machine):
+		Game.state_machine.init()
+
+
+## 判断 Game.log_list 中是否存在同时包含全部给定子串的日志条目。
+func _log_contains_all(substrings: Array) -> bool:
+	for l in Game.log_list:
+		var all_match: bool = true
+		for s in substrings:
+			if not l.contains(s):
+				all_match = false
+				break
+		if all_match:
+			return true
+	return false
+
+
+## 统计 Game.log_list 中包含 "纠缠了" 的条目数。
+func _count_entangle_logs() -> int:
+	var count: int = 0
+	for l in Game.log_list:
+		if l.contains("纠缠了"):
+			count += 1
+	return count
+
+
 # === 1. 默认字段 ===
 
 func test_default_fields() -> void:
@@ -266,6 +321,58 @@ func test_change_engaged_target_emits_signal() -> void:
 	EventBus.monster_engaged_target_changed.get_connections().map(
 		func(c): EventBus.monster_engaged_target_changed.disconnect(c.callable)
 	)
+
+
+# === 6.1 change_engaged_target 输出"纠缠了"日志 ===
+
+# 怪物 M 原 attack_target = B，调用 change_engaged_target(A) 后：
+# - Game.log_list 应包含 "<M 名> 纠缠了 <A 名>" 日志（颜色标签内含怪物名/玩家名）
+# - M.attack_target 应为 A
+# - M 应在 A.monster_zone，不在 B.monster_zone
+func test_change_engaged_target_logs_entangle_message() -> void:
+	var pa: Player = _make_player("玩家A")
+	var pb: Player = _make_player("玩家B")
+	_setup_game_for_players([pa, pb])
+	var m: Monster = _make_monster()
+	m.attack_target = pb
+	pb.monster_zone.append(m)
+	# 清空日志
+	Game.log_list = []
+	# 调用 change_engaged_target(A)
+	m.change_engaged_target(pa)
+	# 日志应包含 "测试怪物 纠缠了 玩家A"（颜色标签内含怪物名/玩家名）
+	assert_true(
+		_log_contains_all(["测试怪物", "纠缠了", "玩家A"]),
+		"应输出 '测试怪物 纠缠了 玩家A' 日志，实际日志: " + str(Game.log_list)
+	)
+	# 攻击目标与怪物区应正确更新
+	assert_eq(m.attack_target, pa, "M.attack_target 应为 A")
+	assert_true(pa.monster_zone.has(m), "M 应在 A.monster_zone")
+	assert_false(pb.monster_zone.has(m), "M 应不在 B.monster_zone")
+
+
+# === 6.2 change_engaged_target 重复调用不重复输出日志 ===
+
+# 紧接上场景：M 已纠缠 A，再次调用 change_engaged_target(A)（目标未变），
+# 不应再次输出 "纠缠了" 日志（target == old_target 跳过日志）。
+func test_change_engaged_target_no_duplicate_log() -> void:
+	var pa: Player = _make_player("玩家A")
+	var pb: Player = _make_player("玩家B")
+	_setup_game_for_players([pa, pb])
+	var m: Monster = _make_monster()
+	m.attack_target = pb
+	pb.monster_zone.append(m)
+	# 第一次调用：应输出 1 条日志
+	m.change_engaged_target(pa)
+	var first_count: int = _count_entangle_logs()
+	assert_eq(first_count, 1, "第一次调用应输出 1 条 '纠缠了' 日志")
+	# 清空日志，再次调用同一目标：不应再输出
+	Game.log_list = []
+	m.change_engaged_target(pa)
+	assert_eq(_count_entangle_logs(), 0, "目标未变时不应再输出 '纠缠了' 日志")
+	# M 仍应纠缠 A
+	assert_eq(m.attack_target, pa, "M.attack_target 应仍为 A")
+	assert_true(pa.monster_zone.has(m), "M 应仍在 A.monster_zone")
 
 
 # === 7. MonsterCard.instantiate ===
