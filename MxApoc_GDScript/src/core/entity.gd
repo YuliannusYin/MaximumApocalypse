@@ -9,6 +9,9 @@ extends RefCounted
 ## 挂载在该实体上的所有技能（角色固有/装备/地块/临时）
 var skills: Array[Skill] = []
 
+## 实体上的标记集合。Dictionary[String, Mark]，键 = 标记名，值 = Mark 对象。
+var marks: Dictionary = {}
+
 
 # === 1. 事件触发 ===
 
@@ -185,6 +188,134 @@ func add_temp_skill(english_name: String, expire_trigger: String) -> void:
 			# 移除自身
 			_player.remove_skill(watcher_ref)
 		add_skill(watcher)
+
+
+# === Mark 管理 ===
+
+## 添加或更新计数型 mark。mark_text 为空时默认用 name。
+## 若 mark 已存在且 mark_text/mark_content 非空，更新对应字段。
+func add_mark(name: String, quantity: int = 1, mark_text: String = "", mark_content: String = "", visible: bool = true) -> void:
+	var existing_mark: Mark = marks.get(name, null)
+	if existing_mark == null:
+		var new_mark: Mark = Mark.new()
+		new_mark.name = name
+		new_mark.mark_text = mark_text if mark_text != "" else name
+		new_mark.mark_content = mark_content
+		new_mark.visible = visible
+		new_mark.count = quantity
+		marks[name] = new_mark
+		if EventBus != null and is_instance_valid(EventBus):
+			EventBus.mark_added.emit(self, new_mark)
+	else:
+		existing_mark.count += quantity
+		if mark_text != "":
+			existing_mark.mark_text = mark_text
+		if mark_content != "":
+			existing_mark.mark_content = mark_content
+		existing_mark.visible = visible
+		if EventBus != null and is_instance_valid(EventBus):
+			EventBus.mark_changed.emit(self, existing_mark)
+
+## 移除指定 mark。
+func remove_mark(name: String) -> void:
+	if marks.has(name):
+		marks.erase(name)
+		if EventBus != null and is_instance_valid(EventBus):
+			EventBus.mark_removed.emit(self, name)
+
+## 返回 mark 的 count 值（不存在返回 0）。
+func count_mark(name: String) -> int:
+	var m: Mark = marks.get(name, null)
+	if m == null:
+		return 0
+	return m.count
+
+## 判断 mark 是否存在。
+func has_mark(name: String) -> bool:
+	return marks.has(name)
+
+## 返回 Mark 对象（不存在返回 null）。
+func get_mark(name: String) -> Mark:
+	return marks.get(name, null)
+
+## 向 mark 的 items 集合添加元素。若 mark 不存在则创建。
+func add_mark_item(name: String, item: Variant, mark_text: String = "", mark_content: String = "", visible: bool = true) -> void:
+	var existing_mark: Mark = marks.get(name, null)
+	if existing_mark == null:
+		var new_mark: Mark = Mark.new()
+		new_mark.name = name
+		new_mark.mark_text = mark_text if mark_text != "" else name
+		new_mark.mark_content = mark_content
+		new_mark.visible = visible
+		new_mark.items.append(item)
+		marks[name] = new_mark
+		if EventBus != null and is_instance_valid(EventBus):
+			EventBus.mark_added.emit(self, new_mark)
+	else:
+		if mark_text != "":
+			existing_mark.mark_text = mark_text
+		if mark_content != "":
+			existing_mark.mark_content = mark_content
+		existing_mark.visible = visible
+		existing_mark.items.append(item)
+		if EventBus != null and is_instance_valid(EventBus):
+			EventBus.mark_changed.emit(self, existing_mark)
+
+## 从 items 移除指定元素。
+func remove_mark_item(name: String, item: Variant) -> void:
+	var m: Mark = marks.get(name, null)
+	if m == null:
+		return
+	m.items.erase(item)
+	if EventBus != null and is_instance_valid(EventBus):
+		EventBus.mark_changed.emit(self, m)
+
+## 返回 items 列表（不存在返回空数组）。
+func get_mark_items(name: String) -> Array:
+	var m: Mark = marks.get(name, null)
+	if m == null:
+		return []
+	return m.items
+
+## 清零 count（不移除 mark 本身）。
+func clear_mark_count(name: String) -> void:
+	var m: Mark = marks.get(name, null)
+	if m == null:
+		return
+	m.count = 0
+	if EventBus != null and is_instance_valid(EventBus):
+		EventBus.mark_changed.emit(self, m)
+
+## 清空 items。
+func clear_mark_items(name: String) -> void:
+	var m: Mark = marks.get(name, null)
+	if m == null:
+		return
+	m.items.clear()
+	if EventBus != null and is_instance_valid(EventBus):
+		EventBus.mark_changed.emit(self, m)
+
+## 判断是否持有某标记技能（等价 has_mark）。
+func has_mark_skill(name: String) -> bool:
+	return has_mark(name)
+
+## 添加标记技能，在 expire_trigger 触发后自动移除标记。
+## 支持 mark_text/mark_content/visible 内联传参。
+func add_mark_skill(name: String, n: int = 1, expire_trigger: String = "", mark_text: String = "", mark_content: String = "", visible: bool = true) -> void:
+	add_mark(name, n, mark_text, mark_content, visible)
+	if expire_trigger == "":
+		return
+	var skill := Skill.new()
+	skill.english_name = name + "_mark_expire"
+	skill.skill_name = name + "_mark_expire"
+	skill.trigger = expire_trigger
+	skill.forced = true
+	var mark_name: String = name
+	var skill_ref: Skill = skill
+	skill.content = func(_player, _target, _event: Dictionary, _game) -> void:
+		_player.remove_mark(mark_name)
+		_player.remove_skill(skill_ref)
+	skills.append(skill)
 
 
 # === 3. 伤害流程（8 节点） ===

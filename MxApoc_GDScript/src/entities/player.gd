@@ -29,10 +29,6 @@ var current_block = null  # MapBlock
 var seat_number: int = 0
 var player_name: String = ""
 
-# === 标记系统 ===
-# Dictionary[String, int]：键 = 标记名，值 = 计数
-var marks: Dictionary = {}
-
 # === 输入接口 ===
 var input: IPlayerInput = null
 
@@ -111,12 +107,14 @@ func increase_hunger(num: int) -> void:
 				# 刚达到 6：翻面 + 添加饥饿伤害标记
 				if role_card != null and role_card.is_front():
 					role_card.flip()
-				add_mark("hunger_damage_level", 1)
+				var _new_hunger_level: int = count_mark("hunger_damage_level") + 1
+				add_mark("hunger_damage_level", 1, "饥饿", "饥饿伤害等级" + str(_new_hunger_level) + ", 饥饿结算时受到 " + str(_new_hunger_level * 2) + "点饥饿伤害")
 		elif hunger == 6:
 			# 已在 6：叠加标记
 			if role_card != null and role_card.is_front():
 				role_card.flip()
-			add_mark("hunger_damage_level", 1)
+			var _new_hunger_level: int = count_mark("hunger_damage_level") + 1
+			add_mark("hunger_damage_level", 1, "饥饿", "饥饿伤害等级" + str(_new_hunger_level) + ", 饥饿结算时受到 " + str(_new_hunger_level * 2) + "点饥饿伤害")
 		if count_mark("hunger_damage_level") > 0:
 			var level: int = count_mark("hunger_damage_level")
 			if level == 1:
@@ -429,7 +427,7 @@ func move_to(target: MapBlock) -> bool:
 		Game.log_message(LogColors.player(player_name) + " 从 " + LogColors.block(src_name) + " 移动至 " + LogColors.block(target.block_name))
 	if EventBus != null and is_instance_valid(EventBus):
 		EventBus.player_moved.emit(self, source, target)
-	add_mark("moved_this_turn")
+	add_mark("moved_this_turn", 1, "", "", false)
 	# 7. 清理旧地块技能（移动成功后才清理）
 	if source != null and source.has_method("_clear_skills_for_player"):
 		source._clear_skills_for_player(self)
@@ -1223,55 +1221,16 @@ func has_non_boss_monster() -> bool:
 	return false
 
 
-## 标记管理
-func count_mark(name: String) -> int:
-	return marks.get(name, 0)
-
-
-func add_mark(name: String, quantity: int = 1) -> void:
-	marks[name] = count_mark(name) + quantity
-
-
-func remove_mark(name: String) -> void:
-	marks.erase(name)
-
-
-func has_mark(name: String) -> bool:
-	return count_mark(name) > 0
-
-
-## 判断是否持有某标记技能（等价 has_mark）。
-func has_mark_skill(name: String) -> bool:
-	return has_mark(name)
-
-
-## 添加标记技能，在 expire_trigger 触发后自动移除标记。
-func add_mark_skill(name: String, n: int = 1, expire_trigger: String = "") -> void:
-	add_mark(name, n)
-	if expire_trigger == "":
-		return
-	var skill := Skill.new()
-	skill.english_name = name + "_mark_expire"
-	skill.skill_name = name + "_mark_expire"
-	skill.trigger = expire_trigger
-	skill.forced = true
-	var mark_name: String = name
-	var skill_ref: Skill = skill
-	skill.content = func(_player, _target, _event: Dictionary, _game) -> void:
-		_player.remove_mark(mark_name)
-		_player.remove_skill(skill_ref)
-	skills.append(skill)
-
-
 ## 增加 n 层中毒标记。
 func add_poison(n: int) -> void:
-	add_mark("poison", n)
+	var new_count: int = count_mark("poison") + n
+	add_mark("poison", n, "中毒", "中毒结算时受到 " + str(new_count) + " 点伤害")
 
 
 func clear_turn_marks() -> void:
 	# 清除持续到回合结束的临时标记
-	marks.erase("moved_this_turn")
-	marks.erase("shelter_disabled")
+	remove_mark("moved_this_turn")
+	remove_mark("shelter_disabled")
 
 
 ## 装备管理

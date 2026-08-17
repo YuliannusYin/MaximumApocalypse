@@ -185,7 +185,7 @@
           "select_target": 1,
           "filter_target": "return target.card_type == \"equipment\"",
           "filter_target_range": "medium",
-          "content": "target.add_mark_skill(\"upgrade_damage_plus_1\")\nplayer.mount_sub_skill(\"upgrade_damage\")",
+          "content": "target.add_mark_skill(\"upgrade_damage_plus_1\", 1, \"\", \"升级\", \"该武器额外造成1点伤害\", true)\nplayer.mount_sub_skill(\"upgrade_damage\")",
           "sub_skills": {
             "damage": {
               "skill_name": "升级_伤害",
