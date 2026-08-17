@@ -151,6 +151,7 @@ func _start_game_flow() -> void:
 		EventBus.objective_mark_changed.connect(_on_block_mark_changed)
 		EventBus.monster_spawned.connect(_on_monster_changed)
 		EventBus.monster_died.connect(_on_monster_changed)
+		EventBus.monster_engaged_target_changed.connect(_on_monster_engaged_target_changed)
 		EventBus.player_hp_changed.connect(_on_player_stat_changed)
 		EventBus.player_hunger_changed.connect(_on_player_stat_changed)
 		EventBus.player_died.connect(_on_player_stat_changed)
@@ -454,22 +455,28 @@ func _on_choose_card_requested(n: int, param: Variant, filter: Variant) -> void:
 	_popup_manager.show_card_select_popup(cards, n, label, zone_labels)
 
 
-func _on_choose_target_requested(n: int, skill: Variant) -> void:
+func _on_choose_target_requested(n: int, skill: Variant, prompt: String) -> void:
 	var current: Variant = Game.get_current_player()
 	if current == null or not is_instance_valid(current):
 		_gui_input.respond_choose_target([])
 		return
 	var current_block: Variant = current.get("current_block")
-	# 读取 skill 的 target_type / filter_target_range（兼容 skill 为 null 的旧调用方）
+	# 读取 skill 的 target_type / filter_target_range（兼容 skill 为 null / Dictionary / Object）
 	var target_type: String = ""
 	var filter_target_range: String = "short"
-	if skill != null and is_instance_valid(skill):
-		var tt: Variant = skill.get("target_type")
+	if skill != null:
+		var tt: Variant = null
+		var ftr: Variant = null
+		if skill is Dictionary:
+			tt = skill.get("target_type", null)
+			ftr = skill.get("filter_target_range", null)
+		elif is_instance_valid(skill):
+			tt = skill.get("target_type")
+			ftr = skill.get("filter_target_range")
 		if tt != null:
-			target_type = tt
-		var ftr: Variant = skill.get("filter_target_range")
-		if ftr != null and ftr != "":
-			filter_target_range = ftr
+			target_type = str(tt)
+		if ftr != null and str(ftr) != "":
+			filter_target_range = str(ftr)
 	# 按 target_type 构建候选
 	var candidates: Array = []
 	match target_type:
@@ -493,6 +500,18 @@ func _on_choose_target_requested(n: int, skill: Variant) -> void:
 				for m in monster_zone:
 					if m != null and is_instance_valid(m):
 						candidates.append(m)
+			# 新增：射程内其他玩家怪物区的怪物（用于 target.is_monster() 类型的卡牌如套索/闪光棒）
+			if current_block != null and is_instance_valid(current_block):
+				var players_in_range: Array = current_block.get_players_in_range(filter_target_range)
+				for other_player in players_in_range:
+					if other_player == null or not is_instance_valid(other_player):
+						continue
+					if other_player == current:
+						continue  # 自己的怪物区已在上面处理
+					if "monster_zone" in other_player:
+						for m in other_player.monster_zone:
+							if m != null and is_instance_valid(m) and not candidates.has(m):
+								candidates.append(m)
 			# 去重（按实例 id，避免 get_players_in_range 与 get_players 重叠）
 			var seen: Dictionary = {}
 			var deduped: Array = []
@@ -532,14 +551,45 @@ func _on_choose_target_requested(n: int, skill: Variant) -> void:
 		zone_labels = ["装备区"]
 		for i in range(1, filtered.size()):
 			zone_labels.append("装备区")
-	_popup_manager.show_target_select_area(filtered, select_n, zone_labels)
+	# 合并 prompt 来源：优先参数 prompt，为空时从 skill 读 window_prompt
+	var merged_prompt: String = prompt
+	if merged_prompt.is_empty() and skill != null:
+		if skill is Dictionary:
+			merged_prompt = skill.get("window_prompt", "")
+		elif is_instance_valid(skill):
+			var wp: Variant = skill.get("window_prompt")
+			if wp != null:
+				merged_prompt = str(wp)
+	_popup_manager.show_target_select_area(filtered, select_n, zone_labels, merged_prompt)
 
 
 ## 判断 target 是否通过 skill.filter_target 过滤。
 ## skill 为 null 时视为无过滤（恒通过）；filter_target 为空 Callable 时亦恒通过。
 ## filter_target 的 Callable 签名为 (player, target, event, game) -> bool。
 func _is_valid_target(skill: Variant, target: Variant, event: Dictionary, player: Variant) -> bool:
-	if skill == null or not is_instance_valid(skill):
+	if skill == null:
+		return true
+	# Dictionary 类型：filter_target 为 String，需编译
+	if skill is Dictionary:
+		var fc_str: Variant = skill.get("filter_target", null)
+		if fc_str == null:
+			return true
+		if fc_str is String:
+			var filter_code: String = fc_str
+			if filter_code.is_empty() or filter_code.strip_edges() == "true":
+				return true
+			var compiled: Callable = CodeExecutor.compile_filter_target(filter_code)
+			if not compiled.is_valid():
+				return true
+			return compiled.call(player, target, event, Game)
+		if fc_str is Callable:
+			var filter_callable: Callable = fc_str
+			if not filter_callable.is_valid():
+				return true
+			return filter_callable.call(player, target, event, Game)
+		return true
+	# Object 类型（Skill 实例）：filter_target 为 Callable
+	if not is_instance_valid(skill):
 		return true
 	var fc: Variant = skill.get("filter_target")
 	if fc == null or not (fc is Callable):
@@ -635,6 +685,13 @@ func _on_monster_changed(_monster: Variant, _player: Variant) -> void:
 	_table_map_controller.refresh_map()
 	_refresh_all_panels()
 	_pile_manager.refresh_pile_counts()
+
+
+func _on_monster_engaged_target_changed(_monster: Variant, old_target: Variant, new_target: Variant) -> void:
+	# 纠缠目标变更后，刷新原目标与新目标各自面板的怪物区显示
+	_refresh_panel_for_player(old_target)
+	if new_target != old_target:
+		_refresh_panel_for_player(new_target)
 
 
 func _on_player_stat_changed(player: Variant, _arg1: Variant = null, _arg2: Variant = null) -> void:

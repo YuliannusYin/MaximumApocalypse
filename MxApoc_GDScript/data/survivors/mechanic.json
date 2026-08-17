@@ -15,7 +15,7 @@
       "skill_description": "行动：从任一弃牌堆中选择一张装备牌，并把它放置在场上任一玩家的装备区中。",
       "active": "action",
       "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && game.has_equipment_in_discard_piles()",
-      "content": "player.consume_action(1)\nvar list = game.get_all_discard_pile_equipments()\nvar card = await player.choose_card(list)\ntarget = await player.choose_target({\"select_target\": 1, \"filter_target\": \"return target.type == \\\"human\\\"\", \"filter_target_range\": \"infinity\"})\ntarget.equip(card)"
+      "content": "player.consume_action(1)\nvar list = game.get_all_discard_pile_equipments()\nvar card = await player.choose_card(list)\ntarget = await player.choose_target({\"select_target\": 1, \"filter_target\": \"return target.is_player()\", \"filter_target_range\": \"infinity\"})\ntarget.equip(card)"
     }
   ],
   "deck": [
@@ -37,7 +37,7 @@
           "select_target": 1,
           "filter_target": "return target != player",
           "filter_target_range": "short",
-          "content": "player.consume_action(1)\ntarget.damage(2, player)"
+          "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"wrench\")\ntarget.damage(2, player, \"weapon_attack\", weapon.equipment_card)"
         }
       ]
     },
@@ -55,7 +55,7 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\"",
           "select_target": [1, 3],
-          "filter_target": "return target.type == \"monster\"",
+          "filter_target": "return target.is_monster()",
           "filter_target_range": "medium",
           "content": "var list = event.targets\nfor i in list:\n\ti.damage(5, player)"
         }
@@ -76,7 +76,7 @@
           "trigger": "after_draw_monster_card",
           "filter": "return true",
           "forced": true,
-          "content": "player.discard(\"proximity_mine\", \"equipment\")\nevent.card.damage(7, player)"
+          "content": "var weapon = player.get_equipment(\"proximity_mine\")\nplayer.discard(\"proximity_mine\", \"equipment\")\nevent.card.damage(7, player, \"weapon_attack\", weapon.equipment_card)"
         }
       ]
     },
@@ -147,7 +147,7 @@
           "select_target": 1,
           "filter_target": "return true",
           "filter_target_range": "short",
-          "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"blowtorch\"), 1)\ntarget.damage(5, player)"
+          "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"blowtorch\")\nplayer.consume_charge(weapon, 1)\ntarget.damage(5, player, \"weapon_attack\", weapon.equipment_card)"
         }
       ]
     },
@@ -164,12 +164,7 @@
           "skill_type": "action",
           "active": "action",
           "filter": "return player.in_phase == \"action\"",
-          "complex_target": true,
-          "filter_target_1": "return target.type == \"human\"",
-          "filter_target_1_range": "infinity",
-          "filter_target_2": "return target.is_revealed()",
-          "filter_target_2_range": "infinity",
-          "content": "target1.move_to(target2)"
+          "content": "var target1 = await player.choose(game.get_all_players(), \"选择要移动的玩家\")\nif target1 == null:\n\treturn\nvar _blocks = []\nfor _b in game.map_area:\n\tif _b != null and is_instance_valid(_b) and _b.is_alive() and _b.is_revealed():\n\t\t_blocks.append(_b)\nif _blocks.is_empty():\n\treturn\nvar target2 = await player.choose_map_block(_blocks, \"选择目标地块\")\nif target2 == null:\n\treturn\ntarget1.move_to(target2)"
         }
       ]
     },
@@ -190,7 +185,7 @@
           "select_target": 1,
           "filter_target": "return target.card_type == \"equipment\"",
           "filter_target_range": "medium",
-          "content": "target.add_mark_skill(\"upgrade_damage_plus_1\")\nplayer.add_skill(\"upgrade_damage\")",
+          "content": "target.add_mark_skill(\"upgrade_damage_plus_1\")\nplayer.mount_sub_skill(\"upgrade_damage\")",
           "sub_skills": {
             "damage": {
               "skill_name": "升级_伤害",
@@ -225,7 +220,7 @@
           "select_target": 1,
           "filter_target": "return true",
           "filter_target_range": "medium",
-          "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"pistol\"), 1)\ntarget.damage(2, player)"
+          "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"pistol\")\nplayer.consume_charge(weapon, 1)\ntarget.damage(2, player, \"weapon_attack\", weapon.equipment_card)"
         }
       ]
     },
@@ -260,11 +255,7 @@
           "skill_type": "action",
           "active": "action",
           "filter": "return player.in_phase == \"action\"",
-          "complex_target": true,
-          "filter_target_1": "return target.in_equipment_area",
-          "filter_target_2": "return target.type == \"human\" && target != player",
-          "filter_target_2_range": "medium",
-          "content": "target2.equip(target1)\nplayer.draw(1)"
+          "content": "var _eq = []\nfor _e in player.equipment_zone:\n\tif _e != null and is_instance_valid(_e):\n\t\t_eq.append(_e)\nif _eq.is_empty():\n\treturn\nvar target1 = await player.choose(_eq, \"选择要给出的装备\")\nif target1 == null:\n\treturn\nvar _block = player.get_current_block()\nvar _cand = _block.get_players_in_range(\"medium\")\n_cand.append_array(_block.get_players())\nvar _seen = {}\nvar _t2 = []\nfor _c in _cand:\n\tif _c == null or not is_instance_valid(_c):\n\t\tcontinue\n\tif _c == player:\n\t\tcontinue\n\tvar _id = _c.get_instance_id()\n\tif _seen.has(_id):\n\t\tcontinue\n\t_seen[_id] = true\n\t_t2.append(_c)\nif _t2.is_empty():\n\treturn\nvar target2 = await player.choose(_t2, \"选择装备目标玩家\")\nif target2 == null:\n\treturn\nvar _card = target1.equipment_card\nawait player.unequip(target1)\nawait target2.equip(_card)\nplayer.draw(1)"
         }
       ]
     },
@@ -286,7 +277,7 @@
           "trigger": "on_take_damage",
           "filter": "return event.source != null && event.source != player",
           "forced": true,
-          "content": "event.source.damage(4, player)"
+          "content": "var weapon = player.get_equipment(\"auto_turret\")\nevent.source.damage(4, player, \"weapon_attack\", weapon.equipment_card)"
         }
       ]
     },

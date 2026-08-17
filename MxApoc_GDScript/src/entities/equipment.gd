@@ -102,6 +102,7 @@ func refill(n: int) -> void:
 
 ## 修改填充物类型。
 func change_charge_type(type: String) -> void:
+	charge_type = type
 	if equipment_card != null:
 		equipment_card.change_charge_type(type)
 

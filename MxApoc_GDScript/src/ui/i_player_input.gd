@@ -28,7 +28,7 @@ func choose_card(n: int, param: Variant = "hand", filter: Variant = null) -> Arr
 
 
 ## 选择目标。n 为选择数量（-1 表示全部），skill 为当前技能（含 target_type/filter_target 等）。
-func choose_target(n: int, skill: Variant) -> Array:
+func choose_target(n: int, skill: Variant, prompt: String = "") -> Array:
 	_push_override_error("choose_target")
 	return []
 

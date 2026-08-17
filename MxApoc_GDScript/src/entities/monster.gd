@@ -59,6 +59,21 @@ func is_monster() -> bool:
 	return true
 
 
+## 返回怪物所在的地块。
+## 怪物不直接持有地块引用，需遍历 Game.players 找到其所属玩家
+## （怪物在该玩家的 monster_zone 中），返回该玩家的当前地块。
+## 未找到所属玩家时返回 null。
+func get_current_block() -> MapBlock:
+	if Game == null or not is_instance_valid(Game):
+		return null
+	for p in Game.players:
+		if p == null or not is_instance_valid(p):
+			continue
+		if "monster_zone" in p and p.monster_zone.has(self):
+			return p.get_current_block()
+	return null
+
+
 # === 纠缠对象 ===
 
 ## 修改纠缠对象。设计文档方法：修改纠缠对象(target)。
@@ -66,6 +81,16 @@ func is_monster() -> bool:
 func change_engaged_target(target: Player) -> void:
 	var old_target: Player = attack_target
 	attack_target = target
+	# 实际移动怪物：从 old_target.monster_zone 移除，追加到 target.monster_zone
+	if old_target != null and is_instance_valid(old_target) and "monster_zone" in old_target:
+		old_target.monster_zone.erase(self)
+	if target != null and is_instance_valid(target) and "monster_zone" in target:
+		if not target.monster_zone.has(self):
+			target.monster_zone.append(self)
+	# 纠缠日志
+	if target != null and is_instance_valid(target) and target != old_target:
+		if Game != null and is_instance_valid(Game):
+			Game.log_message(LogColors.monster(monster_name) + " 纠缠了 " + LogColors.player(target.player_name))
 	if EventBus != null and is_instance_valid(EventBus):
 		EventBus.monster_engaged_target_changed.emit(self, old_target, target)
 
@@ -166,6 +191,10 @@ func death(source: Entity) -> void:
 				if _m == null or not is_instance_valid(_m) or _m == self:
 					continue
 				await _m.trigger("on_monster_death", event)
+
+	# 向击杀者（玩家）触发，使玩家身上的 on_monster_death 技能（如搜索尸体）能触发
+	if source != null and is_instance_valid(source) and source.has_method("is_player") and source.is_player():
+		await source.trigger("on_monster_death", event)
 
 	# 3. after_monster_death：从纠缠玩家怪物区移除 + 进入怪物弃牌堆
 	if attack_target != null and is_instance_valid(attack_target):

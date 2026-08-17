@@ -46,9 +46,14 @@ var target_type: String = ""
 var confirm_prompt: Callable = Callable()
 ## 是否延迟结算行动消耗
 var defer_action_cost: bool = false
+var window_prompt: String = ""
 
 ## 运行时：本回合已使用次数（用于 usable 限制）
 var used_count: int = 0
+
+## 子技能：键为本地短名，值为编译完成的 Skill 实例。
+## 由 Game._create_skill_from_data 在编译父技能时递归编译填充。
+var sub_skills: Dictionary = {}
 
 
 ## 判断本技能是否响应指定 trigger 名。

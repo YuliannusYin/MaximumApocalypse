@@ -63,7 +63,8 @@
           "select_target": -1,
           "filter_target": "return target.is_monster()",
           "filter_target_range": "short",
-          "content": "player.consume_action(1)\nvar list = event.targets\nplayer.consume_charge(player.get_equipment(\"lighter\"), 1)\nfor i in list:\n\ti.damage(3, player)"
+          "defer_action_cost": true,
+          "content": "player.consume_action(1)\nvar list = event.targets\nvar weapon = player.get_equipment(\"lighter\")\nplayer.consume_charge(weapon, 1)\nfor i in list:\n\ti.damage(3, player, \"weapon_attack\", weapon.equipment_card)"
         }
       ]
     },
@@ -84,7 +85,8 @@
           "select_target": 1,
           "filter_target": "return target.is_player()",
           "filter_target_range": "short",
-          "content": "target.recover(4)"
+          "defer_action_cost": true,
+          "content": "player.consume_action(1)\ntarget.recover(4)"
         }
       ]
     },
@@ -109,7 +111,7 @@
           "select_target": 1,
           "filter_target": "return target != player",
           "filter_target_range": "medium",
-          "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"shotgun\"), 1)\ntarget.damage(4, player)\nvar list = game.get_target(player.get_current_block())\nfor i in list:\n\tif i != player:\n\t\ti.damage(2, player)"
+          "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"shotgun\")\nplayer.consume_charge(weapon, 1)\ntarget.damage(4, player, \"weapon_attack\", weapon.equipment_card)\nvar list = game.get_target(player.get_current_block())\nfor i in list:\n\tif i != player:\n\t\ti.damage(2, player, \"weapon_attack\", weapon.equipment_card)"
         }
       ]
     },
@@ -129,7 +131,8 @@
           "select_target": -1,
           "filter_target": "return target.is_monster()",
           "filter_target_range": "short",
-          "content": "var list = event.targets\nfor i in list:\n\ti.stun(player, \"before_next_turn_start\")"
+          "defer_action_cost": true,
+          "content": "player.consume_action(1)\nvar list = event.targets\nfor i in list:\n\ti.stun(player, \"before_next_turn_start\")"
         }
       ]
     },
@@ -155,7 +158,7 @@
               "trigger": "before_hunger_settlement",
               "forced": true,
               "filter": "return true",
-              "content": "event.cancel()"
+              "content": "EventSystem.cancel(event)"
             }
           }
         }
@@ -194,7 +197,8 @@
           "select_target": -1,
           "filter_target": "return target.is_monster()",
           "filter_target_range": "long",
-          "content": "var list = event.targets\nfor i in list:\n\ti.change_engaged_target(player)"
+          "defer_action_cost": true,
+          "content": "player.consume_action(1)\nvar list = event.targets\nfor i in list:\n\ti.change_engaged_target(player)"
         }
       ]
     },
@@ -269,7 +273,8 @@
           "select_target": -1,
           "filter_target": "return target != player",
           "filter_target_range": "medium",
-          "content": "player.consume_charge(player.get_equipment(\"lighter\"), 1)\nvar list = event.targets\nfor i in list:\n\ti.damage(5, player)"
+          "defer_action_cost": true,
+          "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"lighter\"), 1)\nvar list = event.targets\nfor i in list:\n\ti.damage(5, player)"
         }
       ]
     },
@@ -290,7 +295,7 @@
           "select_target": 1,
           "filter_target": "return target != player",
           "filter_target_range": "short",
-          "content": "player.consume_action(1)\ntarget.damage(4, player)"
+          "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"reliable_axe\")\ntarget.damage(4, player, \"weapon_attack\", weapon.equipment_card)"
         }
       ]
     }

@@ -64,7 +64,7 @@ func transition_to(new_state: int) -> void:
 
 # === 游戏开局 ===
 
-## 游戏开局流程：WAITING → PLAYING + 抓初始手牌 + 抓初始怪物卡 + 触发游戏开始时 + 进入第一玩家回合。
+## 游戏开局流程：WAITING → PLAYING + 触发游戏开始时 + 抓初始手牌 + 抓初始怪物卡 + 进入第一玩家回合。
 func start_game() -> void:
 	transition_to(GameState.PLAYING)
 	if EventBus != null and is_instance_valid(EventBus):
@@ -74,22 +74,22 @@ func start_game() -> void:
 		Game.stats_tracker.start_timer()
 	if Game == null or not is_instance_valid(Game):
 		return
-	# 1. 每个玩家抓 4 张初始手牌
-	for player in Game.players:
-		if player == null or not is_instance_valid(player):
-			continue
-		player.draw(4)
-	# 2. 每个玩家抓 1 张初始怪物卡
-	for player in Game.players:
-		if player == null or not is_instance_valid(player):
-			continue
-		player.draw_monster(1)
-	# 3. 触发「游戏开始时」trigger
+	# 1. 触发「游戏开始时」trigger
 	for player in Game.players:
 		if player == null or not is_instance_valid(player):
 			continue
 		var event: Dictionary = EventSystem.create_event({"player": player})
 		await player.trigger("on_game_start", event)
+	# 2. 每个玩家抓 4 张初始手牌
+	for player in Game.players:
+		if player == null or not is_instance_valid(player):
+			continue
+		player.draw(4)
+	# 3. 每个玩家抓 1 张初始怪物卡
+	for player in Game.players:
+		if player == null or not is_instance_valid(player):
+			continue
+		player.draw_monster(1)
 	# 4. 第零轮：重调阶段
 	await _round_zero()
 	# 5. 进入第一玩家回合

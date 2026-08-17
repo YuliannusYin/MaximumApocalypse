@@ -22,7 +22,7 @@ class MockPlayer extends Player:
 class MockBlock extends MapBlock:
 	var players_in_range: Array = []
 
-	func get_players_in_range(_range_str: String) -> Array:
+	func get_players_in_range(_range_str: String, _for_monster: bool = false) -> Array:
 		return players_in_range
 
 
