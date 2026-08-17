@@ -266,13 +266,26 @@ func _update_marks() -> void:
 	if _player == null:
 		return
 	var marks_dict: Dictionary = _player.get("marks")
-	if marks_dict.is_empty():
+	var visible_marks: Array = []
+	for key in marks_dict:
+		var m = marks_dict[key]
+		if m.visible:
+			visible_marks.append(m)
+	if visible_marks.is_empty():
 		_marks_label.text = "无标记"
+		_marks_label.tooltip_text = ""
 		return
 	var parts: PackedStringArray = []
-	for key in marks_dict:
-		parts.append("%s:%d" % [key, marks_dict[key]])
+	var tooltips: PackedStringArray = []
+	for m in visible_marks:
+		var display: String = m.get_display_text()
+		if m.count > 0:
+			display += ":" + str(m.count)
+		parts.append(display)
+		if m.mark_content != "":
+			tooltips.append(display + ": " + m.mark_content)
 	_marks_label.text = ", ".join(parts)
+	_marks_label.tooltip_text = "\n".join(tooltips)
 
 
 func _update_hp() -> void:

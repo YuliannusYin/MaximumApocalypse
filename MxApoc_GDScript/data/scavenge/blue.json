@@ -115,7 +115,7 @@
           "trigger": "on_take_damage",
           "filter": "return true",
           "forced": true,
-          "content": "event.num -= 2\nplayer.add_mark(\"bulletproof_vest_uses\")\nif player.count_mark(\"bulletproof_vest_uses\") >= 3:\n\tplayer.remove_card(\"bulletproof_vest\", \"equipment\")"
+          "content": "event.num -= 2\nplayer.add_mark(\"bulletproof_vest_uses\", 1, \"\", \"\", false)\nif player.count_mark(\"bulletproof_vest_uses\") >= 3:\n\tplayer.remove_card(\"bulletproof_vest\", \"equipment\")"
         }
       ]
     },

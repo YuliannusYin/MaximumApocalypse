@@ -20,7 +20,7 @@
           "trigger": "on_monster_attack",
           "forced": true,
           "filter": "return true",
-          "content": "var list = event.target_players\nfor p in list:\n\tp.add_mark_skill(\"poison\", 1)"
+          "content": "var list = event.target_players\nfor p in list:\n\tp.add_mark_skill(\"poison\", 1, \"\", \"中毒\", \"中毒结算时受到 1 点伤害\", true)"
         }
       ]
     },
@@ -108,7 +108,7 @@
           "trigger": "on_monster_attack",
           "forced": true,
           "filter": "return true",
-          "content": "var list = event.target_players\nfor p in list:\n\tp.add_mark_skill(\"poison\", 1)"
+          "content": "var list = event.target_players\nfor p in list:\n\tp.add_mark_skill(\"poison\", 1, \"\", \"中毒\", \"中毒结算时受到 1 点伤害\", true)"
         }
       ]
     },
