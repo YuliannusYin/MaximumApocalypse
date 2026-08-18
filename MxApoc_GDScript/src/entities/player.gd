@@ -1312,12 +1312,12 @@ func confirm(message: String) -> bool:
 ## 选择卡牌。
 ## param 为 String 时：按 position（如 "hand"/"equipment"/"discard"）查询玩家区域卡牌（原有行为）。
 ## param 为 Array 时：直接作为候选卡牌列表，绕过 position 查询。
-func choose_card(n: int, param: Variant = "hand", filter: Variant = null) -> Array:
+func choose_card(n: int, param: Variant = "hand", filter: Variant = null, prompt: String = "", min_n: int = -1) -> Array:
 	if typeof(param) == TYPE_ARRAY:
 		# Array 模式：直接作为候选卡牌列表，绕过 position 查询
-		return await input.choose_card(n, param, filter)
+		return await input.choose_card(n, param, filter, prompt, min_n)
 	# String 模式（原有行为）：按 position 查询玩家区域卡牌
-	return await input.choose_card(n, param, filter)
+	return await input.choose_card(n, param, filter, prompt, min_n)
 
 
 ## 选择目标。n 为选择数量（-1 表示全部），skill 为当前技能（含 target_type/filter_target 等）。

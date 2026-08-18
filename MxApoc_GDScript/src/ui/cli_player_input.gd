@@ -58,7 +58,7 @@ func choose(options: Array, prompt: String = "") -> Variant:
 	return null
 
 
-func choose_card(n: int, param: Variant = "hand", filter: Variant = null) -> Array:
+func choose_card(n: int, param: Variant = "hand", filter: Variant = null, prompt: String = "", min_n: int = -1) -> Array:
 	if _choose_card_queue.size() > 0:
 		return _choose_card_queue.pop_front()
 	return []  # 默认不选
