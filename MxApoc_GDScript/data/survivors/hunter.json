@@ -55,6 +55,7 @@
           "filter": "return player.in_phase == \"action\" && (player.has_equipment(\"bow\") || player.has_equipment(\"crossbow\"))",
           "select_target": 1,
           "filter_target": "return target != player",
+          "window_prompt": "\"爆头\": 选择目标",
           "filter_target_range": "long",
           "content": "target.damage(5, player)"
         }
@@ -77,6 +78,7 @@
           "filter": "return player.in_phase == \"action\"",
           "select_target": 1,
           "filter_target": "return target != player",
+          "window_prompt": "\"捕熊陷阱\": 选择目标",
           "filter_target_range": "short",
           "content": "var weapon = player.get_equipment(\"bear_trap\")\nplayer.discard(\"bear_trap\", \"equipment\")\ntarget.damage(4, player, \"weapon_attack\", weapon.equipment_card)"
         }
@@ -99,6 +101,7 @@
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
           "select_target": 1,
           "filter_target": "return target != player",
+          "window_prompt": "\"弓\": 选择目标",
           "filter_target_range": "medium",
           "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"bow\")\ntarget.damage(2, player, \"weapon_attack\", weapon.equipment_card)"
         }
@@ -124,6 +127,7 @@
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"fire_arrow\") > 0 && (player.has_equipment(\"bow\") || player.has_equipment(\"crossbow\"))",
           "select_target": 1,
           "filter_target": "return target != player",
+          "window_prompt": "\"火焰箭\": 选择目标",
           "filter_target_range": "medium",
           "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"fire_arrow\")\nplayer.consume_charge(weapon, 1)\ntarget.damage(4, player, \"weapon_attack\", weapon.equipment_card)"
         }
@@ -146,6 +150,7 @@
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
           "select_target": 1,
           "filter_target": "return target != player",
+          "window_prompt": "\"砍刀\": 选择目标",
           "filter_target_range": "short",
           "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"machete\")\ntarget.damage(3, player, \"weapon_attack\", weapon.equipment_card)"
         }
@@ -193,6 +198,7 @@
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"crossbow\") > 0",
           "select_target": 1,
           "filter_target": "return target != player",
+          "window_prompt": "\"弩\": 选择目标",
           "filter_target_range": "medium",
           "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"crossbow\")\nplayer.consume_charge(weapon, 1)\ntarget.damage(3, player, \"weapon_attack\", weapon.equipment_card)"
         }
@@ -214,6 +220,7 @@
           "filter": "return player.in_phase == \"action\"",
           "select_target": 1,
           "filter_target": "return target.is_monster()",
+          "window_prompt": "\"圈套\": 选择目标",
           "filter_target_range": "medium",
           "content": "target.damage(1, player)\ntarget.stun(player, \"before_next_turn_start\")"
         }
@@ -278,7 +285,11 @@
           "skill_type": "equipment",
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.has_non_boss_monster()",
-          "content": "player.discard(\"camouflage\", \"equipment\")\nplayer.damage(3, player)\nawait player.discard_non_boss_monster_to_mark()"
+          "select_target": 1,
+          "filter_target": "return target.is_monster() && target.monster_level != \"boss\" && player.monster_zone.has(target)",
+          "filter_target_range": "short",
+          "window_prompt": "\"伪装\": 选择目标",
+          "content": "player.discard(\"camouflage\", \"equipment\")\nplayer.damage(3, player)\nplayer.monster_zone.erase(target)\nif game.monster_discard_pile != null:\n\tgame.monster_discard_pile.add(target.monster_card)\nif player.current_block != null:\n\tplayer.current_block.add_monster_mark(1)"
         }
       ]
     },

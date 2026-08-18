@@ -630,7 +630,9 @@ func use_card(card: Card) -> bool:
 			var select_n: int = skill.select_target
 			var targets: Array = []
 			if select_n > 0:
-				targets = await choose_target(select_n, skill, skill.window_prompt)
+				# select_target_min：范围模式下允许选 [min_n, select_n] 个目标（-1 = 精确模式）
+				var min_n: int = skill.select_target_min
+				targets = await choose_target(select_n, skill, skill.window_prompt, min_n)
 				if targets.is_empty():
 					if deferred:
 						return false  # 延迟消耗的技能：玩家取消选取，牌退回手牌
@@ -1321,8 +1323,9 @@ func choose_card(n: int, param: Variant = "hand", filter: Variant = null, prompt
 
 
 ## 选择目标。n 为选择数量（-1 表示全部），skill 为当前技能（含 target_type/filter_target 等）。
-func choose_target(n: int, skill: Variant = null, prompt: String = "") -> Array:
-	return await input.choose_target(n, skill, prompt)
+## min_n 为最小选择数（-1 表示精确模式，必须选 n 个）；范围模式 min_n>=0 时允许 [min_n, n] 个。
+func choose_target(n: int, skill: Variant = null, prompt: String = "", min_n: int = -1) -> Array:
+	return await input.choose_target(n, skill, prompt, min_n)
 
 
 ## 选择目标地块。
@@ -1532,7 +1535,9 @@ func use_active_skill(skill: Skill) -> void:
 		var select_n: int = skill.select_target
 		var targets: Array = []
 		if select_n > 0:
-			targets = await choose_target(select_n, skill, skill.window_prompt)
+			# select_target_min：范围模式下允许选 [min_n, select_n] 个目标（-1 = 精确模式）
+			var min_n: int = skill.select_target_min
+			targets = await choose_target(select_n, skill, skill.window_prompt, min_n)
 			if targets.is_empty():
 				return  # 玩家取消
 			event["target"] = targets[0]

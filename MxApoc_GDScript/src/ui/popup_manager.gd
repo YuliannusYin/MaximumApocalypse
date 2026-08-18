@@ -298,7 +298,8 @@ func _on_card_select_cancelled() -> void:
 
 
 ## 目标选择区（315,120 800×420）：仅选目标时弹出。
-func show_target_select_area(targets: Array, n: int, zone_labels: Array = [], prompt: String = "") -> void:
+## min_n：范围模式最小选择数（-1 = 精确模式，必须选 n 个）；min_n>=0 时允许 [min_n, n] 个。
+func show_target_select_area(targets: Array, n: int, zone_labels: Array = [], prompt: String = "", min_n: int = -1) -> void:
 	if targets.is_empty():
 		targets_selected.emit([])
 		return
@@ -307,6 +308,7 @@ func show_target_select_area(targets: Array, n: int, zone_labels: Array = [], pr
 		var overlay := _create_modal_overlay()
 		_popup_required_n = n
 		_popup_selected.clear()
+		_popup_min_n = min_n
 
 		var panel := Panel.new()
 		panel.position = Vector2(215, 80)
@@ -377,6 +379,7 @@ func show_target_select_area(targets: Array, n: int, zone_labels: Array = [], pr
 		var overlay := _create_modal_overlay()
 		_popup_required_n = n
 		_popup_selected.clear()
+		_popup_min_n = min_n
 
 		var panel := Panel.new()
 		panel.position = Vector2(215, 80)
@@ -460,10 +463,11 @@ func show_target_select_area(targets: Array, n: int, zone_labels: Array = [], pr
 		cancel_btn.pressed.connect(_on_entity_card_cancelled)
 		hbox.add_child(cancel_btn)
 		return
-	# 非卡牌目标：原有 Button 布局（完全不变）
+	# 非卡牌/实体目标：原有 Button 布局（同样支持 min_n 范围模式）
 	var overlay := _create_modal_overlay()
 	_popup_required_n = n
 	_popup_selected.clear()
+	_popup_min_n = min_n
 	var panel := Panel.new()
 	panel.position = Vector2(315, 120)
 	panel.size = Vector2(800, 420)
@@ -528,7 +532,10 @@ func _on_target_area_clicked(target: Variant, btn: Button) -> void:
 		btn.modulate = Color(0.4, 0.8, 0.4, 1.0)
 	if _popup_ok_button != null and is_instance_valid(_popup_ok_button):
 		_popup_ok_button.text = "确认（%d/%d）" % [_popup_selected.size(), _popup_required_n]
-		_popup_ok_button.disabled = _popup_selected.size() != _popup_required_n
+		if _popup_min_n >= 0:
+			_popup_ok_button.disabled = _popup_selected.size() < _popup_min_n
+		else:
+			_popup_ok_button.disabled = _popup_selected.size() != _popup_required_n
 
 
 func _on_target_area_confirmed() -> void:
@@ -555,7 +562,10 @@ func _on_target_card_clicked(event: InputEvent, target: Variant, view: CardView)
 			view.set_selected(true)
 		if _popup_ok_button != null and is_instance_valid(_popup_ok_button):
 			_popup_ok_button.text = "确认（%d/%d）" % [_popup_selected.size(), _popup_required_n]
-			_popup_ok_button.disabled = _popup_selected.size() != _popup_required_n
+			if _popup_min_n >= 0:
+				_popup_ok_button.disabled = _popup_selected.size() < _popup_min_n
+			else:
+				_popup_ok_button.disabled = _popup_selected.size() != _popup_required_n
 
 
 func _on_target_card_confirmed() -> void:
@@ -582,7 +592,10 @@ func _on_entity_card_clicked(event: InputEvent, target: Variant, panel: Panel) -
 			_set_entity_card_selected(panel, true)
 		if _popup_ok_button != null and is_instance_valid(_popup_ok_button):
 			_popup_ok_button.text = "确认（%d/%d）" % [_popup_selected.size(), _popup_required_n]
-			_popup_ok_button.disabled = _popup_selected.size() != _popup_required_n
+			if _popup_min_n >= 0:
+				_popup_ok_button.disabled = _popup_selected.size() < _popup_min_n
+			else:
+				_popup_ok_button.disabled = _popup_selected.size() != _popup_required_n
 
 
 func _on_entity_card_confirmed() -> void:
