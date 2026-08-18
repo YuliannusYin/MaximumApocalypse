@@ -145,11 +145,11 @@ class _ChooseTargetSpyInput extends CliPlayerInput:
 	var last_skill: Variant = null
 	var last_prompt: String = "__UNSET__"
 
-	func choose_target(n: int, skill: Variant = null, prompt: String = "") -> Array:
+	func choose_target(n: int, skill: Variant = null, prompt: String = "", min_n: int = -1) -> Array:
 		last_n = n
 		last_skill = skill
 		last_prompt = prompt
-		return await super.choose_target(n, skill, prompt)
+		return await super.choose_target(n, skill, prompt, min_n)
 
 
 # === 1. 默认字段与 _init ===

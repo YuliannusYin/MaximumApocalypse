@@ -455,7 +455,7 @@ func _on_choose_card_requested(n: int, param: Variant, filter: Variant, prompt: 
 	_popup_manager.show_card_select_popup(cards, n, label, zone_labels, prompt, min_n)
 
 
-func _on_choose_target_requested(n: int, skill: Variant, prompt: String) -> void:
+func _on_choose_target_requested(n: int, skill: Variant, prompt: String, min_n: int) -> void:
 	var current: Variant = Game.get_current_player()
 	if current == null or not is_instance_valid(current):
 		_gui_input.respond_choose_target([])
@@ -560,7 +560,7 @@ func _on_choose_target_requested(n: int, skill: Variant, prompt: String) -> void
 			var wp: Variant = skill.get("window_prompt")
 			if wp != null:
 				merged_prompt = str(wp)
-	_popup_manager.show_target_select_area(filtered, select_n, zone_labels, merged_prompt)
+	_popup_manager.show_target_select_area(filtered, select_n, zone_labels, merged_prompt, min_n)
 
 
 ## 判断 target 是否通过 skill.filter_target 过滤。

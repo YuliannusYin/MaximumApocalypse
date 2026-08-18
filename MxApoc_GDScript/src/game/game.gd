@@ -604,6 +604,7 @@ func _create_skill_from_data(skill_data: SkillData) -> Skill:
 	skill.position = skill_data.position
 	skill.select_card = skill_data.select_card
 	skill.select_target = skill_data.select_target
+	skill.select_target_min = skill_data.select_target_min
 	skill.usable = skill_data.usable
 	skill.filter_target_range = skill_data.filter_target_range
 	skill.range = skill_data.range

@@ -34,6 +34,8 @@ var position: String = ""
 var select_card: int = 0
 ## 需选择的目标数
 var select_target: int = 0
+## 范围模式最小选择数（-1 = 精确模式，必须选 select_target 个；>=0 时允许 [select_target_min, select_target] 个）
+var select_target_min: int = -1
 ## 攻击射程（"short"/"medium"/"long"/"infinity"，空字符串表示无）
 var range: String = ""
 ## 每回合可用次数限制。-1 表示不限（Infinity）

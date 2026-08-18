@@ -12,11 +12,11 @@
     {
       "skill_name": "快速拔枪",
       "english_name": "quick_draw",
-      "skill_description": "游戏开始时，将牌堆中的装备牌【柯尔特手枪】装备你的装备区。当你受到饥饿伤害时，将装备区或弃牌区中的【柯尔特手枪】重新洗回你的牌堆。",
+      "skill_description": "游戏开始时，将牌堆中的装备牌【柯尔特手枪】装备你的装备区。当你进入饥饿状态时，将你的手牌、装备区或弃牌堆中的【柯尔特手枪】重新洗回你的游戏牌堆。",
       "trigger": "on_game_start、on_take_damage",
       "filter": "return true",
       "forced": true,
-      "content": "if event.trigger_name == \"on_game_start\":\n\tvar pile = player.get_pile(\"deck\")\n\tvar card = game.get_card(\"colt_pistol\", pile)\n\tif card == null:\n\t\tgame.log(\"玩家游戏牌堆中没有【柯尔特手枪】牌\")\n\t\treturn\n\tplayer.equip(card)\nelif event.trigger_name == \"on_take_damage\" && event.type == \"hunger\":\n\tvar card = game.get_card(\"colt_pistol\", \"field\")\n\tif card == null:\n\t\tgame.log(\"场上没有【柯尔特手枪】牌\")\n\t\treturn\n\tvar pile = player.get_pile(\"deck\")\n\tplayer.add_card_to_pile(card, pile)\n\tplayer.shuffle(pile)"
+      "content": "if event.trigger_name == \"on_game_start\":\n\tvar pile = player.get_pile(\"deck\")\n\tvar card = game.get_card(\"colt_pistol\", pile)\n\tif card == null:\n\t\tgame.log(\"玩家游戏牌堆中没有【柯尔特手枪】牌\")\n\t\treturn\n\tplayer.equip(card)\nelif event.trigger_name == \"on_take_damage\" && event.type == \"hunger\":\n\tvar card = game.get_card(\"colt_pistol\", player.hand)\n\tvar _from_zone = false\n\tif card == null:\n\t\tvar _eq = player.get_equipment(\"colt_pistol\")\n\t\tif _eq != null:\n\t\t\tcard = _eq.equipment_card\n\t\t\t_from_zone = true\n\tif card == null:\n\t\tcard = game.get_card(\"colt_pistol\", player.get_discard_pile())\n\tif card == null:\n\t\tgame.log(\"玩家手牌、装备区、弃牌堆中均没有【柯尔特手枪】牌\")\n\t\treturn\n\tvar pile = player.get_pile(\"deck\")\n\tif _from_zone:\n\t\tawait player.unequip(card)\n\telif player.hand.has(card):\n\t\tplayer.hand.erase(card)\n\telse:\n\t\tplayer.get_discard_pile().cards.erase(card)\n\tpile.add(card)\n\tpile.shuffle()"
     }
   ],
   "deck": [

@@ -19,7 +19,8 @@
           "select_target": 1,
           "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\" && target.charge_current < target.charge_max",
           "window_prompt": "\"弹药（少量）\": 选择要填装的武器",
-          "content": "player.add_charge_to(target, 2, \"ammo\")"
+          "defer_action_cost": true,
+          "content": "player.consume_action(1)\nplayer.add_charge_to(target, 2, \"ammo\")"
         }
       ]
     },
@@ -40,7 +41,8 @@
           "select_target": 1,
           "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\" && target.charge_current < target.charge_max",
           "window_prompt": "\"弹药（半盒）\": 选择要填装的武器",
-          "content": "player.add_charge_to(target, 3, \"ammo\")"
+          "defer_action_cost": true,
+          "content": "player.consume_action(1)\nplayer.add_charge_to(target, 3, \"ammo\")"
         }
       ]
     },
@@ -61,7 +63,8 @@
           "select_target": 1,
           "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\" && target.charge_current < target.charge_max",
           "window_prompt": "\"弹药（足量）\": 选择要填装的武器",
-          "content": "player.add_charge_to(target, 4, \"ammo\")"
+          "defer_action_cost": true,
+          "content": "player.consume_action(1)\nplayer.add_charge_to(target, 4, \"ammo\")"
         }
       ]
     },
@@ -82,7 +85,8 @@
           "select_target": 1,
           "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\" && target.charge_current < target.charge_max",
           "window_prompt": "\"弹药（大量）\": 选择要填装的武器",
-          "content": "player.add_charge_to(target, 5, \"ammo\")"
+          "defer_action_cost": true,
+          "content": "player.consume_action(1)\nplayer.add_charge_to(target, 5, \"ammo\")"
         }
       ]
     },
@@ -102,7 +106,8 @@
           "select_target": 1,
           "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\" && target.charge_current < target.charge_max",
           "window_prompt": "\"弹药（整盒）\": 选择要填装的武器",
-          "content": "player.fill_charge_to(target)"
+          "defer_action_cost": true,
+          "content": "player.consume_action(1)\nplayer.fill_charge_to(target)"
         }
       ]
     },

@@ -28,7 +28,8 @@ func choose_card(n: int, param: Variant = "hand", filter: Variant = null, prompt
 
 
 ## 选择目标。n 为选择数量（-1 表示全部），skill 为当前技能（含 target_type/filter_target 等）。
-func choose_target(n: int, skill: Variant, prompt: String = "") -> Array:
+## min_n 为最小选择数（-1 表示精确模式，必须选 n 个）；范围模式 min_n>=0 时允许 [min_n, n] 个。
+func choose_target(n: int, skill: Variant, prompt: String = "", min_n: int = -1) -> Array:
 	_push_override_error("choose_target")
 	return []
 
