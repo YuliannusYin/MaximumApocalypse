@@ -15,7 +15,8 @@
       "skill_description": "行动：最多展示两个相邻的地图块，且不触发任何地块触发效果。",
       "active": "action",
       "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_current_block().has_adjacent_unrevealed_block()",
-      "content": "player.consume_action(1)\nvar max_reveal = 2\nvar count = 0\nwhile count < max_reveal:\n\tvar _candidates = player.get_current_block().get_blocks_in_range(\"medium\")\n\tvar _valid = []\n\tfor _b in _candidates:\n\t\ttarget = _b\n\t\tif target.is_revealed() == false:\n\t\t\t_valid.append(_b)\n\t\ttarget = _b\n\tvar _blocks = await player.choose_block_inline(_valid, \"\", 1)\n\ttarget = _blocks[0] if _blocks.size() > 0 else null\n\tif target == null:\n\t\tbreak\n\ttarget.reveal(false, player)\n\tcount += 1\n\tif count < max_reveal:\n\t\tvar choice = await player.choose([\"继续展示\", \"停止展示\"])\n\t\tif choice == \"停止展示\":\n\t\t\tbreak"
+      "defer_action_cost": true,
+      "content": "var max_reveal = 2\nvar count = 0\nwhile count < max_reveal:\n\tvar prompt = \"\\\"侦察\\\": （\" + str(count + 1) + \"/\" + str(max_reveal) + \") 选择相邻地图块\"\n\tvar _candidates = player.get_current_block().get_blocks_in_range(\"medium\")\n\tvar _valid = []\n\tfor _b in _candidates:\n\t\ttarget = _b\n\t\tif target.is_revealed() == false:\n\t\t\t_valid.append(_b)\n\t\ttarget = _b\n\tvar _blocks = await player.choose_block_inline(_valid, prompt, 1)\n\ttarget = _blocks[0] if _blocks.size() > 0 else null\n\tif target == null:\n\t\tif count == 0:\n\t\t\tEventSystem.cancel(event)\n\t\t\treturn\n\t\tbreak\n\tif count == 0:\n\t\tplayer.consume_action(1)\n\ttarget.reveal(false, player)\n\tcount += 1"
     }
   ],
   "deck": [
@@ -41,13 +42,13 @@
     {
       "card_name": "爆头",
       "english_name": "headshot",
-      "count": 4,
+      "count": 3,
       "card_type": "action",
       "skills": [
         {
           "skill_name": "爆头",
           "english_name": "headshot",
-          "skill_description": "行动：使用装备区里的【弓】或【弩】，对一个目标造成6点伤害。",
+          "skill_description": "行动：使用装备区里的【弓】或【弩】，对一个目标造成5点伤害。",
           "range": "long",
           "skill_type": "action",
           "active": "action",
@@ -55,14 +56,14 @@
           "select_target": 1,
           "filter_target": "return target != player",
           "filter_target_range": "long",
-          "content": "target.damage(6, player)"
+          "content": "target.damage(5, player)"
         }
       ]
     },
     {
       "card_name": "捕熊陷阱",
       "english_name": "bear_trap",
-      "count": 5,
+      "count": 2,
       "card_type": "equipment",
       "size": 1,
       "skills": [
@@ -247,8 +248,9 @@
           "skill_description": "行动：从场上所有弃牌堆中选一张装备牌，将其置入场上任一玩家的装备区中。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && game.has_equipment_in_discard_piles()",
-          "content": "var list = game.get_all_discard_pile_equipments()\nvar card = await player.choose_card(list)\ntarget = await player.choose_target({\"select_target\": 1, \"filter_target\": \"return target.is_player()\", \"filter_target_range\": \"infinity\"})\ntarget.equip(card)"
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && game.has_equipment_in_discard_piles()",
+          "defer_action_cost": true,
+          "content": "var list = game.get_all_discard_pile_equipments()\nvar _selected = await player.choose_card(1, list, null, \"\\\"神通广大\\\": 选取一张装备牌\")\nif _selected.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar card = _selected[0]\nvar _targets = await player.choose_target(1, {\"filter_target\": \"return target.is_player()\", \"filter_target_range\": \"infinity\"}, \"\\\"神通广大\\\": 选取置入装备牌的玩家\")\nif _targets.is_empty():\n\tEventSystem.cancel(event)\n\treturn\ntarget = _targets[0]\nplayer.consume_action(1)\nvar original_pile = game.take_card_from_discard_piles(card)\nvar success = await target.equip(card)\nif not success and original_pile != null:\n\toriginal_pile.add(card)"
         }
       ]
     },
@@ -260,9 +262,9 @@
       "size": 1,
       "skills": [
         {
-          "skill_name": "迷彩服·潜行",
+          "skill_name": "潜行",
           "english_name": "camouflage_stealth",
-          "skill_description": "被动：角色的潜行值加2。",
+          "skill_description": "被动：角色的潜行值增加2点。弃置：受到伤害，将纠缠你的怪物替换为怪物标记。",
           "skill_type": "equipment",
           "trigger": "on_equip、on_unequip",
           "filter": "return event.card.english_name == \"camouflage\"",
@@ -270,9 +272,9 @@
           "content": "if event.trigger_name == \"on_equip\":\n\tplayer.add_sneak(2)\nelif event.trigger_name == \"on_unequip\":\n\tplayer.reduce_sneak(2)"
         },
         {
-          "skill_name": "迷彩服·弃置",
+          "skill_name": "伪装",
           "english_name": "camouflage_discard",
-          "skill_description": "弃置：受到3点伤害，然后弃置掉你面前的一张非首领怪物，并替换为一个怪物标记。",
+          "skill_description": "弃置：受到3点伤害，然后移除你一张纠缠你的非首领怪物，并替换为一个怪物标记。",
           "skill_type": "equipment",
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.has_non_boss_monster()",
@@ -289,11 +291,11 @@
         {
           "skill_name": "夜色掩护",
           "english_name": "cover_of_darkness",
-          "skill_description": "行动：从任一拾荒牌堆中抓取3张牌，然后弃置一张拾荒牌。",
+          "skill_description": "行动：随机从场上所有拾荒牌堆中展示3张牌，最多选择保留其中2张，弃置剩余的牌。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\"",
-          "content": "var result = await player.choose(\"请选择拾荒堆颜色：\", [\"red\", \"green\", \"blue\"])\nvar scavenge_pile = player.get_scavenge_pile(result)\nplayer.draw_scavenge(3, scavenge_pile)\nplayer.choose_to_discard(1, \"hand\", \"scavenge\")"
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && game.has_scavenge_cards()",
+          "content": "var piles = [game.get_scavenge_pile(\"red\"), game.get_scavenge_pile(\"green\"), game.get_scavenge_pile(\"blue\")]\nvar valid_piles = []\nfor p in piles:\n\tif p != null and not p.is_empty():\n\t\tvalid_piles.append(p)\nif valid_piles.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar drawn_cards = []\nvar drawn_piles = []\nwhile drawn_cards.size() < 3 and not valid_piles.is_empty():\n\tvalid_piles.shuffle()\n\tvar pile = valid_piles[0]\n\tvar card = pile.draw()\n\tif card != null:\n\t\tdrawn_cards.append(card)\n\t\tdrawn_piles.append(pile)\n\tif pile.is_empty():\n\t\tvalid_piles.erase(pile)\nif drawn_cards.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar names = []\nfor c in drawn_cards:\n\tnames.append(c.card_name)\ngame.log_message(LogColors.player(player.player_name) + \" 展示了拾荒牌: \" + \", \".join(names))\nvar selected = await player.choose_card(2, drawn_cards, null, \"\\\"夜色掩护\\\": 选择要保留的牌\", 0)\nvar event_scavenge = EventSystem.create_draw_scavenge_event(player, null, 0)\nfor i in range(drawn_cards.size()):\n\tvar card = drawn_cards[i]\n\tvar pile = drawn_piles[i]\n\tif selected.has(card):\n\t\tawait player.draw_scavenge_card(card, pile, event_scavenge)\n\telse:\n\t\tplayer.discard(card)"
         }
       ]
     }

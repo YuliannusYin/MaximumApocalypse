@@ -406,7 +406,7 @@ func _on_confirm_requested(message: String) -> void:
 	_action_selection_controller.set_confirm_mode(message)
 
 
-func _on_choose_card_requested(n: int, param: Variant, filter: Variant) -> void:
+func _on_choose_card_requested(n: int, param: Variant, filter: Variant, prompt: String, min_n: int) -> void:
 	var current: Variant = Game.get_current_player()
 	if current == null or not is_instance_valid(current):
 		_gui_input.respond_choose_card([])
@@ -452,7 +452,7 @@ func _on_choose_card_requested(n: int, param: Variant, filter: Variant) -> void:
 				zone_name = str(param)
 		for i in range(cards.size()):
 			zone_labels.append(zone_name)
-	_popup_manager.show_card_select_popup(cards, n, label, zone_labels)
+	_popup_manager.show_card_select_popup(cards, n, label, zone_labels, prompt, min_n)
 
 
 func _on_choose_target_requested(n: int, skill: Variant, prompt: String) -> void:
