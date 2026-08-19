@@ -9,6 +9,8 @@ var card_name: String = ""
 var english_name: String = ""
 var card_type: String = ""  # "action" / "equipment"
 var size: int = 0
+## 射程："none" / "short" / "medium" / "long" / "infinity"
+var range: String = "none"
 var charge_type: String = ""
 var charge_max: int = 0
 var charge_initial: int = 0
@@ -21,6 +23,7 @@ func _init(data: Dictionary = {}) -> void:
 	english_name = data.get("english_name", "")
 	card_type = data.get("card_type", "")
 	size = int(data.get("size", 0))
+	range = data.get("range", "none")
 	charge_type = data.get("charge_type", "")
 	charge_max = int(data.get("charge_max", 0))
 	charge_initial = int(data.get("charge_initial", 0))

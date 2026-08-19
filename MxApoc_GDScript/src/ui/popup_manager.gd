@@ -1263,15 +1263,22 @@ func _build_monster_card(m: Variant, w: int, h: int) -> Panel:
 	name_lbl.position = Vector2(4, h - 52)
 	name_lbl.size = Vector2(w - 8, 20)
 	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	name_lbl.add_theme_font_size_override("font_size", 13)
+	name_lbl.add_theme_font_size_override("font_size", 14)
 	name_lbl.add_theme_color_override("font_outline_color", Color.BLACK)
 	name_lbl.add_theme_constant_override("outline_size", 3)
 	inner.add_child(name_lbl)
 
-	# 射程（名字下方）
-	var range_map := {"none": "纠缠", "short": "短程", "medium": "中程", "long": "远程", "infinity": "无限"}
+	# 距离（名字下方：短/中/长彩色，纠缠白字）
+	var range_val: Variant = m.get("range")
+	var range_str: String = range_val if range_val is String else ""
 	var range_lbl := Label.new()
-	range_lbl.text = "射程 " + range_map.get(m.get("range"), m.get("range"))
+	if CardView.RANGE_MAP.has(range_str):
+		range_lbl.text = CardView.RANGE_MAP[range_str]
+		range_lbl.add_theme_color_override("font_color", CardView.RANGE_COLORS[range_str])
+	elif range_str == "none":
+		range_lbl.text = "纠缠"
+	else:
+		range_lbl.text = "无限" if range_str == "infinity" else range_str
 	range_lbl.position = Vector2(4, h - 32)
 	range_lbl.size = Vector2(w - 8, 18)
 	range_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1471,18 +1478,18 @@ func _build_equipment_card(card: Variant, w: int, h: int) -> Panel:
 	name_lbl.position = Vector2(4, h - 52)
 	name_lbl.size = Vector2(w - 8, 20)
 	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	name_lbl.add_theme_font_size_override("font_size", 13)
+	name_lbl.add_theme_font_size_override("font_size", 14)
 	name_lbl.add_theme_color_override("font_outline_color", Color.BLACK)
 	name_lbl.add_theme_constant_override("outline_size", 3)
 	inner.add_child(name_lbl)
 
-	# 射程（名字下方，仅 range≠"none" 且非空）
+	# 距离（名字下方，仅 short/medium/long 显示）
 	var range_val: Variant = card.get("range")
 	var range_str: String = range_val if range_val is String else ""
-	if not range_str.is_empty() and range_str != "none":
-		var range_map := {"short": "短程", "medium": "中程", "long": "远程", "infinity": "无限"}
+	if CardView.RANGE_MAP.has(range_str):
 		var range_lbl := Label.new()
-		range_lbl.text = "射程 " + range_map.get(range_str, range_str)
+		range_lbl.text = CardView.RANGE_MAP[range_str]
+		range_lbl.add_theme_color_override("font_color", CardView.RANGE_COLORS[range_str])
 		range_lbl.position = Vector2(4, h - 32)
 		range_lbl.size = Vector2(w - 8, 18)
 		range_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
