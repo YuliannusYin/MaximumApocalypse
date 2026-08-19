@@ -27,6 +27,7 @@
       "count": 3,
       "card_type": "equipment",
       "size": 1,
+      "range": "short",
       "skills": [
         {
           "skill_name": "扳手",
@@ -49,6 +50,7 @@
       "english_name": "nail_bomb",
       "count": 2,
       "card_type": "action",
+      "range": "medium",
       "skills": [
         {
           "skill_name": "钉子炸弹",
@@ -145,6 +147,7 @@
       "count": 2,
       "card_type": "equipment",
       "size": 2,
+      "range": "short",
       "charge_type": "fuel",
       "charge_max": 3,
       "charge_initial": 3,
@@ -192,6 +195,7 @@
       "english_name": "upgrade",
       "count": 3,
       "card_type": "action",
+      "range": "medium",
       "skills": [
         {
           "skill_name": "升级",
@@ -243,6 +247,7 @@
       "count": 1,
       "card_type": "equipment",
       "size": 1,
+      "range": "medium",
       "charge_type": "ammo",
       "charge_max": 4,
       "charge_initial": 4,
@@ -286,6 +291,7 @@
       "english_name": "read_manual",
       "count": 3,
       "card_type": "action",
+      "range": "medium",
       "skills": [
         {
           "skill_name": "阅读使用说明",
@@ -332,6 +338,7 @@
       "english_name": "homemade_bullets",
       "count": 2,
       "card_type": "action",
+      "range": "short",
       "skills": [
         {
           "skill_name": "自制子弹",

@@ -49,6 +49,7 @@
       "count": 3,
       "card_type": "equipment",
       "size": 1,
+      "range": "short",
       "charge_type": "fuel",
       "charge_max": 2,
       "charge_initial": 2,
@@ -75,6 +76,7 @@
       "english_name": "first_aid_kit",
       "count": 3,
       "card_type": "action",
+      "range": "short",
       "skills": [
         {
           "skill_name": "急救包",
@@ -99,6 +101,7 @@
       "count": 1,
       "card_type": "equipment",
       "size": 1,
+      "range": "medium",
       "charge_type": "ammo",
       "charge_max": 4,
       "charge_initial": 4,
@@ -124,6 +127,7 @@
       "english_name": "fire_extinguisher",
       "count": 3,
       "card_type": "action",
+      "range": "short",
       "skills": [
         {
           "skill_name": "灭火器",
@@ -190,6 +194,7 @@
       "english_name": "flare_rod",
       "count": 4,
       "card_type": "action",
+      "range": "long",
       "skills": [
         {
           "skill_name": "闪光棒",
@@ -265,6 +270,7 @@
       "english_name": "oxygen_tank",
       "count": 2,
       "card_type": "action",
+      "range": "medium",
       "skills": [
         {
           "skill_name": "氧气罐",
@@ -287,6 +293,7 @@
       "english_name": "reliable_axe",
       "count": 2,
       "card_type": "equipment",
+      "range": "short",
       "size": 2,
       "skills": [
         {

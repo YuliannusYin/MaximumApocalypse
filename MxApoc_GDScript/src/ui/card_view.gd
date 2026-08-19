@@ -2,7 +2,7 @@ class_name CardView
 extends Panel
 
 ## 卡牌视图组件。
-## 图片优先显示：有图片时显示图片+牌名(中下)+射程(名字下)+左上角标识；无图片时退回纯文字布局。
+## 图片优先显示：有图片时显示图片+牌名(中下)+距离(名字下)+左上角标识；无图片时退回纯文字布局。
 ## 交互（悬停/点击/双击/拖拽）由父容器 HandDisplayArea 处理。
 
 const CARD_W := 100
@@ -14,12 +14,18 @@ const SELECTED_OFFSET := 15.0
 const SELECTED_BORDER_COLOR := Color(1.0, 0.84, 0.0, 1.0)
 const SELECTED_BORDER_WIDTH := 3
 
-# 射程中文映射（none 不显示）
+# 距离中文映射（仅 short/medium/long 显示，none/infinity/空不显示）
 const RANGE_MAP: Dictionary = {
-	"short": "短程",
-	"medium": "中程",
-	"long": "远程",
-	"infinity": "无限",
+	"short": "短距离",
+	"medium": "中距离",
+	"long": "长距离",
+}
+
+# 距离标签颜色（键与 RANGE_MAP 对应）
+const RANGE_COLORS: Dictionary = {
+	"short": Color(1.0, 0.55, 0.0),
+	"medium": Color(1.0, 0.85, 0.0),
+	"long": Color(0.0, 0.85, 0.7),
 }
 
 # 卡牌类型背景色（无图片时使用）
@@ -158,7 +164,7 @@ func _build_content() -> void:
 	_name_label.add_theme_color_override("font_outline_color", Color.BLACK)
 	_name_label.add_theme_constant_override("outline_size", 3)
 	_content_panel.add_child(_name_label)
-	# 射程（图片模式，名字下方）
+	# 距离（名字下方；图片模式在牌名下，文字模式在牌名正下方）
 	_range_label = Label.new()
 	_range_label.position = Vector2(4, CARD_H - 32)
 	_range_label.size = Vector2(CARD_W - 8, 18)
@@ -239,20 +245,23 @@ func _refresh() -> void:
 	_apply_style()
 
 
-## 图片布局：图片背景 + 牌名(中下) + 射程(名字下) + 左上角标识。
+## 图片布局：图片背景 + 牌名(中下) + 距离(名字下) + 左上角标识。
 func _apply_image_layout(tex: Texture2D) -> void:
 	_texture_rect.texture = tex
 	_texture_rect.visible = true
 	# 牌名移到中下
 	_name_label.text = _card.get("card_name")
-	_name_label.position = Vector2(4, CARD_H - 52)
-	_name_label.size = Vector2(CARD_W - 8, 20)
+	_name_label.position = Vector2(4, CARD_H - 58)
+	_name_label.size = Vector2(CARD_W - 8, 26)
 	_name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_name_label.add_theme_font_size_override("font_size", 11)
-	# 射程（仅 range≠"none" 且非空时显示）
+	_name_label.add_theme_font_size_override("font_size", 12)
+	# 距离（仅 short/medium/long 显示；每次显示前重设颜色与位置，防止复用残留）
 	var range_str := _safe_string(_card.get("range"))
-	if not range_str.is_empty() and range_str != "none":
-		_range_label.text = "射程 " + RANGE_MAP.get(range_str, range_str)
+	if RANGE_MAP.has(range_str):
+		_range_label.text = RANGE_MAP[range_str]
+		_range_label.add_theme_color_override("font_color", RANGE_COLORS[range_str])
+		_range_label.position = Vector2(4, CARD_H - 32)
+		_range_label.size = Vector2(CARD_W - 8, 18)
 		_range_label.visible = true
 	else:
 		_range_label.visible = false
@@ -265,16 +274,33 @@ func _apply_image_layout(tex: Texture2D) -> void:
 	_apply_charge_display()
 
 
-## 文字布局：保留原有的纯文字显示。
+## 文字布局：纯文字显示；有距离时在牌名正下方显示距离并下移类型/消耗/效果标签。
 func _apply_text_layout() -> void:
 	_texture_rect.visible = false
 	_badge_label.visible = false
-	_range_label.visible = false
 	_name_label.text = _card.get("card_name")
 	_name_label.position = Vector2(4, 4)
 	_name_label.size = Vector2(CARD_W - 8, 36)
 	_name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_name_label.add_theme_font_size_override("font_size", 11)
+	_name_label.add_theme_font_size_override("font_size", 12)
+	# 距离（仅 short/medium/long 显示；有距离时下移类型/消耗/效果避免重叠）
+	var range_str := _safe_string(_card.get("range"))
+	if RANGE_MAP.has(range_str):
+		_range_label.text = RANGE_MAP[range_str]
+		_range_label.add_theme_color_override("font_color", RANGE_COLORS[range_str])
+		_range_label.position = Vector2(4, 40)
+		_range_label.size = Vector2(CARD_W - 8, 16)
+		_range_label.visible = true
+		_type_label.position = Vector2(4, 56)
+		_cost_label.position = Vector2(4, 74)
+		_effect_label.position = Vector2(4, 92)
+		_effect_label.size = Vector2(CARD_W - 8, CARD_H - 96)
+	else:
+		_range_label.visible = false
+		_type_label.position = Vector2(4, 42)
+		_cost_label.position = Vector2(4, 60)
+		_effect_label.position = Vector2(4, 78)
+		_effect_label.size = Vector2(CARD_W - 8, CARD_H - 82)
 	var ctype: String = _card.get("card_type")
 	_type_label.text = _type_display(ctype)
 	_type_label.visible = true

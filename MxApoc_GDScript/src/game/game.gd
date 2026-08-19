@@ -711,9 +711,10 @@ func _create_scavenge_card_from_data(card_data: ScavengeCardData, color: String)
 	else:
 		card.scavenge_type = "consumable"
 		card.card_subtype = "action"
-	# EquipmentCard 继承字段：从数据填充装备相关属性。
+	# EquipmentCard 继承字段：从数据填充装备相关属性（含射程 range）。
 	# 非装备类拾荒卡（食物/弹药/医疗用品等）的 charge 字段保持默认 0/空，无害。
 	card.size = card_data.size
+	card.range = card_data.range
 	card.charge_type = card_data.charge_type
 	card.charge_max = card_data.charge_max
 	card.charge_current = card_data.charge_initial
