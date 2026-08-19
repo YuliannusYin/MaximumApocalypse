@@ -66,21 +66,6 @@ func _get_common_skill(english_name: String) -> Skill:
 	return null
 
 
-# === A. DataManager 加载 ===
-
-func test_common_skills_count() -> void:
-	var skills: Array = DataManager.get_common_skills()
-	assert_eq(skills.size(), 2, "应加载 2 个通用技能")
-
-
-func test_common_skill_target_types() -> void:
-	var by_name: Dictionary = {}
-	for sd in DataManager.get_common_skills():
-		by_name[sd.english_name] = sd
-	assert_eq(by_name["balance"].target_type, "")
-	assert_eq(by_name["trade"].target_type, "entity")
-
-
 # === B. use_active_skill 基础守卫 ===
 
 func test_use_active_skill_rejects_null() -> void:

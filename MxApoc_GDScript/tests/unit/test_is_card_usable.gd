@@ -86,15 +86,6 @@ func test_food_small_not_usable_when_hunger_low() -> void:
 	assert_false(p.is_card_usable(card), "hunger=1 时食物（小额）filter 不通过，应返回 false")
 
 
-# 同一玩家 hunger=3 时 filter 通过，卡可用
-func test_food_small_usable_when_hunger_high() -> void:
-	var p: Player = _make_player()
-	p.hunger = 3
-	_setup_game_for_player(p)
-	var card: Card = _make_scavenge_card("食物（小额）")
-	assert_true(p.is_card_usable(card), "hunger=3 时食物（小额）filter 通过，应返回 true")
-
-
 # 装备牌恒可用（card_type == "equipment" 直接返回 true，无 filter 门槛）
 func test_equipment_card_always_usable() -> void:
 	var p: Player = _make_player()

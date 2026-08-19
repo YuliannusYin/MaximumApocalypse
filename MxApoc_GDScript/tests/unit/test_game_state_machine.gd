@@ -365,3 +365,29 @@ func test_get_game_result() -> void:
 	assert_eq(gsm.get_game_result(), -1)
 	gsm.game_result = GameStateMachine.GameResult.WIN
 	assert_eq(gsm.get_game_result(), GameStateMachine.GameResult.WIN)
+
+
+# === Merged mechanism tests (from cleanup) ===
+
+# 读取 game_state_machine.gd 源码，断言 trigger("on_game_start") 所在行号
+# 小于 draw(4) 所在行号（行序断言）。
+# 证明 on_game_start 触发器在抓初始手牌之前执行。
+func test_start_game_on_game_start_before_draw_4() -> void:
+	var path: String = "res://src/core/game_state_machine.gd"
+	var content: String = FileAccess.get_file_as_string(path)
+	assert_false(content.is_empty(), "应能读取 game_state_machine.gd")
+	var lines: PackedStringArray = content.split("\n")
+	var on_game_start_line: int = -1
+	var draw_4_line: int = -1
+	for i in range(lines.size()):
+		var line: String = lines[i]
+		if on_game_start_line < 0 and line.contains("trigger(\"on_game_start\""):
+			on_game_start_line = i
+		if draw_4_line < 0 and line.contains("draw(4)"):
+			draw_4_line = i
+	assert_true(on_game_start_line >= 0, "应找到 trigger(\"on_game_start\") 行")
+	assert_true(draw_4_line >= 0, "应找到 draw(4) 行")
+	assert_true(
+		on_game_start_line < draw_4_line,
+		"on_game_start 触发应在 draw(4) 之前（行 %d < 行 %d）" % [on_game_start_line, draw_4_line]
+	)

@@ -376,6 +376,7 @@ func on_pile_selected(pile_key: String, display_name: String = "") -> void:
 ## 结果通过 card_move_select_completed 信号返回；count 为本次选取的目标数量。
 func enter_block_select_mode(prompt: String, valid_blocks: Array, count: int, source: String) -> void:
 	if _confirm_mode or _move_select_mode or _skill_confirm_mode or _round_zero_mode:
+		push_warning("enter_block_select_mode 被忽略：UI 模式冲突（confirm=%s move=%s skill_confirm=%s round_zero=%s）" % [_confirm_mode, _move_select_mode, _skill_confirm_mode, _round_zero_mode])
 		return
 	if source == "move":
 		var current: Variant = Game.get_current_player()
