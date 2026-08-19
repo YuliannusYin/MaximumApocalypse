@@ -119,6 +119,91 @@ func test_action_requested_signal_emitted() -> void:
 	await get_tree().create_timer(0.01).timeout
 
 
+# === 请求队列机制测试 ===
+
+func test_single_request_dispatched_immediately() -> void:
+	var input: GUIPlayerInput = GUIPlayerInput.new()
+	var emitted: Array = []
+	input.confirm_requested.connect(func(_message): emitted.append(true))
+	_run_confirm(input, {}, "立即派发")
+	assert_eq(emitted.size(), 1, "空闲时请求应立即派发（同步发出 confirm_requested）")
+	input.respond_confirm(true)
+	await get_tree().create_timer(0.02).timeout
+
+
+func test_queued_request_dispatched_after_active_resolved() -> void:
+	var input: GUIPlayerInput = GUIPlayerInput.new()
+	var confirm_emitted: Array = []
+	var choose_card_emitted: Array = []
+	input.confirm_requested.connect(func(_message): confirm_emitted.append(true))
+	input.choose_card_requested.connect(func(_n, _param, _filter, _prompt, _min_n): choose_card_emitted.append(true))
+
+	var holder_a: Dictionary = {"value": null}
+	var holder_b: Dictionary = {"value": null}
+	# A（confirm）派发为活动请求；B（choose_card）应入队而非立即派发
+	_run_confirm(input, holder_a, "外层结算")
+	_run_choose_card(input, holder_b, 1, "hand")
+
+	assert_eq(confirm_emitted.size(), 1, "A（confirm）应立即派发")
+	assert_eq(choose_card_emitted.size(), 0, "A 未结算时 B（choose_card）不应派发")
+
+	# 响应 A → A 恢复并释放活动槽 → B 自动派发
+	input.respond_confirm(true)
+	await get_tree().create_timer(0.05).timeout
+
+	assert_eq(holder_a["value"], true, "A 应返回 true")
+	assert_eq(choose_card_emitted.size(), 1, "A 结算后 B 应自动派发")
+
+	# 清理：响应 B，使其正常返回
+	input.respond_choose_card([])
+	await get_tree().create_timer(0.05).timeout
+	assert_eq(holder_b["value"], [], "B 应正常返回")
+
+
+func test_response_not_misrouted_to_queued_request() -> void:
+	var input: GUIPlayerInput = GUIPlayerInput.new()
+	var holder_a: Dictionary = {"value": null}
+	var holder_b: Dictionary = {"value": null}
+
+	_run_confirm(input, holder_a, "外层结算")
+	_run_choose_card(input, holder_b, 1, "hand")
+
+	# 响应 A：A 返回 true；B 仍等待，不应错收 A 的响应
+	input.respond_confirm(true)
+	await get_tree().create_timer(0.05).timeout
+
+	assert_eq(holder_a["value"], true, "A 应返回自己的响应 true")
+	assert_null(holder_b["value"], "B 不应错收 A 的响应（仍在等待）")
+
+	# 随后响应 B：B 正常返回自己的数组
+	var cards: Array = [Card.new()]
+	input.respond_choose_card(cards)
+	await get_tree().create_timer(0.05).timeout
+	assert_eq(holder_b["value"], cards, "B 应返回自己的响应数组")
+
+
+func test_duplicate_response_ignored() -> void:
+	var input: GUIPlayerInput = GUIPlayerInput.new()
+	var holder: Dictionary = {"value": null}
+	_run_confirm(input, holder, "确认？")
+
+	input.respond_confirm(true)
+	input.respond_confirm(false)
+	await get_tree().create_timer(0.05).timeout
+
+	assert_true(holder["value"], "重复响应应被忽略，confirm 只返回第一次的 true")
+
+
+func test_single_request_flow_compatible() -> void:
+	var input: GUIPlayerInput = GUIPlayerInput.new()
+	var holder: Dictionary = {"value": null}
+	_run_wait_action(input, holder)
+	await get_tree().create_timer(0.02).timeout
+	input.respond_action("attack")
+	await get_tree().create_timer(0.02).timeout
+	assert_eq(holder["value"], "attack", "单请求流程 wait_action → respond_action 应正常返回")
+
+
 # === 协程辅助方法 ===
 
 func _run_wait_action(input: GUIPlayerInput, holder: Dictionary) -> void:

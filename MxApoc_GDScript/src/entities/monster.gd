@@ -173,8 +173,6 @@ func death(source: Entity) -> void:
 			Game.log_message(LogColors.monster(monster_name) + " 被 " + LogColors.player(source.player_name) + " 击杀")
 		else:
 			Game.log_message(LogColors.monster(monster_name) + " 被击杀")
-	if EventBus != null and is_instance_valid(EventBus):
-		EventBus.monster_died.emit(self, source)
 	var event: Dictionary = EventSystem.create_monster_death_event(self, source)
 
 	# 1. before_monster_death
@@ -203,5 +201,7 @@ func death(source: Entity) -> void:
 	if Game != null and is_instance_valid(Game):
 		if Game.monster_discard_pile != null:
 			Game.monster_discard_pile.add(self.monster_card)
+	if EventBus != null and is_instance_valid(EventBus):
+		EventBus.monster_died.emit(self, source)
 
 	await trigger("after_monster_death", event)

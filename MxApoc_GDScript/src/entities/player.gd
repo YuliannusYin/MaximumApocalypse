@@ -49,11 +49,17 @@ func get_max_hp() -> int:
 
 
 func reduce_hp(n: int) -> void:
+	var old_value: int = hp
 	hp = maxi(hp - n, 0)
+	if hp != old_value and EventBus != null and is_instance_valid(EventBus):
+		EventBus.player_hp_changed.emit(self, old_value, hp)
 
 
 func add_hp(n: int) -> void:
+	var old_value: int = hp
 	hp = mini(hp + n, max_hp)
+	if hp != old_value and EventBus != null and is_instance_valid(EventBus):
+		EventBus.player_hp_changed.emit(self, old_value, hp)
 
 
 func is_player() -> bool:
@@ -140,6 +146,7 @@ func decrease_hunger(num: int) -> void:
 		num = max_reduce
 	if num <= 0:
 		return
+	var old_hunger: int = hunger
 	hunger -= num
 	if Game != null and is_instance_valid(Game):
 		Game.log_message(LogColors.player(player_name) + " 减少了 " + str(num) + " 点饥饿值")
@@ -149,6 +156,7 @@ func decrease_hunger(num: int) -> void:
 		role_card.flip()
 	if EventBus != null and is_instance_valid(EventBus):
 		EventBus.hunger_reduced.emit(self, num)
+		EventBus.player_hunger_changed.emit(self, old_hunger, hunger)
 
 
 ## 中毒结算。中毒标记数 = 受到无来源伤害值。
@@ -280,6 +288,8 @@ func draw_monster(n: int) -> void:
 		var monster: Monster = card.instantiate(self)
 		# e. 怪物卡进入求生者怪物区时（每张触发）
 		monster_zone.append(monster)
+		if EventBus != null and is_instance_valid(EventBus):
+			EventBus.monster_spawned.emit(monster, self)
 		if Game != null and is_instance_valid(Game):
 			Game.log_message(LogColors.monster(monster.monster_name) + " 纠缠了 " + LogColors.player(player_name))
 		await trigger("on_monster_enter_zone", event)
@@ -1054,6 +1064,7 @@ func reduce_hunger(n: int) -> void:
 	var actual_reduce: int = hunger_before - hunger
 	if actual_reduce > 0 and EventBus != null and is_instance_valid(EventBus):
 		EventBus.hunger_reduced.emit(self, actual_reduce)
+		EventBus.player_hunger_changed.emit(self, hunger_before, hunger)
 
 
 ## 潜行值（含饥饿状态修正）
@@ -1082,6 +1093,8 @@ func set_action_count(n: int) -> void:
 
 func reduce_action_count(n: int) -> void:
 	action_count = maxi(action_count - n, 0)
+	if EventBus != null and is_instance_valid(EventBus):
+		EventBus.action_consumed.emit(self, n)
 
 
 ## 扣除 n 点行动次数（content 代码字符串统一调用名，等价 reduce_action_count）。
@@ -1098,6 +1111,8 @@ func add_action(n: int) -> void:
 		action_count = 0
 	if Game != null and is_instance_valid(Game):
 		Game.log_message(LogColors.player(player_name) + " 增加了 " + str(n) + " 点行动点数")
+	if EventBus != null and is_instance_valid(EventBus):
+		EventBus.action_consumed.emit(self, n)
 
 
 ## 增加 n 点行动次数上限（扣动扳机让我快乐使用）。

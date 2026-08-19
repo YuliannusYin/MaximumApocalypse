@@ -532,6 +532,41 @@ func test_fuel_equip_or_discard() -> void:
 	assert_false(p.hand.has(card), "燃料不应留在手牌")
 
 
+# 抓到"燃料"时装备区已满且玩家取消超限弃牌 → equip 返回 false → 燃料被弃置
+# 回归：燃料 content 需 await player.equip(card) 获取真实 bool 返回值。
+# 修复前 content 在 if not 布尔上下文同步调用 async equip，触发
+# "Trying to call an async function without 'await'." 运行时错误，
+# 且协程对象恒为真导致弃牌兜底分支不可达。
+func test_fuel_equip_overflow_cancel_discards() -> void:
+	var p: Player = _make_player(10, 10)
+	p.role_card = RoleCard.new()
+	p.role_card.equipment_capacity = 1
+	_setup_game_for_player(p)
+	# 预先装备一张 size=1 的装备占满装备栏容量
+	var filler: EquipmentCard = EquipmentCard.new()
+	filler.card_name = "test_filler_equip"
+	filler.english_name = "test_filler_equip"
+	filler.card_type = "equipment"
+	filler.card_subtype = "equipment"
+	filler.source = "game"
+	filler.size = 1
+	await p.equip(filler)
+	assert_true(p.has_equipment("test_filler_equip"), "前置装备应已占满装备区")
+	var pile: Pile = Pile.new()
+	var card: Card = _make_scavenge_card("燃料")
+	pile.add(card)
+	var cli: CliPlayerInput = CliPlayerInput.new()
+	cli.queue_confirm(true)  # confirm → 确定装备
+	cli.queue_choose_card([])  # equip 超限弃牌 choose_card → 空数组（模拟玩家取消）
+	p.input = cli
+	await p.draw_scavenge(1, pile)
+	assert_false(p.hand.has(card), "燃料不应留在手牌")
+	assert_false(p.has_equipment(card.card_name), "装备失败后燃料不应进入装备区")
+	assert_eq(Game.scavenge_discard_pile.size(), 1, "燃料应进入拾荒弃牌堆")
+	assert_true(Game.scavenge_discard_pile.get_all().has(card), "拾荒弃牌堆中应有燃料卡")
+	assert_true(p.has_equipment("test_filler_equip"), "原占位装备应保留在装备区")
+
+
 # --- item 卡 ---
 
 # 脏毯子/老报纸/满是灰尘的日记本 无技能可进入手牌

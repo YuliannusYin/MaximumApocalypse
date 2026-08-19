@@ -94,7 +94,7 @@
           "trigger": "on_draw_scavenge_card",
           "forced": true,
           "filter": "return event.card.english_name == \"fuel\"",
-          "content": "var card = event.card\nvar ok = await player.confirm('是否立即装备 \"燃料\", 否则立即弃置')\nif ok:\n\tplayer.equip(card)\nelse:\n\tplayer.discard(card)"
+          "content": "var card = event.card\nvar ok = await player.confirm('是否立即装备 \"燃料\", 否则立即弃置')\nif ok:\n\tvar equipped = await player.equip(card)\n\tif not equipped:\n\t\tplayer.discard(card)\nelse:\n\tplayer.discard(card)"
         },
         {
           "skill_name": "加油",

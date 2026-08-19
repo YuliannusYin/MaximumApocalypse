@@ -297,7 +297,14 @@ func _update_hp() -> void:
 func _update_sneak() -> void:
 	if _player == null:
 		return
-	_sneak_label.text = "潜行 %d" % _player.get_sneak()
+	var sneak_value: int = _player.get_sneak()
+	var block: Variant = _player.get("current_block")
+	if block != null and is_instance_valid(block):
+		if block.has_method("count_monster"):
+			sneak_value -= block.count_monster()
+		if block.has_method("count_monster_mark"):
+			sneak_value -= block.count_monster_mark()
+	_sneak_label.text = "潜行 %d" % sneak_value
 
 
 func _update_hunger() -> void:
