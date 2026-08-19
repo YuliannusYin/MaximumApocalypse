@@ -22,13 +22,14 @@ func choose(options: Array, prompt: String = "") -> Variant:
 ## 选 n 张牌。filter: Callable(card) -> bool，null 表示不过滤。
 ## param 为 String 时：按 position（如 "hand"/"equipment"/"discard"）查询玩家区域卡牌。
 ## param 为 Array 时：直接作为候选卡牌列表，绕过 position 查询。
-func choose_card(n: int, param: Variant = "hand", filter: Variant = null) -> Array:
+func choose_card(n: int, param: Variant = "hand", filter: Variant = null, prompt: String = "", min_n: int = -1) -> Array:
 	_push_override_error("choose_card")
 	return []
 
 
 ## 选择目标。n 为选择数量（-1 表示全部），skill 为当前技能（含 target_type/filter_target 等）。
-func choose_target(n: int, skill: Variant, prompt: String = "") -> Array:
+## min_n 为最小选择数（-1 表示精确模式，必须选 n 个）；范围模式 min_n>=0 时允许 [min_n, n] 个。
+func choose_target(n: int, skill: Variant, prompt: String = "", min_n: int = -1) -> Array:
 	_push_override_error("choose_target")
 	return []
 

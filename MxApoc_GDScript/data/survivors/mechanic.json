@@ -12,10 +12,12 @@
     {
       "skill_name": "维修",
       "english_name": "repair",
-      "skill_description": "行动：从任一弃牌堆中选择一张装备牌，并把它放置在场上任一玩家的装备区中。",
+      "skill_description": "行动：从场上所有弃牌堆中选择一张装备牌返回手牌。",
+      "skill_type": "action",
       "active": "action",
       "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && game.has_equipment_in_discard_piles()",
-      "content": "player.consume_action(1)\nvar list = game.get_all_discard_pile_equipments()\nvar card = await player.choose_card(list)\ntarget = await player.choose_target({\"select_target\": 1, \"filter_target\": \"return target.is_player()\", \"filter_target_range\": \"infinity\"})\ntarget.equip(card)"
+      "defer_action_cost": true,
+      "content": "var list = game.get_all_discard_pile_equipments()\nvar _filtered = []\nfor _c in list:\n\tif _c.card_type == \"equipment\":\n\t\t_filtered.append(_c)\nif _filtered.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar _selected = await player.choose_card(1, _filtered, null, \"\\\"维修\\\": 选取一张装备牌\")\nif _selected.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar card = _selected[0]\nplayer.consume_action(1)\ngame.take_card_from_discard_piles(card)\nvar _event_scavenge = EventSystem.create_draw_scavenge_event(player, null, 0)\nawait player.draw_scavenge_card(card, null, _event_scavenge)"
     }
   ],
   "deck": [
@@ -36,6 +38,7 @@
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
           "select_target": 1,
           "filter_target": "return target != player",
+          "window_prompt": "\"扳手\": 选择攻击目标",
           "filter_target_range": "short",
           "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"wrench\")\ntarget.damage(2, player, \"weapon_attack\", weapon.equipment_card)"
         }
@@ -53,11 +56,13 @@
           "skill_description": "行动：对射程内的最多3个怪物各造成5点伤害",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\"",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
           "select_target": [1, 3],
           "filter_target": "return target.is_monster()",
+          "window_prompt": "\"钉子炸弹\": 选择攻击目标",
           "filter_target_range": "medium",
-          "content": "var list = event.targets\nfor i in list:\n\ti.damage(5, player)"
+          "defer_action_cost": true,
+          "content": "player.consume_action(1)\nvar list = event.targets\nfor i in list:\n\ti.damage(5, player)"
         }
       ]
     },
@@ -73,10 +78,10 @@
           "english_name": "proximity_mine",
           "skill_description": "被动：当你抓取一张怪物卡后，弃掉此装备并对该怪物造成7点伤害。",
           "skill_type": "equipment",
-          "trigger": "after_draw_monster_card",
+          "trigger": "after_monster_enter_zone",
           "filter": "return true",
           "forced": true,
-          "content": "var weapon = player.get_equipment(\"proximity_mine\")\nplayer.discard(\"proximity_mine\", \"equipment\")\nevent.card.damage(7, player, \"weapon_attack\", weapon.equipment_card)"
+          "content": "var weapon = player.get_equipment(\"proximity_mine\")\nvar _target_monster = null\nfor _m in player.monster_zone:\n\tif _m.monster_card == event.card:\n\t\t_target_monster = _m\n\t\tbreak\nplayer.discard(\"proximity_mine\", \"equipment\")\nif _target_monster != null:\n\t_target_monster.damage(7, player, \"weapon_attack\", weapon.equipment_card)"
         }
       ]
     },
@@ -112,7 +117,8 @@
           "skill_type": "action",
           "active": "action",
           "filter": "return player.in_phase == \"action\"",
-          "content": "var list = game.get_all_players()\nfor i in list:\n\ti.add_temp_skill(\"check_weapon_damage\", \"before_turn_end\")",
+          "defer_action_cost": true,
+          "content": "player.consume_action(1)\nvar list = game.get_all_players()\nfor i in list:\n\ti.mount_sub_skill(\"check_weapon_damage\")\n\ti.add_temp_skill(\"check_weapon_clear\", \"before_turn_end\")",
           "sub_skills": {
             "damage": {
               "skill_name": "检查武器_伤害",
@@ -121,6 +127,13 @@
               "forced": true,
               "filter": "return true",
               "content": "event.num += 1"
+            },
+            "clear": {
+              "skill_name": "检查武器_清除",
+              "english_name": "check_weapon_clear",
+              "trigger": "before_turn_end",
+              "forced": true,
+              "content": "for s in player.get_all_skills():\n\tif s.english_name == \"check_weapon_damage\":\n\t\tplayer.remove_skill(s)\n\t\tbreak"
             }
           }
         }
@@ -145,7 +158,8 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"blowtorch\") > 0",
           "select_target": 1,
-          "filter_target": "return true",
+          "filter_target": "return target != player",
+          "window_prompt": "\"喷灯\": 选择攻击目标",
           "filter_target_range": "short",
           "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"blowtorch\")\nplayer.consume_charge(weapon, 1)\ntarget.damage(5, player, \"weapon_attack\", weapon.equipment_card)"
         }
@@ -163,8 +177,13 @@
           "skill_description": "行动：将任一玩家移动到任一已展示的地图块。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\"",
-          "content": "var target1 = await player.choose(game.get_all_players(), \"选择要移动的玩家\")\nif target1 == null:\n\treturn\nvar _blocks = []\nfor _b in game.map_area:\n\tif _b != null and is_instance_valid(_b) and _b.is_alive() and _b.is_revealed():\n\t\t_blocks.append(_b)\nif _blocks.is_empty():\n\treturn\nvar target2 = await player.choose_map_block(_blocks, \"选择目标地块\")\nif target2 == null:\n\treturn\ntarget1.move_to(target2)"
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "select_target": 1,
+          "filter_target": "return target.is_player()",
+          "window_prompt": "\"启动汽车\": 选择要移动的玩家",
+          "filter_target_range": "infinity",
+          "defer_action_cost": true,
+          "content": "var _blocks = []\nfor _b in game.map_area:\n\tif _b != null and is_instance_valid(_b) and _b.is_alive() and _b.is_revealed():\n\t\t_blocks.append(_b)\nif _blocks.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar prompt = \"\\\"启动汽车\\\": 选择目标地块\"\nvar _selected = await player.choose_block_inline(_blocks, prompt, 1)\nvar _block = _selected[0] if _selected.size() > 0 else null\nif _block == null:\n\tEventSystem.cancel(event)\n\treturn\nplayer.consume_action(1)\nawait target.move_to(_block)"
         }
       ]
     },
@@ -181,11 +200,14 @@
           "range": "medium",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\"",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "target_type": "equipment",
           "select_target": 1,
-          "filter_target": "return target.card_type == \"equipment\"",
+          "filter_target": "return target.in_equipment_area",
+          "window_prompt": "\"升级\": 选择目标武器",
           "filter_target_range": "medium",
-          "content": "target.add_mark_skill(\"upgrade_damage_plus_1\")\nplayer.mount_sub_skill(\"upgrade_damage\")",
+          "defer_action_cost": true,
+          "content": "player.consume_action(1)\ntarget.equipment_card.add_mark_skill(\"upgrade_damage_plus_1\", 1, \"\", \"升级\", \"该武器额外造成1点伤害\", true)\nplayer.mount_sub_skill(\"upgrade_damage\")\nplayer.mount_sub_skill(\"upgrade_clear_mark_discard\")\nplayer.mount_sub_skill(\"upgrade_clear_mark_unequip\")",
           "sub_skills": {
             "damage": {
               "skill_name": "升级_伤害",
@@ -193,7 +215,23 @@
               "trigger": "on_deal_damage",
               "forced": true,
               "filter": "return event.card != null && event.card.has_mark_skill(\"upgrade_damage_plus_1\")",
-              "content": "event.num += 1"
+              "content": "event.num += event.card.count_mark(\"upgrade_damage_plus_1\")"
+            },
+            "clear_on_discard": {
+              "skill_name": "升级_清除标记_弃置",
+              "english_name": "upgrade_clear_mark_discard",
+              "trigger": "on_discard",
+              "forced": true,
+              "filter": "return event.card != null && event.card.has_mark_skill(\"upgrade_damage_plus_1\")",
+              "content": "event.card.remove_mark(\"upgrade_damage_plus_1\")"
+            },
+            "clear_on_unequip": {
+              "skill_name": "升级_清除标记_卸下",
+              "english_name": "upgrade_clear_mark_unequip",
+              "trigger": "on_unequip",
+              "forced": true,
+              "filter": "return event.card != null && event.card.has_mark_skill(\"upgrade_damage_plus_1\")",
+              "content": "event.card.remove_mark(\"upgrade_damage_plus_1\")"
             }
           }
         }
@@ -218,7 +256,8 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"pistol\") > 0",
           "select_target": 1,
-          "filter_target": "return true",
+          "filter_target": "return target != player",
+          "window_prompt": "\"手枪\": 选择攻击目标",
           "filter_target_range": "medium",
           "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"pistol\")\nplayer.consume_charge(weapon, 1)\ntarget.damage(2, player, \"weapon_attack\", weapon.equipment_card)"
         }
@@ -236,8 +275,9 @@
           "skill_description": "行动：从1个地图块上移除所有怪物标记。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\"",
-          "content": "var _candidates = player.get_current_block().get_blocks_in_range(\"infinity\")\nvar _valid = []\nfor _b in _candidates:\n\ttarget = _b\n\tif target.is_revealed():\n\t\t_valid.append(_b)\n\ttarget = _b\nvar _blocks = await player.choose_block_inline(_valid, \"\", 1)\ntarget = _blocks[0] if _blocks.size() > 0 else null\ntarget.remove_all_monster_marks()"
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "defer_action_cost": true,
+          "content": "var _candidates = player.get_current_block().get_blocks_in_range(\"infinity\")\nvar _valid = []\nfor _b in _candidates:\n\tif _b.is_revealed():\n\t\t_valid.append(_b)\nif _valid.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar _blocks = await player.choose_block_inline(_valid, \"\\\"无人机攻击\\\": 选择目标地块\", 1)\ntarget = _blocks[0] if _blocks.size() > 0 else null\nif target == null:\n\tEventSystem.cancel(event)\n\treturn\nplayer.consume_action(1)\ntarget.remove_all_monster_marks()"
         }
       ]
     },
@@ -250,12 +290,18 @@
         {
           "skill_name": "阅读使用说明",
           "english_name": "read_manual",
-          "skill_description": "行动：把你的一张装备卡装备给另一名玩家，然后你抓取一张牌。",
+          "skill_description": "行动：将一张装备牌装备给另一名玩家，然后你抓取一张牌。",
           "range": "medium",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\"",
-          "content": "var _eq = []\nfor _e in player.equipment_zone:\n\tif _e != null and is_instance_valid(_e):\n\t\t_eq.append(_e)\nif _eq.is_empty():\n\treturn\nvar target1 = await player.choose(_eq, \"选择要给出的装备\")\nif target1 == null:\n\treturn\nvar _block = player.get_current_block()\nvar _cand = _block.get_players_in_range(\"medium\")\n_cand.append_array(_block.get_players())\nvar _seen = {}\nvar _t2 = []\nfor _c in _cand:\n\tif _c == null or not is_instance_valid(_c):\n\t\tcontinue\n\tif _c == player:\n\t\tcontinue\n\tvar _id = _c.get_instance_id()\n\tif _seen.has(_id):\n\t\tcontinue\n\t_seen[_id] = true\n\t_t2.append(_c)\nif _t2.is_empty():\n\treturn\nvar target2 = await player.choose(_t2, \"选择装备目标玩家\")\nif target2 == null:\n\treturn\nvar _card = target1.equipment_card\nawait player.unequip(target1)\nawait target2.equip(_card)\nplayer.draw(1)"
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && game.get_alive_players().size() > 1",
+          "target_type": "equipment",
+          "select_target": 1,
+          "filter_target": "return target.in_equipment_area",
+          "window_prompt": "\"阅读使用说明\": 选择要给出的装备",
+          "filter_target_range": "medium",
+          "defer_action_cost": true,
+          "content": "var _selected = await player.choose_target(1, {\"filter_target\": \"return target.is_player() && target != player\", \"filter_target_range\": \"medium\"}, \"\\\"阅读使用说明\\\": 选择装备目标玩家\")\nif _selected.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar target2 = _selected[0]\nplayer.consume_action(1)\nvar _card = target.equipment_card\nawait player.unequip(target)\nawait target2.equip(_card)\nplayer.draw(1)"
         }
       ]
     },
@@ -272,19 +318,19 @@
         {
           "skill_name": "自动炮塔",
           "english_name": "auto_turret",
-          "skill_description": "被动：每次你受到伤害时，自动炮塔对伤害来源造成4点伤害。",
+          "skill_description": "被动：每次你受到伤害时，消耗1枚弹药，自动炮塔对伤害来源造成4点伤害。",
           "skill_type": "equipment",
           "trigger": "on_take_damage",
-          "filter": "return event.source != null && event.source != player",
+          "filter": "return event.source != null && event.source != player && player.get_charge_count(\"auto_turret\") > 0",
           "forced": true,
-          "content": "var weapon = player.get_equipment(\"auto_turret\")\nevent.source.damage(4, player, \"weapon_attack\", weapon.equipment_card)"
+          "content": "var weapon = player.get_equipment(\"auto_turret\")\nplayer.consume_charge(weapon, 1)\nevent.source.damage(4, player, \"weapon_attack\", weapon.equipment_card)"
         }
       ]
     },
     {
       "card_name": "自制子弹",
       "english_name": "homemade_bullets",
-      "count": 5,
+      "count": 2,
       "card_type": "action",
       "skills": [
         {
@@ -294,11 +340,14 @@
           "range": "short",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\"",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "target_type": "equipment",
           "select_target": 1,
-          "filter_target": "return target.card_type == \"equipment\" && target.charge_type != null",
+          "filter_target": "return target.in_equipment_area && target.charge_type != null",
+          "window_prompt": "\"自制子弹\": 选择装填的武器",
           "filter_target_range": "short",
-          "content": "target.fill_charge()"
+          "defer_action_cost": true,
+          "content": "player.consume_action(1)\ntarget.fill_charge()"
         }
       ]
     }

@@ -18,6 +18,7 @@
       "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
       "select_target": 1,
       "filter_target": "return target.is_player()",
+      "window_prompt": "\"缝合\": 选择治疗目标",
       "filter_target_range": "short",
       "content": "player.consume_action(1)\ntarget.recover(1)"
     }
@@ -32,11 +33,12 @@
         {
           "skill_name": "快速思考",
           "english_name": "quick_thinking",
-          "skill_description": "行动：抓取两张牌和一张拾荒卡。",
+          "skill_description": "行动：抓取两张游戏牌，再随机从场上拾荒牌堆抓取一张拾荒牌。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\"",
-          "content": "player.draw(2)\nvar result = await player.choose(\"请选择你抓取的拾荒卡颜色：\", [\"red\", \"green\", \"blue\"])\nvar pile = player.get_scavenge_pile(result)\nplayer.draw_scavenge(1, pile)"
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "defer_action_cost": true,
+          "content": "player.consume_action(1)\nplayer.draw(2)\nvar non_empty = []\nif game.red_scavenge_pile != null and not game.red_scavenge_pile.is_empty():\n\tnon_empty.append(game.red_scavenge_pile)\nif game.green_scavenge_pile != null and not game.green_scavenge_pile.is_empty():\n\tnon_empty.append(game.green_scavenge_pile)\nif game.blue_scavenge_pile != null and not game.blue_scavenge_pile.is_empty():\n\tnon_empty.append(game.blue_scavenge_pile)\nif non_empty.is_empty():\n\tgame.log(\"所有拾荒牌堆均为空，跳过随机抓取\")\nelse:\n\tvar chosen = non_empty[randi() % non_empty.size()]\n\tplayer.draw_scavenge(1, chosen)"
         }
       ]
     },
@@ -57,6 +59,7 @@
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
           "select_target": 1,
           "filter_target": "return target.is_player() && target != player",
+          "window_prompt": "\"轮床\": 选择要拉近的玩家",
           "filter_target_range": "long",
           "content": "player.consume_action(1)\ntarget.pull_toward_one_block_no_effect(player)"
         }
@@ -75,11 +78,13 @@
           "range": "medium",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\"",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
           "select_target": -1,
           "filter_target": "return target.is_monster()",
+          "window_prompt": "\"莫洛托夫鸡尾酒\": 选择攻击目标",
           "filter_target_range": "medium",
-          "content": "var list = event.targets\nfor i in list:\n\ti.damage(3, player)"
+          "defer_action_cost": true,
+          "content": "player.consume_action(1)\nvar list = event.targets\nfor i in list:\n\ti.damage(3, player)"
         }
       ]
     },
@@ -91,6 +96,16 @@
       "size": 1,
       "skills": [
         {
+          "skill_name": "手术刀_回复",
+          "english_name": "scalpel_recover",
+          "skill_description": "被动：回复生命时，额外回复1点。行动：对1个目标造成2点伤害。",
+          "skill_type": "equipment",
+          "trigger": "on_recover",
+          "filter": "return true",
+          "forced": true,
+          "content": "event.num += 1"
+        },
+        {
           "skill_name": "手术刀",
           "english_name": "scalpel",
           "skill_description": "行动：对1个目标造成2点伤害。",
@@ -99,19 +114,10 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
           "select_target": 1,
-          "filter_target": "return true",
+          "filter_target": "return target != player",
+          "window_prompt": "\"手术刀\": 选择攻击目标",
           "filter_target_range": "short",
           "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"scalpel\")\ntarget.damage(2, player, \"weapon_attack\", weapon.equipment_card)"
-        },
-        {
-          "skill_name": "手术刀·回复",
-          "english_name": "scalpel_recover",
-          "skill_description": "被动：回复生命时，额外回复1点。",
-          "skill_type": "equipment",
-          "trigger": "on_recover",
-          "filter": "return true",
-          "forced": true,
-          "content": "event.num += 1"
         }
       ]
     },
@@ -151,6 +157,7 @@
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
           "select_target": 1,
           "filter_target": "return target.is_monster()",
+          "window_prompt": "\"泰瑟枪\": 选择击晕目标",
           "filter_target_range": "medium",
           "content": "player.consume_action(1)\ntarget.stun(player, \"before_next_turn_start\")"
         }
@@ -168,11 +175,13 @@
           "skill_description": "行动：使任一玩家回复6点生命。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\"",
+          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
           "select_target": 1,
           "filter_target": "return target.is_player()",
+          "window_prompt": "\"希波克拉底誓言\": 选择治疗目标",
           "filter_target_range": "infinity",
-          "content": "target.recover(6)"
+          "defer_action_cost": true,
+          "content": "player.consume_action(1)\ntarget.recover(6)"
         }
       ]
     },
@@ -186,15 +195,16 @@
         {
           "skill_name": "研钵",
           "english_name": "mortar",
-          "skill_description": "行动：治疗射程内的一名玩家所有的状态效果，或者降低其饥饿等级1点。",
+          "skill_description": "行动：若目标玩家有中毒标记，可选择清除其所有中毒标记或降低其1点饥饿值；无中毒标记时直接降低其1点饥饿值。",
           "range": "short",
           "skill_type": "equipment",
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
           "select_target": 1,
           "filter_target": "return target.is_player()",
+          "window_prompt": "\"研钵\": 选择目标玩家",
           "filter_target_range": "short",
-          "content": "player.consume_action(1)\nvar choice = await player.choose([\"治疗所有状态效果\", \"降低饥饿等级1点\"])\nif choice == \"治疗所有状态效果\":\n\ttarget.cure_all_status_effects()\nelif choice == \"降低饥饿等级1点\":\n\ttarget.decrease_hunger(1)"
+          "content": "player.consume_action(1)\nif target.count_mark(\"poison\") > 0:\n\tvar ok = await player.confirm(\"\\\"研钵\\\":是否清除选取玩家的异常状态，否则降低该玩家 1 点饥饿值\")\n\tif ok:\n\t\ttarget.remove_mark(\"poison\")\n\telse:\n\t\ttarget.decrease_hunger(1)\nelse:\n\ttarget.decrease_hunger(1)"
         }
       ]
     },
@@ -207,12 +217,13 @@
         {
           "skill_name": "注射类固醇",
           "english_name": "steroid_injection",
-          "skill_description": "行动：选择一名玩家，该玩家可以立即打出2张牌。",
+          "skill_description": "行动：选择一名玩家，该玩家可以立即使用2张牌。",
           "skill_type": "action",
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
           "select_target": 1,
           "filter_target": "return target.is_player()",
+          "window_prompt": "\"注射类固醇\": 选择目标玩家",
           "filter_target_range": "infinity",
           "defer_action_cost": true,
           "content": "player.consume_action(1)\nawait target.play_card_immediately()\nawait target.play_card_immediately()"
@@ -228,12 +239,13 @@
         {
           "skill_name": "注射肾上腺素",
           "english_name": "adrenaline_injection",
-          "skill_description": "行动：选择一名玩家，该玩家可以立即执行2个行动。",
+          "skill_description": "行动：选择另一名玩家，该玩家立即执行2个行动。",
           "skill_type": "action",
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
           "select_target": 1,
           "filter_target": "return target.is_player()",
+          "window_prompt": "\"注射肾上腺素\": 选择目标玩家",
           "filter_target_range": "infinity",
           "defer_action_cost": true,
           "content": "player.consume_action(1)\nawait target.execute_action_immediately(2)"
@@ -256,7 +268,8 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
           "select_target": 1,
-          "filter_target": "return true",
+          "filter_target": "return target != player",
+          "window_prompt": "\"钻头\": 选择攻击目标",
           "filter_target_range": "short",
           "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"drill\")\ntarget.damage(3, player, \"weapon_attack\", weapon.equipment_card)"
         }

@@ -19,6 +19,7 @@ var filter_card: String = ""
 var position: String = ""
 var select_card: int = 0
 var select_target: int = 0
+var select_target_min: int = -1
 var range: String = ""
 var usable: int = -1
 var content: String = ""
@@ -46,7 +47,23 @@ func _init(data: Dictionary = {}) -> void:
 	filter_card = data.get("filter_card", "")
 	position = data.get("position", "")
 	select_card = int(data.get("select_card", 0))
-	select_target = int(data.get("select_target", 0))
+	# select_target 支持两种格式：
+	# - Int（如 2）：精确选择 2 个目标（exact 模式，select_target_min 保持 -1）
+	# - Array（如 [1, 3]）：范围选择，min=首元素，max=末元素（select_target_min=1, select_target=3）
+	# -1 表示选全部；0 表示不选目标（缺省）
+	var st_val: Variant = data.get("select_target", 0)
+	if typeof(st_val) == TYPE_ARRAY:
+		var st_arr: Array = st_val
+		if st_arr.size() > 0:
+			select_target_min = int(st_arr[0])
+			select_target = int(st_arr[st_arr.size() - 1])
+		else:
+			# 空数组视为缺省（0），避免 int([]) 触发与 #报错相同的 int 构造崩溃
+			select_target = 0
+			select_target_min = -1
+	else:
+		select_target = int(st_val)
+		select_target_min = -1
 	range = data.get("range", "")
 	usable = int(data.get("usable", -1))
 	content = data.get("content", "")

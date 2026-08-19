@@ -96,3 +96,67 @@ func test_reset_use_count() -> void:
 	assert_false(s.is_usable())
 	s.reset_use_count()
 	assert_true(s.is_usable(), "重置后应可用")
+
+
+# === Merged mechanism tests (from cleanup) ===
+
+# 测试: SkillData 从 JSON 正确读取 window_prompt
+func test_skill_data_reads_window_prompt_from_json() -> void:
+	var sd: SkillData = SkillData.new({
+		"skill_name": "测试技能",
+		"window_prompt": "测试提示文本"
+	})
+	assert_eq(sd.window_prompt, "测试提示文本", "SkillData 应从 JSON 读取 window_prompt")
+
+
+# 测试: SkillData 无 window_prompt 字段时默认空字符串
+func test_skill_data_window_prompt_default_empty() -> void:
+	var sd: SkillData = SkillData.new({"skill_name": "无提示技能"})
+	assert_eq(sd.window_prompt, "", "无 window_prompt 字段时应默认空字符串")
+
+
+# 测试: SkillData → Skill 转换时 window_prompt 正确传递
+func test_skill_window_prompt_passed_from_skill_data() -> void:
+	var sd: SkillData = SkillData.new({
+		"skill_name": "测试技能",
+		"window_prompt": "传递测试"
+	})
+	var skill: Skill = Game._create_skill_from_data(sd)
+	assert_eq(skill.window_prompt, "传递测试", "Skill.window_prompt 应从 SkillData 传递")
+
+
+# 测试: survivors/ 全目录无残留 on_card_enter/leave_equipment
+func test_no_residual_on_card_enter_leave_equipment_in_survivors() -> void:
+	var dir: DirAccess = DirAccess.open("res://data/survivors/")
+	assert_not_null(dir, "应能打开 res://data/survivors/ 目录")
+	dir.list_dir_begin()
+	var expected_files: Array = [
+		"firefighter.json",
+		"gunslinger.json",
+		"hunter.json",
+		"mechanic.json",
+		"surgeon.json",
+		"veteran.json",
+	]
+	var found_files: Dictionary = {}
+	var fname: String = dir.get_next()
+	while fname != "":
+		if fname.ends_with(".json"):
+			assert_true(expected_files.has(fname), "survivors 目录仅应含预期文件，意外文件: " + fname)
+			found_files[fname] = true
+			var path: String = "res://data/survivors/" + fname
+			var content: String = FileAccess.get_file_as_string(path)
+			assert_false(content.is_empty(), "应能读取文件: " + path)
+			assert_false(
+				content.contains("on_card_enter_equipment"),
+				fname + " 不应含 on_card_enter_equipment"
+			)
+			assert_false(
+				content.contains("on_card_leave_equipment"),
+				fname + " 不应含 on_card_leave_equipment"
+			)
+		fname = dir.get_next()
+	dir.list_dir_end()
+	for expected in expected_files:
+		assert_true(found_files.has(expected), "应遍历到 survivor 文件: " + expected)
+	assert_eq(found_files.size(), 6, "应共遍历到 6 个 survivor 文件")

@@ -59,6 +59,11 @@ signal hunger_reduced(player: Variant, amount: int) ## 玩家减少饥饿值时
 signal skill_used(player: Variant, skill: Variant) ## 玩家使用主动技能时
 signal player_turn_started(player: Variant) ## 玩家回合开始时
 
+# === Mark 信号 ===
+signal mark_added(entity: Variant, mark: Variant)
+signal mark_removed(entity: Variant, mark_name: String)
+signal mark_changed(entity: Variant, mark: Variant)
+
 
 ## 发布日志消息（供 UI 日志面板订阅）。
 func publish_log(message: String) -> void:

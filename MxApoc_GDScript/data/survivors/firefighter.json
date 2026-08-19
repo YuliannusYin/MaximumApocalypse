@@ -17,6 +17,7 @@
       "active": "action",
       "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
       "filter_target": "return target != player",
+      "window_prompt": "\"拳打\": 选择攻击目标",
       "filter_target_range": "short",
       "select_target": 1,
       "content": "player.consume_action(1)\ntarget.damage(2, player)"
@@ -62,6 +63,7 @@
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"lighter\") > 0",
           "select_target": -1,
           "filter_target": "return target.is_monster()",
+          "window_prompt": "\"打火机\": 选择攻击目标",
           "filter_target_range": "short",
           "defer_action_cost": true,
           "content": "player.consume_action(1)\nvar list = event.targets\nvar weapon = player.get_equipment(\"lighter\")\nplayer.consume_charge(weapon, 1)\nfor i in list:\n\ti.damage(3, player, \"weapon_attack\", weapon.equipment_card)"
@@ -77,13 +79,14 @@
         {
           "skill_name": "急救包",
           "english_name": "first_aid_kit",
-          "skill_description": "行动：使射程内任一玩家一个目标恢复4点生命值。",
+          "skill_description": "行动：选择射程内一个玩家，使其恢复4点生命值。",
           "range": "short",
           "skill_type": "action",
           "active": "action",
           "filter": "return player.in_phase == \"action\"",
           "select_target": 1,
           "filter_target": "return target.is_player()",
+          "window_prompt": "\"急救包\": 选择目标",
           "filter_target_range": "short",
           "defer_action_cost": true,
           "content": "player.consume_action(1)\ntarget.recover(4)"
@@ -110,6 +113,7 @@
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"shotgun\") > 0",
           "select_target": 1,
           "filter_target": "return target != player",
+          "window_prompt": "\"猎枪\": 选择攻击目标",
           "filter_target_range": "medium",
           "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"shotgun\")\nplayer.consume_charge(weapon, 1)\ntarget.damage(4, player, \"weapon_attack\", weapon.equipment_card)\nvar list = game.get_target(player.get_current_block())\nfor i in list:\n\tif i != player:\n\t\ti.damage(2, player, \"weapon_attack\", weapon.equipment_card)"
         }
@@ -294,6 +298,7 @@
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
           "select_target": 1,
           "filter_target": "return target != player",
+          "window_prompt": "\"值得信赖的斧子\": 选择攻击目标",
           "filter_target_range": "short",
           "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"reliable_axe\")\ntarget.damage(4, player, \"weapon_attack\", weapon.equipment_card)"
         }

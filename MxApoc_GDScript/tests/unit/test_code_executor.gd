@@ -4,6 +4,27 @@ extends GutTest
 ## 验证代码字符串编译为 Callable、上下文注入、失败降级。
 
 
+# === 辅助方法 ===
+
+# 从指定求生者的牌堆中收集所有非空 content 字符串并编译，返回 [{card, callable}, ...]。
+func _compile_deck_contents(survivor_english_name: String) -> Array:
+	var survivor: SurvivorData = DataManager.get_survivor(survivor_english_name)
+	assert_not_null(survivor, "%s 求生者应存在" % survivor_english_name)
+	var results: Array = []
+	for card_dict in survivor.deck:
+		var card_name: String = card_dict.get("english_name", "")
+		var raw_skills: Array = card_dict.get("skills", [])
+		for raw in raw_skills:
+			if not (raw is Dictionary):
+				continue
+			var content: String = raw.get("content", "")
+			if content.strip_edges().is_empty():
+				continue
+			var cb: Callable = CodeExecutor.compile_content(content)
+			results.append({"card": card_name, "callable": cb})
+	return results
+
+
 # === 1. compile_filter ===
 
 func test_compile_filter_simple_true() -> void:
@@ -138,3 +159,22 @@ func test_skill_filter_and_content_combined() -> void:
 	content_cb.call(player, target, event, null)
 	assert_eq(player["action_count"], 2, "行动次数应减 1")
 	assert_eq(target["hp"], 8, "目标 hp 应减 2")
+
+
+# === 5. 全牌堆编译（模拟进入游戏编译牌堆的场景）===
+
+func test_gunslinger_full_deck_compiles_without_error() -> void:
+	var results: Array = _compile_deck_contents("gunslinger")
+	assert_gt(results.size(), 0, "枪手牌堆应有可编译的 content")
+	# 整副牌堆编译后累计应无任何 Parser Error
+	assert_engine_error_count(0, "枪手整副牌堆 content 编译应无 Parser Error")
+	for r in results:
+		assert_true(r["callable"].is_valid(), "%s 的 content 应编译为有效 Callable" % r["card"])
+
+
+func test_mechanic_full_deck_compiles_without_error() -> void:
+	var results: Array = _compile_deck_contents("mechanic")
+	assert_gt(results.size(), 0, "机械师牌堆应有可编译的 content")
+	assert_engine_error_count(0, "机械师整副牌堆 content 编译应无 Parser Error")
+	for r in results:
+		assert_true(r["callable"].is_valid(), "%s 的 content 应编译为有效 Callable" % r["card"])

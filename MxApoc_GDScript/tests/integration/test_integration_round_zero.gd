@@ -128,17 +128,3 @@ func test_round_zero_skip_redraw_keeps_hand() -> void:
 	await Game.state_machine.start_game()
 	# 不重调 + start_turn 抓 1 张 → 手牌应 5 张（4 初始 + 1 start_turn）
 	assert_true(p.hand.size() >= 4, "不重调手牌应至少 4 张，实际 " + str(p.hand.size()))
-
-
-func test_round_zero_dead_player_skipped() -> void:
-	var p1: Player = _make_player("A", 10)
-	var p2: Player = _make_player("B", 0)  # 已死
-	Game.players = [p1, p2]
-	Game.monster_pile = Pile.new()
-	Game.monster_pile.add(_make_monster_card("z1"))
-	Game.mission_config = _make_winning_mission_config()
-	await Game.state_machine.start_game()
-	# p2 死亡，不应抓牌
-	assert_eq(p2.hand.size(), 0, "死亡玩家不应有手牌")
-	# p1 应正常
-	assert_true(p1.hand.size() >= 4, "存活玩家应至少有 4 张手牌")

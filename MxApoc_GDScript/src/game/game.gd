@@ -604,6 +604,7 @@ func _create_skill_from_data(skill_data: SkillData) -> Skill:
 	skill.position = skill_data.position
 	skill.select_card = skill_data.select_card
 	skill.select_target = skill_data.select_target
+	skill.select_target_min = skill_data.select_target_min
 	skill.usable = skill_data.usable
 	skill.filter_target_range = skill_data.filter_target_range
 	skill.range = skill_data.range
@@ -769,6 +770,31 @@ func has_equipment_in_discard_piles() -> bool:
 		for card in scavenge_discard_pile.get_all():
 			if card != null and card is EquipmentCard:
 				return true
+	return false
+
+
+## 从场上所有弃牌堆中移除指定卡牌，返回来源 Pile。未找到返回 null。
+func take_card_from_discard_piles(card: Card) -> Pile:
+	for p in players:
+		if p == null or not is_instance_valid(p):
+			continue
+		var pile: Variant = p.get("game_discard_pile")
+		if pile != null and pile.has_method("get_all"):
+			if card in pile.cards:
+				pile.cards.erase(card)
+				return pile
+	if scavenge_discard_pile != null and card in scavenge_discard_pile.cards:
+		scavenge_discard_pile.cards.erase(card)
+		return scavenge_discard_pile
+	return null
+
+
+## 判断场上是否有拾荒牌（红/绿/蓝拾荒牌堆任一非空）。
+func has_scavenge_cards() -> bool:
+	for color in ["red", "green", "blue"]:
+		var pile: Pile = get_scavenge_pile(color)
+		if pile != null and not pile.is_empty():
+			return true
 	return false
 
 

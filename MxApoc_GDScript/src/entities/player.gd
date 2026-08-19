@@ -29,10 +29,6 @@ var current_block = null  # MapBlock
 var seat_number: int = 0
 var player_name: String = ""
 
-# === 标记系统 ===
-# Dictionary[String, int]：键 = 标记名，值 = 计数
-var marks: Dictionary = {}
-
 # === 输入接口 ===
 var input: IPlayerInput = null
 
@@ -53,11 +49,17 @@ func get_max_hp() -> int:
 
 
 func reduce_hp(n: int) -> void:
+	var old_value: int = hp
 	hp = maxi(hp - n, 0)
+	if hp != old_value and EventBus != null and is_instance_valid(EventBus):
+		EventBus.player_hp_changed.emit(self, old_value, hp)
 
 
 func add_hp(n: int) -> void:
+	var old_value: int = hp
 	hp = mini(hp + n, max_hp)
+	if hp != old_value and EventBus != null and is_instance_valid(EventBus):
+		EventBus.player_hp_changed.emit(self, old_value, hp)
 
 
 func is_player() -> bool:
@@ -111,12 +113,14 @@ func increase_hunger(num: int) -> void:
 				# 刚达到 6：翻面 + 添加饥饿伤害标记
 				if role_card != null and role_card.is_front():
 					role_card.flip()
-				add_mark("hunger_damage_level", 1)
+				var _new_hunger_level: int = count_mark("hunger_damage_level") + 1
+				add_mark("hunger_damage_level", 1, "饥饿", "饥饿伤害等级" + str(_new_hunger_level) + ", 饥饿结算时受到 " + str(_new_hunger_level * 2) + "点饥饿伤害")
 		elif hunger == 6:
 			# 已在 6：叠加标记
 			if role_card != null and role_card.is_front():
 				role_card.flip()
-			add_mark("hunger_damage_level", 1)
+			var _new_hunger_level: int = count_mark("hunger_damage_level") + 1
+			add_mark("hunger_damage_level", 1, "饥饿", "饥饿伤害等级" + str(_new_hunger_level) + ", 饥饿结算时受到 " + str(_new_hunger_level * 2) + "点饥饿伤害")
 		if count_mark("hunger_damage_level") > 0:
 			var level: int = count_mark("hunger_damage_level")
 			if level == 1:
@@ -142,6 +146,7 @@ func decrease_hunger(num: int) -> void:
 		num = max_reduce
 	if num <= 0:
 		return
+	var old_hunger: int = hunger
 	hunger -= num
 	if Game != null and is_instance_valid(Game):
 		Game.log_message(LogColors.player(player_name) + " 减少了 " + str(num) + " 点饥饿值")
@@ -151,6 +156,7 @@ func decrease_hunger(num: int) -> void:
 		role_card.flip()
 	if EventBus != null and is_instance_valid(EventBus):
 		EventBus.hunger_reduced.emit(self, num)
+		EventBus.player_hunger_changed.emit(self, old_hunger, hunger)
 
 
 ## 中毒结算。中毒标记数 = 受到无来源伤害值。
@@ -282,6 +288,8 @@ func draw_monster(n: int) -> void:
 		var monster: Monster = card.instantiate(self)
 		# e. 怪物卡进入求生者怪物区时（每张触发）
 		monster_zone.append(monster)
+		if EventBus != null and is_instance_valid(EventBus):
+			EventBus.monster_spawned.emit(monster, self)
 		if Game != null and is_instance_valid(Game):
 			Game.log_message(LogColors.monster(monster.monster_name) + " 纠缠了 " + LogColors.player(player_name))
 		await trigger("on_monster_enter_zone", event)
@@ -429,7 +437,7 @@ func move_to(target: MapBlock) -> bool:
 		Game.log_message(LogColors.player(player_name) + " 从 " + LogColors.block(src_name) + " 移动至 " + LogColors.block(target.block_name))
 	if EventBus != null and is_instance_valid(EventBus):
 		EventBus.player_moved.emit(self, source, target)
-	add_mark("moved_this_turn")
+	add_mark("moved_this_turn", 1, "", "", false)
 	# 7. 清理旧地块技能（移动成功后才清理）
 	if source != null and source.has_method("_clear_skills_for_player"):
 		source._clear_skills_for_player(self)
@@ -632,7 +640,9 @@ func use_card(card: Card) -> bool:
 			var select_n: int = skill.select_target
 			var targets: Array = []
 			if select_n > 0:
-				targets = await choose_target(select_n, skill, skill.window_prompt)
+				# select_target_min：范围模式下允许选 [min_n, select_n] 个目标（-1 = 精确模式）
+				var min_n: int = skill.select_target_min
+				targets = await choose_target(select_n, skill, skill.window_prompt, min_n)
 				if targets.is_empty():
 					if deferred:
 						return false  # 延迟消耗的技能：玩家取消选取，牌退回手牌
@@ -1054,6 +1064,7 @@ func reduce_hunger(n: int) -> void:
 	var actual_reduce: int = hunger_before - hunger
 	if actual_reduce > 0 and EventBus != null and is_instance_valid(EventBus):
 		EventBus.hunger_reduced.emit(self, actual_reduce)
+		EventBus.player_hunger_changed.emit(self, hunger_before, hunger)
 
 
 ## 潜行值（含饥饿状态修正）
@@ -1082,6 +1093,8 @@ func set_action_count(n: int) -> void:
 
 func reduce_action_count(n: int) -> void:
 	action_count = maxi(action_count - n, 0)
+	if EventBus != null and is_instance_valid(EventBus):
+		EventBus.action_consumed.emit(self, n)
 
 
 ## 扣除 n 点行动次数（content 代码字符串统一调用名，等价 reduce_action_count）。
@@ -1098,6 +1111,8 @@ func add_action(n: int) -> void:
 		action_count = 0
 	if Game != null and is_instance_valid(Game):
 		Game.log_message(LogColors.player(player_name) + " 增加了 " + str(n) + " 点行动点数")
+	if EventBus != null and is_instance_valid(EventBus):
+		EventBus.action_consumed.emit(self, n)
 
 
 ## 增加 n 点行动次数上限（扣动扳机让我快乐使用）。
@@ -1223,55 +1238,16 @@ func has_non_boss_monster() -> bool:
 	return false
 
 
-## 标记管理
-func count_mark(name: String) -> int:
-	return marks.get(name, 0)
-
-
-func add_mark(name: String, quantity: int = 1) -> void:
-	marks[name] = count_mark(name) + quantity
-
-
-func remove_mark(name: String) -> void:
-	marks.erase(name)
-
-
-func has_mark(name: String) -> bool:
-	return count_mark(name) > 0
-
-
-## 判断是否持有某标记技能（等价 has_mark）。
-func has_mark_skill(name: String) -> bool:
-	return has_mark(name)
-
-
-## 添加标记技能，在 expire_trigger 触发后自动移除标记。
-func add_mark_skill(name: String, n: int = 1, expire_trigger: String = "") -> void:
-	add_mark(name, n)
-	if expire_trigger == "":
-		return
-	var skill := Skill.new()
-	skill.english_name = name + "_mark_expire"
-	skill.skill_name = name + "_mark_expire"
-	skill.trigger = expire_trigger
-	skill.forced = true
-	var mark_name: String = name
-	var skill_ref: Skill = skill
-	skill.content = func(_player, _target, _event: Dictionary, _game) -> void:
-		_player.remove_mark(mark_name)
-		_player.remove_skill(skill_ref)
-	skills.append(skill)
-
-
 ## 增加 n 层中毒标记。
 func add_poison(n: int) -> void:
-	add_mark("poison", n)
+	var new_count: int = count_mark("poison") + n
+	add_mark("poison", n, "中毒", "中毒结算时受到 " + str(new_count) + " 点伤害")
 
 
 func clear_turn_marks() -> void:
 	# 清除持续到回合结束的临时标记
-	marks.erase("moved_this_turn")
-	marks.erase("shelter_disabled")
+	remove_mark("moved_this_turn")
+	remove_mark("shelter_disabled")
 
 
 ## 装备管理
@@ -1353,17 +1329,18 @@ func confirm(message: String) -> bool:
 ## 选择卡牌。
 ## param 为 String 时：按 position（如 "hand"/"equipment"/"discard"）查询玩家区域卡牌（原有行为）。
 ## param 为 Array 时：直接作为候选卡牌列表，绕过 position 查询。
-func choose_card(n: int, param: Variant = "hand", filter: Variant = null) -> Array:
+func choose_card(n: int, param: Variant = "hand", filter: Variant = null, prompt: String = "", min_n: int = -1) -> Array:
 	if typeof(param) == TYPE_ARRAY:
 		# Array 模式：直接作为候选卡牌列表，绕过 position 查询
-		return await input.choose_card(n, param, filter)
+		return await input.choose_card(n, param, filter, prompt, min_n)
 	# String 模式（原有行为）：按 position 查询玩家区域卡牌
-	return await input.choose_card(n, param, filter)
+	return await input.choose_card(n, param, filter, prompt, min_n)
 
 
 ## 选择目标。n 为选择数量（-1 表示全部），skill 为当前技能（含 target_type/filter_target 等）。
-func choose_target(n: int, skill: Variant = null, prompt: String = "") -> Array:
-	return await input.choose_target(n, skill, prompt)
+## min_n 为最小选择数（-1 表示精确模式，必须选 n 个）；范围模式 min_n>=0 时允许 [min_n, n] 个。
+func choose_target(n: int, skill: Variant = null, prompt: String = "", min_n: int = -1) -> Array:
+	return await input.choose_target(n, skill, prompt, min_n)
 
 
 ## 选择目标地块。
@@ -1573,7 +1550,9 @@ func use_active_skill(skill: Skill) -> void:
 		var select_n: int = skill.select_target
 		var targets: Array = []
 		if select_n > 0:
-			targets = await choose_target(select_n, skill, skill.window_prompt)
+			# select_target_min：范围模式下允许选 [min_n, select_n] 个目标（-1 = 精确模式）
+			var min_n: int = skill.select_target_min
+			targets = await choose_target(select_n, skill, skill.window_prompt, min_n)
 			if targets.is_empty():
 				return  # 玩家取消
 			event["target"] = targets[0]

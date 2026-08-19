@@ -448,6 +448,55 @@ func test_search_corpse_use_card_full_flow() -> void:
 	assert_false(_has_skill_by_english_name(p, "search_corpse_clear_temp"), "before_turn_end 后 search_corpse_clear_temp 应被移除")
 
 
+# 测试 16: 扣动扳机让我快乐 use_card 完整流程：使用后 max_action_count +2、action_count +2
+func test_use_card_pull_trigger_happy_increases_max_and_action() -> void:
+	var p: Player = _make_player()
+	_setup_game_for_player(p)
+	p.action_count = 2
+	p.max_action_count = 4
+	var card: Card = _make_pull_trigger_happy_card()
+	p.hand.append(card)
+	var result: bool = await p.use_card(card)
+	assert_true(result, "使用扣动扳机让我快乐应成功")
+	assert_eq(p.max_action_count, 6, "max_action_count 应 +2（4 + 2 = 6）")
+	assert_eq(p.action_count, 3, "action_count 应 +2 后 -1（use_card 系统扣 1）：2 + 2 - 1 = 3")
+	# 卡牌应进入弃牌堆
+	assert_eq(p.game_discard_pile.get_all().size(), 1, "弃牌堆应有 1 张（扣动扳机让我快乐）")
+
+
+# 测试 17: before_turn_end 触发后 max_action_count 还原、临时技能被移除
+func test_before_turn_end_restores_max_action_and_removes_temp_skill() -> void:
+	var p: Player = _make_player()
+	_setup_game_for_player(p)
+	p.action_count = 2
+	p.max_action_count = 4
+	var card: Card = _make_pull_trigger_happy_card()
+	p.hand.append(card)
+	# 使用卡牌
+	var result: bool = await p.use_card(card)
+	assert_true(result, "使用扣动扳机让我快乐应成功")
+	assert_eq(p.max_action_count, 6, "使用后 max_action_count 应为 6")
+	# 验证临时技能已挂载（同 trigger 模式下 english_name 带有 _temp 后缀）
+	var has_temp: bool = false
+	for s in p.get_all_skills():
+		if s.english_name == "pull_trigger_happy_clear_temp":
+			has_temp = true
+			break
+	assert_true(has_temp, "应挂载 pull_trigger_happy_clear_temp 临时技能")
+	# 触发 before_turn_end
+	var event: Dictionary = EventSystem.create_event({"player": p})
+	await p.trigger("before_turn_end", event)
+	# max_action_count 应还原
+	assert_eq(p.max_action_count, 4, "before_turn_end 触发后 max_action_count 应还原为 4")
+	# 临时技能应被移除
+	var still_has_temp: bool = false
+	for s in p.get_all_skills():
+		if s.english_name == "pull_trigger_happy_clear_temp":
+			still_has_temp = true
+			break
+	assert_false(still_has_temp, "before_turn_end 触发后临时技能应被移除")
+
+
 # === 8. 装备自动挂载/卸载 ===
 
 # 测试 16: 装备 ranger_hat 自动挂载 ranger_hat_damage；卸下后自动卸载
