@@ -678,6 +678,7 @@ func _on_block_mark_changed(block: Variant) -> void:
 		var is_current: bool = (current_block != null and is_instance_valid(current_block)
 			and block == current_block)
 		view.refresh(is_current, current)
+	_refresh_all_panels()
 
 
 func _on_monster_changed(_monster: Variant, _player: Variant) -> void:
