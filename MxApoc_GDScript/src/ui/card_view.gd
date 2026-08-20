@@ -13,6 +13,11 @@ const BORDER := 5
 const SELECTED_OFFSET := 15.0
 const SELECTED_BORDER_COLOR := Color(1.0, 0.84, 0.0, 1.0)
 const SELECTED_BORDER_WIDTH := 3
+# 悬停上浮参数（仅手牌区实例通过 set_hover_lift_enabled 启用）
+const HOVER_LIFT := 12.0  # 上浮像素
+const HOVER_SCALE := Vector2(1.08, 1.08)  # 放大倍数
+const HOVER_Z_INDEX := 10  # 悬停层级（高于选中态的 1）
+const HOVER_DURATION := 0.12  # 悬停动画时长（秒）
 
 # 距离中文映射（仅 short/medium/long 显示，none/infinity/空不显示）
 const RANGE_MAP: Dictionary = {
@@ -52,6 +57,9 @@ var _is_selected: bool = false
 var _is_hovered: bool = false
 var _zone_label: Label
 var _charge_label: Label
+var _hover_lift_enabled: bool = false
+var _hover_tween: Tween = null
+var _move_tween: Tween = null
 
 
 func _ready() -> void:
@@ -80,13 +88,31 @@ func set_card(card: Variant) -> void:
 		_refresh()
 
 
-## 设置基础位置（在手牌区中的排列位置）。
+## 设置基础位置并直接落位（含选中偏移）。仅供全量重建路径使用（直接落位无动画）。
 func set_base_position(pos: Vector2) -> void:
 	_base_position = pos
+	if _hover_lift_enabled:
+		# 基点变化：终止残留的悬停动画并复位视觉，避免与外部重排 Tween 冲突
+		_kill_hover_tween()
+		_is_hovered = false
+		scale = Vector2.ONE
+		z_index = 1 if _is_selected else 0
 	if _is_selected:
 		position = pos + Vector2(0, -SELECTED_OFFSET)
 	else:
 		position = pos
+
+
+## 仅更新基础位置数据并复位悬停视觉残留，不直接写 position。
+## 供差量刷新路径使用：位置变化由 move_to 统一通道平滑完成。
+func update_base_position(pos: Vector2) -> void:
+	_base_position = pos
+	if _hover_lift_enabled:
+		# 复位悬停视觉残留，避免旧 hover 状态与后续重排动画冲突
+		_kill_hover_tween()
+		_is_hovered = false
+		scale = Vector2.ONE
+		z_index = 1 if _is_selected else 0
 
 
 ## 返回基础位置。
@@ -98,13 +124,21 @@ func get_card() -> Variant:
 	return _card
 
 
-## 选中状态（金色边框 + z_index 提升）。
+## 选中状态（金色边框 + z_index 提升 + 平滑上浮/回落，仅启用上浮的实例有位移）。
 func set_selected(selected: bool) -> void:
 	_is_selected = selected
+	if _hover_lift_enabled:
+		# 终止悬停上浮动画，z_index 与位置由选中态接管
+		_kill_hover_tween()
 	if selected:
 		z_index = 1
+		# 选中平滑上浮；未启用上浮的实例（弹窗等）保持原行为：仅金边与 z_index，无位移
+		if _hover_lift_enabled:
+			move_to(_base_position + Vector2(0, -SELECTED_OFFSET), 0.15)
 	else:
 		z_index = 0
+		if _hover_lift_enabled:
+			move_to(_base_position, 0.15)
 	_apply_style()
 
 
@@ -112,10 +146,63 @@ func is_selected() -> bool:
 	return _is_selected
 
 
-## 悬停状态（仅记录标志，不上移位置；上移效果专用于选中状态）。
+## 启用悬停上浮（仅手牌区实例启用；弹窗等其他使用方默认关闭，行为不变）。
+func set_hover_lift_enabled(enabled: bool) -> void:
+	_hover_lift_enabled = enabled
+	if not enabled:
+		_kill_hover_tween()
+		_kill_move_tween()
+
+
+## 悬停状态：启用上浮的实例在非选中时平滑上浮放大，移开平滑复位；选中态优先。
 func set_hovered(hovered: bool) -> void:
+	if hovered == _is_hovered:
+		return  # 状态未变，避免重复重建 Tween 导致动画抖动
 	_is_hovered = hovered
-	# 悬停不再触发上浮，位置由选中状态决定
+	if not _hover_lift_enabled:
+		return
+	_kill_hover_tween()
+	# 选中态优先：选中中的卡不上浮，复位时也仅复位缩放（位置/z_index 由选中逻辑管理）
+	if hovered and _is_selected:
+		return
+	_hover_tween = create_tween()
+	_hover_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_hover_tween.set_parallel(true)
+	if hovered:
+		# 位置动画走统一通道 move_to，与 _hover_tween 的 scale/z_index 并行但不冲突
+		move_to(_base_position + Vector2(0, -HOVER_LIFT), HOVER_DURATION)
+		_hover_tween.tween_property(self, "scale", HOVER_SCALE, HOVER_DURATION)
+		_hover_tween.tween_property(self, "z_index", HOVER_Z_INDEX, HOVER_DURATION)
+	else:
+		_hover_tween.tween_property(self, "scale", Vector2.ONE, HOVER_DURATION)
+		if not _is_selected:
+			move_to(_base_position, HOVER_DURATION)
+			_hover_tween.tween_property(self, "z_index", 0, HOVER_DURATION)
+
+
+## 终止悬停动画（若在运行）。
+func _kill_hover_tween() -> void:
+	if _hover_tween != null and _hover_tween.is_valid():
+		_hover_tween.kill()
+	_hover_tween = null
+
+
+## 位置动画统一通道：终止旧位置动画后从当前位置平滑移动到 target。
+## 所有 position 变化（重排/滑入/选中上浮回落/hover 上浮复位）均经此入口，
+## 确保同一时刻至多一个位置动画，杜绝并行 Tween 互相覆盖。
+func move_to(target: Vector2, duration: float = 0.2) -> void:
+	_kill_move_tween()
+	_move_tween = create_tween()
+	_move_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_move_tween.tween_property(self, "position", target, duration)
+	_move_tween.finished.connect(func() -> void: _move_tween = null)
+
+
+## 终止位置动画（若在运行）。
+func _kill_move_tween() -> void:
+	if _move_tween != null and _move_tween.is_valid():
+		_move_tween.kill()
+	_move_tween = null
 
 
 ## 设置区域标签文本（如"装备区"、"手牌区"）。空文本时隐藏。

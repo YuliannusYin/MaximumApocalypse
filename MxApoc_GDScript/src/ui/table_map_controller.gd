@@ -28,6 +28,9 @@ var _block_views: Dictionary = {}
 
 var _table_layer: CanvasLayer
 
+# === 头像移动动画 ===
+var _avatar_anim_busy: bool = false  # 头像移动动画播放中（防重入）
+
 
 func setup(table_layer: CanvasLayer) -> void:
 	_table_layer = table_layer
@@ -159,6 +162,81 @@ func refresh_move_highlights(active: bool, valid_blocks: Array, selected_blocks:
 
 func get_block_views() -> Dictionary:
 	return _block_views
+
+
+## 按 block 实例查询其地块视图；无有效视图时返回 null。
+func get_block_view(block: Variant) -> Variant:
+	if block == null or not is_instance_valid(block):
+		return null
+	return _block_views.get(block.get_instance_id())
+
+
+## 头像移动动画：以浮动头像从源地块中心滑至目标地块中心（约 0.35 秒）。
+## 动画期间隐藏源/目标地块视图中该玩家的头像，结束后移除浮动头像并恢复显示。
+## 本方法为 async 协程，调用方可 await；源/目标视图缺失或动画播放中时直接返回（调用方降级直接刷新）。
+func play_avatar_move(player: Variant, source_block: Variant, target_block: Variant) -> void:
+	if _avatar_anim_busy:
+		return
+	if player == null or not is_instance_valid(player):
+		return
+	if _map_container == null or not is_instance_valid(_map_container):
+		return
+	var source_view: Variant = get_block_view(source_block)
+	var target_view: Variant = get_block_view(target_block)
+	if source_view == null or not is_instance_valid(source_view):
+		return
+	if target_view == null or not is_instance_valid(target_view):
+		return
+	_avatar_anim_busy = true
+	# 头像贴图取法与 MapBlockView._update_grid 一致：role_card.english_name -> ImageCache
+	var eng: String = ""
+	var role: Variant = player.get("role_card")
+	if role != null and is_instance_valid(role):
+		eng = role.get("english_name")
+	var tex: Texture2D = null
+	if not eng.is_empty():
+		tex = ImageCache.get_player_avatar(eng)
+	# 浮动节点：有贴图用 TextureRect（尺寸同地块内头像格 40x40）；取不到贴图用灰色 ColorRect 占位
+	var float_size: Vector2 = Vector2(40, 40)
+	var floater: Control = null
+	if tex != null:
+		var tr := TextureRect.new()
+		tr.texture = tex
+		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		tr.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+		tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		floater = tr
+	else:
+		var cr := ColorRect.new()
+		cr.color = Color(0.5, 0.5, 0.5, 0.85)
+		cr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		float_size = Vector2(32, 32)
+		floater = cr
+	floater.size = float_size
+	# 源/目标地块中心（view.position 基于 _map_container 坐标系，浮动层挂同一容器保证坐标一致）
+	var half_block: Vector2 = Vector2(BLOCK_SIZE, BLOCK_SIZE) / 2.0
+	var source_center: Vector2 = source_view.position + half_block
+	var target_center: Vector2 = target_view.position + half_block
+	floater.position = source_center - float_size / 2.0
+	_map_container.add_child(floater)
+	# 动画期间隐藏源/目标地块视图中该玩家的头像
+	source_view.set_avatar_hidden(player, true)
+	target_view.set_avatar_hidden(player, true)
+	# 浮动头像从源中心滑至目标中心
+	var tween: Tween = create_tween()
+	var tweener: PropertyTweener = tween.tween_property(floater, "position", target_center - float_size / 2.0, 0.35)
+	tweener.set_trans(Tween.TRANS_SINE)
+	tweener.set_ease(Tween.EASE_IN_OUT)
+	await tween.finished
+	# 清理浮动节点并恢复两地块头像显示
+	if floater != null and is_instance_valid(floater):
+		floater.queue_free()
+	if source_view != null and is_instance_valid(source_view):
+		source_view.set_avatar_hidden(player, false)
+	if target_view != null and is_instance_valid(target_view):
+		target_view.set_avatar_hidden(player, false)
+	_avatar_anim_busy = false
 
 
 func _on_block_clicked_signal(block: Variant) -> void:
