@@ -31,6 +31,7 @@ var _action_selection_controller: ActionSelectionController
 var _active_skill_bar: ActiveSkillBar
 var _event_log_panel: EventLogPanel
 var _dice_animation_view: DiceAnimationView
+var _turn_banner_view: TurnBannerView
 
 # === 游戏状态 ===
 var _gui_input: GUIPlayerInput
@@ -80,6 +81,10 @@ func _create_modules() -> void:
 	# 骰子投掷动画视图：挂在 UI 层，由确认门通过后触发播放
 	_dice_animation_view = DiceAnimationView.new()
 	_ui_layer.add_child(_dice_animation_view)
+
+	# 回合切换横幅视图：挂在 UI 层，回合开始时中央提示（fire-and-forget，不阻塞流程）
+	_turn_banner_view = TurnBannerView.new()
+	_ui_layer.add_child(_turn_banner_view)
 
 	_active_skill_bar = ActiveSkillBar.new()
 	_active_skill_bar.setup(_active_skill_grid)
@@ -158,14 +163,16 @@ func _start_game_flow() -> void:
 		EventBus.monster_mark_changed.connect(_on_block_mark_changed)
 		EventBus.objective_mark_changed.connect(_on_block_mark_changed)
 		EventBus.monster_spawned.connect(_on_monster_changed)
-		EventBus.monster_died.connect(_on_monster_changed)
+		EventBus.monster_died.connect(_on_monster_died)
 		EventBus.monster_engaged_target_changed.connect(_on_monster_engaged_target_changed)
 		EventBus.player_hp_changed.connect(_on_player_stat_changed)
-		EventBus.player_hunger_changed.connect(_on_player_stat_changed)
+		EventBus.damage_taken.connect(_on_damage_taken)
+		EventBus.hp_recovered.connect(_on_hp_recovered)
+		EventBus.player_hunger_changed.connect(_on_hunger_changed)
 		EventBus.player_died.connect(_on_player_stat_changed)
 		EventBus.equipment_equipped.connect(_on_player_stat_changed)
 		EventBus.equipment_unequipped.connect(_on_player_stat_changed)
-		EventBus.action_consumed.connect(_on_player_stat_changed)
+		EventBus.action_consumed.connect(_on_action_consumed)
 		EventBus.card_drawn.connect(_on_player_stat_changed)
 		EventBus.card_discarded.connect(_on_player_stat_changed)
 		EventBus.card_used.connect(_on_player_stat_changed)
@@ -244,12 +251,22 @@ func _assign_player_panels() -> void:
 func _refresh_panel_for_player(player: Variant) -> void:
 	if player == null or not is_instance_valid(player):
 		return
+	var panel: PlayerPanel = _get_panel_for_player(player)
+	if panel != null:
+		panel.refresh(true)
+
+
+## 查找玩家对应的面板（未分配面板或面板失效时返回 null）。
+func _get_panel_for_player(player: Variant) -> PlayerPanel:
+	if player == null or not is_instance_valid(player):
+		return null
 	var idx: Variant = _player_to_panel_idx.get(player.get_instance_id())
 	if idx == null:
-		return
+		return null
 	var panel: PlayerPanel = _player_panels[idx]
 	if panel != null and is_instance_valid(panel):
-		panel.refresh(true)
+		return panel
+	return null
 
 
 ## 刷新所有玩家面板。
@@ -653,6 +670,12 @@ func _on_turn_started(player: Variant) -> void:
 	_refresh_hand_area()
 	_pile_manager.refresh_pile_counts()
 	_action_selection_controller.refresh_confirm_cancel_buttons()
+	# 回合切换横幅（fire-and-forget，文案与顶栏当前玩家标签一致）
+	_turn_banner_view.play("座位%d %s的回合" % [player.get("seat_number") + 1, player.player_name])
+	# 当前回合玩家面板呼吸高亮，其余面板恢复普通边框（死亡面板由 set_turn_highlight 内部处理）
+	for panel in _player_panels:
+		if panel != null and is_instance_valid(panel):
+			panel.set_turn_highlight(panel._player == player)
 
 
 func _on_phase_changed(_player: Variant, _old_phase: String, new_phase: String) -> void:
@@ -664,32 +687,43 @@ func _on_phase_changed(_player: Variant, _old_phase: String, new_phase: String) 
 		_action_selection_controller.clear_for_non_action_phase()
 
 
-func _on_player_moved(_player: Variant, _source_block: Variant, _target_block: Variant) -> void:
+func _on_player_moved(player: Variant, source_block: Variant, target_block: Variant) -> void:
+	var src_view: Variant = _table_map_controller.get_block_view(source_block)
+	var dst_view: Variant = _table_map_controller.get_block_view(target_block)
+	if src_view != null and dst_view != null and player != null and is_instance_valid(player):
+		await _table_map_controller.play_avatar_move(player, source_block, target_block)
 	_table_map_controller.refresh_map()
 	_refresh_all_panels()
 	_pile_manager.refresh_pile_highlights()
 
 
-func _on_block_revealed(_block: Variant, _player: Variant) -> void:
+func _on_block_revealed(block: Variant, _player: Variant) -> void:
+	# refresh 前先取该地块视图，refresh 后播放翻入动画（叠加在揭示样式之上）
+	var view: Variant = _table_map_controller.get_block_view(block)
 	_table_map_controller.refresh_map()
+	if view != null and is_instance_valid(view):
+		view.play_reveal_animation()
 
 
 func _on_block_destroyed(block: Variant, _source: Variant) -> void:
 	# 已摧毁的地块从 Game.map_area 移除，但仍保留视图显示"已摧毁"状态
 	if block == null or not is_instance_valid(block):
 		return
-	var block_views: Dictionary = _table_map_controller.get_block_views()
-	var view: Variant = block_views.get(block.get_instance_id())
+	var view: Variant = _table_map_controller.get_block_view(block)
 	if view != null and is_instance_valid(view):
 		view.refresh(false)
+		# 摧毁灰化下沉动画（fire-and-forget，叠加在摧毁样式之上）
+		view.play_destroyed_animation()
 
 
 func _on_block_mark_changed(block: Variant) -> void:
 	if block == null or not is_instance_valid(block):
 		return
-	var block_views: Dictionary = _table_map_controller.get_block_views()
-	var view: Variant = block_views.get(block.get_instance_id())
+	var view: Variant = _table_map_controller.get_block_view(block)
 	if view != null and is_instance_valid(view):
+		# refresh 末尾会把 _last_mark_count 覆盖为当前值，旧值必须在 refresh 之前读取
+		var old_count: int = view.get_last_mark_count()
+		var new_count: int = block.count_monster_mark()
 		var current: Variant = Game.get_current_player()
 		var current_block: Variant = null
 		if current != null and is_instance_valid(current):
@@ -697,7 +731,10 @@ func _on_block_mark_changed(block: Variant) -> void:
 		var is_current: bool = (current_block != null and is_instance_valid(current_block)
 			and block == current_block)
 		view.refresh(is_current, current)
-	_refresh_all_panels()
+		# 标记数变化时播放弹入/淡出反馈（objective_mark_changed 复用本 handler，标记数不变则不播）
+		if new_count != old_count:
+			view.play_mark_pulse(new_count > old_count)
+		_refresh_all_panels()
 
 
 func _on_monster_changed(_monster: Variant, _player: Variant) -> void:
@@ -705,6 +742,34 @@ func _on_monster_changed(_monster: Variant, _player: Variant) -> void:
 	_table_map_controller.refresh_map()
 	_refresh_all_panels()
 	_pile_manager.refresh_pile_counts()
+
+
+## 怪物死亡：保留 _on_monster_changed 的刷新逻辑，并令持有者面板怪物区按钮脉冲（fire-and-forget）。
+func _on_monster_died(monster: Variant, source: Variant) -> void:
+	_on_monster_changed(monster, source)
+	var holder: Variant = _find_monster_holder(monster)
+	if holder == null:
+		return
+	var panel: PlayerPanel = _get_panel_for_player(holder)
+	if panel != null:
+		panel.play_monster_pulse()
+
+
+## 查找怪物持有者（怪物区中包含该怪物的玩家）。
+## 怪物死亡发射 monster_died 前已被移出怪物区，此时回退以其纠缠对象（attack_target，即原持有者）判定。
+func _find_monster_holder(monster: Variant) -> Variant:
+	if monster == null or not is_instance_valid(monster):
+		return null
+	if Game != null and is_instance_valid(Game):
+		for p in Game.players:
+			if p == null or not is_instance_valid(p):
+				continue
+			if "monster_zone" in p and p.monster_zone.has(monster):
+				return p
+	var engaged: Variant = monster.get("attack_target")
+	if engaged != null and is_instance_valid(engaged):
+		return engaged
+	return null
 
 
 func _on_monster_engaged_target_changed(_monster: Variant, old_target: Variant, new_target: Variant) -> void:
@@ -725,6 +790,44 @@ func _on_player_stat_changed(player: Variant, _arg1: Variant = null, _arg2: Vari
 		_active_skill_bar.refresh(current)
 		_action_selection_controller.refresh_confirm_cancel_buttons()
 	_update_phase_indicator()
+
+
+## 玩家受伤反馈：目标面板红闪 +「-N」飘字；来源为怪物时面板再震动（均 fire-and-forget）。
+func _on_damage_taken(target: Variant, source: Variant, amount: int) -> void:
+	if target == null or not is_instance_valid(target):
+		return
+	if not (target.has_method("is_player") and target.is_player()):
+		return
+	var panel: PlayerPanel = _get_panel_for_player(target)
+	if panel == null:
+		return
+	panel.play_damage_feedback(amount)
+	# 怪物判定与 tutorial_manager 一致：get("monster_type") 非 null 即怪物
+	if source != null and is_instance_valid(source) and source.get("monster_type") != null:
+		panel.play_shake()
+
+
+## 玩家回血反馈：面板绿色「+N」飘字（fire-and-forget）。
+func _on_hp_recovered(player: Variant, amount: int) -> void:
+	var panel: PlayerPanel = _get_panel_for_player(player)
+	if panel != null:
+		panel.play_heal_feedback(amount)
+
+
+## 饥饿值变化：保留原 _on_player_stat_changed 刷新逻辑，并令面板黄闪提醒（fire-and-forget）。
+func _on_hunger_changed(player: Variant, old_value: int, new_value: int) -> void:
+	_on_player_stat_changed(player, old_value, new_value)
+	var panel: PlayerPanel = _get_panel_for_player(player)
+	if panel != null:
+		panel.play_hunger_flash()
+
+
+## 行动数消耗：保留原 _on_player_stat_changed 刷新逻辑，并令面板行动标签弹跳（fire-and-forget）。
+func _on_action_consumed(player: Variant, num: int) -> void:
+	_on_player_stat_changed(player, num)
+	var panel: PlayerPanel = _get_panel_for_player(player)
+	if panel != null:
+		panel.play_action_bounce()
 
 
 func _on_pile_drawn(_player: Variant, _card: Variant) -> void:

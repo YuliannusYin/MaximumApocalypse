@@ -7,6 +7,11 @@ extends Node
 
 const PRESET_FULL_RECT := Control.PRESET_FULL_RECT
 
+# === 过渡动画常量（秒） ===
+const POPUP_OPEN_DURATION: float = 0.15                # 打开：遮罩淡入 / 面板缩放淡入
+const POPUP_CLOSE_DURATION: float = 0.12               # 关闭：遮罩淡出
+const POPUP_OPEN_SCALE: Vector2 = Vector2(0.92, 0.92)  # 打开动画起始缩放
+
 signal option_selected(choice: Variant)
 signal confirm_responded(result: bool)
 signal cards_selected(cards: Array)
@@ -39,9 +44,41 @@ func _create_modal_overlay() -> ColorRect:
 	var overlay := ColorRect.new()
 	overlay.set_anchors_preset(PRESET_FULL_RECT)
 	overlay.color = Color(0, 0, 0, 0.4)
+	# 遮罩自透明淡入（Tween 由 overlay 自身创建、自动绑定该节点，节点释放时自动失效）
+	overlay.modulate.a = 0.0
 	_popup_layer.add_child(overlay)
 	_popup_overlay = overlay
+	var tween := overlay.create_tween()
+	tween.tween_property(overlay, "modulate:a", 1.0, POPUP_OPEN_DURATION)
 	return overlay
+
+
+## 弹窗节点构建完成后的收尾：各 show_* 在内容构建完毕后统一调用，播放内容面板打开动画。
+func _finish_popup_build(overlay: ColorRect) -> void:
+	if overlay == null or not is_instance_valid(overlay):
+		return
+	_animate_popup_in(overlay)
+
+
+## 打开过渡：内容面板自 scale 0.92 + 全透明缩放淡入至正常（约 0.15 秒，SINE/OUT）。
+func _animate_popup_in(overlay: ColorRect) -> void:
+	var children: Array = overlay.get_children()
+	if children.is_empty():
+		return
+	var tween := overlay.create_tween()
+	tween.set_trans(Tween.TRANS_SINE)
+	tween.set_ease(Tween.EASE_OUT)
+	tween.set_parallel(true)
+	for child in children:
+		var panel := child as Control
+		if panel == null:
+			continue
+		# pivot_offset 取自身尺寸一半（即面板中心），缩放绕中心进行；若设为 0 会绕左上角缩放
+		panel.pivot_offset = panel.size * 0.5
+		panel.scale = POPUP_OPEN_SCALE
+		panel.modulate.a = 0.0
+		tween.tween_property(panel, "scale", Vector2.ONE, POPUP_OPEN_DURATION)
+		tween.tween_property(panel, "modulate:a", 1.0, POPUP_OPEN_DURATION)
 
 
 func close_popup() -> void:
@@ -49,13 +86,21 @@ func close_popup() -> void:
 
 
 func _close_popup() -> void:
-	if _popup_overlay != null and is_instance_valid(_popup_overlay):
-		_popup_overlay.queue_free()
+	# 先取出旧遮罩并立即解除引用：is_popup_open() 自此刻起返回 false（保持既有语义）
+	var overlay: ColorRect = _popup_overlay
 	_popup_overlay = null
 	_popup_selected.clear()
 	_popup_required_n = 0
 	_popup_ok_button = null
 	_popup_item_views.clear()
+	# 旧遮罩淡出后释放：fire-and-forget，不阻塞 closed 信号时序；
+	# Tween 由 overlay 自身创建（自动绑定该节点），节点被外部释放时自动失效，无悬挂访问。
+	if overlay != null and is_instance_valid(overlay):
+		# 淡出期间不再拦截输入（引用已解除，逻辑上弹窗已关闭）
+		overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var tween := overlay.create_tween()
+		tween.tween_property(overlay, "modulate:a", 0.0, POPUP_CLOSE_DURATION)
+		tween.tween_callback(overlay.queue_free)
 	closed.emit()
 
 
@@ -142,6 +187,8 @@ func show_option_popup(options: Array, prompt: String) -> void:
 		btn.pressed.connect(_on_option_selected.bind(option))
 		vbox.add_child(btn)
 
+	_finish_popup_build(overlay)
+
 
 func _on_option_selected(choice: Variant) -> void:
 	_close_popup()
@@ -187,6 +234,8 @@ func show_confirm_popup(message: String) -> void:
 	no_btn.custom_minimum_size = Vector2(80, 30)
 	no_btn.pressed.connect(_on_confirm_responded.bind(false))
 	hbox.add_child(no_btn)
+
+	_finish_popup_build(overlay)
 
 
 func _on_confirm_responded(result: bool) -> void:
@@ -265,6 +314,8 @@ func show_card_select_popup(cards: Array, n: int, position: String, zone_labels:
 	cancel_btn.custom_minimum_size = Vector2(80, 30)
 	cancel_btn.pressed.connect(_on_card_select_cancelled)
 	hbox.add_child(cancel_btn)
+
+	_finish_popup_build(overlay)
 
 
 func _on_card_select_clicked(event: InputEvent, card: Variant, view: CardView) -> void:
@@ -373,6 +424,7 @@ func show_target_select_area(targets: Array, n: int, zone_labels: Array = [], pr
 		cancel_btn.custom_minimum_size = Vector2(80, 30)
 		cancel_btn.pressed.connect(_on_target_card_cancelled)
 		hbox.add_child(cancel_btn)
+		_finish_popup_build(overlay)
 		return
 	# 实体目标：使用卡片网格布局（Monster/Player）
 	if _is_all_entity_targets(targets):
@@ -462,6 +514,7 @@ func show_target_select_area(targets: Array, n: int, zone_labels: Array = [], pr
 		cancel_btn.custom_minimum_size = Vector2(80, 30)
 		cancel_btn.pressed.connect(_on_entity_card_cancelled)
 		hbox.add_child(cancel_btn)
+		_finish_popup_build(overlay)
 		return
 	# 非卡牌/实体目标：原有 Button 布局（同样支持 min_n 范围模式）
 	var overlay := _create_modal_overlay()
@@ -518,6 +571,8 @@ func show_target_select_area(targets: Array, n: int, zone_labels: Array = [], pr
 	cancel_btn.custom_minimum_size = Vector2(80, 30)
 	cancel_btn.pressed.connect(_on_target_area_cancelled)
 	hbox.add_child(cancel_btn)
+
+	_finish_popup_build(overlay)
 
 
 func _on_target_area_clicked(target: Variant, btn: Button) -> void:
@@ -647,6 +702,8 @@ func show_block_select_popup(blocks: Array, prompt: String) -> void:
 		btn.pressed.connect(_on_block_selected.bind(block))
 		vbox.add_child(btn)
 
+	_finish_popup_build(overlay)
+
 
 func _on_block_selected(block: Variant) -> void:
 	_close_popup()
@@ -681,6 +738,8 @@ func show_card_detail_popup(card: Card) -> void:
 	ok_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	ok_btn.pressed.connect(_on_card_detail_closed)
 	vbox.add_child(ok_btn)
+
+	_finish_popup_build(overlay)
 
 
 func _on_card_detail_closed() -> void:
@@ -721,6 +780,7 @@ func show_block_detail_popup(block: Variant) -> void:
 		d_close.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		d_close.pressed.connect(_close_popup)
 		vbox.add_child(d_close)
+		_finish_popup_build(overlay)
 		return
 
 	# 未展示地块
@@ -751,6 +811,7 @@ func show_block_detail_popup(block: Variant) -> void:
 		u_close.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		u_close.pressed.connect(_close_popup)
 		vbox.add_child(u_close)
+		_finish_popup_build(overlay)
 		return
 
 	# 已展示地块
@@ -851,6 +912,8 @@ func show_block_detail_popup(block: Variant) -> void:
 	# 尺寸根据内容自适应（粗略估算高度）
 	var est_h: int = 28 + 22 + 22 + (22 + skill_count * 36) + 22 + (22 + maxi(monsters.size(), 1) * 20) + 22 + 22 + 38 + 24
 	panel.size = Vector2(400, est_h)
+
+	_finish_popup_build(overlay)
 
 
 # === 详情弹窗（任务 #91） ===
@@ -964,6 +1027,8 @@ func show_mission_detail_popup() -> void:
 	ok_btn.pressed.connect(_close_popup)
 	vbox.add_child(ok_btn)
 
+	_finish_popup_build(overlay)
+
 
 func show_event_log_popup(event_log: Array) -> void:
 	var overlay := _create_modal_overlay()
@@ -1034,6 +1099,8 @@ func show_event_log_popup(event_log: Array) -> void:
 	ok_btn.pressed.connect(_close_popup)
 	vbox.add_child(ok_btn)
 
+	_finish_popup_build(overlay)
+
 
 # === 弃牌堆面板 ===
 
@@ -1086,6 +1153,8 @@ func show_scavenge_discard_popup() -> void:
 	ok_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	ok_btn.pressed.connect(_close_popup)
 	vbox.add_child(ok_btn)
+
+	_finish_popup_build(overlay)
 
 
 func show_game_discard_popup() -> void:
@@ -1144,6 +1213,8 @@ func show_game_discard_popup() -> void:
 	ok_btn.pressed.connect(_close_popup)
 	vbox.add_child(ok_btn)
 
+	_finish_popup_build(overlay)
+
 
 func show_monster_zone_popup(player: Variant) -> void:
 	if player == null or not is_instance_valid(player):
@@ -1201,6 +1272,8 @@ func show_monster_zone_popup(player: Variant) -> void:
 	ok_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	ok_btn.pressed.connect(_close_popup)
 	vbox.add_child(ok_btn)
+
+	_finish_popup_build(overlay)
 
 
 ## 构建单个怪物卡片（外层130×190黑色边框 + 内层120×180）：图片 + 属性叠加。
@@ -1428,6 +1501,8 @@ func show_equipment_zone_popup(player: Variant) -> void:
 	ok_btn.pressed.connect(_close_popup)
 	vbox.add_child(ok_btn)
 
+	_finish_popup_build(overlay)
+
 
 ## 构建单个装备卡片（120×180）：图片 + 牌名(中下) + 射程(名字下) + 左上角格子数。
 func _build_equipment_card(card: Variant, w: int, h: int) -> Panel:
@@ -1567,3 +1642,5 @@ func show_hand_popup(player: Variant) -> void:
 	ok_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	ok_btn.pressed.connect(_close_popup)
 	vbox.add_child(ok_btn)
+
+	_finish_popup_build(overlay)
