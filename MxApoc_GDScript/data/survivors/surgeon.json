@@ -48,6 +48,7 @@
       "count": 3,
       "card_type": "equipment",
       "size": 2,
+      "range": "long",
       "skills": [
         {
           "skill_name": "轮床",
@@ -70,6 +71,7 @@
       "english_name": "molotov_cocktail",
       "count": 3,
       "card_type": "action",
+      "range": "medium",
       "skills": [
         {
           "skill_name": "莫洛托夫鸡尾酒",
@@ -94,6 +96,7 @@
       "count": 3,
       "card_type": "equipment",
       "size": 1,
+      "range": "short",
       "skills": [
         {
           "skill_name": "手术刀_回复",
@@ -146,6 +149,7 @@
       "count": 2,
       "card_type": "equipment",
       "size": 2,
+      "range": "medium",
       "skills": [
         {
           "skill_name": "泰瑟枪",
@@ -191,6 +195,7 @@
       "count": 3,
       "card_type": "equipment",
       "size": 1,
+      "range": "short",
       "skills": [
         {
           "skill_name": "研钵",
@@ -258,6 +263,7 @@
       "count": 2,
       "card_type": "equipment",
       "size": 1,
+      "range": "short",
       "skills": [
         {
           "skill_name": "钻头",
