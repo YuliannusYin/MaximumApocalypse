@@ -500,14 +500,32 @@ func pull_toward_one_block_no_effect(source: Variant) -> void:
 
 # === 五、检定系统 ===
 
+## 投两颗骰子，返回两颗各自点数 [d1, d2]。
+func roll_dice() -> Array:
+	return [randi_range(1, 6), randi_range(1, 6)]
+
+
 ## 基础检定：投两颗骰子，返回点数之和。
 func judge() -> int:
-	var d1: int = randi_range(1, 6)
-	var d2: int = randi_range(1, 6)
-	return d1 + d2
+	var dice: Array = roll_dice()
+	return dice[0] + dice[1]
 
 
-## 潜行检定（4 节点）。
+## 检定确认门包装：等待玩家确认是否执行检定（input 为空时默认确定）。
+func _wait_judge_confirm(prompt: String, allow_cancel: bool) -> bool:
+	if input == null or not is_instance_valid(input):
+		return true
+	return await input.wait_judge_confirm(self, prompt, allow_cancel)
+
+
+## 骰子动画包装：播放两颗骰子投掷动画并等待结束（input 为空时跳过）。
+func _play_dice_animation(d1: int, d2: int, label: String, outcome: String) -> void:
+	if input == null or not is_instance_valid(input):
+		return
+	await input.play_dice_animation(d1, d2, label, outcome)
+
+
+## 潜行检定（4 节点，投骰前含确认门，确认后播放骰子动画）。
 func sneak_judge(block_param: MapBlock = null) -> bool:
 	var block: MapBlock = block_param if block_param != null else current_block
 	EventBus.sneak_judge_triggered.emit(self, block)
@@ -522,13 +540,20 @@ func sneak_judge(block_param: MapBlock = null) -> bool:
 	var event: Dictionary = EventSystem.create_sneak_judge_event(self, sneak_value, block)
 	# 1. 潜行检定前
 	await trigger("before_sneak_judge", event)
+	var abandoned: bool = false
 	# 2. 系统投骰（若未跳过）
 	if not event["skip_judge"]:
-		var dice_value: int = judge()
-		if Game != null and is_instance_valid(Game):
-			Game.log_message(LogColors.player(player_name) + " 执行了 " + LogColors.skill("潜行检定") + ", 点数为 " + str(dice_value))
-		var success: bool = dice_value <= event["sneak_value"]
-		event["result"] = {"value": dice_value, "success": success}
+		if not await _wait_judge_confirm("是否执行 \"潜行检定\"", true):
+			# 玩家放弃：不投骰，结果保持初始失败
+			abandoned = true
+		else:
+			var dice: Array = roll_dice()
+			var dice_value: int = dice[0] + dice[1]
+			var success: bool = dice_value <= event["sneak_value"]
+			await _play_dice_animation(dice[0], dice[1], "潜行检定", "成功" if success else "失败")
+			if Game != null and is_instance_valid(Game):
+				Game.log_message(LogColors.player(player_name) + " 执行了 " + LogColors.skill("潜行检定") + ", 点数为 " + str(dice_value))
+			event["result"] = {"value": dice_value, "success": success}
 	# 3. 潜行检定时
 	await trigger("on_sneak_judge", event)
 	# 4. 潜行检定后
@@ -536,19 +561,24 @@ func sneak_judge(block_param: MapBlock = null) -> bool:
 	if Game != null and is_instance_valid(Game):
 		if event["result"]["success"]:
 			Game.log_message(LogColors.player(player_name) + " 潜行成功")
+		elif abandoned:
+			Game.log_message(LogColors.player(player_name) + " 放弃了潜行检定，潜行失败")
 		else:
 			Game.log_message(LogColors.player(player_name) + " 潜行失败")
 	return event["result"]["success"]
 
 
-## 怪物出生检定（5 节点）。
+## 怪物出生检定（5 节点，投骰前含确认门（仅确定），确认后播放骰子动画）。
 func monster_spawn_judge() -> void:
 	var event: Dictionary = EventSystem.create_spawn_judge_event(self)
 	# 1. 怪物出生检定前
 	await trigger("before_spawn_judge", event)
 	# 2. 系统投骰
 	if not event["skip_judge"]:
-		var dice_value: int = judge()
+		await _wait_judge_confirm("执行 \"怪物生成\"", false)
+		var dice: Array = roll_dice()
+		var dice_value: int = dice[0] + dice[1]
+		await _play_dice_animation(dice[0], dice[1], "怪物生成", "")
 		if Game != null and is_instance_valid(Game):
 			Game.log_message(LogColors.player(player_name) + " 执行了 " + LogColors.skill("怪物生成") + ", 点数为 " + str(dice_value))
 		event["result"] = {"value": dice_value, "success": true}

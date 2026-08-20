@@ -68,5 +68,16 @@ func wait_redraw_decision(player: Variant) -> bool:
 	return false
 
 
+## 检定确认门。返回 true 表示执行检定，false 表示放弃（不投骰）。
+func wait_judge_confirm(player: Variant, prompt: String, allow_cancel: bool) -> bool:
+	_push_override_error("wait_judge_confirm")
+	return true  # 默认确定，避免子类遗漏时卡死流程
+
+
+## 播放两颗骰子投掷动画并等待结束。
+func play_dice_animation(d1: int, d2: int, label: String, outcome: String) -> void:
+	_push_override_error("play_dice_animation")
+
+
 func _push_override_error(method_name: String) -> void:
 	push_error("IPlayerInput.%s must be overridden by subclass" % method_name)
