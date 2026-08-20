@@ -10,6 +10,7 @@ signal move_mode_changed(active: bool)
 signal selection_cleared()
 signal card_move_select_completed(block: Variant)
 signal redraw_decision_responded(result: bool)
+signal judge_confirm_responded(result: bool)
 
 # === 选中状态变量 ===
 var _selected_card: Variant = null
@@ -30,6 +31,8 @@ var _ui_layer: CanvasLayer
 var _hand_area: Variant = null  # HandDisplayArea 引用，用于清空选中
 var _round_zero_mode: bool = false
 var _round_zero_buffering: bool = false
+var _judge_confirm_mode: bool = false
+var _judge_allow_cancel: bool = true
 var _timer_bar: ProgressBar = null
 var _timer_active: bool = false
 var _timer_remaining: float = 0.0
@@ -56,7 +59,7 @@ func is_in_confirm_mode() -> bool:
 
 
 func is_busy() -> bool:
-	return _move_select_mode or _confirm_mode or _skill_confirm_mode or _round_zero_mode
+	return _move_select_mode or _confirm_mode or _skill_confirm_mode or _round_zero_mode or _judge_confirm_mode
 
 
 func get_move_selected_block() -> Variant:
@@ -205,6 +208,10 @@ func _update_prompt(card: Variant) -> void:
 # === 确认/取消处理 ===
 
 func _on_confirm_pressed() -> void:
+	if _judge_confirm_mode:
+		exit_judge_confirm_mode()
+		judge_confirm_responded.emit(true)
+		return
 	if _round_zero_mode:
 		_round_zero_buffering = true
 		refresh_confirm_cancel_buttons()
@@ -254,6 +261,12 @@ func _on_confirm_pressed() -> void:
 
 
 func _on_cancel_end_pressed() -> void:
+	if _judge_confirm_mode:
+		if not _judge_allow_cancel:
+			return
+		exit_judge_confirm_mode()
+		judge_confirm_responded.emit(false)
+		return
 	if _round_zero_mode:
 		exit_round_zero_mode()
 		redraw_decision_responded.emit(false)
@@ -298,6 +311,14 @@ func refresh_confirm_cancel_buttons() -> void:
 		if _cancel_end_button != null and is_instance_valid(_cancel_end_button):
 			_cancel_end_button.text = "取消 (C)"
 			_cancel_end_button.disabled = false
+		return
+	if _judge_confirm_mode:
+		if _confirm_button != null and is_instance_valid(_confirm_button):
+			_confirm_button.text = "确定 (S)"
+			_confirm_button.disabled = false
+		if _cancel_end_button != null and is_instance_valid(_cancel_end_button):
+			_cancel_end_button.text = "取消 (C)"
+			_cancel_end_button.disabled = not _judge_allow_cancel
 		return
 	if _move_select_mode:
 		if _confirm_button != null and is_instance_valid(_confirm_button):
@@ -375,8 +396,8 @@ func on_pile_selected(pile_key: String, display_name: String = "") -> void:
 ## source == "move" 时执行行动次数守卫；source == "card" 时进入卡牌移动模式，
 ## 结果通过 card_move_select_completed 信号返回；count 为本次选取的目标数量。
 func enter_block_select_mode(prompt: String, valid_blocks: Array, count: int, source: String) -> void:
-	if _confirm_mode or _move_select_mode or _skill_confirm_mode or _round_zero_mode:
-		push_warning("enter_block_select_mode 被忽略：UI 模式冲突（confirm=%s move=%s skill_confirm=%s round_zero=%s）" % [_confirm_mode, _move_select_mode, _skill_confirm_mode, _round_zero_mode])
+	if _confirm_mode or _move_select_mode or _skill_confirm_mode or _round_zero_mode or _judge_confirm_mode:
+		push_warning("enter_block_select_mode 被忽略：UI 模式冲突（confirm=%s move=%s skill_confirm=%s round_zero=%s judge_confirm=%s）" % [_confirm_mode, _move_select_mode, _skill_confirm_mode, _round_zero_mode, _judge_confirm_mode])
 		return
 	if source == "move":
 		var current: Variant = Game.get_current_player()
@@ -472,6 +493,15 @@ func handle_shortcut(keycode: int, popup_open: bool = false) -> void:
 				if _cancel_end_button != null and is_instance_valid(_cancel_end_button) and not _cancel_end_button.disabled:
 					_on_cancel_end_pressed()
 		return
+	if _judge_confirm_mode:
+		match keycode:
+			KEY_S:
+				if _confirm_button != null and is_instance_valid(_confirm_button) and not _confirm_button.disabled:
+					_on_confirm_pressed()
+			KEY_C:
+				if _cancel_end_button != null and is_instance_valid(_cancel_end_button) and not _cancel_end_button.disabled:
+					_on_cancel_end_pressed()
+		return
 	if _move_select_mode:
 		match keycode:
 			KEY_S:
@@ -519,7 +549,7 @@ func handle_shortcut(keycode: int, popup_open: bool = false) -> void:
 
 ## 进入技能确认模式：显示技能确认 prompt，根据可用性设置确定按钮置灰。
 func enter_skill_confirm_mode(skill: Variant) -> void:
-	if _confirm_mode or _move_select_mode or _skill_confirm_mode or _round_zero_mode:
+	if _confirm_mode or _move_select_mode or _skill_confirm_mode or _round_zero_mode or _judge_confirm_mode:
 		return
 	_skill_confirm_mode = true
 	_pending_skill = skill
@@ -558,7 +588,7 @@ func exit_skill_confirm_mode() -> void:
 
 ## 进入第零轮重调模式：显示 prompt + 时限条 + 确定/取消按钮。
 func enter_round_zero_mode(prompt: String, duration: float) -> void:
-	if _confirm_mode or _move_select_mode or _skill_confirm_mode or _round_zero_mode:
+	if _confirm_mode or _move_select_mode or _skill_confirm_mode or _round_zero_mode or _judge_confirm_mode:
 		return
 	_round_zero_mode = true
 	# 互斥：清空手牌/牌堆选中
@@ -598,10 +628,48 @@ func _on_round_zero_buffer_end() -> void:
 		refresh_confirm_cancel_buttons()
 
 
+# === 检定确认模式 ===
+
+## 进入检定确认模式：显示检定 prompt + 时限条 + 确定/取消按钮。
+## allow_cancel 为 false 时取消按钮置灰（如怪物生成检定仅可确定）。
+func enter_judge_confirm_mode(prompt: String, duration: float, allow_cancel: bool) -> void:
+	if _confirm_mode or _move_select_mode or _skill_confirm_mode or _round_zero_mode or _judge_confirm_mode:
+		return
+	_judge_confirm_mode = true
+	_judge_allow_cancel = allow_cancel
+	# 互斥：清空手牌/牌堆选中
+	_selected_card = null
+	_selected_pile_key = ""
+	if _hand_area != null and is_instance_valid(_hand_area):
+		_hand_area.clear_selection()
+	if _prompt_label != null and is_instance_valid(_prompt_label):
+		_prompt_label.text = prompt
+	# 启动倒计时时限条，超时自动确定
+	start_timer(duration, Callable(self, "_on_judge_confirm_timeout"))
+	refresh_confirm_cancel_buttons()
+
+
+## 检定确认超时回调：自动确定（与重调模式的超时取消不同）。
+func _on_judge_confirm_timeout() -> void:
+	if not _judge_confirm_mode:
+		return
+	exit_judge_confirm_mode()
+	judge_confirm_responded.emit(true)
+
+
+## 退出检定确认模式：复位状态，停止时限条，清空 prompt，刷新按钮。
+func exit_judge_confirm_mode() -> void:
+	_judge_confirm_mode = false
+	stop_timer()
+	if _prompt_label != null and is_instance_valid(_prompt_label):
+		_prompt_label.text = ""
+	refresh_confirm_cancel_buttons()
+
+
 # === 确认模式（由 GUIPlayerInput confirm_requested 触发）===
 
 func set_confirm_mode(message: String) -> void:
-	if _round_zero_mode:
+	if _round_zero_mode or _judge_confirm_mode:
 		return
 	_confirm_mode = true
 	_selected_card = null

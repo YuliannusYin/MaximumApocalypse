@@ -30,6 +30,7 @@ var _pile_manager: PileManager
 var _action_selection_controller: ActionSelectionController
 var _active_skill_bar: ActiveSkillBar
 var _event_log_panel: EventLogPanel
+var _dice_animation_view: DiceAnimationView
 
 # === 游戏状态 ===
 var _gui_input: GUIPlayerInput
@@ -75,6 +76,10 @@ func _create_modules() -> void:
 	_action_selection_controller.setup(_ui_layer)
 	add_child(_action_selection_controller)
 	_action_selection_controller.build_buttons()
+
+	# 骰子投掷动画视图：挂在 UI 层，由确认门通过后触发播放
+	_dice_animation_view = DiceAnimationView.new()
+	_ui_layer.add_child(_dice_animation_view)
 
 	_active_skill_bar = ActiveSkillBar.new()
 	_active_skill_bar.setup(_active_skill_grid)
@@ -127,12 +132,15 @@ func _start_game_flow() -> void:
 	_gui_input.show_card_requested.connect(_on_show_card_requested)
 	_gui_input.set_prompt_requested.connect(_on_set_prompt_requested)
 	_gui_input.redraw_decision_requested.connect(_on_redraw_decision_requested)
+	_gui_input.judge_confirm_requested.connect(_on_judge_confirm_requested)
+	_gui_input.dice_animation_requested.connect(_on_dice_animation_requested)
 	_popup_manager.option_selected.connect(_gui_input.respond_choose)
 	_popup_manager.confirm_responded.connect(_gui_input.respond_confirm)
 	_popup_manager.cards_selected.connect(_gui_input.respond_choose_card)
 	_popup_manager.targets_selected.connect(_gui_input.respond_choose_target)
 	_popup_manager.block_selected.connect(_on_popup_block_selected)
 	_action_selection_controller.redraw_decision_responded.connect(_gui_input.respond_redraw_decision)
+	_action_selection_controller.judge_confirm_responded.connect(_gui_input.respond_judge_confirm)
 	for player in Game.players:
 		if player != null and is_instance_valid(player):
 			player.input = _gui_input
@@ -620,6 +628,17 @@ func _on_set_prompt_requested(text: String) -> void:
 
 func _on_redraw_decision_requested() -> void:
 	_action_selection_controller.enter_round_zero_mode("是否执行\"重调\": 重新抓取初始手牌", 30.0)
+
+
+# 检定确认门：进入确认模式，5 秒超时默认确定
+func _on_judge_confirm_requested(prompt: String, allow_cancel: bool) -> void:
+	_action_selection_controller.enter_judge_confirm_mode(prompt, 5.0, allow_cancel)
+
+
+# 骰子投掷动画：播放完毕后结算响应，阻塞后续请求派发
+func _on_dice_animation_requested(d1: int, d2: int, label: String, outcome: String) -> void:
+	await _dice_animation_view.play(d1, d2, label, outcome)
+	_gui_input.respond_dice_animation()
 
 
 # === EventBus 信号处理 ===

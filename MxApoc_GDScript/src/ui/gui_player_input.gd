@@ -21,6 +21,8 @@ signal confirm_requested(message: String)
 signal show_card_requested(card: Card, target: Variant)
 signal set_prompt_requested(text: String)
 signal redraw_decision_requested()
+signal judge_confirm_requested(prompt: String, allow_cancel: bool)
+signal dice_animation_requested(d1: int, d2: int, label: String, outcome: String)
 
 # === 请求队列（插入结算机制核心） ===
 # 所有玩家输入请求串行处理：空闲时立即派发，忙碌时入队等待；
@@ -145,6 +147,21 @@ func wait_redraw_decision(player: Variant) -> bool:
 	return bool(result)
 
 
+## 检定确认门。发射信号请求 UI 显示确认门，await 响应后返回（true=执行 / false=放弃）。
+func wait_judge_confirm(player: Variant, prompt: String, allow_cancel: bool) -> bool:
+	var req: Dictionary = _enqueue_request(func() -> void:
+		judge_confirm_requested.emit(prompt, allow_cancel))
+	var result: Variant = await _wait_for_request(req)
+	return bool(result)
+
+
+## 播放两颗骰子投掷动画并等待结束。动画播完后由 UI 调用 respond_dice_animation 结算，期间阻塞后续请求派发。
+func play_dice_animation(d1: int, d2: int, label: String, outcome: String) -> void:
+	var req: Dictionary = _enqueue_request(func() -> void:
+		dice_animation_requested.emit(d1, d2, label, outcome))
+	await _wait_for_request(req)
+
+
 # === 响应方法（GameScene2D 调用，写入当前活动请求） ===
 
 func respond_action(choice: Variant) -> void:
@@ -173,3 +190,11 @@ func respond_confirm(result: bool) -> void:
 
 func respond_redraw_decision(result: bool) -> void:
 	_respond_active(result)
+
+
+func respond_judge_confirm(result: bool) -> void:
+	_respond_active(result)
+
+
+func respond_dice_animation() -> void:
+	_respond_active(null)
