@@ -44,6 +44,7 @@
       "english_name": "headshot",
       "count": 3,
       "card_type": "action",
+      "range": "long",
       "skills": [
         {
           "skill_name": "爆头",
@@ -67,6 +68,7 @@
       "count": 2,
       "card_type": "equipment",
       "size": 1,
+      "range": "short",
       "skills": [
         {
           "skill_name": "捕熊陷阱",
@@ -90,6 +92,7 @@
       "count": 3,
       "card_type": "equipment",
       "size": 1,
+      "range": "medium",
       "skills": [
         {
           "skill_name": "弓",
@@ -113,6 +116,7 @@
       "count": 2,
       "card_type": "equipment",
       "size": 1,
+      "range": "medium",
       "charge_type": "fuel",
       "charge_max": 3,
       "charge_initial": 3,
@@ -139,6 +143,7 @@
       "count": 2,
       "card_type": "equipment",
       "size": 1,
+      "range": "short",
       "skills": [
         {
           "skill_name": "砍刀",
@@ -184,6 +189,7 @@
       "count": 2,
       "card_type": "equipment",
       "size": 2,
+      "range": "medium",
       "charge_type": "ammo",
       "charge_max": 8,
       "charge_initial": 8,
@@ -209,6 +215,7 @@
       "english_name": "snare",
       "count": 2,
       "card_type": "action",
+      "range": "medium",
       "skills": [
         {
           "skill_name": "圈套",

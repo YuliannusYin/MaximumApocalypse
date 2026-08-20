@@ -175,7 +175,7 @@ func test_use_active_skill_equipment_target() -> void:
 	await p.equip(e)
 	var entity: Equipment = p.get_equipment("fuel_can")
 	var cli: CliPlayerInput = CliPlayerInput.new()
-	cli.queue_choose(entity)
+	cli.queue_choose_target([entity])
 	p.input = cli
 	var captured: Array = []
 	var s: Skill = Skill.new()

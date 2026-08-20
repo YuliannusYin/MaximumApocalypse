@@ -603,6 +603,57 @@ func test_judge_returns_2_to_12() -> void:
 		assert_true(v >= 2 and v <= 12, "judge 应在 2-12 范围内")
 
 
+func test_roll_dice_returns_two_values_in_range() -> void:
+	var p: Player = _make_player()
+	for i in 100:
+		var dice: Array = p.roll_dice()
+		assert_eq(dice.size(), 2, "roll_dice 应返回两个点数")
+		for d in dice:
+			assert_true(d >= 1 and d <= 6, "骰子点数应在 1-6 范围内")
+
+
+func test_sneak_judge_abandon_returns_false() -> void:
+	var p: Player = _make_player()
+	_setup_game_for_player(p)
+	var block: MapBlock = _make_block("b", 0, 0)
+	Game.map_area = [block]
+	p.current_block = block
+	p.role_card = RoleCard.new()
+	p.role_card.sneak = 20
+	# 注入放弃决策：确认门返回取消，不投骰
+	(p.input as CliPlayerInput).queue_judge_confirm(false)
+	# 连接日志信号捕获放弃文案
+	var logs: Array = []
+	var collector: Callable = func(message: String) -> void: logs.append(message)
+	EventBus.log_message.connect(collector)
+	var result: bool = await p.sneak_judge()
+	EventBus.log_message.disconnect(collector)
+	assert_false(result, "放弃潜行检定应返回 false")
+	var abandon_logged: bool = false
+	for msg in logs:
+		if msg is String and msg.contains("放弃"):
+			abandon_logged = true
+	assert_true(abandon_logged, "放弃潜行检定应输出包含'放弃'的日志")
+
+
+func test_monster_spawn_judge_default_confirm_regression() -> void:
+	var p: Player = _make_player()
+	_setup_game_for_player(p)
+	var block: MapBlock = _make_block("b", 0, 0)
+	block.revealed = true
+	block.monster_spawn_value = 7
+	Game.map_area = [block]
+	# 强制投骰结果为 7
+	var s: Skill = Skill.new()
+	s.trigger = "on_spawn_judge"
+	s.content = func(_p, _t, ev: Dictionary, _g) -> void:
+		ev["result"] = {"value": 7, "success": true}
+	p.add_skill(s)
+	# 不注入确认队列：CLI 空队列默认确定，确认门不应阻断检定流程
+	p.monster_spawn_judge()
+	assert_eq(block.count_monster_mark(), 1, "默认确定应照常执行怪物生成检定并添加标记")
+
+
 func test_sneak_judge_success_high_sneak() -> void:
 	var p: Player = _make_player()
 	_setup_game_for_player(p)

@@ -463,16 +463,69 @@ func move_to(target: MapBlock) -> bool:
 	return true
 
 
+## 把本玩家向 source 拉近 1 格（轮床等效果用，不触发地图块效果：
+## 无进出地块事件、无潜行检定、无目标标记；仅维护地块技能挂载与基础移动状态）。
+func pull_toward_one_block_no_effect(source: Variant) -> void:
+	if source == null or not is_instance_valid(source) or not source.has_method("is_player"):
+		return
+	var source_block: MapBlock = source.current_block
+	var from_block: MapBlock = current_block
+	if source_block == null or from_block == null or from_block == source_block:
+		return
+	# 在当前地块的相邻地块中选距离 source 最近的一格
+	var best: MapBlock = null
+	var best_dist: int = -1
+	for block in from_block.get_adjacent_blocks():
+		if block == null or not is_instance_valid(block) or not block.is_alive():
+			continue
+		var d: int = block.distance_to(source_block)
+		if best == null or d < best_dist:
+			best = block
+			best_dist = d
+	if best == null or best == from_block:
+		return
+	# 维护地块技能挂载（移除旧地块技能、获取新地块技能，不触发任何事件）
+	from_block._clear_skills_for_player(self)
+	best._acquire_skills_for_player(self)
+	# 坐标变更（与 move_to 的第 6 步保持一致的状态记录）
+	current_block = best
+	add_mark("moved_this_turn", 1, "", "", false)
+	if not best.is_revealed():
+		best.reveal(false, self)
+	if Game != null and is_instance_valid(Game):
+		Game.log_message(LogColors.player(source.player_name) + " 将 " + LogColors.player(player_name) + " 拉近至 " + LogColors.block(best.block_name))
+	if EventBus != null and is_instance_valid(EventBus):
+		EventBus.player_moved.emit(self, from_block, best)
+
+
 # === 五、检定系统 ===
+
+## 投两颗骰子，返回两颗各自点数 [d1, d2]。
+func roll_dice() -> Array:
+	return [randi_range(1, 6), randi_range(1, 6)]
+
 
 ## 基础检定：投两颗骰子，返回点数之和。
 func judge() -> int:
-	var d1: int = randi_range(1, 6)
-	var d2: int = randi_range(1, 6)
-	return d1 + d2
+	var dice: Array = roll_dice()
+	return dice[0] + dice[1]
 
 
-## 潜行检定（4 节点）。
+## 检定确认门包装：等待玩家确认是否执行检定（input 为空时默认确定）。
+func _wait_judge_confirm(prompt: String, allow_cancel: bool) -> bool:
+	if input == null or not is_instance_valid(input):
+		return true
+	return await input.wait_judge_confirm(self, prompt, allow_cancel)
+
+
+## 骰子动画包装：播放两颗骰子投掷动画并等待结束（input 为空时跳过）。
+func _play_dice_animation(d1: int, d2: int, label: String, outcome: String) -> void:
+	if input == null or not is_instance_valid(input):
+		return
+	await input.play_dice_animation(d1, d2, label, outcome)
+
+
+## 潜行检定（4 节点，投骰前含确认门，确认后播放骰子动画）。
 func sneak_judge(block_param: MapBlock = null) -> bool:
 	var block: MapBlock = block_param if block_param != null else current_block
 	EventBus.sneak_judge_triggered.emit(self, block)
@@ -487,13 +540,20 @@ func sneak_judge(block_param: MapBlock = null) -> bool:
 	var event: Dictionary = EventSystem.create_sneak_judge_event(self, sneak_value, block)
 	# 1. 潜行检定前
 	await trigger("before_sneak_judge", event)
+	var abandoned: bool = false
 	# 2. 系统投骰（若未跳过）
 	if not event["skip_judge"]:
-		var dice_value: int = judge()
-		if Game != null and is_instance_valid(Game):
-			Game.log_message(LogColors.player(player_name) + " 执行了 " + LogColors.skill("潜行检定") + ", 点数为 " + str(dice_value))
-		var success: bool = dice_value <= event["sneak_value"]
-		event["result"] = {"value": dice_value, "success": success}
+		if not await _wait_judge_confirm("是否执行 \"潜行检定\"", true):
+			# 玩家放弃：不投骰，结果保持初始失败
+			abandoned = true
+		else:
+			var dice: Array = roll_dice()
+			var dice_value: int = dice[0] + dice[1]
+			var success: bool = dice_value <= event["sneak_value"]
+			await _play_dice_animation(dice[0], dice[1], "潜行检定", "成功" if success else "失败")
+			if Game != null and is_instance_valid(Game):
+				Game.log_message(LogColors.player(player_name) + " 执行了 " + LogColors.skill("潜行检定") + ", 点数为 " + str(dice_value))
+			event["result"] = {"value": dice_value, "success": success}
 	# 3. 潜行检定时
 	await trigger("on_sneak_judge", event)
 	# 4. 潜行检定后
@@ -501,19 +561,24 @@ func sneak_judge(block_param: MapBlock = null) -> bool:
 	if Game != null and is_instance_valid(Game):
 		if event["result"]["success"]:
 			Game.log_message(LogColors.player(player_name) + " 潜行成功")
+		elif abandoned:
+			Game.log_message(LogColors.player(player_name) + " 放弃了潜行检定，潜行失败")
 		else:
 			Game.log_message(LogColors.player(player_name) + " 潜行失败")
 	return event["result"]["success"]
 
 
-## 怪物出生检定（5 节点）。
+## 怪物出生检定（5 节点，投骰前含确认门（仅确定），确认后播放骰子动画）。
 func monster_spawn_judge() -> void:
 	var event: Dictionary = EventSystem.create_spawn_judge_event(self)
 	# 1. 怪物出生检定前
 	await trigger("before_spawn_judge", event)
 	# 2. 系统投骰
 	if not event["skip_judge"]:
-		var dice_value: int = judge()
+		await _wait_judge_confirm("执行 \"怪物生成\"", false)
+		var dice: Array = roll_dice()
+		var dice_value: int = dice[0] + dice[1]
+		await _play_dice_animation(dice[0], dice[1], "怪物生成", "")
 		if Game != null and is_instance_valid(Game):
 			Game.log_message(LogColors.player(player_name) + " 执行了 " + LogColors.skill("怪物生成") + ", 点数为 " + str(dice_value))
 		event["result"] = {"value": dice_value, "success": true}
@@ -1537,14 +1602,13 @@ func use_active_skill(skill: Skill) -> void:
 			return
 		event["target"] = chosen
 	elif target_type == "equipment":
-		var candidates: Array = equipment_zone.duplicate()
-		candidates = _filter_targets(skill, candidates, event)
-		if candidates.is_empty():
-			return
-		var chosen: Variant = await choose(candidates, "选择装备")
-		if chosen == null:
-			return
-		event["target"] = chosen
+		# 新版声明式目标选择窗口：GUI 按 target_type 构建装备区候选并经 filter_target 过滤，显示 window_prompt
+		var select_n: int = skill.select_target if skill.select_target > 0 else 1
+		var targets: Array = await choose_target(select_n, skill, skill.window_prompt, skill.select_target_min)
+		if targets.is_empty():
+			return  # 玩家取消或无合法目标
+		event["target"] = targets[0]
+		event["targets"] = targets
 	else:
 		# target_type 为空：依据 select_target 选择目标
 		var select_n: int = skill.select_target
@@ -1575,17 +1639,7 @@ func use_active_skill(skill: Skill) -> void:
 		var _skill_name: String = skill.skill_name if skill.skill_name != "" else skill.english_name
 		var _target: Variant = event.get("target", null)
 		if _target != null:
-			var _target_name: String = ""
-			if typeof(_target) == TYPE_OBJECT and is_instance_valid(_target):
-				if _target.has_method("is_monster") and _target.is_monster():
-					_target_name = LogColors.monster(_target.get("monster_name"))
-				elif _target.has_method("is_player") and _target.is_player():
-					_target_name = LogColors.player(_target.get("player_name"))
-				elif "block_name" in _target:
-					_target_name = LogColors.block(_target.block_name)
-			if _target_name == "":
-				_target_name = "\"" + str(_target) + "\""
-			Game.log_message(LogColors.player(player_name) + " 对 " + _target_name + " 使用了 " + LogColors.skill(_skill_name))
+			Game.log_message(LogColors.player(player_name) + " 对 " + _format_target_name(_target) + " 使用了 " + LogColors.skill(_skill_name))
 		else:
 			Game.log_message(LogColors.player(player_name) + " 使用了 " + LogColors.skill(_skill_name))
 	# 5. 执行 content

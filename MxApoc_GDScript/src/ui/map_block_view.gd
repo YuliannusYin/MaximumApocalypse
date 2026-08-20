@@ -21,6 +21,11 @@ var _highlight_panel: Panel  # 高亮覆盖层，渲染在最顶层
 var _move_highlight_panel: Panel  # 移动选取高亮覆盖层（绿色/金黄色）
 var _objective_mark_icon: TextureRect  # 任务标记图标（固定位置）
 var _block_texture: Texture2D  # 缓存已选中的地块变体纹理（revealed 后锁定，destroyed 复用）
+var _anim_tween: Tween = null  # 当前动画 Tween（翻入/标记/摧毁共用，新动画 kill 旧动画重启）
+var _hidden_players: Dictionary = {}  # 隐藏头像的玩家 instance_id -> true（头像移动动画期间）
+var _last_mark_count: int = -1  # 上次刷新记录的怪物标记数（供外部对比增减，未变则不播动画）
+var _cell_player_ids: Dictionary = {}  # 头像格索引 -> 玩家 instance_id（应用头像隐藏状态用）
+var _avatar_cell_count: int = 0  # 头像占用的格数（其后连续段为怪物标记格）
 
 signal block_clicked(block: Variant)
 signal avatar_clicked(block: Variant)
@@ -52,6 +57,8 @@ func refresh(is_current_player_block: bool = false, current_player: Variant = nu
 	else:
 		_highlight_panel.visible = false
 	_update_grid(current_player)
+	# 记录本次怪物标记数，供外部（GameScene2D）对比判断增减
+	_last_mark_count = _block.monster_marks
 
 
 func _build_content() -> void:
@@ -164,6 +171,118 @@ func _apply_destroyed_style() -> void:
 	add_theme_stylebox_override("panel", _make_fill_style(Color(0.5, 0.15, 0.15, 0.7)))
 
 
+## ================= 动画与头像隐藏（纯表现层，fire-and-forget） =================
+
+## 终止当前动画并复位中断可能残留的中间状态（self.modulate 保留，供摧毁灰化持续生效）。
+func _kill_anim_tween() -> void:
+	if _anim_tween != null and _anim_tween.is_valid():
+		_anim_tween.kill()
+	_anim_tween = null
+	scale = Vector2.ONE
+	for cell in _grid_cells:
+		cell.scale = Vector2.ONE
+		cell.modulate = Color(1, 1, 1, 1)
+
+
+## 地块揭示翻入动画：水平缩放 0.05 → 1（带回弹，约 0.35 秒）。
+func play_reveal_animation() -> void:
+	_kill_anim_tween()
+	pivot_offset = size / 2.0
+	scale = Vector2(0.05, 1.0)
+	_anim_tween = create_tween()
+	var tweener: PropertyTweener = _anim_tween.tween_property(self, "scale:x", 1.0, 0.35)
+	tweener.set_trans(Tween.TRANS_BACK)
+	tweener.set_ease(Tween.EASE_OUT)
+
+
+## 怪物标记反馈动画。added=true：最新标记图标弹入（scale 0→1.25→1，约 0.3 秒）；
+## added=false：剩余标记快速淡出闪烁（modulate.a 0.5 → 1，约 0.2 秒）后复位；
+## 找不到具体标记格时降级为地块整体轻微脉冲。播放前记录当前标记数。
+func play_mark_pulse(added: bool) -> void:
+	if _block == null or not is_instance_valid(_block):
+		return
+	# 播放前把当前标记数存入 _last_mark_count
+	_last_mark_count = _block.monster_marks
+	_kill_anim_tween()
+	var mark_cells: Array[TextureRect] = _get_mark_cells()
+	if added:
+		var target: TextureRect = null
+		if not mark_cells.is_empty():
+			target = mark_cells[mark_cells.size() - 1]
+		if target != null:
+			# 最新标记图标弹入
+			target.pivot_offset = target.size / 2.0
+			target.scale = Vector2.ZERO
+			_anim_tween = create_tween()
+			_anim_tween.tween_property(target, "scale", Vector2(1.25, 1.25), 0.18)
+			_anim_tween.tween_property(target, "scale", Vector2.ONE, 0.12)
+		else:
+			# 降级：地块整体轻微脉冲
+			_anim_tween = create_tween()
+			_anim_tween.tween_property(self, "scale", Vector2(1.06, 1.06), 0.15)
+			_anim_tween.tween_property(self, "scale", Vector2.ONE, 0.15)
+	else:
+		# 标记减少：对剩余标记（无则地块整体）快速淡出闪烁后复位
+		var nodes: Array = mark_cells.duplicate()
+		if nodes.is_empty():
+			nodes.append(self)
+		_anim_tween = create_tween().set_parallel(true)
+		for node in nodes:
+			var fade_tweener: PropertyTweener = _anim_tween.tween_property(node, "modulate:a", 1.0, 0.2)
+			fade_tweener.from(0.5)
+
+
+## 地块摧毁灰化动画：modulate 变暗至灰并轻微下沉（约 0.4 秒），与 refresh 的摧毁样式叠加共存。
+func play_destroyed_animation() -> void:
+	_kill_anim_tween()
+	var target_y: float = position.y + 4.0
+	_anim_tween = create_tween().set_parallel(true)
+	_anim_tween.tween_property(self, "modulate", Color(0.45, 0.45, 0.45), 0.4)
+	_anim_tween.tween_property(self, "position:y", target_y, 0.4)
+
+
+## 隐藏/恢复本地块上指定玩家的头像（头像移动动画期间使用）。
+func set_avatar_hidden(player: Variant, hidden: bool) -> void:
+	if player == null or not is_instance_valid(player):
+		return
+	var pid: int = player.get_instance_id()
+	if hidden:
+		_hidden_players[pid] = true
+	else:
+		_hidden_players.erase(pid)
+	_apply_avatar_visibility()
+
+
+## 返回上次刷新记录的怪物标记数（供外部对比增减；标记数未变则不播动画）。
+func get_last_mark_count() -> int:
+	return _last_mark_count
+
+
+## 遍历头像格，将处于隐藏名单中的玩家头像设为不可见（隐藏者仍占格，避免其他头像位置跳动）。
+func _apply_avatar_visibility() -> void:
+	for cell_idx in _cell_player_ids:
+		var idx: int = cell_idx
+		if idx < 0 or idx >= _grid_cells.size():
+			continue
+		_grid_cells[idx].visible = not _hidden_players.has(_cell_player_ids[cell_idx])
+
+
+## 取当前怪物标记对应的九宫格格子（头像格之后的连续段）。
+func _get_mark_cells() -> Array[TextureRect]:
+	var cells: Array[TextureRect] = []
+	if _block == null or not is_instance_valid(_block):
+		return cells
+	var count: int = _block.monster_marks
+	for i in count:
+		var idx: int = _avatar_cell_count + i
+		if idx < 0 or idx >= _grid_cells.size():
+			break
+		var cell: TextureRect = _grid_cells[idx]
+		if cell.visible and cell.texture != null:
+			cells.append(cell)
+	return cells
+
+
 ## 填充九宫格：玩家头像（前 N 格）+ 怪物标记图标（后 M 格）。
 func _update_grid(current_player: Variant = null) -> void:
 	# 先清空所有格子
@@ -174,6 +293,8 @@ func _update_grid(current_player: Variant = null) -> void:
 		cell.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		if cell.is_connected("gui_input", _on_avatar_cell_input):
 			cell.gui_input.disconnect(_on_avatar_cell_input)
+	_cell_player_ids.clear()
+	_avatar_cell_count = 0
 	if _block == null or not is_instance_valid(_block):
 		return
 	if _block.is_destroyed():
@@ -195,11 +316,14 @@ func _update_grid(current_player: Variant = null) -> void:
 			if tex != null:
 				_grid_cells[idx].texture = tex
 				_grid_cells[idx].visible = true
+				_cell_player_ids[idx] = player.get_instance_id()
 				if current_player != null and player == current_player:
 					_grid_cells[idx].mouse_filter = Control.MOUSE_FILTER_STOP
 					if not _grid_cells[idx].is_connected("gui_input", _on_avatar_cell_input):
 						_grid_cells[idx].gui_input.connect(_on_avatar_cell_input)
 				idx += 1
+	# 头像占用的格数（其后连续段为怪物标记格）
+	_avatar_cell_count = idx
 	# 怪物标记
 	var mark_tex: Texture2D = ImageCache.get_monster_mark_texture()
 	var mark_count: int = _block.monster_marks
@@ -217,6 +341,8 @@ func _update_grid(current_player: Variant = null) -> void:
 		_objective_mark_icon.visible = _block.has_objective_mark()
 	else:
 		_objective_mark_icon.visible = false
+	# 统一应用头像隐藏状态（refresh 被外部频繁调用后隐藏状态仍需生效）
+	_apply_avatar_visibility()
 	# 地块名始终显示（中心偏下），不因九宫格内容而隐藏
 
 

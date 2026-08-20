@@ -154,6 +154,7 @@
       "card_name": "手枪",
       "english_name": "pistol",
       "card_type": "equipment",
+      "range": "medium",
       "size": 1,
       "charge_type": "ammo",
       "charge_max": 4,
@@ -216,6 +217,7 @@
       "card_name": "双筒望远镜",
       "english_name": "binoculars",
       "card_type": "equipment",
+      "range": "long",
       "size": 1,
       "skills": [
         {
@@ -234,6 +236,7 @@
       "card_name": "炸药",
       "english_name": "dynamite",
       "card_type": "action",
+      "range": "long",
       "skills": [
         {
           "skill_name": "炸药",
@@ -252,6 +255,7 @@
       "card_name": "大炸药",
       "english_name": "mega_dynamite",
       "card_type": "action",
+      "range": "medium",
       "skills": [
         {
           "skill_name": "大炸药",

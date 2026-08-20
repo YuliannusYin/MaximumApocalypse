@@ -209,15 +209,14 @@ func get_all_missions() -> Array:
 	return result
 
 
-## 获取可用任务（player 模式仅返回 mission_id == 0）。
+## 获取可用任务（player 模式返回 mission_id 0~3）。
 func get_available_missions() -> Array:
 	if Settings.dev_mode:
 		return get_all_missions()
 	var result: Array = []
 	for mission in _missions.values():
-		if mission.mission_id == 0:
+		if mission.mission_id <= 3:
 			result.append(mission)
-			break
 	result.sort_custom(func(a, b): return a.mission_id < b.mission_id)
 	return result
 

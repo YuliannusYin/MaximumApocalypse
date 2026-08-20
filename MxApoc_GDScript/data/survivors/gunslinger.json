@@ -25,6 +25,7 @@
       "english_name": "focused_shot",
       "count": 2,
       "card_type": "action",
+      "range": "long",
       "skills": [
         {
           "skill_name": "集中射击",
@@ -114,6 +115,7 @@
       "english_name": "volley",
       "count": 2,
       "card_type": "action",
+      "range": "medium",
       "skills": [
         {
           "skill_name": "齐射",
@@ -137,6 +139,7 @@
       "english_name": "grenade",
       "count": 3,
       "card_type": "action",
+      "range": "medium",
       "skills": [
         {
           "skill_name": "手榴弹",
@@ -194,6 +197,7 @@
       "english_name": "lasso",
       "count": 3,
       "card_type": "action",
+      "range": "medium",
       "skills": [
         {
           "skill_name": "套索",
@@ -259,6 +263,7 @@
       "count": 1,
       "card_type": "equipment",
       "size": 0,
+      "range": "medium",
       "charge_type": "ammo",
       "charge_max": 4,
       "charge_initial": 4,
@@ -342,6 +347,7 @@
       "count": 3,
       "card_type": "equipment",
       "size": 1,
+      "range": "medium",
       "charge_type": "ammo",
       "charge_max": 6,
       "charge_initial": 6,

@@ -16,7 +16,7 @@ const SEAT_COLORS: Array[Color] = [
 	Color(0.25, 0.75, 0.35, 1.0),
 	Color(0.9, 0.8, 0.25, 1.0),
 ]
-const GOLD_BORDER := Color(1.0, 0.84, 0.0, 1.0)
+const GOLD_BORDER := Color(1.0, 0.8, 0.3, 1.0)  # 当前回合金色描边（呼吸高亮用色）
 const CURRENT_TURN_BORDER_WIDTH := 3
 
 # 布局配置：is_self → {element_key → Rect2(position, size)}
@@ -68,8 +68,16 @@ var _equipment_button: Button
 var _hand_button: Button
 var _border: Panel
 
+# === 反馈动画状态 ===
+var _feedback_tween: Tween = null  # 根容器红闪/黄闪 Tween（后到覆盖先到）
+var _breath_tween: Tween = null    # 当前回合描边呼吸 Tween（循环播放）
+var _breath_active: bool = false   # 呼吸是否已激活（避免 refresh 重复重启导致相位跳变）
+var _home_position: Vector2 = Vector2.ZERO  # 根容器原位置（震动动画复位基准）
+
 
 func _ready() -> void:
+	# 记录根容器原位置作为震动复位基准（面板由外部以全屏锚点摆放，通常为 (0,0)）
+	_home_position = position
 	_build_layout()
 
 
@@ -103,6 +111,7 @@ func set_player(player: Variant, is_self: bool) -> void:
 func set_current_turn(is_current: bool) -> void:
 	_is_current_turn = is_current
 	_apply_border()
+	set_turn_highlight(is_current)
 	if _action_label != null:
 		_action_label.visible = is_current
 
@@ -110,12 +119,14 @@ func set_current_turn(is_current: bool) -> void:
 ## 刷新所有元素的数据。
 func refresh(show_current_highlight: bool = true) -> void:
 	if _player == null or not is_instance_valid(_player):
+		set_turn_highlight(false)
 		_set_visible(false)
 		return
 	_set_visible(true)
 	if show_current_highlight:
 		var current: Variant = Game.get_current_player()
 		_is_current_turn = (current != null and is_instance_valid(current) and current == _player)
+		set_turn_highlight(_is_current_turn)
 	_apply_border()
 	_update_seat()
 	_update_role_card()
@@ -137,6 +148,12 @@ func _set_visible(v: bool) -> void:
 # === 布局构建 ===
 
 func _build_layout() -> void:
+	# 终止旧动画并复位根容器表现（子节点即将重建，防止 Tween 引用已释放节点）
+	_kill_tween(_feedback_tween)
+	_kill_tween(_breath_tween)
+	_breath_active = false
+	modulate = Color(1.0, 1.0, 1.0, 1.0)
+	position = _home_position
 	_clear_children()
 	_layout = SELF_LAYOUT if _is_self else TEAMMATE_LAYOUT
 	# 边框（围绕内容区域）
@@ -211,6 +228,7 @@ func _build_layout() -> void:
 	_hand_button.pressed.connect(_on_hand_clicked)
 	add_child(_hand_button)
 	_apply_border()
+	set_turn_highlight(_is_current_turn)
 
 
 # === 数据更新 ===
@@ -238,6 +256,7 @@ func _update_role_card() -> void:
 	if not _player.is_alive():
 		state_str = "已死亡"
 		name_str = _player.get("player_name") if name_str.is_empty() else name_str
+		set_turn_highlight(false)  # 死亡：停止呼吸高亮，恢复普通边框（既有变灰表现不变）
 	# 尝试加载角色牌图片
 	var tex: Texture2D = null
 	if role != null and is_instance_valid(role):
@@ -310,7 +329,13 @@ func _update_sneak() -> void:
 func _update_hunger() -> void:
 	if _player == null:
 		return
-	_hunger_label.text = "饥饿 %d/6" % _player.get("hunger")
+	var hunger: int = _player.get("hunger")
+	_hunger_label.text = "饥饿 %d/6" % hunger
+	# 饥饿 ≥5 临界（角色牌即将翻面）：持续橙黄警示色；回落时移除覆盖恢复默认色
+	if hunger >= 5:
+		_hunger_label.add_theme_color_override("font_color", Color(1.0, 0.65, 0.15))
+	else:
+		_hunger_label.remove_theme_color_override("font_color")
 
 
 func _update_action() -> void:
@@ -357,6 +382,125 @@ func _apply_border() -> void:
 		_border.add_theme_stylebox_override("panel", _make_border_style(GOLD_BORDER, CURRENT_TURN_BORDER_WIDTH))
 	else:
 		_border.add_theme_stylebox_override("panel", _make_border_style(Color(0.15, 0.15, 0.15, 1.0), 1))
+
+
+# === 反馈动画（公开方法，供 GameScene2D 调用，均为 fire-and-forget） ===
+
+## 当前回合呼吸高亮开关。
+## 描边方案：复用既有 _border——它本就是"透明背景、仅描边"的 Panel，
+## 对它的 modulate.a 做呼吸不会影响面板内容；关闭时复位 alpha 并恢复普通边框。
+func set_turn_highlight(active: bool) -> void:
+	if _border == null or not is_instance_valid(_border):
+		return
+	# 仅"激活且玩家存活"时呼吸；未激活或玩家死亡一律恢复静态普通边框
+	var should_breath: bool = active and _player != null and is_instance_valid(_player) and _player.is_alive()
+	if should_breath == _breath_active and _breath_tween != null and _breath_tween.is_valid():
+		return  # 状态未变且呼吸仍在运行，避免重复重启导致相位跳变
+	_kill_tween(_breath_tween)
+	_breath_active = should_breath
+	if should_breath:
+		_border.add_theme_stylebox_override("panel", _make_border_style(GOLD_BORDER, CURRENT_TURN_BORDER_WIDTH))
+		_border.modulate.a = 1.0
+		_breath_tween = create_tween()
+		_breath_tween.bind_node(_border)  # 边框面板释放时自动终止（布局重建防泄漏）
+		_breath_tween.set_loops()
+		_breath_tween.tween_property(_border, "modulate:a", 0.55, 0.75)
+		_breath_tween.tween_property(_border, "modulate:a", 1.0, 0.75)
+	else:
+		_border.modulate.a = 1.0
+		_border.add_theme_stylebox_override("panel", _make_border_style(Color(0.15, 0.15, 0.15, 1.0), 1))
+
+
+## 受伤反馈：面板整体红闪（变红 0.15 秒 → 复位 0.15 秒）+ HP 标签红色「-N」飘字。
+func play_damage_feedback(amount: int) -> void:
+	if not is_inside_tree():
+		return
+	_kill_tween(_feedback_tween)
+	_feedback_tween = create_tween()
+	_feedback_tween.tween_property(self, "modulate", Color(1.0, 0.5, 0.5), 0.15)
+	_feedback_tween.tween_property(self, "modulate", Color(1.0, 1.0, 1.0), 0.15)
+	_spawn_float_label("-" + str(amount), Color(1.0, 0.35, 0.35), _hp_label)
+
+
+## 回复反馈：HP 标签绿色「+N」飘字（无整体闪烁）。
+func play_heal_feedback(amount: int) -> void:
+	_spawn_float_label("+" + str(amount), Color(0.35, 0.9, 0.45), _hp_label)
+
+
+## 饥饿变化反馈：面板整体黄闪（变黄 0.15 秒 → 复位 0.15 秒，共约 0.3 秒）。
+func play_hunger_flash() -> void:
+	if not is_inside_tree():
+		return
+	_kill_tween(_feedback_tween)
+	_feedback_tween = create_tween()
+	_feedback_tween.tween_property(self, "modulate", Color(1.0, 0.9, 0.5), 0.15)
+	_feedback_tween.tween_property(self, "modulate", Color(1.0, 1.0, 1.0), 0.15)
+
+
+## 行动数消耗弹跳：行动标签缩放 1→1.3→1（TRANS_BACK 回弹，共约 0.25 秒）。
+func play_action_bounce() -> void:
+	if not is_inside_tree() or _action_label == null or not is_instance_valid(_action_label):
+		return
+	_action_label.pivot_offset = _action_label.size * 0.5
+	_action_label.scale = Vector2.ONE
+	var tween := create_tween()
+	tween.bind_node(_action_label)  # 标签释放时自动终止（布局重建防泄漏）
+	tween.tween_property(_action_label, "scale", Vector2(1.3, 1.3), 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(_action_label, "scale", Vector2.ONE, 0.13).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+
+## 面板震动：根容器以原位置为基准随机偏移（±4px，6 步每步 0.05 秒共约 0.3 秒），结束复位。
+func play_shake() -> void:
+	if not is_inside_tree():
+		return
+	var tween := create_tween()  # 默认绑定自身（Node.create_tween），面板释放时自动终止
+	for _i in 5:
+		tween.tween_property(self, "position", _home_position + Vector2(randf_range(-4.0, 4.0), randf_range(-4.0, 4.0)), 0.05)
+	tween.tween_property(self, "position", _home_position, 0.05)
+
+
+## 怪物死亡脉冲：怪物区按钮缩放 1→1.2→1（TRANS_BACK 回弹，共约 0.25 秒）。
+func play_monster_pulse() -> void:
+	if not is_inside_tree() or _monster_button == null or not is_instance_valid(_monster_button):
+		return
+	_monster_button.pivot_offset = _monster_button.size * 0.5
+	_monster_button.scale = Vector2.ONE
+	var tween := create_tween()
+	tween.bind_node(_monster_button)  # 按钮释放时自动终止（布局重建防泄漏）
+	tween.tween_property(_monster_button, "scale", Vector2(1.2, 1.2), 0.125).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(_monster_button, "scale", Vector2.ONE, 0.125).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+
+## 在锚点控件位置生成上浮淡出飘字（18 号字 + 黑描边），约 0.8 秒后自动释放。
+func _spawn_float_label(text: String, color: Color, anchor: Control) -> void:
+	if not is_inside_tree() or anchor == null or not is_instance_valid(anchor):
+		return
+	var label := Label.new()
+	label.text = text
+	# x 与锚点对齐（取锚点宽度，不足 48 时加宽），水平居中；起始位置略高于锚点
+	label.position = Vector2(anchor.position.x, anchor.position.y - 8.0)
+	label.size = Vector2(maxf(anchor.size.x, 48.0), 24.0)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.z_index = 50  # 确保飘字绘制在面板其他元素之上
+	label.add_theme_font_size_override("font_size", 18)
+	label.add_theme_color_override("font_color", color)
+	label.add_theme_color_override("font_outline_color", Color.BLACK)
+	label.add_theme_constant_override("outline_size", 3)
+	add_child(label)
+	var tween := create_tween()
+	tween.bind_node(label)  # 飘字释放时自动终止（回调因此不会访问已释放节点）
+	tween.set_parallel(true)
+	tween.tween_property(label, "modulate:a", 0.0, 0.8).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(label, "position:y", label.position.y - 30.0, 0.8).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.chain().tween_callback(label.queue_free)
+
+
+## 终止旧 Tween（防泄漏，同 DiceAnimationView 模式）。
+func _kill_tween(tween: Tween) -> void:
+	if tween != null and tween.is_valid():
+		tween.kill()
 
 
 # === 点击处理 ===

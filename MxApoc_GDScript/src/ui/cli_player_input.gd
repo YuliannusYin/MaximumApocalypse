@@ -14,6 +14,7 @@ var _choose_target_queue: Array = []
 var _choose_block_queue: Array = []
 var _confirm_queue: Array = []
 var _redraw_decision_queue: Array = []
+var _judge_confirm_queue: Array = []
 
 
 func queue_action(result: Variant) -> void:
@@ -42,6 +43,10 @@ func queue_confirm(result: bool) -> void:
 
 func queue_redraw_decision(result: bool) -> void:
 	_redraw_decision_queue.append(result)
+
+
+func queue_judge_confirm(result: bool) -> void:
+	_judge_confirm_queue.append(result)
 
 
 func wait_action(player: Variant) -> Variant:
@@ -112,3 +117,14 @@ func wait_redraw_decision(player: Variant) -> bool:
 	if _redraw_decision_queue.size() > 0:
 		return _redraw_decision_queue.pop_front()
 	return false  # 默认不重调
+
+
+func wait_judge_confirm(player: Variant, prompt: String, allow_cancel: bool) -> bool:
+	if _judge_confirm_queue.size() > 0:
+		return _judge_confirm_queue.pop_front()
+	return true  # 默认确定（与 GUI 5 秒超时默认确定语义一致）
+
+
+func play_dice_animation(d1: int, d2: int, label: String, outcome: String) -> void:
+	# 命令行模式无动画，仅打印骰子结果并立即返回，不阻塞流程
+	print("[骰子] " + label + ": " + str(d1) + " + " + str(d2) + " = " + str(d1 + d2) + (" " + outcome if outcome != "" else ""))
