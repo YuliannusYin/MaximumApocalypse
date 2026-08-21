@@ -158,7 +158,7 @@
 | 怪物类型 monster_type | 外星人 `alien` / 突变体 `mutant` / 僵尸 `zombie` / 机器人 `robot` |
 | 拾荒颜色 color | 红色 `red` / 绿色 `green` / 蓝色 `blue` / 灰色 `gray` |
 | 任务难度 difficulty | 特别简单 `tutorial` / 非常简单 `very_easy` / 简单 `easy` / 正常 `normal` / 困难 `hard` / 非常困难 `very_hard` |
-| map_legend type | 出生点 `spawn` / 游戏结束点 `game_end` / 标记地块 `marked_block` |
+| map_legend type | 出生点 `spawn` / 游戏结束点 `game_end` / 随机地块 `random_block` |
 
 ---
 

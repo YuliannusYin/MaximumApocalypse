@@ -140,33 +140,29 @@
 
 #### build_map(mission_config_arg)
 
-> 根据任务包配置构建游戏地图。触发场景：游戏初始化步骤 4「根据任务说明构建地图」。
+> 根据任务包配置构建游戏地图，legend 驱动：单元格编号本身无固定语义，逐格查 `map_legend[String(cell)]` 解释。触发场景：游戏初始化步骤 4「根据任务说明构建地图」。
 >
 > **构建逻辑**（模板 + 指定 + 随机）：
 > 1. 清空 `map_area`、`map_width`、`map_height`
-> 2. 读取配置的 `map_template` 二维数组，确定 `map_height`（行数）和 `map_width`（列数）
-> 3. 读取 `spawn_block_name`（出生点地块名）与 `end_block_name`（结束点地块名）
-> 4. 统计 `map_template` 中 code 0（出生点）和 code 2（结束点）格子数；这两类格子直接使用指定地块名，需从 `map_block_config` 的对应计数中扣除，否则同名地块会重复出现在地图上
-> 5. 构建 `block_pool`：遍历 `map_block_config`，对每条 `{block_name, count}`，扣除同名 spawn/end 的格子数后按数量展开。若该地块在 DataManager 中有 variants（变体），则将变体索引随机洗混后逐一入池，否则 variant_index 置 -1
-> 6. 遍历 `map_template` 二维数组，按编码实例化地块：
->    - `-1`（无地块）→ 跳过
->    - `0`（出生点）→ 使用 `spawn_block_name`；若该地块有 variants 则随机选一个 variant_index
->    - `1`（未知随机地块）→ 从 `block_pool` 中随机抽取一项（pop_at），取其 `block_name` 与 `variant_index`
->    - `2`（游戏结束点）→ 使用 `end_block_name`；若该地块有 variants 则随机选一个 variant_index
->    - `3`（标记地块）→ 从 `block_pool` 中随机抽取一项；实例化后从配置的 `objective_marks` 列表 `pop_front` 取一个目标标记调用 `block.add_objective_mark(mark)`，并根据标记的 `initial_monster_marks` 字段调用 `block.add_monster_mark(initial_marks)` 预置怪物标记
-> 7. 对 code 0/2/3 的地块设置 `block.revealed = true`（默认展示）
-> 8. 调用 `_create_map_block(block_name, variant_index)` 实例化地块，`block.set_coordinate(x, y)` 设置坐标，追加到 `map_area`
+> 2. 读取配置的 `map_template` 二维数组与 `map_legend` 图例，确定 `map_height`（行数）和 `map_width`（列数）
+> 3. 按 legend 条目 `type` 统计 `spawn` / `game_end` 各 `block_name` 的占用格数；这两类格子直接使用指定地块名，需从 `map_block_config` 的对应计数中扣除，否则同名地块会重复出现在地图上
+> 4. 构建 `block_pool`：遍历 `map_block_config`，对每条 `{block_name, count}`，扣除同名 spawn/end 的格子数后按数量展开。若该地块在 DataManager 中有 variants（变体），则将变体索引随机洗混后逐一入池，否则 variant_index 置 -1
+> 5. 行优先遍历 `map_template` 二维数组，逐格查 `map_legend[String(cell)]` 实例化地块：
+>    - 字符串 `"no_block"` → 跳过（无地块）
+>    - 字符串 `"random_block"` → 从 `block_pool` 中随机抽取一项（pop_at），取其 `block_name` 与 `variant_index`
+>    - 对象 `type == "spawn"` / `"game_end"` → 使用条目的 `block_name`；若该地块有 variants 则随机选一个 variant_index
+>    - 对象 `type == "random_block"` → 从 `block_pool` 中随机抽取一项（pop_at）
+>    - 单元格编号不在 legend 中、字符串值非法、`type` 未知或 spawn/game_end 缺 `block_name` → `push_error` 记录错误，该格按无地块跳过
+> 6. 按条目字段初始化地块状态：
+>    - `face`（bool，缺省：spawn/game_end 为 true、random_block 为 false）→ 设置 `block.revealed`（初始是否翻开）
+>    - `monster_mark`（int，缺省 0，上限 3）→ 初始放置 N 个怪物标记
+>    - `mission_mark`（int，缺省 0）→ 从配置的 `objective_marks` 列表 `pop_front` 取 N 个目标标记调用 `block.add_objective_mark(mark)`，并根据标记的 `initial_monster_marks` 字段调用 `block.add_monster_mark(initial_marks)` 预置怪物标记
+> 7. 调用 `_create_map_block(block_name, variant_index)` 实例化地块，`block.set_coordinate(x, y)` 设置坐标，追加到 `map_area`
 
-> **任务地图模板编码**：
-> - `-1` = 无地块
-> - `0` = 出生点（任务包指定地块名，如"购物中心"）
-> - `1` = 未知随机地块（从地块池随机抽取）
-> - `2` = 游戏结束点（任务包指定地块名，如"面包车"）
-> - `3` = 标记地块（从地块池随机抽取 + 添加目标标记 + 预置怪物标记）
-
-> **地块池耗尽**：若 `block_pool` 不够（code 1/3 位置过多），跳过该格。
+> **任务地图图例**：`map_layout` 单元格编号任意取值，含义完全由 `map_legend` 声明（0=无地块、1=未知随机地块、2=出生点、3=结束点等为约定编号）。legend 值可为字符串（`no_block` / `random_block`）或对象（`type` / `block_name` / `face` / `monster_mark` / `mission_mark`），字段规范见 [DataFormat.md](../../Engineering/DataFormat.md)。
+> **地块池耗尽**：若 `block_pool` 不够（random_block 位置过多），跳过该格。
 > **目标标记**：任务包通过 `objective_marks` 数组按 `pop_front` 顺序返回 ObjectiveMark 结构（标记ID、描述、效果函数、`initial_monster_marks` 等）。
-> **预置怪物标记**：标记地块可根据目标标记的 `initial_monster_marks` 字段预置怪物标记（任务 9/11）。预置的怪物标记与怪物出生检定添加的标记共用同一字段，上限 3。
+> **预置怪物标记**：地块可根据目标标记的 `initial_monster_marks` 字段预置怪物标记（任务 9/11）。预置的怪物标记与怪物出生检定添加的标记共用同一字段，上限 3。
 
 #### destroy_map_block(block, source)
 
@@ -327,13 +323,12 @@
 > 字段映射：
 > - `map_template` ← `mission.map_layout`
 > - `map_block_config` ← 将 `mission.map_blocks_config`（`Dictionary{name: count}`）转为 `Array<{block_name, count}>`
-> - `spawn_block_name` ← `mission.map_legend["0"].block_name`（无则空字符串）
-> - `end_block_name` ← `mission.map_legend["2"].block_name`（无则空字符串）
+> - `map_legend` ← `mission.map_legend`（传递完整图例，由 `build_map` 逐格解释，不再提取固定键的出生/结束点地块名）
 > - `objective_marks` ← `mission.objective_marks.duplicate(true)`（深拷贝，因为 `build_map` 会 `pop_front` 消费）
 
 #### _find_spawn_block(mission)
 
-> 内部方法：查找任务的出生点地块。读取 `mission.map_legend["0"].block_name`，在 `map_area` 中查找第一个 `block_name` 匹配的地块；未找到返回 null。
+> 内部方法：查找任务的出生点地块。扫描 `mission.map_legend` 中 `type == "spawn"` 的条目取其 `block_name`，在 `map_area` 中查找第一个 `block_name` 匹配的地块；未找到返回 null。
 
 #### _init_global_piles(mission)
 

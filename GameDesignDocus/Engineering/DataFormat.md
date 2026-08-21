@@ -250,10 +250,17 @@
 
 **`map_legend` 值类型：**
 
-值可为 `String` 或 `Object`：
+编号任意取值，含义由图例声明（引擎无硬编码编号语义）。值可为 `String` 或 `Object`：
 
-- 字符串：如 `"no_block"`（无地块）、`"random_block"`（未知随机地块）。
-- 对象：`{ "type": "spawn" | "game_end" | "marked_block", "block_name": "<地块名>" }`，其中 `marked_block` 可省略 `block_name`。
+- 字符串：`"no_block"`（无地块）、`"random_block"`（未知随机地块）。
+- 对象：`{ "type": "spawn" | "game_end" | "random_block", "block_name": "<地块名>", "face": <bool>, "monster_mark": <int>, "mission_mark": <int> }`：
+  - `type`：地块类型。`spawn`（出生点）/ `game_end`（游戏结束点）用 `block_name` 指定地块；`random_block` 从 `map_blocks_config` 抽取池取块。
+  - `block_name`：指定地块名，`spawn` / `game_end` 必填。
+  - `face`：初始是否翻开，缺省 `spawn` / `game_end` 为 `true`、`random_block` 为 `false`。
+  - `monster_mark`：初始放置的怪物标记数，缺省 0，上限 3。
+  - `mission_mark`：初始放置的任务标记数，缺省 0，按 `map_layout` 行优先顺序从 `objective_marks` 取 N 个。
+
+> 旧 `marked_block` 类型已移除，其旧语义（随机地块 + 1 个任务标记 + 初始翻开）由 `{ "type": "random_block", "face": true, "mission_mark": 1 }` 表达。
 
 **`scavenge_config` 结构：**
 

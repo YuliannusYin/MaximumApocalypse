@@ -86,8 +86,8 @@ func test_initialize_game_builds_map() -> void:
 	var seats: Array = _make_seats(["firefighter"])
 	Game.initialize_game(mission, {}, seats)
 	assert_true(Game.map_area.size() > 0, "地图应有地块")
-	assert_eq(Game.map_width, 5, "任务1地图宽度=5")
-	assert_eq(Game.map_height, 5, "任务1地图高度=5")
+	assert_eq(Game.map_width, mission.map_layout[0].size(), "任务1地图宽度应等于布局列数")
+	assert_eq(Game.map_height, mission.map_layout.size(), "任务1地图高度应等于布局行数")
 	# 验证有出生点地块（面包车）
 	var has_van: bool = false
 	for block in Game.map_area:
@@ -179,13 +179,13 @@ func test_initialize_game_state_machine_initialized() -> void:
 	assert_eq(Game.state_machine.get_game_state(), GameStateMachine.GameState.WAITING, "状态应为WAITING")
 
 
-## 测试：build_map 后出生点（code 0）、结束点（code 2）已翻开，随机地块（code 1）未翻开。
+## 测试：build_map 后出生点（legend spawn 条目）、结束点（legend game_end 条目）已翻开，随机地块（random_block）未翻开。
 func test_initialize_game_reveals_spawn_and_end_blocks() -> void:
 	var mission: MissionData = DataManager.get_mission(0)
 	assert_not_null(mission, "任务0应存在")
 	var seats: Array = _make_seats(["firefighter"])
 	Game.initialize_game(mission, {}, seats)
-	# 任务0：出生点（code 0）= 购物中心；结束点（code 2）= 面包车
+	# 任务0：出生点 = 购物中心；结束点 = 面包车
 	var spawn_block: MapBlock = null
 	var end_block: MapBlock = null
 	for block in Game.map_area:
@@ -195,16 +195,16 @@ func test_initialize_game_reveals_spawn_and_end_blocks() -> void:
 			end_block = block
 	assert_not_null(spawn_block, "应找到出生点地块（购物中心）")
 	assert_not_null(end_block, "应找到结束点地块（面包车）")
-	assert_true(spawn_block.is_revealed(), "出生点（code 0）应已翻开")
-	assert_true(end_block.is_revealed(), "结束点（code 2）应已翻开")
-	# 至少一个随机地块（code 1）应未翻开
+	assert_true(spawn_block.is_revealed(), "出生点应已翻开")
+	assert_true(end_block.is_revealed(), "结束点应已翻开")
+	# 至少一个随机地块应未翻开
 	var has_unrevealed_random: bool = false
 	for block in Game.map_area:
 		if block.block_name != "购物中心" and block.block_name != "面包车":
 			if not block.is_revealed():
 				has_unrevealed_random = true
 				break
-	assert_true(has_unrevealed_random, "至少一个随机地块（code 1）应未翻开")
+	assert_true(has_unrevealed_random, "至少一个随机地块应未翻开")
 
 
 ## 测试：_create_map_block 按 variant_index 取变体值；默认 -1 取顶层值。
