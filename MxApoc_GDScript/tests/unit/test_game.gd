@@ -5,6 +5,18 @@ extends GutTest
 ## 设计文档：GameDesignDocus/GameSystem/Game/Game.md
 
 
+# === 测试用内嵌任务组件（胜利判定 true/false 两种） ===
+
+class WinTrueComponent extends MissionComponent:
+	func check_win(game: Game) -> bool:
+		return true
+
+
+class WinFalseComponent extends MissionComponent:
+	func check_win(game: Game) -> bool:
+		return false
+
+
 # === 辅助方法 ===
 
 func _make_block(name: String = "test_block", x: int = 0, y: int = 0) -> MapBlock:
@@ -194,17 +206,24 @@ func test_check_mission_win_condition_no_config() -> void:
 	assert_false(Game.check_mission_win_condition())
 
 
-func test_check_mission_win_condition_no_callable() -> void:
+func test_check_mission_win_condition_no_components() -> void:
 	var mc: MissionConfig = MissionConfig.new()
 	Game.mission_config = mc
-	assert_false(Game.check_mission_win_condition())
+	assert_true(Game.check_mission_win_condition(), "无组件且无脚本时应空真")
 
 
-func test_check_mission_win_condition_callable_true() -> void:
+func test_check_mission_win_condition_component_true() -> void:
 	var mc: MissionConfig = MissionConfig.new()
-	mc.check_win_condition = func() -> bool: return true
+	mc.win_condition_components.append(WinTrueComponent.new())
 	Game.mission_config = mc
 	assert_true(Game.check_mission_win_condition())
+
+
+func test_check_mission_win_condition_component_false() -> void:
+	var mc: MissionConfig = MissionConfig.new()
+	mc.win_condition_components.append(WinFalseComponent.new())
+	Game.mission_config = mc
+	assert_false(Game.check_mission_win_condition())
 
 
 # === 5. build_map ===

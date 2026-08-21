@@ -38,7 +38,17 @@ var map_layout: Array = []  # Array[Array[int]]：二维数组
 var map_legend: Dictionary = {}  # 编号说明
 var objective_marks: Array = []  # Array[Dictionary]
 var scavenge_config: Dictionary = {}  # {颜色: [{card_name, count}]}
-var win_condition_code: String = ""
+
+## 三层架构声明：胜利条件组件列表。每项 {component: String, params: Dictionary}。
+var win_conditions: Array = []
+## 三层架构声明：失败条件组件列表。每项 {component: String, params: Dictionary}。
+var lose_conditions: Array = []
+## 三层架构声明：触发器组件列表。每项 {component: String, params: Dictionary}。
+var triggers: Array = []
+## 三层架构声明：行动选项组件列表。每项 {component: String, params: Dictionary}。
+var actions: Array = []
+## 三层架构声明：任务脚本 id（第三层，仅用于组件无法表达的极特殊任务逻辑）。
+var mission_script: String = ""
 
 
 func _init(data: Dictionary = {}) -> void:
@@ -56,6 +66,10 @@ func _init(data: Dictionary = {}) -> void:
 	map_legend = data.get("map_legend", {})
 	objective_marks = data.get("objective_marks", [])
 	scavenge_config = data.get("scavenge_config", {})
-	win_condition_code = data.get("win_condition_code", "")
+	win_conditions = data.get("win_conditions", [])
+	lose_conditions = data.get("lose_conditions", [])
+	triggers = data.get("triggers", [])
+	actions = data.get("actions", [])
+	mission_script = data.get("mission_script", "")
 	difficulty_display = DIFFICULTY_DISPLAY.get(difficulty, difficulty)
 	difficulty_order = int(DIFFICULTY_ORDER.get(difficulty, 0))

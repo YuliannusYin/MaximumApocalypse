@@ -72,5 +72,10 @@
       { "card_name": "医疗用品", "count": 1 }
     ]
   },
-  "win_condition_code": ""
+  "win_conditions": [
+    { "component": "escort_equipment_at_block", "params": { "rescued_key": "scientist_rescued", "holder_key": "scientist_holder", "block_name": "面包车" } }
+  ],
+  "actions": [
+    { "component": "spend_action_rescue", "params": { "block_name": "警察局", "cost": 2, "card_name": "科学家" } }
+  ]
 }

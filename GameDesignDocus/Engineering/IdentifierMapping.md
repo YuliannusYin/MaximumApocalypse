@@ -479,3 +479,25 @@ trigger 名在 JSON 数据中用英文 snake_case，技能 `trigger` 字段可�
 | `create_monster_act_event` | `(monster)` | `monster` / `target_players` |
 
 辅助静态方法：`cancel(event)`（取消事件）、`is_cancelled(event)`（是否已取消）、`set_trigger_name(event, trigger_name)`（写入当前触发名）。
+
+---
+
+## 八、mission_state 键映射
+
+`MissionConfig.mission_state` 为任务特定运行时状态字典，由任务组件（`src/game/mission/components/`）与任务脚本（`src/game/mission/scripts/`）读写。已约定的键：
+
+| 键 | 类型 | 使用方 | 说明 |
+| --- | --- | --- | --- |
+| `scientist_rescued` | Bool | `spend_action_rescue`（写）、`escort_equipment_at_block`（读）、`mission_8_intel_recovery`（写） | 科学家（或解救目标卡）是否已被解救 |
+| `scientist_holder` | Player | `spend_action_rescue`（写）、`escort_equipment_at_block`（读）、`mission_8_intel_recovery`（写） | 解救目标的持有者玩家 |
+| `scientist_available` | Bool | `mission_8_intel_recovery` | 潜行检定成功，科学家待解救（任务 8） |
+| `scientist_info_recorded` | Bool | `mission_8_intel_recovery` | 科学家弥留信息已被记录（任务 8） |
+| `info_recorder` | Player | `mission_8_intel_recovery` | 记录信息的玩家（任务 8） |
+| `intel_attempted` | Bool | `mission_8_intel_recovery` | 是否已有玩家到达过目标标记（仅第一次到达生效，任务 8） |
+| `intel_failed_no_diary` | Bool | `mission_8_intel_recovery` | 检定失败且无日记本（任务失败标记，任务 8） |
+| `countdown_active` | Bool | `turn_countdown` | 倒计时是否已激活 |
+| `countdown_remaining` | Int | `turn_countdown` | 倒计时剩余轮数 |
+| `countdown_expired` | Bool | `turn_countdown` | 倒计时是否已归零（`check_lose` 依据此键判定失败） |
+| `countdown_activate` | Bool | 外部组件/脚本（写）、`turn_countdown`（读） | 置 true 时在下一个 `on_event` 中激活倒计时，激活后清除该键 |
+
+> 说明：新组件/脚本新增 `mission_state` 键时，须同步本表。`spend_action_rescue` 与 `escort_equipment_at_block` 的键名可通过 `params` 的 `rescued_key` / `holder_key` 改写，默认即上表键名。

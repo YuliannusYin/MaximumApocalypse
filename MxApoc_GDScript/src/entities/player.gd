@@ -1492,11 +1492,27 @@ func wait_player_action() -> void:
 			elif action_type == "pile_draw":
 				var pile_key: String = choice.get("pile_key", "")
 				await _execute_pile_draw(pile_key)
+			elif action_type == "mission_action":
+				var option_id: String = choice.get("option_id", "")
+				await _execute_mission_action(option_id)
 			elif action_type == "move":
 				var target_block: Variant = choice.get("target", null)
 				if target_block != null and is_instance_valid(target_block):
 					consume_action(1)
 					await move_to(target_block)
+
+
+## 执行任务行动选项（actions 组件/任务脚本提供的专属行动）。
+func _execute_mission_action(option_id: String) -> void:
+	if Game == null or not is_instance_valid(Game) or Game.mission_config == null:
+		return
+	var options: Array = Game.mission_config.get_action_options(Game, self)
+	for opt in options:
+		if opt is Dictionary and opt.get("id", "") == option_id:
+			var fn: Callable = opt.get("execute", Callable())
+			if fn.is_valid():
+				await fn.call()
+			return
 
 
 ## 执行牌堆抓牌动作（UI 牌堆点击触发）。
@@ -1875,33 +1891,3 @@ func draw_boss_card() -> void:
 	# 4. 放到怪物牌堆顶部，复用 draw_monster(1)
 	Game.monster_pile.cards.push_front(boss_card)
 	draw_monster(1)
-
-
-## 获得解救科学家的选项。
-func rescue_scientist_option() -> void:
-	var choice: String = await input.choose(["花费 1 行动解救科学家", "不解救"])
-	if choice == "不解救":
-		Game.log_message(LogColors.player(player_name) + " 选择不解救科学家。")
-		return
-	if action_count < 1:
-		Game.log_message(LogColors.player(player_name) + " 行动次数不足，无法解救科学家。")
-		return
-	if Game == null or Game.mission_config == null:
-		return
-	var scientist: Variant = Game.mission_config.mission_state.get("scientist_equipment", null)
-	if scientist == null:
-		Game.log_message("科学家已被解救！")
-		return
-	reduce_action_count(1)
-	equip(scientist)
-	Game.mission_config.mission_state["scientist_equipment"] = null
-	Game.mission_config.mission_state["scientist_rescued"] = true
-	Game.log_message(LogColors.player(player_name) + " 解救了科学家，装备到面前！")
-
-
-## 记录科学家信息。
-func record_scientist_info() -> void:
-	if Game == null or Game.mission_config == null:
-		return
-	Game.mission_config.mission_state["scientist_info_recorded"] = true
-	Game.log_message(LogColors.player(player_name) + " 记录了科学家信息。")

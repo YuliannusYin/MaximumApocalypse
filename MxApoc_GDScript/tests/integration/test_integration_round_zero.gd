@@ -3,6 +3,12 @@ extends GutTest
 ## 第零轮重调阶段集成测试。
 
 
+# 测试用内嵌任务组件：恒真胜利，替代旧 Callable 语义。
+class AlwaysWinComponent extends MissionComponent:
+	func check_win(game: Game) -> bool:
+		return true
+
+
 var _original_players: Array = []
 
 
@@ -78,8 +84,7 @@ func _make_monster_card(name: String = "z") -> MonsterCard:
 func _make_winning_mission_config() -> MissionConfig:
 	var mc: MissionConfig = MissionConfig.new()
 	mc.van_fuel_required = -1
-	mc.check_win_condition = func() -> bool:
-		return true
+	mc.win_condition_components.append(AlwaysWinComponent.new())
 	return mc
 
 

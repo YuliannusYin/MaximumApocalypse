@@ -73,6 +73,5 @@
       { "card_name": "解毒剂", "count": 1 },
       { "card_name": "医疗用品", "count": 1 }
     ]
-  },
-  "win_condition_code": ""
+  }
 }

@@ -84,5 +84,5 @@
       { "card_name": "伏击！", "count": 1 }
     ]
   },
-  "win_condition_code": ""
+  "mission_script": "mission_8_intel_recovery"
 }

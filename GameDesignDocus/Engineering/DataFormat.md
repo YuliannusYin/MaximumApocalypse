@@ -242,7 +242,11 @@
 | `map_legend` | Dictionary | 是 | 编号说明 |
 | `objective_marks` | Array | 否 | 目标标记定义 |
 | `scavenge_config` | Dictionary | 是 | 拾荒牌堆配置 |
-| `win_condition_code` | String | 是 | 胜利条件代码（空字符串表示靠面包车胜利） |
+| `win_conditions` | Array&lt;Object&gt; | 否 | 胜利条件组件声明列表，每项 `{ "component": <组件 id>, "params": {...} }` |
+| `lose_conditions` | Array&lt;Object&gt; | 否 | 失败条件组件声明列表，结构同 `win_conditions` |
+| `triggers` | Array&lt;Object&gt; | 否 | 触发器组件声明列表，结构同 `win_conditions` |
+| `actions` | Array&lt;Object&gt; | 否 | 行动选项组件声明列表，结构同 `win_conditions` |
+| `mission_script` | String | 否 | 专用任务脚本 id（空字符串表示无脚本） |
 
 **`map_legend` 值类型：**
 
@@ -262,6 +266,20 @@
 ```
 
 > `objective_marks[]` 元素含 `mark_id`、`mark_description`、`initial_monster_marks`、`remove_condition`、`effect_code` 字段。
+
+**三层架构声明字段（`win_conditions` / `lose_conditions` / `triggers` / `actions` / `mission_script`）：**
+
+> 任务逻辑采用三层架构，任务 JSON 只做**声明式配置**，不写代码：
+> - **第一层（本文件）**：任务 JSON 通过上述五个字段声明组件 id / 脚本 id 及其 `params`
+> - **第二层（可复用组件）**：`src/game/mission/components/` 下的组件类，由 `MissionComponentRegistry` 按 id 实例化并注入 `params`
+> - **第三层（专用脚本）**：`src/game/mission/scripts/` 下的脚本类，由 `MissionScriptRegistry` 按 id 实例化，仅用于组件无法表达的极特殊任务逻辑
+>
+> 组件按声明位置区分职责：`win_conditions` 实现 `check_win`、`lose_conditions` 实现 `check_lose`、`triggers` 实现 `on_event`、`actions` 实现 `get_action_options`；脚本与组件共用同一套注入通道。
+>
+> **内置组件 id**：`collect_items`（收集物品）/ `all_players_at_block`（全员抵达地块）/ `escort_equipment_at_block`（护送装备抵达地块）/ `spend_action_rescue`（花费行动解救）/ `turn_countdown`（轮数倒计时）。
+> **内置脚本 id**：`mission_8_intel_recovery`（任务 8 情报恢复）。
+>
+> 各组件 `params` 键名见组件类头注释；运行时写入的 `mission_state` 键名详见 `IdentifierMapping.md` §八。
 
 ### 3.5 map_blocks/map_blocks.json
 
@@ -387,7 +405,7 @@ JSON 中的 `filter` / `content` / `filter_target` / `filter_card` / `confirm_pr
 
 **降级行为：** 编译失败时降级为 no-op——`filter` / `filter_target` / `filter_card` 恒真（返回 `true`），`content` 无操作，`confirm_prompt` 返回空字符串。空字符串代码同样视为 no-op。
 
-**任务胜利条件代码：** `win_condition_code` 不走上述 5 个接口，而由 `game.gd` 的 `_compile_win_condition` 单独编译，包装为 `func _fn(game) -> bool:` 整函数形式，签名 `(game) -> bool`。详见 [CodeExecutor.md](CodeExecutor.md) 第五节。
+**任务逻辑不走代码编译：** 任务胜利/失败条件与行动选项已改为三层架构的声明式组件/脚本配置（见 §3.4），不再使用代码字符串字段，与 `CodeExecutor` 的 `compile_*` 接口无关。
 
 ---
 

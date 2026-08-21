@@ -1210,24 +1210,6 @@ func test_draw_boss_card_no_boss_logs_warning() -> void:
 	assert_true(Game.log_list.size() > 0, "应记录警告日志")
 
 
-func test_rescue_scientist_option_no_mission_config() -> void:
-	var p: Player = _make_player()
-	_setup_game_for_player(p)
-	p.action_count = 2
-	# mission_config 为 null
-	await p.rescue_scientist_option()
-	assert_eq(p.action_count, 2, "无 mission_config 不应消耗行动")
-
-
-func test_record_scientist_info() -> void:
-	var p: Player = _make_player()
-	_setup_game_for_player(p)
-	var mc: MissionConfig = MissionConfig.new()
-	Game.mission_config = mc
-	p.record_scientist_info()
-	assert_true(mc.mission_state.get("scientist_info_recorded", false), "应记录科学家信息")
-
-
 # === max_action 方法 ===
 
 # 测试 1: increase_max_action 存在且正确增加 max_action_count
