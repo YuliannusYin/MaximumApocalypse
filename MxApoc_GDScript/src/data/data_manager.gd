@@ -215,7 +215,7 @@ func get_available_missions() -> Array:
 		return get_all_missions()
 	var result: Array = []
 	for mission in _missions.values():
-		if mission.mission_id <= 3:
+		if mission.mission_id <= 12:
 			result.append(mission)
 	result.sort_custom(func(a, b): return a.mission_id < b.mission_id)
 	return result

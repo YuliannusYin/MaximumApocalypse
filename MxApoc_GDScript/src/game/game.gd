@@ -178,7 +178,8 @@ func get_adjacent_alive_blocks(block: MapBlock) -> Array:
 
 
 ## 根据任务包配置构建游戏地图。
-## 编码：-1=无地块 / 0=出生点 / 1=随机地块 / 2=结束点 / 3=标记地块
+## 编码语义由 map_legend 声明：字符串值 "no_block"/"random_block"；字典型条目按 type 解释
+## （spawn/game_end 用 block_name 指定地块，random_block 从抽取池取块），编号本身无固定语义。
 func build_map(mission_config_arg: Variant) -> void:
 	map_area.clear()
 	map_width = 0
@@ -188,31 +189,31 @@ func build_map(mission_config_arg: Variant) -> void:
 	var map_template: Variant = _config_get(mission_config_arg, "map_template")
 	if map_template == null or map_template.is_empty():
 		return
+	var map_legend: Variant = _config_get(mission_config_arg, "map_legend", {})
+	if map_legend == null:
+		map_legend = {}
 	map_height = map_template.size()
 	map_width = map_template[0].size()
-	var spawn_name: String = _config_get(mission_config_arg, "spawn_block_name", "")
-	var end_name: String = _config_get(mission_config_arg, "end_block_name", "")
-	# 统计出生点（code 0）和结束点（code 2）格子数，这些格子直接使用 spawn_name/end_name，
-	# 不从随机池中抽取，因此需从 map_block_config 的计数中扣除，否则同名地块会重复出现在地图上
-	var spawn_cell_count: int = 0
-	var end_cell_count: int = 0
+	# 按 legend 条目统计 spawn/game_end 各 block_name 的占用格数：这些格子直接使用指定地块，
+	# 不从随机池中抽取，因此需从 map_block_config 对应 block_name 的计数中扣除，
+	# 否则同名地块会重复出现在地图上
+	var named_usage: Dictionary = {}
 	for y in map_height:
 		for x in map_width:
-			var code0: int = map_template[y][x]
-			if code0 == 0:
-				spawn_cell_count += 1
-			elif code0 == 2:
-				end_cell_count += 1
+			var stat_entry: Variant = _config_get(map_legend, str(int(map_template[y][x])), null)
+			if stat_entry is Dictionary:
+				var stat_type: String = _config_get(stat_entry, "type", "")
+				if stat_type == "spawn" or stat_type == "game_end":
+					var stat_name: String = _config_get(stat_entry, "block_name", "")
+					if stat_name != "":
+						named_usage[stat_name] = named_usage.get(stat_name, 0) + 1
 	var block_pool: Array = []
 	var block_config: Variant = _config_get(mission_config_arg, "map_block_config")
 	if block_config != null:
 		for entry in block_config:
 			var block_name: String = _config_get(entry, "block_name", "")
 			var count: int = _config_get(entry, "count", 0)
-			if block_name == spawn_name:
-				count -= spawn_cell_count
-			elif block_name == end_name:
-				count -= end_cell_count
+			count -= int(named_usage.get(block_name, 0))
 			var block_def: MapBlockData = DataManager.get_map_block_def_by_name(block_name)
 			if block_def != null and block_def.variants.size() > 0:
 				var variant_indices: Array = []
@@ -224,48 +225,71 @@ func build_map(mission_config_arg: Variant) -> void:
 			else:
 				for i in max(0, count):
 					block_pool.append({"block_name": block_name, "variant_index": -1})
+	var marks_queue: Variant = _config_get(mission_config_arg, "objective_marks")
 	for y in map_height:
 		for x in map_width:
-			var code: int = map_template[y][x]
-			if code == -1:
+			var cell_code: int = map_template[y][x]
+			var legend_entry: Variant = _config_get(map_legend, str(cell_code), null)
+			if legend_entry == null:
+				push_error("build_map: 单元格编号 %d 不在 map_legend 中，跳过该格" % cell_code)
 				continue
 			var block_name: String = ""
 			var block: MapBlock = null
 			var variant_index: int = -1
-			if code == 0:
-				block_name = spawn_name
-				var spawn_def: MapBlockData = DataManager.get_map_block_def_by_name(spawn_name)
-				if spawn_def != null and spawn_def.variants.size() > 0:
-					variant_index = randi() % spawn_def.variants.size()
-			elif code == 1:
+			var face: bool = false
+			var monster_mark_count: int = 0
+			var mission_mark_count: int = 0
+			if legend_entry is Dictionary:
+				var entry_type: String = _config_get(legend_entry, "type", "")
+				if entry_type == "spawn" or entry_type == "game_end":
+					block_name = _config_get(legend_entry, "block_name", "")
+					if block_name == "":
+						push_error("build_map: map_legend[%s] 的 %s 条目缺少 block_name，跳过该格" % [str(cell_code), entry_type])
+						continue
+					face = _config_get(legend_entry, "face", true)
+					var named_def: MapBlockData = DataManager.get_map_block_def_by_name(block_name)
+					if named_def != null and named_def.variants.size() > 0:
+						variant_index = randi() % named_def.variants.size()
+				elif entry_type == "random_block":
+					if block_pool.is_empty():
+						continue
+					var idx3: int = randi() % block_pool.size()
+					var entry3: Dictionary = block_pool.pop_at(idx3)
+					block_name = entry3["block_name"]
+					variant_index = entry3.get("variant_index", -1)
+					face = _config_get(legend_entry, "face", false)
+				else:
+					push_error("build_map: map_legend[%s] 的条目 type \"%s\" 未知（仅支持 spawn/game_end/random_block），跳过该格" % [str(cell_code), entry_type])
+					continue
+				monster_mark_count = _config_get(legend_entry, "monster_mark", 0)
+				mission_mark_count = _config_get(legend_entry, "mission_mark", 0)
+			elif legend_entry is String:
+				if legend_entry == "no_block":
+					continue
+				if legend_entry != "random_block":
+					push_error("build_map: map_legend[%s] 的字符串值 \"%s\" 无效（仅支持 no_block/random_block），跳过该格" % [str(cell_code), legend_entry])
+					continue
 				if block_pool.is_empty():
 					continue
 				var idx: int = randi() % block_pool.size()
 				var entry: Dictionary = block_pool.pop_at(idx)
 				block_name = entry["block_name"]
 				variant_index = entry.get("variant_index", -1)
-			elif code == 2:
-				block_name = end_name
-				var end_def: MapBlockData = DataManager.get_map_block_def_by_name(end_name)
-				if end_def != null and end_def.variants.size() > 0:
-					variant_index = randi() % end_def.variants.size()
-			elif code == 3:
-				if block_pool.is_empty():
-					continue
-				var idx3: int = randi() % block_pool.size()
-				var entry3: Dictionary = block_pool.pop_at(idx3)
-				block_name = entry3["block_name"]
-				variant_index = entry3.get("variant_index", -1)
+			else:
+				push_error("build_map: map_legend[%s] 的条目类型无效（仅支持 String/Dictionary），跳过该格" % str(cell_code))
+				continue
 			block = _create_map_block(block_name, variant_index)
 			if block == null:
 				continue
 			block.set_coordinate(x, y)
-			if code == 0 or code == 2 or code == 3:
-				block.revealed = true
-			if code == 3:
-				var marks: Variant = _config_get(mission_config_arg, "objective_marks")
-				if marks != null and not marks.is_empty():
-					var mark: Variant = marks.pop_front()
+			block.revealed = face
+			if monster_mark_count > 0:
+				block.add_monster_mark(monster_mark_count)
+			if mission_mark_count > 0 and marks_queue != null:
+				for i in mission_mark_count:
+					if marks_queue.is_empty():
+						break
+					var mark: Variant = marks_queue.pop_front()
 					block.add_objective_mark(mark)
 					var initial_marks: int = _config_get(mark, "initial_monster_marks", 0)
 					if initial_marks > 0:
@@ -574,23 +598,20 @@ func _build_map_config(mission: MissionData) -> Dictionary:
 	for block_name in mission.map_blocks_config:
 		block_config.append({"block_name": block_name, "count": mission.map_blocks_config[block_name]})
 	config["map_block_config"] = block_config
-	# 从 map_legend 提取 spawn_block_name 和 end_block_name
-	config["spawn_block_name"] = ""
-	config["end_block_name"] = ""
-	if mission.map_legend.has("0") and mission.map_legend["0"] is Dictionary:
-		config["spawn_block_name"] = mission.map_legend["0"].get("block_name", "")
-	if mission.map_legend.has("2") and mission.map_legend["2"] is Dictionary:
-		config["end_block_name"] = mission.map_legend["2"].get("block_name", "")
+	# 完整传递 map_legend：单元格语义（no_block/random_block/spawn/game_end 等）由 legend 条目声明
+	config["map_legend"] = mission.map_legend
 	# objective_marks 需要 copy，因为 build_map 会 pop_front 消费
 	config["objective_marks"] = mission.objective_marks.duplicate(true)
 	return config
 
 
-## 内部方法：查找任务的出生点地块。
+## 内部方法：查找任务的出生点地块。扫描 map_legend 中第一个 type=="spawn" 的字典型条目。
 func _find_spawn_block(mission: MissionData) -> MapBlock:
 	var spawn_name: String = ""
-	if mission.map_legend.has("0") and mission.map_legend["0"] is Dictionary:
-		spawn_name = mission.map_legend["0"].get("block_name", "")
+	for legend_entry in mission.map_legend.values():
+		if legend_entry is Dictionary and _config_get(legend_entry, "type", "") == "spawn":
+			spawn_name = _config_get(legend_entry, "block_name", "")
+			break
 	if spawn_name == "":
 		return null
 	for block in map_area:
