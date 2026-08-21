@@ -3,6 +3,16 @@ extends GutTest
 ## GameStateMachine 单元测试。
 
 
+# === 测试用内嵌任务组件 ===
+
+# 按注入值判定胜利的临时组件，用于替代旧 Callable 语义。
+class WinComponent extends MissionComponent:
+	var win_value: bool = false
+
+	func check_win(game: Game) -> bool:
+		return win_value
+
+
 # === 测试用 mock player ===
 
 class MockPlayer extends RefCounted:
@@ -309,7 +319,9 @@ func test_check_win_condition_mission_returns_false() -> void:
 	_setup_game()
 	gsm.transition_to(GameStateMachine.GameState.PLAYING)
 	var mc: MissionConfig = MissionConfig.new()
-	mc.check_win_condition = func() -> bool: return false
+	var wc := WinComponent.new()
+	wc.win_value = false
+	mc.win_condition_components.append(wc)
 	Game.mission_config = mc
 	assert_false(gsm.check_win_condition())
 
@@ -320,7 +332,9 @@ func test_check_win_condition_null_fuel_wins() -> void:
 	gsm.transition_to(GameStateMachine.GameState.PLAYING)
 	var mc: MissionConfig = MissionConfig.new()
 	mc.van_fuel_required = -1  # NULL
-	mc.check_win_condition = func() -> bool: return true
+	var wc := WinComponent.new()
+	wc.win_value = true
+	mc.win_condition_components.append(wc)
 	Game.mission_config = mc
 	var result: bool = gsm.check_win_condition()
 	assert_true(result)

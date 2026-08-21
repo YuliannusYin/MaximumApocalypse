@@ -99,7 +99,7 @@
 > 详见 [GameInstructions/02_开局与流程.md](../../GameInstructions/02_开局与流程.md)。
 > 在玩家的回合结束时，胜利条件才触发（玩家依然会在回合结束前受到伤害）。
 
-- 玩家完成了任务（`check_mission_win_condition()` 委托给 `mission_config.check_win_condition`）
+- 玩家完成了任务（`check_mission_win_condition()` 委托给 `mission_config.check_win`，由胜利条件组件 AND + 专用脚本编排）
 - 往「面包车」添加了所需要的燃料值（`mission_config.van_fuel_required`；为 -1 时跳过此条件及以下条件）
 - 所有存活玩家都返回到了地图块「面包车」上
 - 地图块「面包车」内没有任何怪物和怪物标记
@@ -116,14 +116,23 @@
 
 #### check_mission_win_condition()
 
-> 检查任务特定胜利条件。
-> 若 `mission_config` 为 null 或 `mission_config.check_win_condition` 不是有效 Callable，返回 false；否则 `call()` 该 Callable 并返回其布尔结果。
-> 由 [GameStateMachine.check_win_condition()](../Core/GameStateMachine.md) 调用，作为胜利判定的第一项条件。
+> 检查任务特定胜利条件。**委托给** `mission_config.check_win(Game)`（三层架构组件/脚本编排）。
+> 若 `mission_config` 为 null 返回 false。由 [GameStateMachine.check_win_condition()](../Core/GameStateMachine.md) 调用，作为胜利判定的第一项条件。
 
-> **设计说明**：
-> - 任务胜利条件由任务包自行定义，支持任意复杂逻辑（如任务 8 检查"已记录科学家信息 + 所有玩家在军事基地"、任务 9 检查"已摧毁 2 个发射器 + 科学家在坠碎点"等）
-> - 任务状态存储在 `mission_config.mission_state` 字典中，由任务包各方法（如 `player.记录科学家信息()`）写入
-> - 与面包车胜利条件的关系：若 `van_fuel_required == -1`，[check_win_condition](../Core/GameStateMachine.md) 仅依赖本方法；否则两者均需满足
+> **任务配置结构 MissionConfig（三层架构运行时容器）**：
+> - `van_fuel_required`：启动面包车所需燃料；-1 表 NULL（该任务不通过面包车胜利，如任务 4/8/9/11）
+> - `win_condition_components` / `lose_condition_components` / `trigger_components` / `action_components`：按任务 JSON 声明（`win_conditions` / `lose_conditions` / `triggers` / `actions` 字段）挂载的四类可复用组件实例数组（`src/game/mission/components/`，经 `MissionComponentRegistry` 实例化）
+> - `mission_script_instance`：专用任务脚本实例（`src/game/mission/scripts/`，经 `MissionScriptRegistry` 实例化，仅用于组件无法表达的极特殊逻辑，可为 null）
+> - `mission_state`：任务特定运行时状态字典，由组件/脚本读写，键名约定见 `IdentifierMapping.md` §八
+> - 旧 `check_win_condition` Callable 与 `_compile_win_condition` 编译机制已移除，判定统一走 `MissionConfig.check_win` / `check_lose`
+
+> **判定链（回合结束时，[GameStateMachine.check_win_condition](../Core/GameStateMachine.md)）**：
+> 1. **先失败后胜利**：先查 `mission_config.check_lose`（任一失败组件或脚本为 true 即 `game_over(LOSE)`），再查 `check_win`
+> 2. **组件 AND**：`check_win` 要求所有胜利组件为 true 且（无脚本或脚本为 true）；无组件且无脚本时空真（视为任务条件满足）
+> 3. **脚本共用通道**：脚本与组件共用 `check_win` / `check_lose` / `on_event` / `get_action_options` 注入通道，由 `MissionConfig` 统一编排
+> 4. **面包车判定**：`van_fuel_required < 0` 时任务胜利即直接胜利；否则还需满足面包车燃料达标、全员上车、面包车无怪物及怪物标记
+
+> **事件转发与行动选项**：`Game` 将 EventBus 的 8 个信号（`turn_started` / `turn_ended` / `player_moved` / `block_revealed` / `block_destroyed` / `monster_died` / `objective_mark_triggered` / `equipment_equipped`）转发到 `mission_config.on_event`（触发器组件与脚本共用）；`mission_config.get_action_options` 汇总行动组件与脚本的选项，由 [Player.wait_player_action](../Entities/Player.md) 以 `{"type": "mission_action", "option_id": ...}` 行动执行。
 
 ---
 
@@ -296,8 +305,9 @@
 > 1. **确定任务**：mission 为 null 时随机抽取；赋值给 `current_mission`
 > 2. **设置任务配置**：创建 `MissionConfig` 实例
 >    - `van_fuel_required = int(mission.van_fuel_required)`（mission 字段为 null 时置 -1）
->    - 若 `mission.win_condition_code` 非空字符串，调用 `_compile_win_condition(mission.win_condition_code)` 编译并赋给 `mission_config.check_win_condition`
 >    - `mission_config.mission_state = {}`
+>    - 调用 `_mount_mission_components(mission)` 按任务 JSON 声明挂载组件与脚本实例（三层架构第二/三层）
+>    - 调用 `mission_config.setup_components(self)` 初始化全部组件与脚本实例
 > 3. **创建玩家**：清空 `players`，遍历 `seats`：
 >    - 跳过 `type == "empty"` 或 `"ai"` 的座位，或 `survivor == null` 的座位
 >    - 创建 `Player`，设置 `seat_number`、`player_name = survivor.character_name`、`max_hp`、`hp = survivor.initial_hp`、`hunger = 1`
@@ -341,19 +351,13 @@
 > 先精确匹配 `card_data.card_name == card_name`，若无则前缀匹配 `card_data.card_name.begins_with(card_name + "（")`（如 "食物" 匹配 "食物（微量）"）。
 > 返回所有匹配的 ScavengeCardData 数组（可能跨色）；精确匹配优先于前缀匹配。
 
-#### _compile_win_condition(code)
+#### _mount_mission_components(mission)
 
-> 内部方法：编译任务胜利条件代码字符串为 Callable。
-> **特殊处理**：直接访问 `CodeExecutor` 的私有 static 成员，**不**走 `CodeExecutor.compile_*` 公开接口：
-> - 拼接源码 `"extends RefCounted\nfunc _fn(game) -> bool:\n\t" + code`（注意签名是单参 `game`，与 `compile_filter` 的四参不同）
-> - `script = GDScript.new()`、`script.source_code = full_code`
-> - `script.resource_path = "res://addons/gut/not_a_real_file/wc_%d.gd" % CodeExecutor._path_counter`（直接读 `_path_counter`）
-> - `CodeExecutor._path_counter += 1`（直接递增）
-> - `script.reload()`；失败 `push_warning` 并返回空 Callable
-> - 成功后 `CodeExecutor._scripts.append(script)`、`instance = script.new()`、`CodeExecutor._instances.append(instance)`（直接追加防 GC）
-> - 返回闭包 `func() -> bool: return instance.call("_fn", Game)`（捕获全局 `Game` autoload 作为 game 参数）
+> 内部方法：按任务数据声明挂载任务组件与脚本实例（三层架构第二/三层）。
+> `win_conditions` / `lose_conditions` / `triggers` / `actions` 逐项经 `MissionComponentRegistry.create(component, params)` 实例化并注入 `params`（未知 id 由注册表 `push_error` 并返回 null，此处跳过不挂载）；`mission_script` 非空时经 `MissionScriptRegistry.create()` 创建脚本实例。
+> 挂载前先清空四类组件数组与脚本实例引用（重复挂载安全）。
 >
-> 详见 [CodeExecutor.md](../System/CodeExecutor.md) 与 [Engineering/CodeExecutor.md](../../Engineering/CodeExecutor.md)。
+> 详见 [MissionConfig.md](./MissionConfig.md) 与 [Engineering/DataFormat.md](../../Engineering/DataFormat.md) §3.4。
 
 #### _config_get(config, field, default)
 
@@ -444,7 +448,7 @@
 | [MissionConfig](./MissionConfig.md) | Game 持有 `mission_config`，由 `initialize_game` 从 MissionData 构造 |
 | [StatsTracker](../System/StatsTracker.md) | Game 持有 `stats_tracker`，订阅 EventBus 信号聚合本局统计 |
 | [EventBus](../System/EventBus.md) | `log_message` 通过 `EventBus.publish_log` 推送 UI 日志面板 |
-| [CodeExecutor](../System/CodeExecutor.md) | 工厂方法编译 skill 代码字段；`_compile_win_condition` 直接访问其私有 static 成员 |
+| [CodeExecutor](../System/CodeExecutor.md) | 工厂方法编译 skill 代码字段 |
 | [LogColors](../System/LogColors.md) | 日志输出使用 `LogColors` 着色实体名 |
 | [DataManager](../../Engineering/DataFormat.md) | 工厂方法从 DataManager 加载 `*Data` 类（`MapBlockData` / `SurvivorData` / `ScavengeCardData` / `MonsterCardData` / `SkillData` / 通用技能等） |
 | [Player](../Entities/Player.md) | Game 管理所有玩家；玩家死亡触发全灭判定 |

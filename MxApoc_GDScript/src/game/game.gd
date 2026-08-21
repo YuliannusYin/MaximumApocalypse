@@ -40,6 +40,7 @@ func _ready() -> void:
 	state_machine = GameStateMachine.new()
 	state_machine.init()
 	stats_tracker = StatsTracker.new()
+	_wire_mission_event_forwarding()
 
 
 ## 日志输出。方法名避开 GDScript 内置 log()（自然对数）。
@@ -87,13 +88,67 @@ func get_current_player() -> Variant:
 	return null
 
 
-## 检查任务特定胜利条件。委托给 mission_config.check_win_condition。
+## 检查任务特定胜利条件。委托给 mission_config.check_win（三层架构组件/脚本编排）。
 func check_mission_win_condition() -> bool:
 	if mission_config == null:
 		return false
-	if mission_config.check_win_condition.is_valid():
-		return mission_config.check_win_condition.call()
-	return false
+	return mission_config.check_win(self)
+
+
+# === 任务事件转发（三层架构：EventBus → mission_config.on_event） ===
+
+## 一次性连接 EventBus 信号到任务事件转发处理方法。
+## Game 为 autoload，_ready() 仅执行一次，无需断开重连。
+func _wire_mission_event_forwarding() -> void:
+	if EventBus == null or not is_instance_valid(EventBus):
+		return
+	EventBus.turn_started.connect(_on_event_turn_started)
+	EventBus.turn_ended.connect(_on_event_turn_ended)
+	EventBus.player_moved.connect(_on_event_player_moved)
+	EventBus.block_revealed.connect(_on_event_block_revealed)
+	EventBus.block_destroyed.connect(_on_event_block_destroyed)
+	EventBus.monster_died.connect(_on_event_monster_died)
+	EventBus.objective_mark_triggered.connect(_on_event_objective_mark_triggered)
+	EventBus.equipment_equipped.connect(_on_event_equipment_equipped)
+
+
+## 转发事件到任务配置（mission_config 为 null 时忽略）。
+func _forward_mission_event(event_name: String, event: Dictionary) -> void:
+	if mission_config == null:
+		return
+	mission_config.on_event(self, event_name, event)
+
+
+func _on_event_turn_started(player: Variant) -> void:
+	_forward_mission_event("turn_started", {"player": player})
+
+
+func _on_event_turn_ended(player: Variant) -> void:
+	_forward_mission_event("turn_ended", {"player": player})
+
+
+func _on_event_player_moved(player: Variant, source_block: Variant, target_block: Variant) -> void:
+	_forward_mission_event("player_moved", {"player": player, "source_block": source_block, "target_block": target_block})
+
+
+func _on_event_block_revealed(block: Variant, player: Variant) -> void:
+	_forward_mission_event("block_revealed", {"block": block, "player": player})
+
+
+func _on_event_block_destroyed(block: Variant, source: Variant) -> void:
+	_forward_mission_event("block_destroyed", {"block": block, "source": source})
+
+
+func _on_event_monster_died(monster: Variant, source: Variant) -> void:
+	_forward_mission_event("monster_died", {"monster": monster, "source": source})
+
+
+func _on_event_objective_mark_triggered(player: Variant, block: Variant, mark: Variant) -> void:
+	_forward_mission_event("objective_mark_triggered", {"player": player, "block": block, "mark": mark})
+
+
+func _on_event_equipment_equipped(player: Variant, card: Variant) -> void:
+	_forward_mission_event("equipment_equipped", {"player": player, "card": card})
 
 
 # === 地图管理 ===
@@ -430,9 +485,9 @@ func initialize_game(mission: MissionData, variants: Dictionary, seats: Array) -
 	# 2. 设置任务配置
 	mission_config = MissionConfig.new()
 	mission_config.van_fuel_required = int(mission.van_fuel_required) if mission.van_fuel_required != null else -1
-	if not mission.win_condition_code.strip_edges().is_empty():
-		mission_config.check_win_condition = _compile_win_condition(mission.win_condition_code)
 	mission_config.mission_state = {}
+	_mount_mission_components(mission)
+	mission_config.setup_components(self)
 
 	# 3. 创建玩家
 	players.clear()
@@ -477,6 +532,37 @@ func initialize_game(mission: MissionData, variants: Dictionary, seats: Array) -
 	# 7. 初始化状态机
 	if state_machine != null and is_instance_valid(state_machine):
 		state_machine.init()
+
+
+## 内部方法：按任务数据声明挂载任务组件与脚本实例（三层架构第二/三层）。
+## win_conditions / lose_conditions / triggers / actions 逐项经注册表实例化，
+## 未知 id 由注册表 push_error 并返回 null，此处跳过不挂载。
+func _mount_mission_components(mission: MissionData) -> void:
+	if mission_config == null:
+		return
+	mission_config.win_condition_components.clear()
+	mission_config.lose_condition_components.clear()
+	mission_config.trigger_components.clear()
+	mission_config.action_components.clear()
+	mission_config.mission_script_instance = null
+	for cfg in mission.win_conditions:
+		var win_component: MissionComponent = MissionComponentRegistry.create(cfg.get("component", ""), cfg.get("params", {}))
+		if win_component != null:
+			mission_config.win_condition_components.append(win_component)
+	for cfg in mission.lose_conditions:
+		var lose_component: MissionComponent = MissionComponentRegistry.create(cfg.get("component", ""), cfg.get("params", {}))
+		if lose_component != null:
+			mission_config.lose_condition_components.append(lose_component)
+	for cfg in mission.triggers:
+		var trigger_component: MissionComponent = MissionComponentRegistry.create(cfg.get("component", ""), cfg.get("params", {}))
+		if trigger_component != null:
+			mission_config.trigger_components.append(trigger_component)
+	for cfg in mission.actions:
+		var action_component: MissionComponent = MissionComponentRegistry.create(cfg.get("component", ""), cfg.get("params", {}))
+		if action_component != null:
+			mission_config.action_components.append(action_component)
+	if mission.mission_script != "":
+		mission_config.mission_script_instance = MissionScriptRegistry.create(mission.mission_script)
 
 
 ## 内部方法：从 MissionData 构建 build_map() 所需的配置字典。
@@ -567,26 +653,6 @@ func _find_scavenge_card_variants(card_name: String) -> Array:
 	if not exact_matches.is_empty():
 		return exact_matches
 	return prefix_matches
-
-
-## 内部方法：编译任务胜利条件代码。
-func _compile_win_condition(code: String) -> Callable:
-	var full_code: String = "extends RefCounted\nfunc _fn(game) -> bool:\n\t" + code
-	var script: GDScript = GDScript.new()
-	script.source_code = full_code
-	script.resource_path = "res://addons/gut/not_a_real_file/wc_%d.gd" % CodeExecutor._path_counter
-	CodeExecutor._path_counter += 1
-	var result: int = script.reload()
-	if result != OK:
-		push_warning("Game: win_condition_code 编译失败: " + code)
-		return Callable()
-	CodeExecutor._scripts.append(script)
-	var instance: Object = script.new()
-	if instance == null:
-		return Callable()
-	CodeExecutor._instances.append(instance)
-	return func() -> bool:
-		return instance.call("_fn", Game)
 
 
 # === 工厂方法 ===

@@ -103,6 +103,5 @@
       { "card_name": "伏击！", "count": 2 },
       { "card_name": "一无所获", "count": 1 }
     ]
-  },
-  "win_condition_code": ""
+  }
 }

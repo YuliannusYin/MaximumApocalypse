@@ -139,6 +139,8 @@ func _start_game_flow() -> void:
 	_gui_input.redraw_decision_requested.connect(_on_redraw_decision_requested)
 	_gui_input.judge_confirm_requested.connect(_on_judge_confirm_requested)
 	_gui_input.dice_animation_requested.connect(_on_dice_animation_requested)
+	# 任务详情弹窗的任务行动按钮通过 gui_input_ref 注入 mission_action 行动
+	_popup_manager.gui_input_ref = _gui_input
 	_popup_manager.option_selected.connect(_gui_input.respond_choose)
 	_popup_manager.confirm_responded.connect(_gui_input.respond_confirm)
 	_popup_manager.cards_selected.connect(_gui_input.respond_choose_card)
