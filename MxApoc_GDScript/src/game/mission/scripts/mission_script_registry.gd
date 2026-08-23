@@ -45,7 +45,6 @@ static func _register_builtins() -> void:
 	if _builtins_registered:
 		return
 	_builtins_registered = true
-	_registry["mission_8_intel_recovery"] = Mission8IntelRecovery
 
 
 ## 确保内置脚本已注册（懒注册入口）。

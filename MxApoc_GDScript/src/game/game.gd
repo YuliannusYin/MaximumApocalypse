@@ -110,6 +110,8 @@ func _wire_mission_event_forwarding() -> void:
 	EventBus.monster_died.connect(_on_event_monster_died)
 	EventBus.objective_mark_triggered.connect(_on_event_objective_mark_triggered)
 	EventBus.equipment_equipped.connect(_on_event_equipment_equipped)
+	EventBus.card_discarded.connect(_on_mission_card_discarded)
+	EventBus.monster_spawn_judged.connect(_on_mission_monster_spawn_judged)
 
 
 ## 转发事件到任务配置（mission_config 为 null 时忽略）。
@@ -149,6 +151,14 @@ func _on_event_objective_mark_triggered(player: Variant, block: Variant, mark: V
 
 func _on_event_equipment_equipped(player: Variant, card: Variant) -> void:
 	_forward_mission_event("equipment_equipped", {"player": player, "card": card})
+
+
+func _on_mission_card_discarded(player: Variant, card: Variant) -> void:
+	_forward_mission_event("card_discarded", {"player": player, "card": card})
+
+
+func _on_mission_monster_spawn_judged(player: Variant, value: int) -> void:
+	_forward_mission_event("monster_spawn_judged", {"player": player, "value": value})
 
 
 # === 地图管理 ===
@@ -462,12 +472,21 @@ func get_random_card(player: Variant, areas: Array) -> Variant:
 ## 根据卡牌名创建拾荒卡实例。
 ## 遍历所有拾荒包数据（red/green/blue/gray），按 card_name 精确匹配 ScavengeCardData，
 ## 找到时调用 _create_scavenge_card_from_data 创建实例并返回；未找到返回 null 并记录日志。
+## 通用名（如 "医疗用品"）无精确卡时按变体族前缀匹配（与 _find_scavenge_card_variants
+## 的建堆语义一致："医疗用品" 匹配 "医疗用品（便携）" 等）。
 func create_scavenge_card(card_name: String) -> Card:
+	var prefix_matched: ScavengeCardData = null
+	var prefix_color: String = ""
 	for color in ["red", "green", "blue", "gray"]:
 		var pile_data: Array = DataManager.get_scavenge_pile(color)
 		for card_data in pile_data:
 			if card_data.card_name == card_name:
 				return _create_scavenge_card_from_data(card_data, color)
+			if prefix_matched == null and card_data.card_name.begins_with(card_name + "（"):
+				prefix_matched = card_data
+				prefix_color = color
+	if prefix_matched != null:
+		return _create_scavenge_card_from_data(prefix_matched, prefix_color)
 	log_message("未找到拾荒卡：" + LogColors.card(card_name))
 	return null
 
@@ -509,9 +528,9 @@ func initialize_game(mission: MissionData, variants: Dictionary, seats: Array) -
 	# 2. 设置任务配置
 	mission_config = MissionConfig.new()
 	mission_config.van_fuel_required = int(mission.van_fuel_required) if mission.van_fuel_required != null else -1
+	mission_config.no_initial_monster_draw = mission.no_initial_monster_draw
 	mission_config.mission_state = {}
 	_mount_mission_components(mission)
-	mission_config.setup_components(self)
 
 	# 3. 创建玩家
 	players.clear()
@@ -543,6 +562,11 @@ func initialize_game(mission: MissionData, variants: Dictionary, seats: Array) -
 	# 4. 构建地图
 	var map_config: Dictionary = _build_map_config(mission)
 	build_map(map_config)
+	# 统计开局场上任务标记总数（供 objective_marks_cleared 等组件计算已移除数）
+	mission_config.initial_objective_mark_count = 0
+	for block in map_area:
+		if block != null and is_instance_valid(block):
+			mission_config.initial_objective_mark_count += block.objective_marks.size()
 
 	# 5. 将玩家放到出生点
 	var spawn_block: MapBlock = _find_spawn_block(mission)
@@ -553,7 +577,10 @@ func initialize_game(mission: MissionData, variants: Dictionary, seats: Array) -
 	# 6. 初始化全局牌堆
 	_init_global_piles(mission)
 
-	# 7. 初始化状态机
+	# 7. 初始化任务组件（玩家/地图/牌堆全部就绪后；setup_equip_card 等组件依赖运行时数据）
+	mission_config.setup_components(self)
+
+	# 8. 初始化状态机
 	if state_machine != null and is_instance_valid(state_machine):
 		state_machine.init()
 
@@ -656,6 +683,28 @@ func _init_global_piles(mission: MissionData) -> void:
 				green_scavenge_pile = pile
 			"blue":
 				blue_scavenge_pile = pile
+
+	# 首领卡分布到怪物牌堆下半部分（设计约定：所有任务首领卡延迟出现）
+	_distribute_boss_cards_to_bottom_half()
+
+
+## 内部方法：首领卡分布到怪物牌堆下半部分（设计约定：所有任务首领卡延迟出现）。
+## 先移除全部首领卡，再逐张随机插回下半区（含牌底）；多张时每次插入后位置重新随机。
+## 边界：非首领卡为 0 张时 half=0，插入位置为顶部——退化场景可接受。
+func _distribute_boss_cards_to_bottom_half() -> void:
+	if monster_pile == null or monster_pile.cards.size() == 0:
+		return
+	var boss_cards: Array = []
+	for card in monster_pile.cards.duplicate():
+		if card != null and is_instance_valid(card) and card.get("monster_level") == "boss":
+			boss_cards.append(card)
+			monster_pile.cards.erase(card)
+	if boss_cards.is_empty():
+		return
+	var half: int = monster_pile.cards.size() / 2
+	for boss in boss_cards:
+		var pos: int = half + randi() % max(1, monster_pile.cards.size() - half + 1)
+		monster_pile.cards.insert(pos, boss)
 
 
 ## 内部方法：按名称在所有颜色的拾荒卡数据中查找匹配项。

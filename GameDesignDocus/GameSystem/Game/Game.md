@@ -74,7 +74,7 @@
 #### start_game()
 
 > 游戏开局流程。**委托给** [GameStateMachine.start_game()](../Core/GameStateMachine.md)，使用 `await` 等待完成。
-> 在 `initialize_game` 之后调用。依次执行：状态转换 setup → playing → 抓初始手牌（含可选重调）→ 抓初始怪物卡 → 触发「游戏开始时」trigger → 进入第一玩家回合。
+> 在 `initialize_game` 之后调用。依次执行：状态转换 setup → playing → 抓初始手牌（含可选重调）→ 抓初始怪物卡（任务声明 `no_initial_monster_draw` 时跳过，如任务 11）→ 触发「游戏开始时」trigger → 进入第一玩家回合。
 > 落地 [EventSystem §4.12](../Core/EventSystem.md) 的「游戏开始时」trigger。
 
 #### game_over(result)
@@ -91,7 +91,7 @@
 - **所有玩家死亡** → `all_players_dead()` 为真 → `game_over("lose")`（[Player.playerDeath](../Entities/Player.md) 末尾检查）
 - **怪物牌堆重洗后仍空**（所有怪物卡都在场上）→ `game_over("lose")`（见 [Player.drawMonster](../Entities/Player.md)）
 - **同生共死变体**：`coop_death_mode` 为真时，任一玩家死亡即 `game_over("lose")`（[Player.playerDeath](../Entities/Player.md) 末尾在全灭判定之前检查）
-- **任务特定失败**：任务系统检查后调用 `game_over("lose")`（如任务 8 潜行检定失败且无日记本）
+- **任务特定失败**：任务系统检查后调用 `game_over("lose")`（如 `turn_countdown` 倒计时归零、`card_discard_watch` lose 模式监视卡被弃置、任务 8 `rescue_judge_win` 解救检定失败且未持有情报卡）
 
 ##### 游戏胜利条件
 
@@ -121,6 +121,8 @@
 
 > **任务配置结构 MissionConfig（三层架构运行时容器）**：
 > - `van_fuel_required`：启动面包车所需燃料；-1 表 NULL（该任务不通过面包车胜利，如任务 4/8/9/11）
+> - `no_initial_monster_draw`：开局跳过每名玩家的初始抓怪（来自任务 JSON 同名字段，如任务 11）
+> - `initial_objective_mark_count`：开局时场上任务标记总数，由 `initialize_game` 在 `build_map` 之后遍历 `map_area` 累加各地块 `objective_marks.size()` 统计写入，供 `objective_marks_cleared` 等组件计算已移除数
 > - `win_condition_components` / `lose_condition_components` / `trigger_components` / `action_components`：按任务 JSON 声明（`win_conditions` / `lose_conditions` / `triggers` / `actions` 字段）挂载的四类可复用组件实例数组（`src/game/mission/components/`，经 `MissionComponentRegistry` 实例化）
 > - `mission_script_instance`：专用任务脚本实例（`src/game/mission/scripts/`，经 `MissionScriptRegistry` 实例化，仅用于组件无法表达的极特殊逻辑，可为 null）
 > - `mission_state`：任务特定运行时状态字典，由组件/脚本读写，键名约定见 `IdentifierMapping.md` §八
@@ -132,7 +134,7 @@
 > 3. **脚本共用通道**：脚本与组件共用 `check_win` / `check_lose` / `on_event` / `get_action_options` 注入通道，由 `MissionConfig` 统一编排
 > 4. **面包车判定**：`van_fuel_required < 0` 时任务胜利即直接胜利；否则还需满足面包车燃料达标、全员上车、面包车无怪物及怪物标记
 
-> **事件转发与行动选项**：`Game` 将 EventBus 的 8 个信号（`turn_started` / `turn_ended` / `player_moved` / `block_revealed` / `block_destroyed` / `monster_died` / `objective_mark_triggered` / `equipment_equipped`）转发到 `mission_config.on_event`（触发器组件与脚本共用）；`mission_config.get_action_options` 汇总行动组件与脚本的选项，由 [Player.wait_player_action](../Entities/Player.md) 以 `{"type": "mission_action", "option_id": ...}` 行动执行。
+> **事件转发与行动选项**：`Game` 将 EventBus 的 10 个信号（`turn_started` / `turn_ended` / `player_moved` / `block_revealed` / `block_destroyed` / `monster_died` / `objective_mark_triggered` / `equipment_equipped` / `card_discarded` / `monster_spawn_judged`）转发到 `mission_config.on_event`（触发器组件与脚本共用）；`mission_config.get_action_options` 汇总行动组件与脚本的选项，由 [Player.wait_player_action](../Entities/Player.md) 以 `{"type": "mission_action", "option_id": ...}` 行动执行。
 
 ---
 
@@ -256,7 +258,7 @@
 #### create_scavenge_card(card_name)
 
 > 根据卡牌名创建一张新的拾荒卡实例。**不消耗任何牌堆**中的牌，直接从 DataManager 加载的拾荒卡数据克隆一张新卡。
-> 遍历 `["red", "green", "blue", "gray"]` 四色 DataManager.get_scavenge_pile(color)，按 `card_name` 精确匹配 ScavengeCardData；找到时调用 `_create_scavenge_card_from_data(card_data, color)` 创建实例并返回；未找到返回 null 并日志输出 `LogColors.card(card_name)`。
+> 遍历 `["red", "green", "blue", "gray"]` 四色 DataManager.get_scavenge_pile(color)，按 `card_name` 精确匹配 ScavengeCardData；找到时调用 `_create_scavenge_card_from_data(card_data, color)` 创建实例并返回。四色均无精确匹配时按**变体族前缀回退**：取首个以 `card_name + "（"` 开头的卡（如 "医疗用品" 匹配 "医疗用品（便携）"）创建实例。仍未找到返回 null 并日志输出 `LogColors.card(card_name)`。
 > 调用场景：[Player.收集物品](../Entities/Player.md)（任务物品直接生成加入手牌区）。
 
 > **设计说明**：直接生成新卡牌而不从牌堆抽取，是因为任务物品（如「满是灰尘的日记本」）作为拾荒卡虽存在于拾荒牌堆中，但任务设计上希望玩家通过触发目标标记获得，而非随机抽到。这可能造成牌堆中仍存在同名卡（可接受，任务设计已考虑）。
@@ -301,9 +303,9 @@
 > 1. **确定任务**：mission 为 null 时随机抽取；赋值给 `current_mission`
 > 2. **设置任务配置**：创建 `MissionConfig` 实例
 >    - `van_fuel_required = int(mission.van_fuel_required)`（mission 字段为 null 时置 -1）
+>    - `no_initial_monster_draw = mission.no_initial_monster_draw`（开局跳过每名玩家的初始抓怪，如任务 11）
 >    - `mission_config.mission_state = {}`
 >    - 调用 `_mount_mission_components(mission)` 按任务 JSON 声明挂载组件与脚本实例（三层架构第二/三层）
->    - 调用 `mission_config.setup_components(self)` 初始化全部组件与脚本实例
 > 3. **创建玩家**：清空 `players`，遍历 `seats`：
 >    - 跳过 `type == "empty"` 或 `"ai"` 的座位，或 `survivor == null` 的座位
 >    - 创建 `Player`，设置 `seat_number`、`player_name = survivor.character_name`、`max_hp`、`hp = survivor.initial_hp`、`hunger = 1`
@@ -312,10 +314,11 @@
 >    - 挂载通用主动技能：遍历 `DataManager.get_common_skills()` 调用 `_create_skill_from_data` 后 `player.add_skill`
 >    - 挂载角色固有技能：遍历 `player.role_card.intrinsic_skills` 调用 `player.add_skill`
 >    - 追加到 `players`
-> 4. **构建地图**：`map_config = _build_map_config(mission)`，调用 `build_map(map_config)`
+> 4. **构建地图**：`map_config = _build_map_config(mission)`，调用 `build_map(map_config)`；随后遍历 `map_area` 累加各地块 `objective_marks.size()` 写入 `mission_config.initial_objective_mark_count`（开局场上任务标记总数，供 `objective_marks_cleared` 等组件计算已移除数）
 > 5. **将玩家放到出生点**：`spawn_block = _find_spawn_block(mission)`，若非 null 则将所有 `players` 的 `current_block` 设为 `spawn_block`
 > 6. **初始化全局牌堆**：调用 `_init_global_piles(mission)`
-> 7. **初始化状态机**：`state_machine.init()`
+> 7. **初始化任务组件**：调用 `mission_config.setup_components(self)` 初始化全部组件与脚本实例（在玩家/地图/牌堆全部就绪后执行——`setup_equip_card` 等组件的 setup 依赖运行时数据）
+> 8. **初始化状态机**：`state_machine.init()`
 
 #### _build_map_config(mission)
 
@@ -333,7 +336,8 @@
 #### _init_global_piles(mission)
 
 > 内部方法：初始化全局牌堆（怪物牌堆 + 拾荒牌堆 + 弃牌堆）。
-> **怪物牌堆**：新建 `monster_pile` 与 `monster_discard_pile`；从 `DataManager.get_monster_pack(mission.monster_pack_type)` 加载怪物卡数据，按 `card_data.count` 重复调用 `_create_monster_card_from_data` 创建实例加入 `monster_pile`；最后 `shuffle()`
+> **怪物牌堆**：新建 `monster_pile` 与 `monster_discard_pile`；从 `DataManager.get_monster_pack(mission.monster_pack_type)` 加载怪物卡数据，按 `card_data.count` 重复调用 `_create_monster_card_from_data` 创建实例加入 `monster_pile`；`shuffle()` 后调用 `_distribute_boss_cards_to_bottom_half()` 将首领卡分布到牌堆下半部分
+> **首领卡分布**：设计约定所有任务首领卡延迟出现——先移除全部 `monster_level == "boss"` 的卡，再逐张随机插回牌堆下半区（含牌底）；多张时每次插入后位置重新随机。边界：非首领卡为 0 张时退化插入顶部（可接受）
 > **拾荒牌堆**：新建 `scavenge_discard_pile`；对 `["red", "green", "blue"]` 三色分别：
 > - 读取 `mission.scavenge_config[color]` 卡牌条目列表
 > - 每条 `{card_name, count}` 按 count 重复：调用 `_find_scavenge_card_variants(card_name)` 查找匹配数据，取 `variants[i % variants.size()]`，调用 `_create_scavenge_card_from_data(card_data, color)` 创建实例加入 pile

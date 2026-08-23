@@ -85,11 +85,12 @@ func start_game() -> void:
 		if player == null or not is_instance_valid(player):
 			continue
 		player.draw(4)
-	# 3. 每个玩家抓 1 张初始怪物卡
-	for player in Game.players:
-		if player == null or not is_instance_valid(player):
-			continue
-		player.draw_monster(1)
+	# 3. 每个玩家抓 1 张初始怪物卡（任务声明 no_initial_monster_draw 时跳过，如任务 11）
+	if Game.mission_config == null or not Game.mission_config.no_initial_monster_draw:
+		for player in Game.players:
+			if player == null or not is_instance_valid(player):
+				continue
+			player.draw_monster(1)
 	# 4. 第零轮：重调阶段
 	await _round_zero()
 	# 5. 进入第一玩家回合

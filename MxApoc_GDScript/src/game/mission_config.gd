@@ -8,6 +8,14 @@ extends RefCounted
 ## 启动面包车所需燃料值。-1 表示 NULL（该任务不通过面包车胜利，如任务 4/8/9/11）。
 var van_fuel_required: int = -1
 
+## 开局跳过初始怪物牌抓取（如任务 11）。
+var no_initial_monster_draw: bool = false
+
+## 开局时场上任务标记总数。由 Game.initialize_game() 在 build_map 之后
+## 遍历 map_area 累加 block.objective_marks.size() 统计写入，
+## 供 objective_marks_cleared 等组件计算已移除数。
+var initial_objective_mark_count: int = 0
+
 ## 胜利条件组件列表。全部 check_win 为 true 才满足任务特定胜利条件。
 var win_condition_components: Array = []
 

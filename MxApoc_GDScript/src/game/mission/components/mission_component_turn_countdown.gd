@@ -1,11 +1,16 @@
 class_name MissionComponentTurnCountdown
 extends MissionComponent
 
-## 轮数倒计时触发器组件（为后续任务预留）。
+## 轮数倒计时触发器组件。
 ## 组件 id：turn_countdown；类别：trigger（触发器）。
 ## params：
 ## - rounds: int——倒数轮数
 ## - auto_activate: bool（默认 false）——setup 时立即激活倒计时
+## - expire_kill_outside: String（缺省 ""）——归零击杀地块名。配置后倒计时归零时
+##   杀死所有 current_block 非空且不在该地块的存活玩家（fire-and-forget 调用 player.death(null)），
+##   归零仍置 countdown_expired=true，但 check_lose 恒返回 false
+##   （玩家死没死由引擎全灭判定接管——除非任务另有 lose 组件）。
+##   未配置（空串）时保持原行为：归零置 countdown_expired=true，check_lose 依据它返回 true。
 ## mission_state 键：
 ## - countdown_active: bool——倒计时是否已激活
 ## - countdown_remaining: int——剩余轮数
@@ -76,9 +81,29 @@ func on_event(game: Game, event_name: String, event: Dictionary) -> void:
 	if remaining == 0:
 		_mission_config.mission_state[STATE_KEY_EXPIRED] = true
 		game.log_message("倒计时归零！")
+		var kill_block_name: String = params.get("expire_kill_outside", "")
+		if kill_block_name != "":
+			_kill_players_outside(game, kill_block_name)
+
+
+## 归零击杀：杀死所有 current_block 非空且不在指定地块的存活玩家。
+## 死亡前记录日志；death 为 fire-and-forget 协程调用，生死由引擎全灭判定接管。
+func _kill_players_outside(game: Game, block_name: String) -> void:
+	for player in game.get_alive_players():
+		if player == null or not is_instance_valid(player):
+			continue
+		if player.current_block == null or not is_instance_valid(player.current_block):
+			continue
+		if player.current_block.block_name == block_name:
+			continue
+		game.log_message("倒计时结束，" + player.player_name + " 未能抵达" + block_name + "！")
+		player.death(null)
 
 
 func check_lose(game: Game) -> bool:
 	if _mission_config == null:
+		return false
+	# kill 模式（配置 expire_kill_outside）：归零不直接判负，由击杀与引擎全灭判定接管
+	if params.get("expire_kill_outside", "") != "":
 		return false
 	return _mission_config.mission_state.get(STATE_KEY_EXPIRED, false) == true

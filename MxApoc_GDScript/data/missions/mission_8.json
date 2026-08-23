@@ -6,8 +6,8 @@
   "difficulty": "hard",
   "van_fuel_required": null,
   "intro_text": "我们的一名科学家成功黑入外星母舰并窃取了一些情报。但是我们最近与他失去了联系。我们需要你去调查一下他最近出现的地点，务必带着日记本，不管他说什么，都记下带回来。",
-  "objective_text": "到达目标标记所在地图块并带着信息返回军事基地。当到达目标标记所在地块时，投一次潜行检定。如果成功，科学家还活着，你们可以花费 1 个行动来解救他，把他装备到一名玩家面前。如果失败，且该玩家拥有日记本，你们记下来科学家弥留之际对你们说的信息。如果失败且该玩家没有日记本，你们输掉游戏。",
-  "special_setup": "设置：正面向上放置军事基地地图块。把 1 个目标标记放到离军事基地至少 5 个地图块距离的 1 个地图块上。把科学家拾荒卡放到一边。第一个到达目标标记所在地图块的玩家抓取首领卡。",
+  "objective_text": "到达目标标记所在地图块并投一次潜行检定：成功则解救科学家，获得游戏胜利；失败但该玩家拥有“满是灰尘的日记本”，依然获得游戏胜利；失败且没有日记本，则游戏失败。",
+  "special_setup": "将怪物牌堆中的首领级怪物牌随机分布到怪物牌堆中的下半部分。",
   "monster_pack_type": "alien",
   "map_blocks_config": {
     "加油站": 2,
@@ -29,18 +29,15 @@
     "监狱": 1
   },
   "map_layout": [
-    [0, 1, 1, 1, 1, 4],
-    [0, 1, 0, 1, 1, 1],
-    [0, 1, 1, 1, 1, 1],
-    [0, 1, 0, 1, 0, 1],
-    [1, 1, 1, 1, 1, 1],
-    [2, 1, 0, 0, 0, 0]
+    [2, 1, 1, 1, 1, 1, 1, 1, 0],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1],
+    [0, 1, 1, 1, 1, 1, 1, 1, 4]
   ],
   "map_legend": {
     "0": "no_block",
     "1": "random_block",
-    "2": { "type": "spawn", "block_name": "军事基地", "face": true, "monster_mark": 0, "mission_mark": 0 },
-    "4": { "type": "random_block", "face": true, "monster_mark": 0, "mission_mark": 1 }
+    "2": { "type": "spawn", "block_name": "军事基地", "face": true },
+    "4": { "type": "random_block", "face": false, "mission_mark": 1 }
   },
   "objective_marks": [
     {
@@ -84,5 +81,10 @@
       { "card_name": "伏击！", "count": 1 }
     ]
   },
-  "mission_script": "mission_8_intel_recovery"
+  "win_conditions": [
+    { "component": "action_win_only", "params": {} }
+  ],
+  "actions": [
+    { "component": "rescue_judge_win", "params": {} }
+  ]
 }
