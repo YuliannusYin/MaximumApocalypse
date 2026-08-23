@@ -6,8 +6,8 @@
   "difficulty": "very_easy",
   "van_fuel_required": 4,
   "intro_text": "科学家说他需要一些样本来研制解药，所以我们要去那边杀死一些僵尸。",
-  "objective_text": "杀死 8 个僵尸并收集样本。每次 1 个僵尸被杀死，就把那张牌加入到本目标。收集下列怪物各 2 个：僵尸步行者、僵尸喷吐者、僵尸狗和僵尸士兵来完成本目标。\n收集到所有样本和燃料后，返回面包车里逃离。",
-  "special_setup": "无",
+  "objective_text": "杀死僵尸以收集样本：击杀僵尸步行者(0/2)、僵尸喷吐者(0/2)、僵尸狗(0/2)、僵尸士兵(0/2)；给“面包车”添加“燃料”(0/4)；回合结束时，所有存活玩家在“面包车”上且“面包车”上没有任何怪物，获得胜利。",
+  "special_setup": "将怪物牌堆中的首领级怪物牌随机分布到怪物牌堆中的下半部分。",
   "monster_pack_type": "zombie",
   "map_blocks_config": {
     "面包车": 1,
@@ -38,7 +38,7 @@
   "map_legend": {
     "0": "no_block",
     "1": "random_block",
-    "2": { "type": "spawn", "block_name": "面包车", "face": true, "monster_mark": 0, "mission_mark": 0 }
+    "2": { "type": "spawn", "block_name": "面包车", "face": true }
   },
   "objective_marks": [],
   "scavenge_config": {
@@ -75,5 +75,11 @@
       { "card_name": "解毒剂", "count": 1 },
       { "card_name": "医疗用品", "count": 1 }
     ]
-  }
+  },
+  "win_conditions": [
+    { "component": "kill_monsters", "params": { "counts": { "僵尸步行者": 2, "僵尸喷吐者": 2, "僵尸狗": 2, "僵尸士兵": 2 } } }
+  ],
+  "triggers": [
+    { "component": "kill_monsters", "params": { "counts": { "僵尸步行者": 2, "僵尸喷吐者": 2, "僵尸狗": 2, "僵尸士兵": 2 } } }
+  ]
 }

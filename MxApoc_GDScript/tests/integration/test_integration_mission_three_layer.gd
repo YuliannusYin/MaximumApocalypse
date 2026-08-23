@@ -6,9 +6,53 @@ extends GutTest
 ## （setup_components / check_win / check_lose / get_action_options / on_event）→
 ## GameStateMachine.check_win_condition 判定链（失败优先 → 组件 AND + 脚本 → 面包车判定），
 ## 以及 EventBus 信号 → Game 事件转发、player.wait_player_action 的 mission_action 路径。
-## 对应任务配置：mission_1（解救科学家）/ mission_8（情报恢复）/ mission_10（运输）。
-## 说明：mission_8 脚本 on_event 内含 sneak_judge 随机投骰，此处通过玩家 stealth 值
-## 控制检定结果（12 时两骰之和 2~12 必成功，0 时必失败）实现三分支确定性覆盖。
+## 对应任务配置：mission_1（解救科学家）/ mission_10（运输）。
+## 脚本通道（第三层）不依赖具体任务脚本，使用内嵌 StubMissionScript
+## 覆盖挂载 / on_event 转发 / 选项聚合 / check_win / check_lose 的通用链路。
+
+
+# === 测试用内嵌任务脚本 ===
+
+# 临时任务脚本：通过 mission_state 键（stub_*）驱动行为，
+# 用于验证第三层通用脚本通道（挂载 / setup / on_event / 选项聚合 / 判定链）。
+class StubMissionScript extends MissionScript:
+	func setup(game: Game, mission_config: MissionConfig) -> void:
+		mission_config.mission_state["stub_setup_done"] = true
+
+
+	func on_event(game: Game, event_name: String, event: Dictionary) -> void:
+		var state: Dictionary = _state(game)
+		state["stub_last_event"] = event_name
+		if event_name == "objective_mark_triggered":
+			state["stub_mark_reached"] = true
+
+
+	func get_action_options(game: Game, player: Player) -> Array:
+		if player == null or not is_instance_valid(player) or player.action_count < 1:
+			return []
+		if not _state(game).get("stub_option_available", false):
+			return []
+		return [{
+			"id": "stub_script_action",
+			"label": "临时脚本行动",
+			"execute": func() -> void:
+				_state(game)["stub_action_done"] = true
+				player.reduce_action_count(1),
+		}]
+
+
+	func check_win(game: Game) -> bool:
+		return _state(game).get("stub_win", false)
+
+
+	func check_lose(game: Game) -> bool:
+		return _state(game).get("stub_lose", false)
+
+
+	func _state(game: Game) -> Dictionary:
+		if game != null and game.mission_config != null:
+			return game.mission_config.mission_state
+		return {}
 
 
 # === 辅助方法 ===
@@ -88,7 +132,7 @@ func _make_mission_1_config() -> MissionConfig:
 	mc.van_fuel_required = 4
 	mc.win_condition_components.append(MissionComponentRegistry.create(
 		"escort_equipment_at_block",
-		{"rescued_key": "scientist_rescued", "holder_key": "scientist_holder", "block_name": "面包车"}))
+		{"card_name": "科学家", "block_name": "面包车"}))
 	mc.action_components.append(MissionComponentRegistry.create(
 		"spend_action_rescue",
 		{"block_name": "警察局", "cost": 2, "card_name": "科学家"}))
@@ -97,11 +141,11 @@ func _make_mission_1_config() -> MissionConfig:
 	return mc
 
 
-## 构造任务 8 风格 MissionConfig（专用脚本，不通过面包车胜利），挂到 Game。
-func _make_mission_8_config() -> MissionConfig:
+## 构造挂载临时脚本的 MissionConfig（不通过面包车胜利），挂到 Game。
+func _make_script_config() -> MissionConfig:
 	var mc: MissionConfig = MissionConfig.new()
 	mc.van_fuel_required = -1
-	mc.mission_script_instance = Mission8IntelRecovery.new()
+	mc.mission_script_instance = StubMissionScript.new()
 	mc.setup_components(Game)
 	Game.mission_config = mc
 	return mc
@@ -126,6 +170,8 @@ func before_each() -> void:
 
 func after_each() -> void:
 	_clear_game()
+	# 清理挂载用例注册的临时脚本 id，避免泄漏到其他用例
+	MissionScriptRegistry.reset()
 
 
 # === 1. 任务 JSON 声明 → 组件/脚本挂载（真实数据） ===
@@ -140,8 +186,8 @@ func test_mission_1_json_mounts_rescue_and_escort_components() -> void:
 	assert_eq(Game.mission_config.win_condition_components.size(), 1, "任务 1 应挂载 1 个胜利组件")
 	var win_c: MissionComponent = Game.mission_config.win_condition_components[0]
 	assert_true(win_c is MissionComponentEscortEquipmentAtBlock, "胜利组件应为 escort_equipment_at_block")
+	assert_eq(win_c.params.get("card_name"), "科学家", "护送卡牌应为科学家")
 	assert_eq(win_c.params.get("block_name"), "面包车", "护送目标应为面包车")
-	assert_eq(win_c.params.get("rescued_key"), "scientist_rescued", "rescued_key 应注入")
 	assert_eq(Game.mission_config.action_components.size(), 1, "任务 1 应挂载 1 个行动选项组件")
 	var act_c: MissionComponent = Game.mission_config.action_components[0]
 	assert_true(act_c is MissionComponentSpendActionRescue, "行动组件应为 spend_action_rescue")
@@ -152,17 +198,17 @@ func test_mission_1_json_mounts_rescue_and_escort_components() -> void:
 	assert_null(Game.mission_config.mission_script_instance, "任务 1 无专用脚本")
 
 
-func test_mission_8_json_mounts_intel_script() -> void:
-	var mission: MissionData = DataManager.get_mission(8)
-	assert_not_null(mission, "任务 8 数据应已加载")
-	if mission == null:
-		return
+func test_mission_json_mounts_script_via_registry() -> void:
+	# 临时注册内嵌脚本，验证 JSON mission_script 声明 → 注册表实例化 → 挂载的通用通道
+	MissionScriptRegistry.reset()
+	MissionScriptRegistry.register("stub_mission_script", StubMissionScript)
+	var mission: MissionData = MissionData.new({"mission_id": 99, "mission_script": "stub_mission_script"})
 	Game.mission_config = MissionConfig.new()
 	Game._mount_mission_components(mission)
-	assert_eq(Game.mission_config.win_condition_components.size(), 0, "任务 8 无胜利组件（判定走脚本）")
-	assert_eq(Game.mission_config.action_components.size(), 0, "任务 8 无行动组件（选项走脚本）")
-	assert_not_null(Game.mission_config.mission_script_instance, "任务 8 应挂载专用脚本")
-	assert_true(Game.mission_config.mission_script_instance is Mission8IntelRecovery, "脚本应为 mission_8_intel_recovery")
+	assert_eq(Game.mission_config.win_condition_components.size(), 0, "无 win_conditions 声明不应挂载胜利组件")
+	assert_not_null(Game.mission_config.mission_script_instance, "声明 mission_script 的任务应挂载脚本实例")
+	assert_true(Game.mission_config.mission_script_instance is StubMissionScript, "脚本应由注册表按 id 实例化")
+	MissionScriptRegistry.reset()
 
 
 func test_mission_10_json_mounts_collect_and_rally_components() -> void:
@@ -185,7 +231,12 @@ func test_mission_10_json_mounts_collect_and_rally_components() -> void:
 	var rally: MissionComponent = Game.mission_config.win_condition_components[1]
 	assert_true(rally is MissionComponentAllPlayersAtBlock, "第 2 个胜利组件应为 all_players_at_block")
 	assert_eq(rally.params.get("block_name"), "军事基地", "集结地点应为军事基地")
-	assert_eq(Game.mission_config.action_components.size(), 0, "任务 10 无行动组件")
+	assert_eq(rally.params.get("no_monster"), true, "集结地点应要求无怪物")
+	assert_eq(Game.mission_config.action_components.size(), 1, "任务 10 应挂载 1 个行动组件")
+	var submit: MissionComponent = Game.mission_config.action_components[0]
+	assert_true(submit is MissionComponentSubmitItems, "行动组件应为 submit_items")
+	assert_eq(submit.params.get("block_name"), "军事基地", "提交地点应为军事基地")
+	assert_eq(int(submit.params.get("items", {}).get("燃料")), 6, "提交清单燃料应为 6")
 	assert_null(Game.mission_config.mission_script_instance, "任务 10 无专用脚本")
 
 
@@ -306,131 +357,58 @@ func test_mission_1_rescue_option_hidden_when_conditions_unmet() -> void:
 	assert_eq(Game.mission_config.get_action_options(Game, p).size(), 0, "行动数不足（1 < 2）不应出现解救选项")
 
 
-# === 4. 任务 8 脚本三分支（手动置 mission_state 验证判定链） ===
+# === 4. 任务脚本通用通道（手动置 mission_state 验证判定链） ===
 
-func test_mission_8_rescue_branch_wins_at_base() -> void:
-	var mc: MissionConfig = _make_mission_8_config()
+func test_script_action_options_aggregate_and_execute() -> void:
+	var mc: MissionConfig = _make_script_config()
 	var p: Player = _make_player("P")
 	p.action_count = 2
 	_setup_game_env([p])
 	var state: Dictionary = mc.mission_state
-	state["scientist_available"] = true
+	assert_true(state.get("stub_setup_done"), "setup_components 应调用脚本 setup 钩子")
+	# 选项聚合：脚本选项应合并进 MissionConfig.get_action_options
+	state["stub_option_available"] = true
 	var options: Array = mc.get_action_options(Game, p)
-	assert_eq(options.size(), 1, "科学家待解救且有行动时应提供解救选项")
+	assert_eq(options.size(), 1, "脚本应提供行动选项并聚合进 MissionConfig")
+	assert_eq(options[0]["id"], "stub_script_action", "选项 id 应为脚本声明值")
 	await options[0]["execute"].call()
-	assert_true(state.get("scientist_rescued"), "解救后 scientist_rescued 应为 true")
-	assert_eq(state.get("scientist_holder"), p, "解救后 scientist_holder 应为该玩家")
-	assert_eq(p.action_count, 1, "解救应消耗 1 点行动")
-	assert_true(p.has_equipment("科学家"), "科学家应装备到玩家装备区")
-	p.current_block = _make_block("军事基地", 0, 0)
-	assert_true(Game.state_machine.check_win_condition(), "解救且持有者在军事基地应胜利")
+	assert_true(state.get("stub_action_done"), "执行选项应触发脚本 execute")
+	assert_eq(p.action_count, 1, "选项执行应消耗 1 点行动")
+	# 判定链：脚本 check_win 为 false 时阻断胜利
+	assert_false(Game.state_machine.check_win_condition(), "脚本 check_win 为 false 时不应胜利")
+	assert_false(Game.state_machine.is_game_over(), "不应进入 GAME_OVER")
+	# 判定链：脚本 check_win 为 true 时参与胜利判定（van_fuel_required=-1 直接胜利）
+	state["stub_win"] = true
+	assert_true(Game.state_machine.check_win_condition(), "脚本 check_win 为 true 时应胜利")
 	assert_eq(Game.state_machine.get_game_result(), GameStateMachine.GameResult.WIN, "结果应为 WIN")
 	assert_eq(Game.game_result, "win", "Game.game_result 应为 win")
 
 
-func test_mission_8_info_recorded_branch_wins_at_base() -> void:
-	var mc: MissionConfig = _make_mission_8_config()
+func test_script_check_lose_has_priority_over_win() -> void:
+	var mc: MissionConfig = _make_script_config()
 	var p: Player = _make_player("P")
-	p.current_block = _make_block("军事基地", 0, 0)
 	_setup_game_env([p])
 	var state: Dictionary = mc.mission_state
-	state["scientist_info_recorded"] = true
-	state["info_recorder"] = p
-	assert_true(Game.state_machine.check_win_condition(), "信息被记录且记录者在军事基地应胜利")
-	assert_eq(Game.state_machine.get_game_result(), GameStateMachine.GameResult.WIN, "结果应为 WIN")
-
-
-func test_mission_8_info_recorded_not_at_base_no_win() -> void:
-	var mc: MissionConfig = _make_mission_8_config()
-	var p: Player = _make_player("P")
-	p.current_block = _make_block("医院", 0, 0)
-	_setup_game_env([p])
-	var state: Dictionary = mc.mission_state
-	state["scientist_info_recorded"] = true
-	state["info_recorder"] = p
-	assert_false(Game.state_machine.check_win_condition(), "记录者不在军事基地不应胜利")
-	assert_false(Game.state_machine.is_game_over(), "不应进入 GAME_OVER")
-
-
-func test_mission_8_lose_has_priority_over_win() -> void:
-	var mc: MissionConfig = _make_mission_8_config()
-	var p: Player = _make_player("P")
-	p.current_block = _make_block("军事基地", 0, 0)
-	_setup_game_env([p])
-	var state: Dictionary = mc.mission_state
-	# 同时满足胜利条件（信息已记录且记录者在军事基地）与失败条件（检定失败且无日记本）
-	state["scientist_info_recorded"] = true
-	state["info_recorder"] = p
-	state["intel_failed_no_diary"] = true
+	# 同时满足脚本胜利条件与失败条件
+	state["stub_win"] = true
+	state["stub_lose"] = true
 	var result: bool = Game.state_machine.check_win_condition()
-	assert_true(result, "失败条件满足应终止游戏")
+	assert_true(result, "脚本失败条件满足应终止游戏")
 	assert_eq(Game.state_machine.get_game_result(), GameStateMachine.GameResult.LOSE, "失败应优先于胜利")
 	assert_eq(Game.game_result, "lose", "Game.game_result 应为 lose")
 
 
-# === 5. EventBus 全链路（真实投骰，stealth 控制检定分支） ===
+# === 5. EventBus 全链路（地块触发 → 脚本 on_event） ===
 
-func test_event_bus_chain_success_branch_end_to_end() -> void:
-	var mc: MissionConfig = _make_mission_8_config()
+func test_event_bus_chain_forwards_to_mission_script() -> void:
+	var mc: MissionConfig = _make_script_config()
 	var p: Player = _make_player("P")
-	p.stealth = 12  # 两骰之和 2~12 ≤ 12，检定必成功
-	p.action_count = 2
-	p.input = CliPlayerInput.new()
-	var base: MapBlock = _make_block("军事基地", 0, 0)
-	var marked: MapBlock = _make_block("坠毁点", 1, 0)
+	var marked: MapBlock = _make_block("坠毁点", 0, 0)
 	marked.add_objective_mark({"mark_id": "mark_1"})
 	p.current_block = marked
-	_setup_game_env([p], [base, marked])
+	_setup_game_env([p], [marked])
 	var state: Dictionary = mc.mission_state
-	# 地块 → EventBus → Game → mission_config.on_event → 脚本（含 draw_boss_card 与 sneak_judge）
+	# 地块 → EventBus → Game → mission_config.on_event → 脚本
 	await marked.trigger_objective_marks(p)
-	assert_true(await _wait_until(func(): return state.get("intel_attempted", false)), "应记录首次到达")
-	assert_true(await _wait_until(func(): return state.get("scientist_available", false)), "检定成功应置 scientist_available")
-	assert_false(state.get("scientist_info_recorded"), "成功分支不应记录信息")
-	assert_false(state.get("intel_failed_no_diary"), "成功分支不应置失败标记")
-	assert_true(Game.log_list.has("牌堆与弃牌堆中均无首领卡！"), "应调用 draw_boss_card（空牌堆日志）")
-	# 解救 → 护送回军事基地 → 胜利
-	var options: Array = mc.get_action_options(Game, p)
-	assert_eq(options.size(), 1, "检定成功后应提供解救选项")
-	await options[0]["execute"].call()
-	assert_true(state.get("scientist_rescued"), "应完成解救")
-	p.current_block = base
-	assert_true(Game.state_machine.check_win_condition(), "解救且持有者在军事基地应胜利")
-	assert_eq(Game.state_machine.get_game_result(), GameStateMachine.GameResult.WIN, "结果应为 WIN")
-	assert_eq(Game.game_result, "win", "Game.game_result 应为 win")
-
-
-func test_event_bus_chain_fail_with_diary_records_info() -> void:
-	var mc: MissionConfig = _make_mission_8_config()
-	var p: Player = _make_player("P")
-	p.stealth = 0  # 两骰之和 2~12 > 0，检定必失败
-	p.hand.append(_make_card("满是灰尘的日记本"))
-	var marked: MapBlock = _make_block("坠毁点", 0, 0)
-	p.current_block = marked
-	_setup_game_env([p], [marked])
-	var state: Dictionary = mc.mission_state
-	EventBus.objective_mark_triggered.emit(p, marked, {})
-	assert_true(await _wait_until(func(): return state.get("intel_attempted", false)), "应记录首次到达")
-	assert_true(await _wait_until(func(): return state.get("scientist_info_recorded", false)), "失败且有日记本应记录信息")
-	assert_eq(state.get("info_recorder"), p, "记录者应为该玩家")
-	assert_false(state.get("scientist_available"), "失败分支不应置 scientist_available")
-	assert_false(state.get("intel_failed_no_diary"), "有日记本不应置失败标记")
-	assert_false(Game.state_machine.check_win_condition(), "记录者尚未返回军事基地不应胜利")
-
-
-func test_event_bus_chain_fail_no_diary_loses() -> void:
-	var mc: MissionConfig = _make_mission_8_config()
-	var p: Player = _make_player("P")
-	p.stealth = 0  # 两骰之和 2~12 > 0，检定必失败
-	var marked: MapBlock = _make_block("坠毁点", 0, 0)
-	p.current_block = marked
-	_setup_game_env([p], [marked])
-	var state: Dictionary = mc.mission_state
-	EventBus.objective_mark_triggered.emit(p, marked, {})
-	assert_true(await _wait_until(func(): return state.get("intel_failed_no_diary", false)), "失败且无日记本应置失败标记")
-	assert_true(state.get("intel_attempted"), "应记录首次到达")
-	assert_false(state.get("scientist_available"), "失败分支不应置 scientist_available")
-	assert_false(state.get("scientist_info_recorded"), "无日记本不应记录信息")
-	assert_true(Game.state_machine.check_win_condition(), "失败条件满足应终止游戏")
-	assert_eq(Game.state_machine.get_game_result(), GameStateMachine.GameResult.LOSE, "结果应为 LOSE")
-	assert_eq(Game.game_result, "lose", "Game.game_result 应为 lose")
+	assert_true(await _wait_until(func(): return state.get("stub_mark_reached", false)), "objective_mark_triggered 应转发到脚本 on_event")
+	assert_eq(state.get("stub_last_event"), "objective_mark_triggered", "事件名应正确转发")

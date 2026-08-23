@@ -50,6 +50,23 @@ static func _register_builtins() -> void:
 	register("escort_equipment_at_block", MissionComponentEscortEquipmentAtBlock)
 	register("spend_action_rescue", MissionComponentSpendActionRescue)
 	register("turn_countdown", MissionComponentTurnCountdown)
+	register("destroy_current_mark", MissionComponentDestroyCurrentMark)
+	register("submit_items", MissionComponentSubmitItems)
+	register("repair_van", MissionComponentRepairVan)
+	register("defuse_bomb", MissionComponentDefuseBomb)
+	register("upload_virus", MissionComponentUploadVirus)
+	register("rescue_judge_win", MissionComponentRescueJudgeWin)
+	register("mark_enter_reward", MissionComponentMarkEnterReward)
+	register("first_enter_draw_boss", MissionComponentFirstEnterDrawBoss)
+	register("reveal_mark_draw_boss", MissionComponentRevealMarkDrawBoss)
+	register("card_discard_watch", MissionComponentCardDiscardWatch)
+	register("setup_equip_card", MissionComponentSetupEquipCard)
+	register("spawn_dice_effect", MissionComponentSpawnDiceEffect)
+	register("kill_monsters", MissionComponentKillMonsters)
+	register("all_blocks_revealed", MissionComponentAllBlocksRevealed)
+	register("objective_marks_cleared", MissionComponentObjectiveMarksCleared)
+	register("state_flag", MissionComponentStateFlag)
+	register("action_win_only", MissionComponentActionWinOnly)
 
 
 ## 确保内置组件已注册（懒注册入口）。

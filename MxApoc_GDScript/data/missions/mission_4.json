@@ -6,8 +6,8 @@
   "difficulty": "normal",
   "van_fuel_required": null,
   "intro_text": "炸弹毫无预兆地爆炸了。所有大城市顷刻间化为灰尘。冬季马上就要到来，如果我们不储存足够的食物并找到一处安全地点的话，我们就没法过冬。",
-  "objective_text": "收集 3 个燃料、2 个脏毯子和2 张老报纸，且食物类拾荒卡数量不小于5。带这些物品返回到避难所并摧毁所有尾随求生者的怪物。当所有玩家都在避难所里且所有怪物被摧毁，你们获得胜利。",
-  "special_setup": "首领设置：从怪物牌堆中抓 9 张牌，把首领卡加入其中并正面朝下洗混。把这 10 张牌放到怪物牌堆底。",
+  "objective_text": "收集物资：收集燃料(0/3)、收集脏毯子(0/2)、收集老报纸(0/2)；回合结束时，所有存活玩家都在“避难所”且“避难所”上没有任何怪物，获得胜利。",
+  "special_setup": "将怪物牌堆中的首领级怪物牌随机分布到怪物牌堆中的下半部分。",
   "monster_pack_type": "mutant",
   "map_blocks_config": {
     "面包车": 1,
@@ -26,16 +26,16 @@
     "购物中心": 1
   },
   "map_layout": [
-    [0, 1, 1, 1, 0],
-    [1, 1, 1, 1, 1],
-    [1, 0, 2, 0, 1],
-    [1, 1, 1, 1, 1],
-    [0, 1, 1, 1, 0]
+    [2, 1, 1, 1, 1, 0],
+    [1, 1, 0, 0, 1, 1],
+    [1, 1, 1, 0, 1, 1],
+    [0, 1, 1, 1, 1, 3]
   ],
   "map_legend": {
     "0": "no_block",
     "1": "random_block",
-    "2": { "type": "spawn", "block_name": "面包车", "face": true, "monster_mark": 0, "mission_mark": 0 }
+    "2": { "type": "spawn", "block_name": "面包车", "face": true },
+    "3": { "type": "game_end", "block_name": "避难所", "face": true }
   },
   "objective_marks": [],
   "scavenge_config": {
@@ -73,5 +73,9 @@
       { "card_name": "伏击！", "count": 1 },
       { "card_name": "老报纸", "count": 2 }
     ]
-  }
+  },
+  "win_conditions": [
+    { "component": "collect_items", "params": { "items": { "燃料": 3, "脏毯子": 2, "老报纸": 2 } } },
+    { "component": "all_players_at_block", "params": { "block_name": "避难所", "no_monster": true } }
+  ]
 }

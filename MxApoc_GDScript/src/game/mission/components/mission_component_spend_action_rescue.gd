@@ -10,8 +10,9 @@ extends MissionComponent
 ## - rescued_key: String（默认 "scientist_rescued"）——mission_state 中标记已获救的键
 ## - holder_key: String（默认 "scientist_holder"）——mission_state 中持有者玩家引用的键
 ## 行动选项仅在玩家位于解救地点、行动数充足且尚未解救时出现；
-## 执行后扣减行动、将解救的拾荒卡装备到玩家装备区，并写入 rescued_key / holder_key，
-## 供 escort_equipment_at_block 等胜利条件组件读取。
+## 执行后扣减行动、将解救的拾荒卡装备到玩家装备区，并写入 rescued_key / holder_key
+## 记录解救状态（供行动选项隐藏等任务逻辑使用）。
+## 胜利判定由 escort_equipment_at_block 直接查找装备区持有者完成。
 
 ## 任务配置引用。setup 时注入，用于读写 mission_state。
 var _mission_config: MissionConfig = null

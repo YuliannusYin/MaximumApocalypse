@@ -5,9 +5,10 @@
   "english_name": "defend_base",
   "difficulty": "hard",
   "van_fuel_required": null,
+  "no_initial_monster_draw": true,
   "intro_text": "多亏了你们带来的补给，我们有一个小组正在研制一些自制炸弹，但机器人攻击部队正在该地区巡逻，寻找我们的基地。摧毁这些攻击部队并返回基地，我们要发起一次反击。",
-  "objective_text": "清除 3 个目标标记。当目标标记所在地图块的所有怪物标记都被清除后，移除该目标标记。返回军事基地并杀死所有玩家面前的怪物卡。",
-  "special_setup": "设置：玩家在军事基地地图块开始，并且在任务开始时不会抓取怪物卡。把 3 个目标标记彼此距离至少 3 个地图块且与基地距离至少 3 个地图块放置。在每个目标标记的地图块上放置 3 个怪物标记。把首领卡洗入怪物牌堆下半部中。",
+  "objective_text": "移除场上的 3 个“任务标记”(0/3)；回合结束时，所有存活玩家在“军事基地”上且“军事基地”上没有任何怪物，获得胜利。",
+  "special_setup": "本任务，游戏开始时不会抓取初始怪物牌。\n将怪物牌堆中的首领级怪物牌随机分布到怪物牌堆中的下半部分。",
   "monster_pack_type": "robot",
   "map_blocks_config": {
     "加油站": 2,
@@ -30,21 +31,19 @@
     "游乐园": 1
   },
   "map_layout": [
-    [4, 1, 1, 0, 0, 0, 0, 0, 0],
-    [1, 0, 1, 0, 0, 0, 0, 0, 0],
-    [1, 1, 1, 1, 0, 0, 0, 0, 0],
-    [0, 0, 0, 1, 1, 1, 0, 0, 0],
-    [0, 0, 0, 2, 0, 1, 1, 1, 4],
-    [0, 0, 0, 1, 1, 1, 0, 0, 0],
-    [1, 1, 1, 1, 0, 0, 0, 0, 0],
-    [1, 0, 1, 0, 0, 0, 0, 0, 0],
-    [4, 1, 1, 0, 0, 0, 0, 0, 0]
+    [4, 1, 0, 0, 0, 0, 0, 0],
+    [1, 1, 1, 1, 0, 0, 0, 0],
+    [0, 1, 1, 1, 1, 1, 0, 0],
+    [0, 0, 2, 1, 1, 1, 1, 4],
+    [0, 1, 1, 1, 1, 1, 0, 0],
+    [1, 1, 1, 1, 0, 0, 0, 0],
+    [4, 1, 0, 0, 0, 0, 0, 0]
   ],
   "map_legend": {
     "0": "no_block",
     "1": "random_block",
     "2": { "type": "spawn", "block_name": "军事基地", "face": true },
-    "4": { "type": "random_block", "face": false, "monster_mark": 0, "mission_mark": 1 }
+    "4": { "type": "random_block", "face": false, "monster_mark": 3, "mission_mark": 1 }
   },
   "objective_marks": [
     {
@@ -101,5 +100,12 @@
       { "card_name": "伏击！", "count": 2 },
       { "card_name": "一无所获", "count": 1 }
     ]
-  }
+  },
+  "win_conditions": [
+    { "component": "objective_marks_cleared", "params": { "count": 3 } },
+    { "component": "all_players_at_block", "params": { "block_name": "军事基地", "no_monster": true } }
+  ],
+  "actions": [
+    { "component": "destroy_current_mark", "params": { "cost": 1, "require_no_monster": true } }
+  ]
 }

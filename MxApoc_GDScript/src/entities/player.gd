@@ -581,6 +581,8 @@ func monster_spawn_judge() -> void:
 		await _play_dice_animation(dice[0], dice[1], "怪物生成", "")
 		if Game != null and is_instance_valid(Game):
 			Game.log_message(LogColors.player(player_name) + " 执行了 " + LogColors.skill("怪物生成") + ", 点数为 " + str(dice_value))
+		if EventBus != null and is_instance_valid(EventBus):
+			EventBus.monster_spawn_judged.emit(self, dice_value)
 		event["result"] = {"value": dice_value, "success": true}
 	# 3. 怪物出生检定时
 	await trigger("on_spawn_judge", event)

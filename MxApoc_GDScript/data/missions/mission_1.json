@@ -6,8 +6,8 @@
   "difficulty": "easy",
   "van_fuel_required": 4,
   "intro_text": "你们在收音机里听到一条嘈杂的信息。有人还活着，并且他说他能结束这场噩梦。他们在警察局设了路障来保护自己，但是时间不多了。",
-  "objective_text": "解救警察局的科学家。当在警察局时，你可以花费2个行动来解救科学家。把科学家带回你们的面包车里并逃离该区域。",
-  "special_setup": "初始设置：把科学家和首领卡放到一边。到达警察局的第一名玩家抓取首领卡。",
+  "objective_text": "解救“警察局”的科学家；给“面包车”添加“燃料”(0/4)；回合结束时，携带“科学家”的玩家在“面包车”上且“面包车”上没有任何怪物，获得胜利。",
+  "special_setup": "将怪物牌堆中的首领级怪物牌随机分布到怪物牌堆中的下半部分。\n第一个进入“警察局”的玩家抓取一张首领级怪物牌。\n当“科学家”被弃置时，销毁之。",
   "monster_pack_type": "zombie",
   "map_blocks_config": {
     "面包车": 1,
@@ -33,8 +33,8 @@
   "map_legend": {
     "0": "no_block",
     "1": "random_block",
-    "2": { "type": "spawn", "block_name": "面包车", "face": true, "monster_mark": 0, "mission_mark": 0 },
-    "3": { "type": "game_end", "block_name": "警察局", "face": true, "monster_mark": 0, "mission_mark": 0 }
+    "2": { "type": "spawn", "block_name": "面包车", "face": true },
+    "3": { "type": "game_end", "block_name": "警察局", "face": true }
   },
   "objective_marks": [],
   "scavenge_config": {
@@ -73,9 +73,13 @@
     ]
   },
   "win_conditions": [
-    { "component": "escort_equipment_at_block", "params": { "rescued_key": "scientist_rescued", "holder_key": "scientist_holder", "block_name": "面包车" } }
+    { "component": "escort_equipment_at_block", "params": { "card_name": "科学家", "block_name": "面包车" } }
   ],
   "actions": [
     { "component": "spend_action_rescue", "params": { "block_name": "警察局", "cost": 2, "card_name": "科学家" } }
+  ],
+  "triggers": [
+    { "component": "first_enter_draw_boss", "params": { "block_name": "警察局" } },
+    { "component": "card_discard_watch", "params": { "card_name": "科学家", "on_discard": "destroy" } }
   ]
 }

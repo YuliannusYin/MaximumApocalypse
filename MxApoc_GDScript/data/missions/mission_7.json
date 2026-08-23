@@ -6,8 +6,8 @@
   "difficulty": "hard",
   "van_fuel_required": 4,
   "intro_text": "我们的军事实力不及外星人。但是，如果他们认为我们会在他们摧毁我们的文明之后坐以待毙，那么他们就大错特错了。我们要侦察一下这个地区，这样我们就知道发起攻击的最佳地点。",
-  "objective_text": "展示所有地图块，然后带着足够多的燃料返回面包车上逃跑。",
-  "special_setup": "首领设置：选择一个地图块，在上面放置 1 个目标标记。展示该地图块的玩家抓取首领牌。",
+  "objective_text": "展示所有地图块；给“面包车”添加“燃料”(0/4)；回合结束时，所有存活玩家在“面包车”上且“面包车”上没有任何怪物，获得胜利。",
+  "special_setup": "将怪物牌堆中的首领级怪物牌随机分布到怪物牌堆中的下半部分。\n展示带有“任务标记”地图块的玩家抓取一张首领牌。",
   "monster_pack_type": "alien",
   "map_blocks_config": {
     "面包车": 1,
@@ -29,17 +29,16 @@
     "游乐园": 1
   },
   "map_layout": [
-    [0, 1, 1, 1, 1, 4, 0],
-    [0, 1, 0, 1, 0, 1, 0],
-    [1, 1, 1, 2, 1, 1, 1],
-    [0, 1, 0, 1, 0, 1, 0],
-    [0, 1, 1, 1, 1, 1, 0]
+    [1, 1, 1, 1, 1, 1, 0],
+    [2, 1, 1, 1, 1, 1, 4],
+    [1, 1, 1, 1, 1, 1, 0],
+    [0, 1, 1, 1, 1, 0, 0]
   ],
   "map_legend": {
     "0": "no_block",
     "1": "random_block",
-    "2": { "type": "spawn", "block_name": "面包车", "face": true, "monster_mark": 0, "mission_mark": 0 },
-    "4": { "type": "random_block", "face": true, "monster_mark": 0, "mission_mark": 1 }
+    "2": { "type": "spawn", "block_name": "面包车", "face": true },
+    "4": { "type": "random_block", "face": false, "mission_mark": 1 }
   },
   "objective_marks": [
     {
@@ -82,5 +81,11 @@
       { "card_name": "一无所获", "count": 1 },
       { "card_name": "伏击！", "count": 1 }
     ]
-  }
+  },
+  "win_conditions": [
+    { "component": "all_blocks_revealed", "params": {} }
+  ],
+  "triggers": [
+    { "component": "reveal_mark_draw_boss", "params": {} }
+  ]
 }

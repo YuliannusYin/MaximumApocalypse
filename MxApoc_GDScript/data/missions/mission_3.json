@@ -4,10 +4,10 @@
   "mission_name": "3. 研制解药",
   "english_name": "develop_cure",
   "difficulty": "easy",
-  "van_fuel_required": 4,
+  "van_fuel_required": null,
   "intro_text": "我们的科学家认为他能研制出治疗僵尸病毒的解药，但他需要一些医疗用品和解毒剂作为原料，并且必须到医院使用那里的设备才能完成研制。保护好他，让他顺利完成任务。",
-  "objective_text": "收集 2 个医疗用品和 3 个解毒剂并把科学家带到医院来治疗僵尸。科学家会一直装备在一位求生者的面前。如果你和另一名求生者在同一地点，你们可以像交易拾荒牌一样交易科学家。当你们带着对应的卡牌将科学家带到医院且该回合结束时没有死亡，你们就获胜。",
-  "special_setup": "首领设置：从怪物牌堆中抓 9 张牌，把首领卡加入其中并正面朝下洗混。把这 10 张牌放到怪物牌堆底。",
+  "objective_text": "收集物资：收集医疗用品(0/2)、收集解毒剂(0/3)；回合结束时，携带“科学家”的玩家在“医院”且没有死亡，获得游戏胜利。",
+  "special_setup": "将怪物牌堆中的首领级怪物牌随机分布到怪物牌堆中的下半部分。\n游戏开始时，将“科学家”装备进座位1上的玩家的“装备区”。\n当“科学家”被弃置时，任务失败。",
   "monster_pack_type": "zombie",
   "map_blocks_config": {
     "面包车": 1,
@@ -36,8 +36,8 @@
   "map_legend": {
     "0": "no_block",
     "1": "random_block",
-    "2": { "type": "spawn", "block_name": "面包车", "face": true, "monster_mark":0, "mission_mark":0 },
-    "3": { "type": "game_end", "block_name": "医院", "face": true, "monster_mark":0, "mission_mark":0 }
+    "2": { "type": "spawn", "block_name": "面包车", "face": true },
+    "3": { "type": "game_end", "block_name": "医院", "face": true }
   },
   "objective_marks": [],
   "scavenge_config": {
@@ -74,5 +74,16 @@
       { "card_name": "解毒剂", "count": 1 },
       { "card_name": "医疗用品", "count": 1 }
     ]
-  }
+  },
+  "win_conditions": [
+    { "component": "collect_items", "params": { "items": { "医疗用品": 2, "解毒剂": 3 } } },
+    { "component": "escort_equipment_at_block", "params": { "card_name": "科学家", "block_name": "医院" } }
+  ],
+  "lose_conditions": [
+    { "component": "card_discard_watch", "params": { "card_name": "科学家", "on_discard": "lose" } }
+  ],
+  "triggers": [
+    { "component": "setup_equip_card", "params": { "card_name": "科学家" } },
+    { "component": "card_discard_watch", "params": { "card_name": "科学家", "on_discard": "lose" } }
+  ]
 }
