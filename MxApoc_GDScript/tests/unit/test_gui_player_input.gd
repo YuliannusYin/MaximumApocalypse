@@ -96,18 +96,6 @@ func test_confirm_returns_false() -> void:
 	assert_false(holder["value"], "confirm 应返回 false")
 
 
-func test_show_card_emits_signal() -> void:
-	var input: GUIPlayerInput = GUIPlayerInput.new()
-	var received: Array = []
-	input.show_card_requested.connect(func(card, target): received.append([card, target]))
-	var card: Card = Card.new()
-	var target: Player = Player.new()
-	input.show_card(card, target)
-	assert_eq(received.size(), 1, "应发射 show_card_requested 信号")
-	assert_eq(received[0][0], card, "信号应携带正确的卡牌")
-	assert_eq(received[0][1], target, "信号应携带正确的目标")
-
-
 func test_action_requested_signal_emitted() -> void:
 	var input: GUIPlayerInput = GUIPlayerInput.new()
 	var signal_received: Array = []

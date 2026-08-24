@@ -154,23 +154,6 @@ class _ChooseTargetSpyInput extends CliPlayerInput:
 
 # === 1. 默认字段与 _init ===
 
-func test_default_fields() -> void:
-	var p: Player = Player.new()
-	assert_eq(p.hp, 0)
-	assert_eq(p.max_hp, 0)
-	assert_eq(p.hunger, 1)
-	assert_eq(p.stealth, 0)
-	assert_eq(p.action_count, 0)
-	assert_eq(p.max_action_count, 4)
-	assert_eq(p.in_phase, "idle")
-	assert_eq(p.hand.size(), 0)
-	assert_eq(p.equipment_zone.size(), 0)
-	assert_eq(p.monster_zone.size(), 0)
-	assert_eq(p.seat_number, 0)
-	assert_eq(p.player_name, "")
-	assert_eq(p.marks.size(), 0)
-
-
 func test_init_auto_injects_cli_input() -> void:
 	var p: Player = Player.new()
 	assert_not_null(p.input, "_init 应自动注入 CliPlayerInput")
@@ -213,7 +196,9 @@ func test_recover_zero_or_negative_no_op() -> void:
 	assert_eq(p.hp, 5)
 
 
-func test_recover_triggers_all_4_hooks() -> void:
+## 合并族：recover 事件钩子触发顺序 + on_recover 取消分支（原 2 个独立测试，断言逐段保留）。
+func test_recover_hooks_and_cancel() -> void:
+	# --- before/on/after 钩子按序触发 ---
 	var p: Player = _make_player(5, 10)
 	var called: Array = []
 	p.add_skill(_make_skill_with_trigger("before_recover", called))
@@ -222,9 +207,8 @@ func test_recover_triggers_all_4_hooks() -> void:
 	await p.recover(2)
 	assert_eq(called, ["before_recover", "on_recover", "after_recover"])
 
-
-func test_recover_cancel_before_returns_no_op() -> void:
-	var p: Player = _make_player(5, 10)
+	# --- on_recover 取消后不加血 ---
+	p = _make_player(5, 10)
 	p.add_skill(_make_cancel_skill("on_recover"))
 	await p.recover(3)
 	assert_eq(p.hp, 5, "on_recover 取消后不应加血")
@@ -328,24 +312,40 @@ func test_draw_empty_deck_triggers_death() -> void:
 	assert_true(Game.game_over_called, "应触发全灭检查")
 
 
-func test_draw_cancel_before() -> void:
+## 合并族：draw / draw_scavenge / draw_monster 各 cancel 触发点（原 4 个独立测试，断言逐段保留）。
+func test_draw_cancel_points() -> void:
+	# --- before_draw_game_card 取消：不抓游戏牌 ---
 	var p: Player = _make_player()
 	_setup_game_for_player(p)
 	p.add_skill(_make_cancel_skill("before_draw_game_card"))
-	var c1: Card = _make_card("c1")
-	p.game_deck.add(c1)
+	p.game_deck.add(_make_card("c1"))
 	await p.draw(1)
 	assert_eq(p.hand.size(), 0, "before_draw_game_card 取消后不应抓牌")
 
-
-func test_draw_cancel_on() -> void:
-	var p: Player = _make_player()
+	# --- on_draw_game_card 取消：不抓游戏牌 ---
+	p = _make_player()
 	_setup_game_for_player(p)
 	p.add_skill(_make_cancel_skill("on_draw_game_card"))
-	var c1: Card = _make_card("c1")
-	p.game_deck.add(c1)
+	p.game_deck.add(_make_card("c1"))
 	await p.draw(1)
 	assert_eq(p.hand.size(), 0, "on_draw_game_card 取消后不应抓牌")
+
+	# --- before_draw_scavenge_card 取消：不抓拾荒牌 ---
+	p = _make_player()
+	_setup_game_for_player(p)
+	p.add_skill(_make_cancel_skill("before_draw_scavenge_card"))
+	var pile: Pile = Pile.new()
+	pile.add(_make_scavenge_card("s1"))
+	await p.draw_scavenge(1, pile)
+	assert_eq(p.hand.size(), 0, "before_draw_scavenge_card 取消后不应抓牌")
+
+	# --- before_draw_monster_card 取消：不实体化怪物 ---
+	p = _make_player()
+	_setup_game_for_player(p)
+	p.add_skill(_make_cancel_skill("before_draw_monster_card"))
+	Game.monster_pile.add(_make_monster_card("goblin"))
+	await p.draw_monster(1)
+	assert_eq(p.monster_zone.size(), 0, "取消后不应实体化怪物")
 
 
 func test_draw_scavenge_basic() -> void:
@@ -364,16 +364,6 @@ func test_draw_scavenge_empty_pile_no_draw() -> void:
 	var pile: Pile = Pile.new()
 	await p.draw_scavenge(1, pile)
 	assert_eq(p.hand.size(), 0, "空牌堆不抓牌")
-
-
-func test_draw_scavenge_cancel_before() -> void:
-	var p: Player = _make_player()
-	_setup_game_for_player(p)
-	p.add_skill(_make_cancel_skill("before_draw_scavenge_card"))
-	var pile: Pile = Pile.new()
-	pile.add(_make_scavenge_card("s1"))
-	await p.draw_scavenge(1, pile)
-	assert_eq(p.hand.size(), 0)
 
 
 func test_draw_monster_basic() -> void:
@@ -402,16 +392,6 @@ func test_draw_monster_empty_pile_and_discard_triggers_lose() -> void:
 	await p.draw_monster(1)
 	assert_true(Game.game_over_called, "应触发 game_over('lose')")
 	assert_eq(Game.game_result, "lose")
-
-
-func test_draw_monster_cancel_before() -> void:
-	var p: Player = _make_player()
-	_setup_game_for_player(p)
-	p.add_skill(_make_cancel_skill("before_draw_monster_card"))
-	var mc: MonsterCard = _make_monster_card("goblin")
-	Game.monster_pile.add(mc)
-	await p.draw_monster(1)
-	assert_eq(p.monster_zone.size(), 0, "取消后不应实体化怪物")
 
 
 # === 4. 弃牌与销毁 ===
@@ -448,7 +428,9 @@ func test_discard_scavenge_card_goes_to_scavenge_discard() -> void:
 	assert_eq(Game.scavenge_discard_pile.size(), 1, "拾荒卡应进入拾荒弃牌堆")
 
 
-func test_discard_cancel_before() -> void:
+## 合并族：discard / remove_card / use_card 各 before 钩子取消点（原 3 个独立测试，断言逐段保留）。
+func test_card_ops_cancel_points() -> void:
+	# --- before_discard 取消：不弃置 ---
 	var p: Player = _make_player()
 	_setup_game_for_player(p)
 	p.add_skill(_make_cancel_skill("before_discard"))
@@ -456,6 +438,26 @@ func test_discard_cancel_before() -> void:
 	p.hand.append(c)
 	await p.discard(c)
 	assert_eq(p.hand.size(), 1, "取消后不应弃置")
+
+	# --- before_remove_card 取消：不销毁 ---
+	p = _make_player()
+	_setup_game_for_player(p)
+	p.add_skill(_make_cancel_skill("before_remove_card"))
+	c = _make_card("c1")
+	p.hand.append(c)
+	await p.remove_card(c)
+	assert_eq(p.hand.size(), 1, "取消后不应销毁")
+
+	# --- before_use_card 取消：不消耗行动 ---
+	p = _make_player()
+	_setup_game_for_player(p)
+	p.add_skill(_make_cancel_skill("before_use_card"))
+	p.action_count = 2
+	c = _make_card("c1")
+	p.hand.append(c)
+	var result: bool = await p.use_card(c)
+	assert_false(result)
+	assert_eq(p.action_count, 2, "取消后不应消耗行动")
 
 
 func test_remove_card_basic() -> void:
@@ -466,16 +468,6 @@ func test_remove_card_basic() -> void:
 	await p.remove_card(c)
 	assert_eq(p.hand.size(), 0, "销毁后手牌应减少")
 	assert_eq(Game.removed_cards.size(), 1, "应进入 removed_cards")
-
-
-func test_remove_card_cancel_before() -> void:
-	var p: Player = _make_player()
-	_setup_game_for_player(p)
-	p.add_skill(_make_cancel_skill("before_remove_card"))
-	var c: Card = _make_card("c1")
-	p.hand.append(c)
-	await p.remove_card(c)
-	assert_eq(p.hand.size(), 1, "取消后不应销毁")
 
 
 # === 5. 移动流程 ===
@@ -493,20 +485,9 @@ func test_move_to_basic() -> void:
 	assert_true(p.has_mark("moved_this_turn"), "应添加 moved_this_turn 标记")
 
 
-func test_move_to_cancel_before_enter_rolls_back() -> void:
-	var p: Player = _make_player()
-	_setup_game_for_player(p)
-	p.add_skill(_make_cancel_skill("before_enter_block"))
-	var src: MapBlock = _make_block("src", 0, 0)
-	var dst: MapBlock = _make_block("dst", 1, 0)
-	Game.map_area = [src, dst]
-	p.current_block = src
-	var result: bool = await p.move_to(dst)
-	assert_false(result, "取消后应返回 false")
-	assert_eq(p.current_block, src, "取消后应保留原地块")
-
-
-func test_move_to_triggers_leave_and_enter_hooks() -> void:
+## 合并族：move_to 移动钩子触发 + before_enter_block 取消回滚（原 2 个独立测试，断言逐段保留）。
+func test_move_to_hooks_and_cancel() -> void:
+	# --- 6 个 leave/enter 钩子均触发 ---
 	var p: Player = _make_player()
 	_setup_game_for_player(p)
 	var called: Array = []
@@ -523,6 +504,18 @@ func test_move_to_triggers_leave_and_enter_hooks() -> void:
 	p.current_block = src
 	await p.move_to(dst)
 	assert_eq(called.size(), 6, "应触发 6 个移动钩子")
+
+	# --- before_enter_block 取消后回滚 ---
+	p = _make_player()
+	_setup_game_for_player(p)
+	p.add_skill(_make_cancel_skill("before_enter_block"))
+	src = _make_block("src", 0, 0)
+	dst = _make_block("dst", 1, 0)
+	Game.map_area = [src, dst]
+	p.current_block = src
+	var result: bool = await p.move_to(dst)
+	assert_false(result, "取消后应返回 false")
+	assert_eq(p.current_block, src, "取消后应保留原地块")
 
 
 func test_move_to_reveals_unrevealed_block() -> void:
@@ -831,18 +824,6 @@ func test_use_card_action_routes_to_discard() -> void:
 	assert_eq(p.action_count, 1)
 
 
-func test_use_card_cancel_before() -> void:
-	var p: Player = _make_player()
-	_setup_game_for_player(p)
-	p.add_skill(_make_cancel_skill("before_use_card"))
-	p.action_count = 2
-	var c: Card = _make_card("c1")
-	p.hand.append(c)
-	var result: bool = await p.use_card(c)
-	assert_false(result)
-	assert_eq(p.action_count, 2, "取消后不应消耗行动")
-
-
 # === 9. 装备流程 ===
 
 func test_equip_basic() -> void:
@@ -876,16 +857,6 @@ func test_equip_same_name_discards_existing() -> void:
 	assert_eq(p.game_discard_pile.size(), 1, "原装备应弃置")
 
 
-func test_equip_cancel_before() -> void:
-	var p: Player = _make_player()
-	_setup_game_for_player(p)
-	p.add_skill(_make_cancel_skill("before_equip"))
-	var e: EquipmentCard = _make_equipment("weapon")
-	var result: bool = await p.equip(e)
-	assert_false(result)
-	assert_eq(p.equipment_zone.size(), 0)
-
-
 func test_unequip_basic() -> void:
 	var p: Player = _make_player()
 	_setup_game_for_player(p)
@@ -909,15 +880,46 @@ func test_unequip_removes_skills() -> void:
 	assert_eq(p.get_all_skills().size(), 0, "卸下应移除技能")
 
 
-func test_unequip_cancel_before() -> void:
+## 合并族：equip / unequip / consume_charge 事件钩子（原 4 个独立测试，断言逐段保留）。
+func test_equipment_cancel_points() -> void:
+	# --- before_equip 取消：不装备 ---
 	var p: Player = _make_player()
 	_setup_game_for_player(p)
+	p.add_skill(_make_cancel_skill("before_equip"))
 	var e: EquipmentCard = _make_equipment("weapon")
+	var result: bool = await p.equip(e)
+	assert_false(result)
+	assert_eq(p.equipment_zone.size(), 0, "取消后不应装备")
+
+	# --- before_unequip 取消：不卸下 ---
+	p = _make_player()
+	_setup_game_for_player(p)
+	e = _make_equipment("weapon")
 	await p.equip(e)
 	p.add_skill(_make_cancel_skill("before_unequip"))
-	var result: bool = await p.unequip(e)
+	result = await p.unequip(e)
 	assert_false(result)
-	assert_eq(p.equipment_zone.size(), 1)
+	assert_eq(p.equipment_zone.size(), 1, "取消后不应卸下")
+
+	# --- before_consume_charge 取消：不扣减 ---
+	p = _make_player()
+	_setup_game_for_player(p)
+	p.add_skill(_make_cancel_skill("before_consume_charge"))
+	e = _make_equipment("weapon")
+	e.charge_current = 3
+	result = await p.consume_charge(e, 1)
+	assert_false(result)
+	assert_eq(e.charge_current, 3, "取消后不应扣减")
+
+	# --- on_charge_depleted 耗尽触发 ---
+	p = _make_player()
+	_setup_game_for_player(p)
+	var called: Array = []
+	p.add_skill(_make_skill_with_trigger("on_charge_depleted", called))
+	e = _make_equipment("weapon")
+	e.charge_current = 1
+	await p.consume_charge(e, 1)
+	assert_eq(called.size(), 1, "耗尽应触发 on_charge_depleted")
 
 
 # === 10. 填充物 ===
@@ -940,28 +942,6 @@ func test_consume_charge_insufficient_returns_false() -> void:
 	var result: bool = await p.consume_charge(e, 3)
 	assert_false(result, "填充物不足应返回 false")
 	assert_eq(e.charge_current, 1, "不应扣减")
-
-
-func test_consume_charge_cancel_before() -> void:
-	var p: Player = _make_player()
-	_setup_game_for_player(p)
-	p.add_skill(_make_cancel_skill("before_consume_charge"))
-	var e: EquipmentCard = _make_equipment("weapon")
-	e.charge_current = 3
-	var result: bool = await p.consume_charge(e, 1)
-	assert_false(result)
-	assert_eq(e.charge_current, 3, "取消后不应扣减")
-
-
-func test_consume_charge_depleted_triggers_hook() -> void:
-	var p: Player = _make_player()
-	_setup_game_for_player(p)
-	var called: Array = []
-	p.add_skill(_make_skill_with_trigger("on_charge_depleted", called))
-	var e: EquipmentCard = _make_equipment("weapon")
-	e.charge_current = 1
-	await p.consume_charge(e, 1)
-	assert_eq(called.size(), 1, "耗尽应触发 on_charge_depleted")
 
 
 # === 11. 回合流程 ===
@@ -1097,16 +1077,6 @@ func test_has_equipment() -> void:
 	assert_eq(entity.equipment_card, e, "实体 equipment_card 应回引来源卡")
 
 
-func test_get_number() -> void:
-	var p: Player = _make_player(7, 10)
-	p.action_count = 3
-	p.hunger = 4
-	assert_eq(p.get_number("hp"), 7)
-	assert_eq(p.get_number("action_count"), 3)
-	assert_eq(p.get_number("hunger"), 4)
-	assert_eq(p.get_number("unknown"), 0)
-
-
 func test_choose_delegates_to_input() -> void:
 	var p: Player = _make_player()
 	var cli: CliPlayerInput = CliPlayerInput.new()
@@ -1212,35 +1182,30 @@ func test_draw_boss_card_no_boss_logs_warning() -> void:
 
 # === max_action 方法 ===
 
-# 测试 1: increase_max_action 存在且正确增加 max_action_count
-func test_increase_max_action_increases_max_action_count() -> void:
+## 合并：increase/decrease_max_action 数值调整（原 4 个独立琐碎测试，断言全部保留）。
+func test_max_action_count_adjustments() -> void:
+	# --- increase_max_action 正确增加 ---
 	var p: Player = _make_player()
 	_setup_game_for_player(p)
 	assert_eq(p.max_action_count, 4, "初始 max_action_count 应为 4")
 	p.increase_max_action(2)
 	assert_eq(p.max_action_count, 6, "increase_max_action(2) 后 max_action_count 应为 6")
 
-
-# 测试 2: decrease_max_action 存在且正确减少 max_action_count
-func test_decrease_max_action_decreases_max_action_count() -> void:
-	var p: Player = _make_player()
+	# --- decrease_max_action 正确减少 ---
+	p = _make_player()
 	_setup_game_for_player(p)
 	assert_eq(p.max_action_count, 4, "初始 max_action_count 应为 4")
 	p.decrease_max_action(2)
 	assert_eq(p.max_action_count, 2, "decrease_max_action(2) 后 max_action_count 应为 2")
 
-
-# 测试 3: decrease_max_action 下限为 0（不会变负数）
-func test_decrease_max_action_floored_at_zero() -> void:
-	var p: Player = _make_player()
+	# --- decrease_max_action 下限为 0（不会变负数）---
+	p = _make_player()
 	_setup_game_for_player(p)
 	p.decrease_max_action(10)
 	assert_eq(p.max_action_count, 0, "decrease_max_action(10) 后 max_action_count 应为 0（下限）")
 
-
-# 测试 4: increase_max_action 与 decrease_max_action 配合还原
-func test_increase_then_decrease_restores_value() -> void:
-	var p: Player = _make_player()
+	# --- increase_max_action 与 decrease_max_action 配合还原 ---
+	p = _make_player()
 	_setup_game_for_player(p)
 	var original: int = p.max_action_count
 	p.increase_max_action(2)

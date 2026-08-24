@@ -464,7 +464,7 @@ func move_to(target: MapBlock) -> bool:
 		if not await sneak_judge():
 			var num: int = target.count_monster_mark()
 			target.remove_monster_mark(num)
-			draw_monster(num)
+			await draw_monster(num)
 	# 11. 触发目标标记
 	if target != null and target.has_method("trigger_objective_marks"):
 		await target.trigger_objective_marks(self)
@@ -614,7 +614,7 @@ func monster_spawn_judge() -> void:
 				elif block.count_monster_mark() == 3 and block.has_player():
 					for p in block.get_players():
 						if p != null and is_instance_valid(p) and p.is_alive():
-							p.draw_monster(1)
+							await p.draw_monster(1)
 
 
 # === 六、死亡流程 ===
@@ -1069,7 +1069,7 @@ func start_turn() -> void:
 			if not await sneak_judge():
 				var num: int = current_block.count_monster_mark()
 				current_block.remove_monster_mark(num)
-				draw_monster(num)
+				await draw_monster(num)
 	await trigger("before_action_phase", event)
 	# 节点 9：行动阶段
 	await wait_player_action()
@@ -1904,4 +1904,4 @@ func draw_boss_card() -> void:
 		return
 	# 4. 放到怪物牌堆顶部，复用 draw_monster(1)
 	Game.monster_pile.cards.push_front(boss_card)
-	draw_monster(1)
+	await draw_monster(1)

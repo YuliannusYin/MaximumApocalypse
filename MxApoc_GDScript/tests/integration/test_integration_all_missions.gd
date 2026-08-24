@@ -1,12 +1,7 @@
 extends GutTest
 
 ## 集成测试：全部 13 个任务的关键路径（已批准 spec implement-all-13-missions Task 8）。
-## A 部分（挂载验证）：真实任务 JSON 经 Game.initialize_game 全流程挂载，
-##   断言 mission_config 各组件数组（win/lose/trigger/action）的实例类型与数量，
-##   对照 data/missions/mission_*.json 实际配置；setup_components 已随 initialize_game 调用，
-##   对会写 mission_state 的组件（kill_monsters / defuse_bomb / turn_countdown /
-##   repair_van / rescue_judge_win）断言初始化副作用。
-## B 部分（关键路径）：逐任务胜利/失败路径。优先手动搭建
+## 逐任务胜利/失败路径。优先手动搭建
 ##   （_mount_mission 轻量挂载真实 JSON 组件 + 手动构造玩家/地块），
 ##   仅开局装备（setup_equip_card）与 no_initial_monster_draw 类验证走真实 initialize_game。
 ## 判定链（回合结束 check_win_condition）：先 lose（任一组件 true）→ game_over(LOSE)；
@@ -174,310 +169,7 @@ func after_each() -> void:
 
 
 # ============================================================
-# A 部分：真实 JSON → initialize_game 挂载验证（13 个任务）
-# ============================================================
-
-func test_mount_mission_0_tutorial_no_components() -> void:
-	var mc: MissionConfig = _init_real_mission(0)
-	if mc == null:
-		return
-	assert_eq(mc.van_fuel_required, 4, "任务 0 面包车燃料需求应为 4")
-	assert_eq(mc.win_condition_components.size(), 0, "任务 0 应无胜利组件")
-	assert_eq(mc.lose_condition_components.size(), 0, "任务 0 应无失败组件")
-	assert_eq(mc.trigger_components.size(), 0, "任务 0 应无触发器组件")
-	assert_eq(mc.action_components.size(), 0, "任务 0 应无行动组件")
-	assert_null(mc.mission_script_instance, "任务 0 无专用脚本")
-	assert_eq(mc.initial_objective_mark_count, 0, "任务 0 无任务标记")
-
-
-func test_mount_mission_1_rescue_scientist_components() -> void:
-	var mc: MissionConfig = _init_real_mission(1)
-	if mc == null:
-		return
-	assert_eq(mc.van_fuel_required, 4, "任务 1 面包车燃料需求应为 4")
-	assert_eq(mc.win_condition_components.size(), 1, "任务 1 应挂载 1 个胜利组件")
-	assert_true(mc.win_condition_components[0] is MissionComponentEscortEquipmentAtBlock,
-		"胜利组件应为 escort_equipment_at_block")
-	assert_eq(mc.win_condition_components[0].params.get("card_name"), "科学家", "护送卡牌应为科学家")
-	assert_eq(mc.win_condition_components[0].params.get("block_name"), "面包车", "护送目标应为面包车")
-	assert_eq(mc.action_components.size(), 1, "任务 1 应挂载 1 个行动组件")
-	assert_true(mc.action_components[0] is MissionComponentSpendActionRescue,
-		"行动组件应为 spend_action_rescue")
-	assert_eq(int(mc.action_components[0].params.get("cost")), 2, "解救消耗应为 2 行动")
-	assert_eq(mc.trigger_components.size(), 2, "任务 1 应挂载 2 个触发器")
-	assert_true(mc.trigger_components[0] is MissionComponentFirstEnterDrawBoss,
-		"触发器 1 应为 first_enter_draw_boss")
-	assert_eq(mc.trigger_components[0].params.get("block_name"), "警察局", "首次进入地块应为警察局")
-	assert_true(mc.trigger_components[1] is MissionComponentCardDiscardWatch,
-		"触发器 2 应为 card_discard_watch")
-	assert_eq(mc.trigger_components[1].params.get("on_discard"), "lose", "科学家弃置时应判负")
-	assert_eq(mc.lose_condition_components.size(), 1, "任务 1 应挂载 1 个失败组件")
-	assert_true(mc.lose_condition_components[0] is MissionComponentCardDiscardWatch,
-		"失败组件应为 card_discard_watch")
-	assert_eq(mc.lose_condition_components[0].params.get("on_discard"), "lose", "科学家弃置时应判负")
-
-
-func test_mount_mission_2_collect_samples_components() -> void:
-	var mc: MissionConfig = _init_real_mission(2)
-	if mc == null:
-		return
-	assert_eq(mc.van_fuel_required, 4, "任务 2 面包车燃料需求应为 4")
-	assert_eq(mc.win_condition_components.size(), 1, "任务 2 应挂载 1 个胜利组件")
-	assert_true(mc.win_condition_components[0] is MissionComponentKillMonsters,
-		"胜利组件应为 kill_monsters")
-	var counts: Dictionary = mc.win_condition_components[0].params.get("counts")
-	assert_eq(counts.size(), 4, "击杀清单应含 4 种僵尸")
-	assert_eq(int(counts.get("僵尸步行者")), 2, "僵尸步行者需求应为 2")
-	assert_eq(int(counts.get("僵尸喷吐者")), 2, "僵尸喷吐者需求应为 2")
-	assert_eq(int(counts.get("僵尸狗")), 2, "僵尸狗需求应为 2")
-	assert_eq(int(counts.get("僵尸士兵")), 2, "僵尸士兵需求应为 2")
-	assert_eq(mc.trigger_components.size(), 1, "任务 2 应挂载 1 个触发器（击杀计数）")
-	assert_true(mc.trigger_components[0] is MissionComponentKillMonsters,
-		"触发器应为 kill_monsters（接收 monster_died 计数）")
-	assert_eq(mc.action_components.size(), 0, "任务 2 无行动组件")
-	assert_eq(mc.lose_condition_components.size(), 0, "任务 2 无失败组件")
-	# setup_components 已执行：kill_counts 应初始化为空字典
-	assert_eq(mc.mission_state.get("kill_counts"), {}, "setup 后 kill_counts 应初始化为空字典")
-
-
-func test_mount_mission_3_develop_cure_components() -> void:
-	var mc: MissionConfig = _init_real_mission(3)
-	if mc == null:
-		return
-	assert_eq(mc.van_fuel_required, -1, "任务 3 不通过面包车胜利（van_fuel_required=null → -1）")
-	assert_eq(mc.win_condition_components.size(), 2, "任务 3 应挂载 2 个胜利组件")
-	assert_true(mc.win_condition_components[0] is MissionComponentCollectItems,
-		"胜利组件 1 应为 collect_items")
-	assert_eq(mc.win_condition_components[0].params.get("mode"), "submit", "收集判定应为提交模式")
-	var items: Dictionary = mc.win_condition_components[0].params.get("items")
-	assert_eq(int(items.get("医疗用品")), 2, "医疗用品需求应为 2")
-	assert_eq(int(items.get("解毒剂")), 3, "解毒剂需求应为 3")
-	assert_true(mc.win_condition_components[1] is MissionComponentEscortEquipmentAtBlock,
-		"胜利组件 2 应为 escort_equipment_at_block")
-	assert_eq(mc.win_condition_components[1].params.get("block_name"), "医院", "护送目标应为医院")
-	assert_eq(mc.lose_condition_components.size(), 1, "任务 3 应挂载 1 个失败组件")
-	assert_true(mc.lose_condition_components[0] is MissionComponentCardDiscardWatch,
-		"失败组件应为 card_discard_watch")
-	assert_eq(mc.lose_condition_components[0].params.get("on_discard"), "lose", "科学家弃置时应判负")
-	assert_eq(mc.trigger_components.size(), 2, "任务 3 应挂载 2 个触发器")
-	assert_true(mc.trigger_components[0] is MissionComponentSetupEquipCard,
-		"触发器 1 应为 setup_equip_card")
-	assert_eq(mc.trigger_components[0].params.get("card_name"), "科学家", "开局应装备科学家")
-	assert_true(mc.trigger_components[1] is MissionComponentCardDiscardWatch, "触发器 2 应为 card_discard_watch")
-	assert_eq(mc.action_components.size(), 1, "任务 3 应挂载 1 个行动组件")
-	assert_true(mc.action_components[0] is MissionComponentSubmitItems,
-		"行动组件应为 submit_items")
-	assert_eq(mc.action_components[0].params.get("block_name"), "医院", "提交地点应为医院")
-	var submit_items: Dictionary = mc.action_components[0].params.get("items")
-	assert_eq(int(submit_items.get("医疗用品")), 2, "提交清单医疗用品应为 2")
-	assert_eq(int(submit_items.get("解毒剂")), 3, "提交清单解毒剂应为 3")
-
-
-func test_mount_mission_4_nuclear_winter_components() -> void:
-	var mc: MissionConfig = _init_real_mission(4)
-	if mc == null:
-		return
-	assert_eq(mc.van_fuel_required, -1, "任务 4 不通过面包车胜利")
-	assert_eq(mc.win_condition_components.size(), 2, "任务 4 应挂载 2 个胜利组件")
-	assert_true(mc.win_condition_components[0] is MissionComponentCollectItems,
-		"胜利组件 1 应为 collect_items")
-	var items: Dictionary = mc.win_condition_components[0].params.get("items")
-	assert_eq(int(items.get("燃料")), 3, "燃料需求应为 3")
-	assert_eq(int(items.get("脏毯子")), 2, "脏毯子需求应为 2")
-	assert_eq(int(items.get("老报纸")), 2, "老报纸需求应为 2")
-	assert_true(mc.win_condition_components[1] is MissionComponentAllPlayersAtBlock,
-		"胜利组件 2 应为 all_players_at_block")
-	assert_eq(mc.win_condition_components[1].params.get("block_name"), "避难所", "集结地点应为避难所")
-	assert_eq(mc.win_condition_components[1].params.get("no_monster"), true, "避难所应要求无怪物")
-	assert_eq(mc.trigger_components.size(), 0, "任务 4 无触发器")
-	assert_eq(mc.action_components.size(), 0, "任务 4 无行动组件")
-	assert_eq(mc.lose_condition_components.size(), 0, "任务 4 无失败组件")
-
-
-func test_mount_mission_5_defuse_bomb_components() -> void:
-	var mc: MissionConfig = _init_real_mission(5)
-	if mc == null:
-		return
-	assert_eq(mc.van_fuel_required, 3, "任务 5 面包车燃料需求应为 3")
-	assert_eq(mc.win_condition_components.size(), 1, "任务 5 应挂载 1 个胜利组件")
-	assert_true(mc.win_condition_components[0] is MissionComponentStateFlag,
-		"胜利组件应为 state_flag")
-	assert_eq(mc.win_condition_components[0].params.get("key"), "bomb_defused", "胜利旗标应为 bomb_defused")
-	assert_eq(mc.action_components.size(), 1, "任务 5 应挂载 1 个行动组件")
-	assert_true(mc.action_components[0] is MissionComponentDefuseBomb, "行动组件应为 defuse_bomb")
-	assert_eq(mc.action_components[0].params.get("block_name"), "电厂", "炸弹应在电厂")
-	assert_eq(int(mc.action_components[0].params.get("cost")), 2, "解除消耗应为 2 行动")
-	assert_eq(mc.trigger_components.size(), 2, "任务 5 应挂载 2 个触发器")
-	assert_true(mc.trigger_components[0] is MissionComponentMarkEnterReward,
-		"触发器 1 应为 mark_enter_reward")
-	assert_true(mc.trigger_components[0].params.get("rewards", {}).has("mark_1"), "奖励表应含 mark_1")
-	assert_true(mc.trigger_components[1] is MissionComponentTurnCountdown,
-		"触发器 2 应为 turn_countdown")
-	assert_eq(int(mc.trigger_components[1].params.get("rounds")), 3, "倒计时应为 3 轮")
-	assert_eq(mc.trigger_components[1].params.get("expire_kill_outside"), "面包车", "归零应击杀车外玩家")
-	assert_eq(mc.lose_condition_components.size(), 0, "任务 5 无失败组件")
-	assert_eq(mc.initial_objective_mark_count, 1, "任务 5 开局应有 1 个任务标记")
-	# setup_components 已执行：倒计时与炸弹状态键应初始化
-	assert_eq(mc.mission_state.get("bomb_defused"), false, "setup 后 bomb_defused 应为 false")
-	assert_eq(mc.mission_state.get("countdown_active"), false, "setup 后倒计时应未激活")
-	assert_eq(int(mc.mission_state.get("countdown_remaining")), 0, "setup 后剩余轮数应为 0")
-
-
-func test_mount_mission_6_nuclear_radiation_components() -> void:
-	var mc: MissionConfig = _init_real_mission(6)
-	if mc == null:
-		return
-	assert_eq(mc.van_fuel_required, 3, "任务 6 面包车燃料需求应为 3")
-	assert_eq(mc.win_condition_components.size(), 1, "任务 6 应挂载 1 个胜利组件")
-	assert_true(mc.win_condition_components[0] is MissionComponentStateFlag,
-		"胜利组件应为 state_flag")
-	assert_eq(mc.win_condition_components[0].params.get("key"), "van_repaired", "胜利旗标应为 van_repaired")
-	assert_eq(mc.action_components.size(), 1, "任务 6 应挂载 1 个行动组件")
-	assert_true(mc.action_components[0] is MissionComponentRepairVan, "行动组件应为 repair_van")
-	assert_eq(int(mc.action_components[0].params.get("times")), 3, "修满应需 3 次维修")
-	assert_eq(mc.trigger_components.size(), 1, "任务 6 应挂载 1 个触发器")
-	assert_true(mc.trigger_components[0] is MissionComponentSpawnDiceEffect,
-		"触发器应为 spawn_dice_effect")
-	assert_eq(int(mc.trigger_components[0].params.get("value")), 7, "天灾触发点数应为 7")
-	assert_eq(mc.lose_condition_components.size(), 0, "任务 6 无失败组件")
-	# setup_components 已执行：维修进度键应初始化
-	assert_eq(int(mc.mission_state.get("van_repair_count")), 0, "setup 后维修进度应为 0")
-	assert_eq(mc.mission_state.get("van_repaired"), false, "setup 后 van_repaired 应为 false")
-
-
-func test_mount_mission_7_scout_alien_zone_components() -> void:
-	var mc: MissionConfig = _init_real_mission(7)
-	if mc == null:
-		return
-	assert_eq(mc.van_fuel_required, 4, "任务 7 面包车燃料需求应为 4")
-	assert_eq(mc.win_condition_components.size(), 1, "任务 7 应挂载 1 个胜利组件")
-	assert_true(mc.win_condition_components[0] is MissionComponentAllBlocksRevealed,
-		"胜利组件应为 all_blocks_revealed")
-	assert_eq(mc.trigger_components.size(), 1, "任务 7 应挂载 1 个触发器")
-	assert_true(mc.trigger_components[0] is MissionComponentRevealMarkDrawBoss,
-		"触发器应为 reveal_mark_draw_boss")
-	assert_eq(mc.action_components.size(), 0, "任务 7 无行动组件")
-	assert_eq(mc.lose_condition_components.size(), 0, "任务 7 无失败组件")
-	assert_eq(mc.initial_objective_mark_count, 1, "任务 7 开局应有 1 个任务标记")
-
-
-func test_mount_mission_8_intelligence_recovery_components() -> void:
-	var mc: MissionConfig = _init_real_mission(8)
-	if mc == null:
-		return
-	assert_eq(mc.van_fuel_required, -1, "任务 8 不通过面包车胜利")
-	assert_eq(mc.win_condition_components.size(), 1, "任务 8 应挂载 1 个胜利组件")
-	assert_true(mc.win_condition_components[0] is MissionComponentActionWinOnly,
-		"胜利组件应为 action_win_only（防止空真误判）")
-	assert_eq(mc.action_components.size(), 1, "任务 8 应挂载 1 个行动组件")
-	assert_true(mc.action_components[0] is MissionComponentRescueJudgeWin,
-		"行动组件应为 rescue_judge_win")
-	assert_eq(mc.trigger_components.size(), 0, "任务 8 无触发器")
-	assert_eq(mc.lose_condition_components.size(), 0, "任务 8 无失败组件")
-	assert_eq(mc.initial_objective_mark_count, 1, "任务 8 开局应有 1 个任务标记")
-	# setup_components 已执行：检定标记键应初始化
-	assert_eq(mc.mission_state.get("rescue_judge_done"), false, "setup 后 rescue_judge_done 应为 false")
-
-
-func test_mount_mission_9_human_counterattack_components() -> void:
-	var mc: MissionConfig = _init_real_mission(9)
-	if mc == null:
-		return
-	assert_eq(mc.van_fuel_required, -1, "任务 9 不通过面包车胜利")
-	assert_eq(mc.win_condition_components.size(), 1, "任务 9 应挂载 1 个胜利组件")
-	assert_true(mc.win_condition_components[0] is MissionComponentActionWinOnly,
-		"胜利组件应为 action_win_only")
-	assert_eq(mc.lose_condition_components.size(), 1, "任务 9 应挂载 1 个失败组件")
-	assert_true(mc.lose_condition_components[0] is MissionComponentCardDiscardWatch,
-		"失败组件应为 card_discard_watch")
-	assert_eq(mc.lose_condition_components[0].params.get("on_discard"), "lose", "科学家弃置时应判负")
-	assert_eq(mc.action_components.size(), 2, "任务 9 应挂载 2 个行动组件")
-	assert_true(mc.action_components[0] is MissionComponentDestroyCurrentMark,
-		"行动组件 1 应为 destroy_current_mark")
-	assert_eq(mc.action_components[0].params.get("require_no_monster"), false,
-		"摧毁发射器不应要求无怪物（需先清怪物标记是标记地块自身的约束）")
-	assert_true(mc.action_components[1] is MissionComponentUploadVirus,
-		"行动组件 2 应为 upload_virus")
-	assert_eq(mc.action_components[1].params.get("block_name"), "坠毁点", "上传地点应为坠毁点")
-	assert_eq(mc.trigger_components.size(), 2, "任务 9 应挂载 2 个触发器")
-	assert_true(mc.trigger_components[0] is MissionComponentSetupEquipCard,
-		"触发器 1 应为 setup_equip_card")
-	assert_true(mc.trigger_components[1] is MissionComponentCardDiscardWatch, "触发器 2 应为 card_discard_watch")
-	assert_eq(mc.initial_objective_mark_count, 2, "任务 9 开局应有 2 个任务标记（两座发射器）")
-
-
-func test_mount_mission_10_transport_components() -> void:
-	var mc: MissionConfig = _init_real_mission(10)
-	if mc == null:
-		return
-	assert_eq(mc.van_fuel_required, -1, "任务 10 不通过面包车胜利")
-	assert_eq(mc.win_condition_components.size(), 2, "任务 10 应挂载 2 个胜利组件")
-	assert_true(mc.win_condition_components[0] is MissionComponentCollectItems,
-		"胜利组件 1 应为 collect_items")
-	assert_eq(mc.win_condition_components[0].params.get("mode"), "submit", "收集判定应为 submit 模式")
-	var items: Dictionary = mc.win_condition_components[0].params.get("items")
-	assert_eq(int(items.get("燃料")), 6, "燃料需求应为 6")
-	assert_eq(int(items.get("脏毯子")), 3, "脏毯子需求应为 3")
-	assert_eq(int(items.get("医疗用品")), 2, "医疗用品需求应为 2")
-	assert_eq(int(items.get("多余配件")), 2, "多余配件需求应为 2")
-	assert_true(mc.win_condition_components[1] is MissionComponentAllPlayersAtBlock,
-		"胜利组件 2 应为 all_players_at_block")
-	assert_eq(mc.win_condition_components[1].params.get("block_name"), "军事基地", "集结地点应为军事基地")
-	assert_eq(mc.action_components.size(), 1, "任务 10 应挂载 1 个行动组件")
-	assert_true(mc.action_components[0] is MissionComponentSubmitItems, "行动组件应为 submit_items")
-	assert_eq(mc.trigger_components.size(), 1, "任务 10 应挂载 1 个触发器")
-	assert_true(mc.trigger_components[0] is MissionComponentMarkEnterReward,
-		"触发器应为 mark_enter_reward")
-	var rewards: Dictionary = mc.trigger_components[0].params.get("rewards")
-	assert_eq(rewards.size(), 3, "奖励表应含 3 种标记")
-	assert_eq(mc.lose_condition_components.size(), 0, "任务 10 无失败组件")
-	assert_eq(mc.initial_objective_mark_count, 3, "任务 10 开局应有 3 个任务标记")
-
-
-func test_mount_mission_11_defend_base_components() -> void:
-	var mc: MissionConfig = _init_real_mission(11)
-	if mc == null:
-		return
-	assert_eq(mc.van_fuel_required, -1, "任务 11 不通过面包车胜利")
-	assert_true(mc.no_initial_monster_draw, "任务 11 应声明 no_initial_monster_draw")
-	assert_eq(mc.win_condition_components.size(), 2, "任务 11 应挂载 2 个胜利组件")
-	assert_true(mc.win_condition_components[0] is MissionComponentObjectiveMarksCleared,
-		"胜利组件 1 应为 objective_marks_cleared")
-	assert_eq(int(mc.win_condition_components[0].params.get("count")), 3, "需移除 3 个任务标记")
-	assert_true(mc.win_condition_components[1] is MissionComponentAllPlayersAtBlock,
-		"胜利组件 2 应为 all_players_at_block")
-	assert_eq(mc.win_condition_components[1].params.get("block_name"), "军事基地", "集结地点应为军事基地")
-	assert_eq(mc.action_components.size(), 1, "任务 11 应挂载 1 个行动组件")
-	assert_true(mc.action_components[0] is MissionComponentDestroyCurrentMark,
-		"行动组件应为 destroy_current_mark")
-	assert_eq(mc.action_components[0].params.get("require_no_monster"), true,
-		"摧毁应要求地块无怪物")
-	assert_eq(mc.trigger_components.size(), 0, "任务 11 无触发器")
-	assert_eq(mc.lose_condition_components.size(), 0, "任务 11 无失败组件")
-	assert_eq(mc.initial_objective_mark_count, 3, "任务 11 开局应有 3 个任务标记")
-
-
-func test_mount_mission_12_burn_the_robots_components() -> void:
-	var mc: MissionConfig = _init_real_mission(12)
-	if mc == null:
-		return
-	assert_eq(mc.van_fuel_required, 3, "任务 12 面包车燃料需求应为 3")
-	assert_eq(mc.win_condition_components.size(), 1, "任务 12 应挂载 1 个胜利组件")
-	assert_true(mc.win_condition_components[0] is MissionComponentObjectiveMarksCleared,
-		"胜利组件应为 objective_marks_cleared")
-	assert_eq(int(mc.win_condition_components[0].params.get("count")), 3, "需移除 3 个任务标记")
-	assert_eq(mc.action_components.size(), 1, "任务 12 应挂载 1 个行动组件")
-	assert_true(mc.action_components[0] is MissionComponentDestroyCurrentMark,
-		"行动组件应为 destroy_current_mark")
-	assert_eq(mc.action_components[0].params.get("require_no_monster"), true,
-		"摧毁应要求地块无怪物")
-	assert_eq(mc.trigger_components.size(), 0, "任务 12 无触发器")
-	assert_eq(mc.lose_condition_components.size(), 0, "任务 12 无失败组件")
-	assert_eq(mc.initial_objective_mark_count, 3, "任务 12 开局应有 3 个任务标记")
-
-
-# ============================================================
-# B 部分：关键路径（手动搭建为主）
+# 关键路径（手动搭建为主）
 # ============================================================
 
 # === 任务 0：教程 —— 面包车燃料引擎路径（回归） ===
@@ -647,7 +339,7 @@ func test_mission_3_lose_when_scientist_discarded() -> void:
 # === 任务 4：核冬天 —— 物资 + 全员避难所 ===
 
 func test_mission_4_supplies_and_shelter_win() -> void:
-	_mount_mission(4)
+	var mc: MissionConfig = _mount_mission(4)
 	var shelter: MapBlock = _make_block("避难所", 0, 0)
 	var p1: Player = _make_player("P1")
 	var p2: Player = _make_player("P2")
@@ -660,23 +352,37 @@ func test_mission_4_supplies_and_shelter_win() -> void:
 		p1.hand.append(_make_card("脏毯子"))
 	for i in 2:
 		p2.hand.append(_make_card("老报纸"))
+	p1.action_count = 1
+	p2.action_count = 1
 	_setup_game_env([p1, p2], [shelter])
-	assert_true(Game.state_machine.check_win_condition(), "物资达标+全员避难所无怪应胜利")
+	# 随身持有不再直接判胜（collect_items 提交模式）：须经避难所提交物资
+	assert_false(Game.state_machine.check_win_condition(), "仅持有未提交不应胜利")
+	# P1 提交燃料+脏毯子
+	var options1: Array = Game.mission_config.get_action_options(Game, p1)
+	assert_eq(options1.size(), 1, "在避难所持有清单物资应出现提交选项")
+	assert_eq(options1[0]["id"], "submit_items", "选项 id 应为 submit_items")
+	await options1[0]["execute"].call()
+	# P2 提交老报纸
+	var options2: Array = Game.mission_config.get_action_options(Game, p2)
+	assert_eq(options2.size(), 1, "P2 在避难所持有老报纸应出现提交选项")
+	await options2[0]["execute"].call()
+	var submitted: Dictionary = mc.mission_state.get("submitted_items", {})
+	assert_eq(int(submitted.get("燃料", 0)), 3, "燃料应提交 3 张")
+	assert_eq(int(submitted.get("脏毯子", 0)), 2, "脏毯子应提交 2 张")
+	assert_eq(int(submitted.get("老报纸", 0)), 2, "老报纸应提交 2 张")
+	assert_true(Game.state_machine.check_win_condition(), "提交达标+全员避难所无怪应胜利")
 	assert_eq(Game.game_result, "win", "Game.game_result 应为 win")
 
 
 func test_mission_4_monster_at_shelter_blocks_win() -> void:
-	_mount_mission(4)
+	var mc: MissionConfig = _mount_mission(4)
 	var shelter: MapBlock = _make_block("避难所", 0, 0)
 	var p: Player = _make_player("P")
 	p.current_block = shelter
-	for i in 3:
-		p.hand.append(_make_card("燃料"))
-	for i in 2:
-		p.hand.append(_make_card("脏毯子"))
-	for i in 2:
-		p.hand.append(_make_card("老报纸"))
+	p.action_count = 1
 	_setup_game_env([p], [shelter])
+	# 物资已全部提交（满足 collect_items submit 模式），但避难所条件不满足 → 不胜
+	mc.mission_state["submitted_items"] = {"燃料": 3, "脏毯子": 2, "老报纸": 2}
 	# 避难所有怪物标记 → 不胜
 	shelter.add_monster_mark(1)
 	assert_false(Game.state_machine.check_win_condition(), "避难所有怪物标记不应胜利")

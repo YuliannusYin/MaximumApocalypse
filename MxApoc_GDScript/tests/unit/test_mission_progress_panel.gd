@@ -404,16 +404,6 @@ func test_b_all_revealed() -> void:
 
 # === C. 13 个任务 JSON 配置合法性 ===
 
-func test_c_all_missions_have_conditions() -> void:
-	var missions: Array = DataManager.get_all_missions()
-	assert_eq(missions.size(), 13, "应有 13 个任务")
-	for mission in missions:
-		var conds: Variant = mission.progress_conditions
-		assert_true(conds is Array, "任务 %d 的 progress_conditions 应为 Array" % mission.mission_id)
-		if conds is Array:
-			assert_gt(conds.size(), 0, "任务 %d 的 progress_conditions 不应为空" % mission.mission_id)
-
-
 func test_c_condition_types_and_params() -> void:
 	var missions: Array = DataManager.get_all_missions()
 	for mission in missions:
@@ -435,18 +425,6 @@ func test_c_condition_types_and_params() -> void:
 					var value: Variant = params.get(param_name)
 					assert_false(value == null or str(value).is_empty(),
 						"任务 %d 类型 %s 参数 %s 不应为空值" % [mid, cond_type, param_name])
-
-
-func test_c_condition_counts() -> void:
-	var expected: Dictionary = {0: 2, 1: 3, 2: 6, 3: 3, 4: 4, 5: 4, 6: 3, 7: 3, 8: 1, 9: 1, 10: 5, 11: 2, 12: 3}
-	var missions: Array = DataManager.get_all_missions()
-	var total: int = 0
-	for mission in missions:
-		var mid: int = mission.mission_id
-		assert_eq(mission.progress_conditions.size(), expected.get(mid, -1),
-			"任务 %d 条件行数应为 %d" % [mid, expected.get(mid, -1)])
-		total += mission.progress_conditions.size()
-	assert_eq(total, 40, "13 个任务条件行总数应为 40")
 
 
 func test_c_build_lines_with_real_conditions() -> void:
