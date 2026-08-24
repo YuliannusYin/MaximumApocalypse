@@ -107,5 +107,9 @@
   ],
   "actions": [
     { "component": "destroy_current_mark", "params": { "cost": 1, "require_no_monster": true } }
+  ],
+  "progress_conditions": [
+    { "text": "移除场上的 3 个\"任务标记\"", "type": "marks_cleared", "params": { "count": 3 } },
+    { "text": "回合结束时，所有存活玩家在地图块\"军事基地\"上，且\"军事基地\"地图块上没有任何怪物，就获得胜利", "type": "all_at_block", "params": { "block_name": "军事基地", "no_monster": true } }
   ]
 }

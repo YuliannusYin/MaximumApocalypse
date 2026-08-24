@@ -110,5 +110,12 @@
       "mark_2": { "cards": { "脏毯子": 3 }, "draw_boss": true },
       "mark_3": { "cards": { "燃料": 2, "医疗用品": 1 } }
     } } }
+  ],
+  "progress_conditions": [
+    { "text": "提交燃料", "type": "submitted_count", "params": { "card_name": "燃料", "count": 6 } },
+    { "text": "提交脏毯子", "type": "submitted_count", "params": { "card_name": "脏毯子", "count": 3 } },
+    { "text": "提交医疗用品", "type": "submitted_count", "params": { "card_name": "医疗用品", "count": 2 } },
+    { "text": "提交多余配件", "type": "submitted_count", "params": { "card_name": "多余配件", "count": 2 } },
+    { "text": "回合结束时，所有存活玩家在地图块\"军事基地\"上，且\"军事基地\"地图块上没有任何怪物，就获得胜利", "type": "all_at_block", "params": { "block_name": "军事基地", "no_monster": true } }
   ]
 }

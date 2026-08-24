@@ -85,5 +85,10 @@
   "triggers": [
     { "component": "setup_equip_card", "params": { "card_name": "科学家" } },
     { "component": "card_discard_watch", "params": { "card_name": "科学家", "on_discard": "lose" } }
+  ],
+  "progress_conditions": [
+    { "text": "收集医疗用品", "type": "hold_items", "params": { "card_name": "医疗用品", "count": 2 } },
+    { "text": "收集解毒剂", "type": "hold_items", "params": { "card_name": "解毒剂", "count": 3 } },
+    { "text": "回合结束时，携带\"科学家\"的玩家在\"医院\"，且没有死亡，获得游戏胜利", "type": "escort_at_block", "params": { "card_name": "科学家", "block_name": "医院" } }
   ]
 }

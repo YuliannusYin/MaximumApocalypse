@@ -121,6 +121,9 @@ func _start_game_flow() -> void:
 
 	Game.initialize_game(mission, variants, seats)
 	_table_map_controller.build_table_and_map()
+	# 任务进度面板：常驻 UI 层右侧固定位置，_process 自刷新任务条件进度
+	var progress_panel: MissionProgressPanel = MissionProgressPanel.new()
+	_ui_layer.add_child(progress_panel)
 	_build_player_panels()
 	_build_hand_area()
 	_assign_player_panels()

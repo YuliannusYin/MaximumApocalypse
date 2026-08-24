@@ -81,5 +81,10 @@
   "triggers": [
     { "component": "first_enter_draw_boss", "params": { "block_name": "警察局" } },
     { "component": "card_discard_watch", "params": { "card_name": "科学家", "on_discard": "destroy" } }
+  ],
+  "progress_conditions": [
+    { "text": "解救\"警察局\"的科学家", "type": "state_flag", "params": { "key": "scientist_rescued" } },
+    { "text": "给\"面包车\"添加\"燃料\"", "type": "van_fuel" },
+    { "text": "回合结束时，携带\"科学家\"的玩家在地图块\"面包车\"上，且\"面包车\"上没有任何怪物，就获得胜利", "type": "escort_at_block", "params": { "card_name": "科学家", "block_name": "面包车", "no_monster": true } }
   ]
 }

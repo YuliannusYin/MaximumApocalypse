@@ -39,6 +39,8 @@ var map_layout: Array = []  # Array[Array[int]]：二维数组
 var map_legend: Dictionary = {}  # 编号说明
 var objective_marks: Array = []  # Array[Dictionary]
 var scavenge_config: Dictionary = {}  # {颜色: [{card_name, count}]}
+## 任务进度面板条件行声明，每项 {text, type, params}，由 MissionProgressPanel 实时求值显示。
+var progress_conditions: Array = []
 
 ## 三层架构声明：胜利条件组件列表。每项 {component: String, params: Dictionary}。
 var win_conditions: Array = []
@@ -68,6 +70,7 @@ func _init(data: Dictionary = {}) -> void:
 	map_legend = data.get("map_legend", {})
 	objective_marks = data.get("objective_marks", [])
 	scavenge_config = data.get("scavenge_config", {})
+	progress_conditions = data.get("progress_conditions", [])
 	win_conditions = data.get("win_conditions", [])
 	lose_conditions = data.get("lose_conditions", [])
 	triggers = data.get("triggers", [])

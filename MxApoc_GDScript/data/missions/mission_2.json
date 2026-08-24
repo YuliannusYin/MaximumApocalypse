@@ -81,5 +81,13 @@
   ],
   "triggers": [
     { "component": "kill_monsters", "params": { "counts": { "僵尸步行者": 2, "僵尸喷吐者": 2, "僵尸狗": 2, "僵尸士兵": 2 } } }
+  ],
+  "progress_conditions": [
+    { "text": "击杀僵尸步行者", "type": "state_count", "params": { "key": "kill_counts", "name": "僵尸步行者", "target": 2 } },
+    { "text": "击杀僵尸喷吐者", "type": "state_count", "params": { "key": "kill_counts", "name": "僵尸喷吐者", "target": 2 } },
+    { "text": "击杀僵尸狗", "type": "state_count", "params": { "key": "kill_counts", "name": "僵尸狗", "target": 2 } },
+    { "text": "击杀僵尸士兵", "type": "state_count", "params": { "key": "kill_counts", "name": "僵尸士兵", "target": 2 } },
+    { "text": "给\"面包车\"添加\"燃料\"", "type": "van_fuel" },
+    { "text": "回合结束时，所有存活玩家在地图块\"面包车\"上，且\"面包车\"上没有任何怪物，就获得胜利", "type": "van_boarding" }
   ]
 }

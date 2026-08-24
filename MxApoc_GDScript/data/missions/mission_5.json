@@ -92,5 +92,11 @@
   "triggers": [
     { "component": "mark_enter_reward", "params": { "rewards": { "mark_1": { "cards": { "满是灰尘的日记本": 1 }, "draw_boss": true } } } },
     { "component": "turn_countdown", "params": { "rounds": 3, "expire_kill_outside": "面包车" } }
+  ],
+  "progress_conditions": [
+    { "text": "找到\"满是灰尘的日记本\"", "type": "hold_items", "params": { "card_name": "满是灰尘的日记本", "count": 1 } },
+    { "text": "解除\"电厂\"上的炸弹", "type": "state_flag", "params": { "key": "bomb_defused" } },
+    { "text": "给\"面包车\"添加\"燃料\"", "type": "van_fuel" },
+    { "text": "回合结束时，所有存活玩家在地图块\"面包车\"上，且\"面包车\"上没有任何怪物，就获得胜利", "type": "van_boarding" }
   ]
 }

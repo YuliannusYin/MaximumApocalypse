@@ -86,5 +86,8 @@
   ],
   "actions": [
     { "component": "rescue_judge_win", "params": {} }
+  ],
+  "progress_conditions": [
+    { "text": "到达\"任务标记\"所在地图块并花费 1 行动\"解救科学家\"（潜行检定成功或持有日记本则胜利，否则失败）", "type": "state_flag", "params": { "key": "rescue_judge_done" } }
   ]
 }
