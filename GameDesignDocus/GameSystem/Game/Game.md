@@ -134,7 +134,7 @@
 > 3. **脚本共用通道**：脚本与组件共用 `check_win` / `check_lose` / `on_event` / `get_action_options` 注入通道，由 `MissionConfig` 统一编排
 > 4. **面包车判定**：`van_fuel_required < 0` 时任务胜利即直接胜利；否则还需满足面包车燃料达标、全员上车、面包车无怪物及怪物标记
 
-> **事件转发与行动选项**：`Game` 将 EventBus 的 10 个信号（`turn_started` / `turn_ended` / `player_moved` / `block_revealed` / `block_destroyed` / `monster_died` / `objective_mark_triggered` / `equipment_equipped` / `card_discarded` / `monster_spawn_judged`）转发到 `mission_config.on_event`（触发器组件与脚本共用）；`mission_config.get_action_options` 汇总行动组件与脚本的选项，由 [Player.wait_player_action](../Entities/Player.md) 以 `{"type": "mission_action", "option_id": ...}` 行动执行。
+> **事件转发与行动选项**：`Game` 将 EventBus 的 10 个信号（`turn_started` / `turn_ended` / `player_moved` / `block_revealed` / `block_destroyed` / `monster_died` / `objective_mark_triggered` / `equipment_equipped` / `card_discarded` / `monster_spawn_judged`）转发到 `mission_config.on_event`（触发器组件与脚本共用）；行动组件同时以 Skill 形式挂载技能栏：玩家进出地块时由 `mission_config.mount_action_skills` / `unmount_action_skills` 挂载/卸载到 `player.skills`（`active="action"`、`skill_type="任务"`，金色按钮区分），经 `use_active_skill` 执行，技能栏为任务行动的唯一 UI 入口；`mission_config.get_action_options` 汇总行动组件与脚本的选项（接口与 `{"type": "mission_action", "option_id": ...}` 执行通道保留，见 [Player.wait_player_action](../Entities/Player.md)）。
 
 ---
 
@@ -178,7 +178,7 @@
 >    - 调用 `block.get_players()` 获取地块上的玩家
 >    - 调用 `block.get_adjacent_blocks()` 获取相邻存活地块
 >    - 相邻为空：玩家受到 5 点无源伤害（紧急逃生失败），日志输出 `LogColors.player(player.player_name) + " 无处可逃，受到 5 点伤害"`，`player.damage(5, null, "block_destroy")`
->    - 相邻非空：`target = await player.choose_map_block(adjacent)`；若 `target == null` 取 `adjacent[0]`；调用 `block._clear_skills_for_player(player)` 清理旧地块技能；`player.current_block = target` 底层坐标变更（不触发完整移动钩子）；`target._acquire_skills_for_player(player)` 获取新地块技能；若 `target` 未展示则 `await target.reveal(true, player)` 展示（触发「展示地块时」效果）
+>    - 相邻非空：`target = await player.choose_map_block(adjacent)`；若 `target == null` 取 `adjacent[0]`；调用 `block._clear_skills_for_player(player)` 清理旧地块技能；`player.current_block = target` 底层坐标变更（不触发完整移动钩子）；`target._acquire_skills_for_player(player)` 获取新地块技能；并列维护任务行动技能挂载（`mission_config.unmount_action_skills(player)` 卸载被摧毁地块的、`mission_config.mount_action_skills(player, target)` 挂载迁移目标地块的）；若 `target` 未展示则 `await target.reveal(true, player)` 展示（触发「展示地块时」效果）
 > 4. 消灭地块上的所有怪物标记：`block.monster_marks = 0`
 > 5. 触发 `on_destroy_block`（系统结算）：对所有 `players` 调用 `await player.trigger("on_destroy_block", event)`
 > 6. 地块状态变更：`block.block_state = "destroyed"`，`map_area.erase(block)`，日志输出 `LogColors.block(block.block_name) + " 被摧毁了"`
@@ -186,7 +186,7 @@
 > 8. 返回 true
 
 > **trigger 触发对象**：所有 player（按座位顺序）。Game 类不继承 Entity，无自身 trigger。
-> **玩家弹出规则**：弹出不消耗行动次数，不触发完整移动钩子（非主动移动）；清理旧地块技能 → 底层坐标变更 → 获取新地块技能 → 展示未展示的地块。
+> **玩家弹出规则**：弹出不消耗行动次数，不触发完整移动钩子（非主动移动）；清理旧地块技能 → 底层坐标变更 → 获取新地块技能 → 迁移任务行动技能（卸载被摧毁地块的、挂载迁移目标地块的）→ 展示未展示的地块。
 > **地块上的怪物卡**：怪物纠缠的是玩家而非地块，玩家弹出后怪物继续纠缠该玩家（不随地块摧毁死亡）。
 > **目标标记**：地块被摧毁时，其上的目标标记一并销毁（未触发的标记不会再触发）。
 
@@ -318,6 +318,7 @@
 > 5. **将玩家放到出生点**：`spawn_block = _find_spawn_block(mission)`，若非 null 则将所有 `players` 的 `current_block` 设为 `spawn_block`
 > 6. **初始化全局牌堆**：调用 `_init_global_piles(mission)`
 > 7. **初始化任务组件**：调用 `mission_config.setup_components(self)` 初始化全部组件与脚本实例（在玩家/地图/牌堆全部就绪后执行——`setup_equip_card` 等组件的 setup 依赖运行时数据）
+> 7.5. **出生点技能挂载**：`spawn_block` 有效时对每名玩家调用 `spawn_block._acquire_skills_for_player(player)` 挂载出生点地块技能，并调用 `mission_config.mount_action_skills(player, spawn_block)` 挂载任务行动技能（置于 `setup_components` 之后，保证行动组件 params 默认值与 `mission_state` 初始化完成后再挂载；同时修复出生点地块技能此前从未挂载的既有缺口）
 > 8. **初始化状态机**：`state_machine.init()`
 
 #### _build_map_config(mission)

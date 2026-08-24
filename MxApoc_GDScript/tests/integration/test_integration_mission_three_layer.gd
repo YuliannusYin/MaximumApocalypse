@@ -194,7 +194,11 @@ func test_mission_1_json_mounts_rescue_and_escort_components() -> void:
 	assert_eq(act_c.params.get("block_name"), "警察局", "解救地点应为警察局")
 	assert_eq(int(act_c.params.get("cost")), 2, "解救消耗应为 2 行动")
 	assert_eq(act_c.params.get("card_name"), "科学家", "解救卡牌应为科学家")
-	assert_eq(Game.mission_config.lose_condition_components.size(), 0, "任务 1 无失败组件")
+	assert_eq(Game.mission_config.lose_condition_components.size(), 1, "任务 1 应挂载 1 个失败组件")
+	assert_true(Game.mission_config.lose_condition_components[0] is MissionComponentCardDiscardWatch,
+		"失败组件应为 card_discard_watch")
+	assert_eq(Game.mission_config.lose_condition_components[0].params.get("on_discard"), "lose",
+		"科学家弃置时应判负")
 	assert_null(Game.mission_config.mission_script_instance, "任务 1 无专用脚本")
 
 

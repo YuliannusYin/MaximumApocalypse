@@ -3,6 +3,7 @@ extends Node
 
 ## 主动技能栏。
 ## 管理主动技能按钮网格的刷新与点击。
+## 任务行动技能（skill_type=="任务"）金色区分显示。
 
 signal skill_pressed(skill: Variant)
 
@@ -38,8 +39,16 @@ func refresh(player: Variant) -> void:
 		var btn := Button.new()
 		btn.text = skill.skill_name
 		btn.add_theme_font_size_override("font_size", 12)
-		btn.custom_minimum_size = Vector2(80, 40)
+		# 宽度按文字长度自适应（12px 字号下中文全宽约 14px），下限 80
+		btn.custom_minimum_size = Vector2(maxi(80, sname.length() * 14 + 16), 40)
 		btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		if skill.get("skill_type") == "任务":
+			# 任务行动技能金色区分显示（disabled 用暗金）
+			btn.add_theme_color_override("font_color", Color(1.0, 0.85, 0.45))
+			btn.add_theme_color_override("font_disabled_color", Color(0.7, 0.6, 0.35))
+			btn.add_theme_color_override("font_hover_color", Color(1.0, 0.85, 0.45))
+			btn.add_theme_color_override("font_pressed_color", Color(1.0, 0.85, 0.45))
+			btn.add_theme_color_override("font_focus_color", Color(1.0, 0.85, 0.45))
 		btn.disabled = not skill.is_usable()
 		btn.pressed.connect(_on_skill_button_pressed.bind(skill))
 		_active_skill_grid.add_child(btn)

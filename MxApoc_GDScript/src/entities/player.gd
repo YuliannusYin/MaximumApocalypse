@@ -420,15 +420,23 @@ func move_to(target: MapBlock) -> bool:
 	await trigger("on_leave_block", event)
 	# 3. 离开地块后
 	await trigger("after_leave_block", event)
-	# 4. 获取目标地块技能（先获取，再准入检定）
+	# 4. 获取目标地块技能（先获取，再准入检定）；并列挂载任务行动技能
 	if target != null and target.has_method("_acquire_skills_for_player"):
 		target._acquire_skills_for_player(self)
+	if target != null and Game != null and is_instance_valid(Game) and Game.mission_config != null:
+		Game.mission_config.mount_action_skills(self, target)
 	# 5. 进入地块前（取消点）
 	await trigger("before_enter_block", event)
 	if EventSystem.is_cancelled(event):
-		# 移动取消，回滚：移除刚获取的目标地块技能
+		# 移动取消，回滚：移除刚获取的目标地块技能（旧地块技能本就未移除，无需恢复）；
+		# 任务行动技能在挂载时已被卸载，需卸载目标地块的并按旧地块重挂，
+		# 使回滚后玩家持有的技能与留在旧地块的状态一致
 		if target != null and target.has_method("_clear_skills_for_player"):
 			target._clear_skills_for_player(self)
+		if Game != null and is_instance_valid(Game) and Game.mission_config != null:
+			Game.mission_config.unmount_action_skills(self)
+			if source != null and is_instance_valid(source):
+				Game.mission_config.mount_action_skills(self, source)
 		return false
 	# 6. 移动时（坐标变更）
 	current_block = target
@@ -484,9 +492,13 @@ func pull_toward_one_block_no_effect(source: Variant) -> void:
 			best_dist = d
 	if best == null or best == from_block:
 		return
-	# 维护地块技能挂载（移除旧地块技能、获取新地块技能，不触发任何事件）
+	# 维护地块技能挂载（移除旧地块技能、获取新地块技能，不触发任何事件）；
+	# 并列维护任务行动技能挂载（卸载旧地块的、挂载新地块的）
 	from_block._clear_skills_for_player(self)
 	best._acquire_skills_for_player(self)
+	if Game != null and is_instance_valid(Game) and Game.mission_config != null:
+		Game.mission_config.unmount_action_skills(self)
+		Game.mission_config.mount_action_skills(self, best)
 	# 坐标变更（与 move_to 的第 6 步保持一致的状态记录）
 	current_block = best
 	add_mark("moved_this_turn", 1, "", "", false)

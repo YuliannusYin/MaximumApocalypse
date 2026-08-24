@@ -19,8 +19,12 @@ extends MissionComponent
 ## 任务配置引用。setup 时注入，用于读写 mission_state。
 var _mission_config: MissionConfig = null
 
+## 游戏实例引用。setup 时注入，供行动技能执行体调用 _do_defuse。
+var _game: Game = null
+
 
 func setup(game: Game, mission_config: MissionConfig) -> void:
+	_game = game
 	_mission_config = mission_config
 	if not params.has("block_name"):
 		params["block_name"] = "电厂"
@@ -57,6 +61,30 @@ func get_action_options(game: Game, player: Player) -> Array:
 		"label": "消耗 %d 行动解除炸弹" % cost,
 		"execute": _do_defuse.bind(game, player),
 	}]
+
+
+## 行动技能声明：进入炸弹地块时挂载为主动技能（active="action"），
+## filter 实时检查情报卡持有、行动数与解除状态（与 get_action_options 条件一致，不含地块匹配项）。
+func get_action_skill_decl() -> Variant:
+	var decl: Dictionary = {}
+	decl["skill_name"] = "解除炸弹"
+	decl["block_match"] = func(block: MapBlock) -> bool:
+		return block != null and is_instance_valid(block) and block.block_name == params.get("block_name", "电厂")
+	decl["filter"] = func(player: Player) -> bool:
+		if player == null or not is_instance_valid(player):
+			return false
+		if _mission_config == null:
+			return false
+		if _mission_config.mission_state.get("bomb_defused", false) == true:
+			return false
+		if not player.has_item(params.get("card_name", "满是灰尘的日记本")):
+			return false
+		return player.action_count >= int(params.get("cost", 2))
+	decl["execute"] = func(player: Player) -> void:
+		await _do_defuse(_game, player)
+	decl["confirm"] = func(player: Player) -> String:
+		return "确定消耗 %d 行动解除炸弹？" % int(params.get("cost", 2))
+	return decl
 
 
 ## 解除执行：扣减行动并置 bomb_defused 与倒计时激活标记。

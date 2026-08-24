@@ -363,6 +363,10 @@ func destroy_map_block(block: MapBlock, source: Variant) -> bool:
 			player.current_block = target
 			if target.has_method("_acquire_skills_for_player"):
 				target._acquire_skills_for_player(player)
+			# 并列维护任务行动技能挂载（卸载被摧毁地块的、挂载迁移目标地块的）
+			if mission_config != null:
+				mission_config.unmount_action_skills(player)
+				mission_config.mount_action_skills(player, target)
 			if not target.is_revealed():
 				await target.reveal(true, player)
 	# 3. 消灭地块上的所有怪物标记
@@ -579,6 +583,13 @@ func initialize_game(mission: MissionData, variants: Dictionary, seats: Array) -
 
 	# 7. 初始化任务组件（玩家/地图/牌堆全部就绪后；setup_equip_card 等组件依赖运行时数据）
 	mission_config.setup_components(self)
+
+	# 7.5 出生点技能挂载：地块技能 + 任务行动技能（修复既有缺口：出生点地块技能此前从未挂载；
+	# 置于 setup_components 之后，保证行动组件 params 默认值与 mission_state 初始化完成后再挂载）
+	if spawn_block != null and is_instance_valid(spawn_block):
+		for player in players:
+			spawn_block._acquire_skills_for_player(player)
+			mission_config.mount_action_skills(player, spawn_block)
 
 	# 8. 初始化状态机
 	if state_machine != null and is_instance_valid(state_machine):

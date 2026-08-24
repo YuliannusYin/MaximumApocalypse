@@ -35,3 +35,14 @@ func on_event(game: Game, event_name: String, event: Dictionary) -> void:
 ## 行动选项查询。行动选项组件在此返回可选行动，默认返回空数组。
 func get_action_options(game: Game, player: Player) -> Array:
 	return []
+
+
+## 行动组件技能声明（action 类组件实现；其他类别返回 null）。
+## 返回 Dictionary 或 null，键：
+## - skill_name: String——技能栏按钮名（与设计文档技能名一致）
+## - block_match: Callable(block: MapBlock) -> bool——地块匹配（进入匹配地块时挂载）
+## - filter: Callable(player: Player) -> bool——可用性（false 时技能栏灰化；不含地块匹配）
+## - execute: Callable(player: Player)——执行体（协程可，内部含行动扣减与效果）
+## - confirm: Callable(player: Player) -> String——确认门文案
+func get_action_skill_decl() -> Variant:
+	return null

@@ -18,8 +18,12 @@ extends MissionComponent
 ## 任务配置引用。setup 时注入，用于读写 mission_state。
 var _mission_config: MissionConfig = null
 
+## 游戏实例引用。setup 时注入，供行动技能执行体调用 _do_repair。
+var _game: Game = null
+
 
 func setup(game: Game, mission_config: MissionConfig) -> void:
+	_game = game
 	_mission_config = mission_config
 	if not params.has("block_name"):
 		params["block_name"] = "面包车"
@@ -55,6 +59,30 @@ func get_action_options(game: Game, player: Player) -> Array:
 		"label": "消耗 1 行动维修面包车（弃置 1 张%s）" % params.get("card_name", "多余配件"),
 		"execute": _do_repair.bind(game, player),
 	}]
+
+
+## 行动技能声明：进入面包车地块时挂载为主动技能（active="action"），
+## filter 实时检查配件持有与维修进度（与 get_action_options 条件一致，不含地块匹配项）。
+func get_action_skill_decl() -> Variant:
+	var decl: Dictionary = {}
+	decl["skill_name"] = "维修面包车"
+	decl["block_match"] = func(block: MapBlock) -> bool:
+		return block != null and is_instance_valid(block) and block.block_name == params.get("block_name", "面包车")
+	decl["filter"] = func(player: Player) -> bool:
+		if player == null or not is_instance_valid(player):
+			return false
+		if _mission_config == null:
+			return false
+		if _mission_config.mission_state.get("van_repaired", false) == true:
+			return false
+		if not player.has_item(params.get("card_name", "多余配件")):
+			return false
+		return player.action_count >= 1
+	decl["execute"] = func(player: Player) -> void:
+		await _do_repair(_game, player)
+	decl["confirm"] = func(player: Player) -> String:
+		return "确定消耗 1 行动维修面包车（弃置 1 张%s）？" % params.get("card_name", "多余配件")
+	return decl
 
 
 ## 维修执行（协程）：扣减 1 行动、弃置 1 张配件并累计维修进度。

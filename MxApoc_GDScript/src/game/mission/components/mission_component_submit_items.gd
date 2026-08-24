@@ -17,8 +17,12 @@ extends MissionComponent
 ## 任务配置引用。setup 时注入，用于读写 mission_state。
 var _mission_config: MissionConfig = null
 
+## 游戏实例引用。setup 时注入，供行动技能执行体调用 _do_submit。
+var _game: Game = null
+
 
 func setup(game: Game, mission_config: MissionConfig) -> void:
+	_game = game
 	_mission_config = mission_config
 
 
@@ -44,6 +48,34 @@ func get_action_options(game: Game, player: Player) -> Array:
 				"execute": _do_submit.bind(game, player),
 			}]
 	return []
+
+
+## 行动技能声明：进入提交地点时挂载为主动技能（active="action"），
+## filter 实时检查行动数与可提交物资（与 get_action_options 条件一致，不含地块匹配项）。
+func get_action_skill_decl() -> Variant:
+	var decl: Dictionary = {}
+	decl["skill_name"] = "提交物资"
+	decl["block_match"] = func(block: MapBlock) -> bool:
+		return block != null and is_instance_valid(block) and block.block_name == params.get("block_name", "")
+	decl["filter"] = func(player: Player) -> bool:
+		if player == null or not is_instance_valid(player):
+			return false
+		if _mission_config == null:
+			return false
+		if player.action_count < 1:
+			return false
+		var items: Dictionary = params.get("items", {})
+		if items.is_empty():
+			return false
+		for card_name in items:
+			if not _collect_cards(player, card_name).is_empty():
+				return true
+		return false
+	decl["execute"] = func(player: Player) -> void:
+		await _do_submit(_game, player)
+	decl["confirm"] = func(player: Player) -> String:
+		return "确定消耗 1 行动提交物资？"
+	return decl
 
 
 ## 收集玩家手牌与装备区中指定卡名的全部卡。

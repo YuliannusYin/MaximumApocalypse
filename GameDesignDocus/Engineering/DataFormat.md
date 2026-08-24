@@ -287,8 +287,10 @@
 >
 > **内置组件 id**（共 22 个，按声明位置分三类）：
 > - **判定类**（实现 `check_win` / `check_lose`，声明于 `win_conditions` / `lose_conditions`）：`collect_items`（收集指定物品，params：`items`、`mode` hold/submit）/ `all_players_at_block`（全员抵达指定地块，params：`block_name`、`no_monster`）/ `escort_equipment_at_block`（护送指定卡牌抵达地块，直接查持有者，params：`card_name`、`block_name`）/ `kill_monsters`（击杀各怪物计数达标，params：`counts`；**需 `triggers`+`win_conditions` 双声明共享 `kill_counts` 计数**）/ `all_blocks_revealed`（全部地块已翻开）/ `objective_marks_cleared`（场上目标标记清至指定数，params：`count`，0=全清）/ `state_flag`（指定 mission_state 键为真即满足，params：`key`）/ `action_win_only`（行动直胜占位，`check_win` 恒 false，防止 win_conditions 为空时的空真误判）
-> - **行动类**（实现 `get_action_options`，声明于 `actions`）：`spend_action_rescue`（花费行动解救目标卡并装备，params：`block_name`、`cost`、`card_name`）/ `destroy_current_mark`（花费行动摧毁当前地块目标标记，params：`cost`、`require_no_monster`）/ `submit_items`（在指定地块提交物品，params：`block_name`、`items`）/ `repair_van`（花费行动维修面包车累计次数，params：`block_name`、`card_name`、`times`）/ `defuse_bomb`（花费行动拆炸弹并可启动倒计时，params：`block_name`、`cost`、`card_name`、`countdown`）/ `upload_virus`（持指定装备在上传点花费行动直胜，params：`block_name`、`equipment`）/ `rescue_judge_win`（花费行动解救并潜行检定决胜，params：`card_name`）
+> - **行动类**（实现 `get_action_options` 与 `get_action_skill_decl`，声明于 `actions`）：`spend_action_rescue`（花费行动解救目标卡并装备，params：`block_name`、`cost`、`card_name`、`skill_name` 可覆盖默认技能名）/ `destroy_current_mark`（花费行动摧毁当前地块目标标记，params：`cost`、`require_no_monster`）/ `submit_items`（在指定地块提交物品，params：`block_name`、`items`）/ `repair_van`（花费行动维修面包车累计次数，params：`block_name`、`card_name`、`times`）/ `defuse_bomb`（花费行动拆炸弹并可启动倒计时，params：`block_name`、`cost`、`card_name`、`countdown`）/ `upload_virus`（持指定装备在上传点花费行动直胜，params：`block_name`、`equipment`）/ `rescue_judge_win`（花费行动解救并潜行检定决胜，params：`card_name`）
 > - **触发类**（实现 `on_event`，声明于 `triggers`）：`turn_countdown`（轮数倒计时，归零判负，params：`rounds`、`expire_kill_outside`、`auto_activate`）/ `mark_enter_reward`（首次进入指定目标标记地块发放奖励，params：`rewards`，按 `mark_id` 配 `cards` / `draw_boss`）/ `first_enter_draw_boss`（全队首次抵达指定地块抽首领卡，params：`block_name`）/ `reveal_mark_draw_boss`（展示带目标标记的地块时展示者抽首领卡，每地块仅一次）/ `card_discard_watch`（监视卡被弃置时销毁或判负，params：`card_name`、`on_discard` destroy/lose；**lose 模式需 `triggers`+`lose_conditions` 双声明共享 `card_discard_failed` 标记**）/ `setup_equip_card`（开局给玩家装备指定卡，params：`card_name`）/ `spawn_dice_effect`（怪物出生检定投出指定点数时执行外围地块效果，params：`value`、`block_name`）
+>
+> **行动组件技能化**：行动组件同时以 Skill 形式挂载技能栏——玩家进入匹配地块时，`MissionConfig.mount_action_skills(player, block)` 遍历行动组件的 `get_action_skill_decl()` 技能声明，`block_match` 匹配的组件构建为主动 Skill（`active="action"`、`skill_type="任务"`，技能栏金色按钮区分）挂到 `player.skills`；离开地块时 `unmount_action_skills(player)` 卸载（按 `english_name` 前缀 `mission_action_<组件索引>` 识别）。复用地块技能管线：filter 不满足时按钮灰化、confirm_prompt 确认门、use_active_skill 执行；技能栏为任务行动的唯一 UI 入口。地块匹配规则（`block_match`）：静态组件按 `params.block_name` 匹配地块名；动态组件（`destroy_current_mark` / `rescue_judge_win`）按地块存在未移除任务标记匹配。技能名默认表：`spend_action_rescue`→解救科学家（可用 `params.skill_name` 覆盖）、`destroy_current_mark`→摧毁目标、`submit_items`→提交物资、`repair_van`→维修面包车、`defuse_bomb`→解除炸弹、`upload_virus`→上传病毒、`rescue_judge_win`→解救科学家。
 >
 > **内置脚本 id**：当前无内置脚本（`MissionScriptRegistry` 内置注册为空；脚本通道保留给组件无法表达的极特殊任务逻辑）。
 >
@@ -394,7 +396,7 @@
 | `skill_name` | String | 技能中文名 |
 | `english_name` | String | 技能英文名（代码标识符） |
 | `skill_description` | String | 自然语言描述 |
-| `skill_type` | String | 技能类型枚举：`equipment` / `action` / `monster` / `block` / `common` |
+| `skill_type` | String | 技能类型枚举：`equipment` / `action` / `monster` / `block` / `common` / `任务`（任务行动技能，运行时由行动组件构建，非 JSON 声明） |
 | `active` | String | 可用阶段（主动技能） |
 | `trigger` | String | 触发时机（被动技能）；**可用中文顿号分隔多个触发**，如 `"on_reveal_block、on_enter_block"` |
 | `forced` | Bool | 是否强制发动 |

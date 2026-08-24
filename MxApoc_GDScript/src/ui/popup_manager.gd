@@ -29,10 +29,6 @@ var _popup_item_views: Array = []
 
 var _popup_layer: CanvasLayer
 
-## 玩家输入引用（由 GameScene2D 在接线阶段赋值）。
-## 任务详情弹窗的任务行动按钮通过它注入 mission_action 行动。
-var gui_input_ref: Variant = null
-
 
 func setup(popup_layer: CanvasLayer) -> void:
 	_popup_layer = popup_layer
@@ -1023,26 +1019,6 @@ func show_mission_detail_popup() -> void:
 		color_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		color_text.custom_minimum_size = Vector2(660, 0)
 		content.add_child(color_text)
-
-	# 任务行动选项（三层架构：actions 组件/任务脚本注入）
-	var current: Variant = Game.get_current_player()
-	if current != null and is_instance_valid(current) and current.get("in_phase") == "action" and Game.mission_config != null:
-		var options: Array = Game.mission_config.get_action_options(Game, current)
-		if not options.is_empty():
-			var act_label := Label.new()
-			act_label.text = "任务行动："
-			act_label.add_theme_font_size_override("font_size", 13)
-			content.add_child(act_label)
-			for opt in options:
-				var btn := Button.new()
-				btn.text = str(opt.get("label", ""))
-				btn.custom_minimum_size = Vector2(660, 30)
-				var option_id: String = str(opt.get("id", ""))
-				btn.pressed.connect(func() -> void:
-					_close_popup()
-					if gui_input_ref != null:
-						gui_input_ref.respond_action({"type": "mission_action", "option_id": option_id}))
-				content.add_child(btn)
 
 	var ok_btn := Button.new()
 	ok_btn.text = "关闭"
