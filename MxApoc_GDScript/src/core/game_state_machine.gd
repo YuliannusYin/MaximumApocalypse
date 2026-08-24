@@ -90,7 +90,7 @@ func start_game() -> void:
 		for player in Game.players:
 			if player == null or not is_instance_valid(player):
 				continue
-			player.draw_monster(1)
+			await player.draw_monster(1)
 	# 4. 第零轮：重调阶段
 	await _round_zero()
 	# 5. 进入第一玩家回合

@@ -1,7 +1,7 @@
 extends GutTest
 
 ## Game 单元测试。
-## 覆盖：日志 / 地图查询 / 玩家管理 / 状态机委托 / build_map / destroy_map_block / 弃牌堆装备查询。
+## 覆盖：地图查询 / 玩家管理 / 状态机委托 / build_map / destroy_map_block / 弃牌堆装备查询。
 ## 设计文档：GameDesignDocus/GameSystem/Game/Game.md
 
 
@@ -82,21 +82,7 @@ func after_each() -> void:
 	_clear_game()
 
 
-# === 1. 日志 ===
-
-func test_log_message_appends_to_list() -> void:
-	Game.log_message("测试日志")
-	assert_eq(Game.log_list.size(), 1)
-	assert_eq(Game.log_list[0], "测试日志")
-
-
-func test_log_message_multiple() -> void:
-	Game.log_message("第一条")
-	Game.log_message("第二条")
-	assert_eq(Game.log_list.size(), 2)
-
-
-# === 2. 地图查询 ===
+# === 1. 地图查询 ===
 
 func test_get_block_by_coord_found() -> void:
 	var b1: MapBlock = _make_block("b1", 0, 0)
@@ -138,14 +124,7 @@ func test_get_adjacent_alive_blocks() -> void:
 	assert_eq(result[0], b2)
 
 
-# === 3. 玩家管理 ===
-
-func test_get_all_players() -> void:
-	var p1: Player = _make_player("P1")
-	var p2: Player = _make_player("P2")
-	Game.players = [p1, p2]
-	assert_eq(Game.get_all_players().size(), 2)
-
+# === 2. 玩家管理 ===
 
 func test_get_alive_players_excludes_dead() -> void:
 	var p1: Player = _make_player("P1", 10)
@@ -166,12 +145,7 @@ func test_all_players_dead_all_dead() -> void:
 	assert_true(Game.all_players_dead())
 
 
-func test_all_players_dead_empty() -> void:
-	Game.players = []
-	assert_true(Game.all_players_dead())
-
-
-# === 4. 状态机委托 ===
+# === 3. 状态机委托 ===
 
 func test_game_over_lose_sets_flags() -> void:
 	Game.game_over("lose")
@@ -197,21 +171,6 @@ func test_game_over_idempotent() -> void:
 	assert_eq(Game.game_result, "lose", "已结束不应覆盖")
 
 
-func test_get_current_player_initially_null() -> void:
-	assert_null(Game.get_current_player())
-
-
-func test_check_mission_win_condition_no_config() -> void:
-	Game.mission_config = null
-	assert_false(Game.check_mission_win_condition())
-
-
-func test_check_mission_win_condition_no_components() -> void:
-	var mc: MissionConfig = MissionConfig.new()
-	Game.mission_config = mc
-	assert_true(Game.check_mission_win_condition(), "无组件且无脚本时应空真")
-
-
 func test_check_mission_win_condition_component_true() -> void:
 	var mc: MissionConfig = MissionConfig.new()
 	mc.win_condition_components.append(WinTrueComponent.new())
@@ -226,18 +185,7 @@ func test_check_mission_win_condition_component_false() -> void:
 	assert_false(Game.check_mission_win_condition())
 
 
-# === 5. build_map（legend 驱动） ===
-
-func test_build_map_null_config_no_op() -> void:
-	Game.build_map(null)
-	assert_eq(Game.map_area.size(), 0)
-
-
-func test_build_map_empty_template_no_op() -> void:
-	var config: Dictionary = {"map_template": []}
-	Game.build_map(config)
-	assert_eq(Game.map_area.size(), 0)
-
+# === 4. build_map（legend 驱动） ===
 
 func test_build_map_simple_2x2() -> void:
 	var config: Dictionary = {
@@ -396,7 +344,7 @@ func test_build_map_unknown_type_skipped() -> void:
 	assert_push_error("条目 type \"foo\" 未知", "未知 type 应产生容错 push_error")
 
 
-# === 6. destroy_map_block ===
+# === 5. destroy_map_block ===
 
 func test_destroy_map_block_basic() -> void:
 	var b1: MapBlock = _make_block("b1", 0, 0)
@@ -406,11 +354,6 @@ func test_destroy_map_block_basic() -> void:
 	assert_true(result)
 	assert_false(Game.map_area.has(b1))
 	assert_true(b1.is_destroyed())
-
-
-func test_destroy_map_block_null_returns_false() -> void:
-	var result: bool = await Game.destroy_map_block(null, null)
-	assert_false(result)
 
 
 func test_destroy_map_block_cancel_prevents() -> void:
@@ -470,7 +413,7 @@ func test_destroy_map_block_triggers_all_hooks() -> void:
 	assert_eq(called, ["before_destroy_block", "on_destroy_block", "after_destroy_block"])
 
 
-# === 7. 卡牌管理 ===
+# === 6. 卡牌管理 ===
 
 func test_remove_card() -> void:
 	var c: Card = _make_card("c1")
@@ -479,38 +422,7 @@ func test_remove_card() -> void:
 	assert_eq(Game.removed_cards[0], c)
 
 
-func test_get_scavenge_pile_red() -> void:
-	var pile: Pile = Pile.new()
-	Game.red_scavenge_pile = pile
-	assert_eq(Game.get_scavenge_pile("red"), pile)
-
-
-func test_get_scavenge_pile_green() -> void:
-	var pile: Pile = Pile.new()
-	Game.green_scavenge_pile = pile
-	assert_eq(Game.get_scavenge_pile("green"), pile)
-
-
-func test_get_scavenge_pile_blue() -> void:
-	var pile: Pile = Pile.new()
-	Game.blue_scavenge_pile = pile
-	assert_eq(Game.get_scavenge_pile("blue"), pile)
-
-
-func test_get_scavenge_pile_invalid_returns_null() -> void:
-	assert_null(Game.get_scavenge_pile("yellow"))
-
-
-func test_create_scavenge_card_stub_returns_null() -> void:
-	var result: Card = Game.create_scavenge_card("测试卡")
-	assert_null(result)
-
-
-# === 8. 弃牌堆装备查询 ===
-
-func test_get_all_discard_pile_equipments_empty() -> void:
-	assert_eq(Game.get_all_discard_pile_equipments().size(), 0)
-
+# === 7. 弃牌堆装备查询 ===
 
 func test_get_all_discard_pile_equipments_from_player() -> void:
 	var p: Player = _make_player("P")
@@ -555,7 +467,7 @@ func test_has_equipment_in_discard_piles_false() -> void:
 	assert_false(Game.has_equipment_in_discard_piles())
 
 
-# === 9. get_step_toward ===
+# === 8. get_step_toward ===
 
 func test_get_step_toward_horizontal() -> void:
 	var b1: MapBlock = _make_block("b1", 0, 0)

@@ -231,44 +231,7 @@
           "content": "var blocks = player.get_current_block().get_blocks_in_range(\"long\")\nvar candidates = []\nfor b in blocks:\n\tif not b.is_revealed():\n\t\tcandidates.append(b)\nif candidates.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar chosen = await player.choose_block_inline(candidates, \"\\\"双筒望远镜\\\": 选择目标地图块\", 1)\nif chosen.is_empty():\n\tEventSystem.cancel(event)\n\treturn\ntarget = chosen[0]\nplayer.consume_action(1)\ntarget.reveal(false, player)"
         }
       ]
-    },
-    {
-      "card_name": "炸药",
-      "english_name": "dynamite",
-      "card_type": "action",
-      "range": "long",
-      "skills": [
-        {
-          "skill_name": "炸药",
-          "english_name": "dynamite",
-          "skill_description": "行动：移除一个没有怪物标记的地块上的所有目标标记，并对地块上的所有目标造成8点伤害。",
-          "range": "long",
-          "skill_type": "action",
-          "active": "action",
-          "defer_action_cost": true,
-          "filter": "return player.in_phase == \"action\"",
-          "content": "var blocks = player.get_current_block().get_blocks_in_range(\"long\")\nvar candidates = []\nfor b in blocks:\n\tif not b.has_monster_mark():\n\t\tcandidates.append(b)\nif candidates.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar chosen = await player.choose_block_inline(candidates, \"\\\"炸药\\\": 选择目标地图块\", 1)\nif chosen.is_empty():\n\tEventSystem.cancel(event)\n\treturn\ntarget = chosen[0]\nplayer.consume_action(1)\ntarget.remove_all_objective_marks()\nvar list = game.get_target(target)\nfor i in list:\n\ti.damage(8, player)"
-        }
-      ]
-    },
-    {
-      "card_name": "大炸药",
-      "english_name": "mega_dynamite",
-      "card_type": "action",
-      "range": "medium",
-      "skills": [
-        {
-          "skill_name": "大炸药",
-          "english_name": "mega_dynamite",
-          "skill_description": "行动：摧毁一个地图板块。",
-          "range": "medium",
-          "skill_type": "action",
-          "active": "action",
-          "defer_action_cost": true,
-          "filter": "return player.in_phase == \"action\"",
-          "content": "var blocks = player.get_current_block().get_blocks_in_range(\"medium\")\nvar candidates = []\nfor b in blocks:\n\tif b.is_revealed() and b.is_alive():\n\t\tcandidates.append(b)\nif candidates.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar chosen = await player.choose_block_inline(candidates, \"\\\"大炸药\\\": 选择目标地图块\", 1)\nif chosen.is_empty():\n\tEventSystem.cancel(event)\n\treturn\ntarget = chosen[0]\nplayer.consume_action(1)\nawait game.destroy_map_block(target, player)"
-        }
-      ]
     }
+    
   ]
 }
