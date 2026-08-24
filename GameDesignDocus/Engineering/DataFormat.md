@@ -247,6 +247,7 @@
 | `lose_conditions` | Array&lt;Object&gt; | 否 | 失败条件组件声明列表，结构同 `win_conditions` |
 | `triggers` | Array&lt;Object&gt; | 否 | 触发器组件声明列表，结构同 `win_conditions` |
 | `actions` | Array&lt;Object&gt; | 否 | 行动选项组件声明列表，结构同 `win_conditions` |
+| `progress_conditions` | Array&lt;Object&gt; | 否 | 任务进度面板条件行声明，每项 `{ "text": <显示文案>, "type": <进度类型>, "params": {...} }`；面板按序号自动编号，完成加 `✔`，计数型显示 `(x/n)`；缺省为空（类型表见下） |
 | `mission_script` | String | 否 | 专用任务脚本 id（空字符串表示无脚本） |
 
 **`map_legend` 值类型：**
@@ -292,6 +293,23 @@
 > **内置脚本 id**：当前无内置脚本（`MissionScriptRegistry` 内置注册为空；脚本通道保留给组件无法表达的极特殊任务逻辑）。
 >
 > 各组件 `params` 键名见组件类头注释；运行时写入的 `mission_state` 键名详见 `IdentifierMapping.md` §八。
+
+**`progress_conditions[]` 进度类型（共 10 个 `type`）：**
+
+`progress_conditions` 由任务进度面板读取显示。面板 `MissionProgressPanel`（`src/ui/mission_progress_panel.gd`）为常驻 UI 层右侧的固定尺寸滚动面板（200×150 @(1210,300)），每帧重算条件并做文本变更检测后刷新；条件行按序号自动编号，完成加 `✔` 前缀，计数型追加 `(x/n)` 后缀；未知 `type` 时 `push_error` 并跳过该行（不显示、不占序号）。面板判定语义与任务组件对齐：`all_at_block` ↔ `all_players_at_block` 组件、`escort_at_block` ↔ `escort_equipment_at_block` 组件、`hold_items` 变体族匹配 ↔ `collect_items` 组件、`van_boarding` ↔ 引擎面包车判定（`GameStateMachine.check_win_condition` 面包车段）。
+
+| type | params | 显示形式 | 数据来源 |
+| --- | --- | --- | --- |
+| `van_fuel` | — | (x/n) | 面包车地块当前燃料 / `van_fuel_required`；无面包车地块或需求 ≤ 0 时容错为未完成（无后缀） |
+| `van_boarding` | — | ✔ | 全部存活玩家在面包车地块（首块）且该地块无怪（无怪物标记、同地块玩家怪物卡之和为 0） |
+| `state_flag` | `key` | ✔ | `mission_state[key]` 为真 |
+| `state_count` | `key`、`name`（可选）、`target` | (x/n) | `name` 为空读 `mission_state[key]`，非空读 `mission_state[key][name]`；显示值钳制到 `target` |
+| `hold_items` | `card_name`、`count` | (x/n) | 存活玩家手牌 + 装备区中该牌计数（变体族匹配：精确匹配或 `名（` 前缀，如"医疗用品"匹配"医疗用品（便携）"） |
+| `submitted_count` | `card_name`、`count` | (x/n) | `mission_state.submitted_items[card_name]` |
+| `all_at_block` | `block_name`、`no_monster`（可选） | ✔ | 全部存活玩家 `current_block` 地块名匹配；`no_monster` 时还需所在地块无怪；无存活玩家视为未完成 |
+| `escort_at_block` | `card_name`、`block_name`、`no_monster`（可选） | ✔ | 存在存活玩家装备该卡（`has_equipment`）且 `current_block` 地块名匹配；`no_monster` 时还需该地块无怪 |
+| `marks_cleared` | `count` | (x/n) | 已移除标记数 = `initial_objective_mark_count` − 存活地块剩余 `objective_marks` 之和（负数钳 0） |
+| `all_revealed` | — | (x/n) | 存活地块已揭示数 / 存活地块总数；无存活地块时容错为未完成（无后缀） |
 
 ### 3.5 map_blocks/map_blocks.json
 

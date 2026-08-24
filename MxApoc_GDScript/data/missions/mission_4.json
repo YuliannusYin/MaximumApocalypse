@@ -77,5 +77,11 @@
   "win_conditions": [
     { "component": "collect_items", "params": { "items": { "燃料": 3, "脏毯子": 2, "老报纸": 2 } } },
     { "component": "all_players_at_block", "params": { "block_name": "避难所", "no_monster": true } }
+  ],
+  "progress_conditions": [
+    { "text": "收集燃料", "type": "hold_items", "params": { "card_name": "燃料", "count": 3 } },
+    { "text": "收集脏毯子", "type": "hold_items", "params": { "card_name": "脏毯子", "count": 2 } },
+    { "text": "收集老报纸", "type": "hold_items", "params": { "card_name": "老报纸", "count": 2 } },
+    { "text": "回合结束时，所有存活玩家都在\"避难所\"且\"避难所\"上没有任何怪物，就获得胜利", "type": "all_at_block", "params": { "block_name": "避难所", "no_monster": true } }
   ]
 }

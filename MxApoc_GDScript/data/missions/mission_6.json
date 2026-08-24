@@ -84,5 +84,10 @@
   ],
   "triggers": [
     { "component": "spawn_dice_effect", "params": { "value": 7 } }
+  ],
+  "progress_conditions": [
+    { "text": "使用3次\"维修面包车\"", "type": "state_count", "params": { "key": "van_repair_count", "target": 3 } },
+    { "text": "给\"面包车\"添加\"燃料\"", "type": "van_fuel" },
+    { "text": "回合结束时，所有存活玩家在地图块\"面包车\"上，且\"面包车\"上没有任何怪物，就获得胜利", "type": "van_boarding" }
   ]
 }

@@ -107,5 +107,8 @@
   "triggers": [
     { "component": "setup_equip_card", "params": { "card_name": "科学家" } },
     { "component": "card_discard_watch", "params": { "card_name": "科学家", "on_discard": "lose" } }
+  ],
+  "progress_conditions": [
+    { "text": "移除场上的\"任务标记\"", "type": "marks_cleared", "params": { "count": 2 } }
   ]
 }
