@@ -14,8 +14,12 @@ extends MissionComponent
 ## 任务配置引用。setup 时注入，用于读写 mission_state。
 var _mission_config: MissionConfig = null
 
+## 游戏实例引用。setup 时注入，供行动技能执行体调用 _do_rescue。
+var _game: Game = null
+
 
 func setup(game: Game, mission_config: MissionConfig) -> void:
+	_game = game
 	_mission_config = mission_config
 	if not params.has("card_name"):
 		params["card_name"] = "满是灰尘的日记本"
@@ -43,6 +47,32 @@ func get_action_options(game: Game, player: Player) -> Array:
 		"label": "消耗 1 行动解救科学家",
 		"execute": _do_rescue.bind(game, player),
 	}]
+
+
+## 行动技能声明：进入带任务标记的地块时挂载（block_match 动态匹配 has_objective_mark），
+## filter 实时复查检定状态、地块标记与行动数（与 get_action_options 条件一致，不含地块匹配项）。
+func get_action_skill_decl() -> Variant:
+	var decl: Dictionary = {}
+	decl["skill_name"] = "解救科学家"
+	decl["block_match"] = func(block: MapBlock) -> bool:
+		return block != null and is_instance_valid(block) and block.has_objective_mark()
+	decl["filter"] = func(player: Player) -> bool:
+		if player == null or not is_instance_valid(player):
+			return false
+		if _mission_config == null:
+			return false
+		if _mission_config.mission_state.get("rescue_judge_done", false) == true:
+			return false
+		if player.current_block == null or not is_instance_valid(player.current_block):
+			return false
+		if not player.current_block.has_objective_mark():
+			return false
+		return player.action_count >= 1
+	decl["execute"] = func(player: Player) -> void:
+		await _do_rescue(_game, player)
+	decl["confirm"] = func(player: Player) -> String:
+		return "确定消耗 1 行动解救科学家？"
+	return decl
 
 
 ## 解救执行（协程）：扣减 1 行动、执行潜行检定并按结果判定胜负。

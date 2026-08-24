@@ -7,7 +7,7 @@
   "van_fuel_required": null,
   "intro_text": "我们的科学家认为他能研制出治疗僵尸病毒的解药，但他需要一些医疗用品和解毒剂作为原料，并且必须到医院使用那里的设备才能完成研制。保护好他，让他顺利完成任务。",
   "objective_text": "收集物资：收集医疗用品(0/2)、收集解毒剂(0/3)；回合结束时，携带“科学家”的玩家在“医院”且没有死亡，获得游戏胜利。",
-  "special_setup": "将怪物牌堆中的首领级怪物牌随机分布到怪物牌堆中的下半部分。\n游戏开始时，将“科学家”装备进座位1上的玩家的“装备区”。\n当“科学家”被弃置时，任务失败。",
+  "special_setup": "将怪物牌堆中的首领级怪物牌随机分布到怪物牌堆中的下半部分。\n游戏开始时，将“科学家”装备进座位1上的玩家的“装备区”。\n当“科学家”被弃置时，任务失败。\n地图块“医院”添加主动技能“提交物资”：消耗 1 点行动，将手牌区中的“医疗用品”、“解毒剂”提交任务。",
   "monster_pack_type": "zombie",
   "map_blocks_config": {
     "面包车": 1,
@@ -76,8 +76,11 @@
     ]
   },
   "win_conditions": [
-    { "component": "collect_items", "params": { "items": { "医疗用品": 2, "解毒剂": 3 } } },
+    { "component": "collect_items", "params": { "mode": "submit", "items": { "医疗用品": 2, "解毒剂": 3 } } },
     { "component": "escort_equipment_at_block", "params": { "card_name": "科学家", "block_name": "医院" } }
+  ],
+  "actions": [
+    { "component": "submit_items", "params": { "block_name": "医院", "items": { "医疗用品": 2, "解毒剂": 3 } } }
   ],
   "lose_conditions": [
     { "component": "card_discard_watch", "params": { "card_name": "科学家", "on_discard": "lose" } }
@@ -87,8 +90,8 @@
     { "component": "card_discard_watch", "params": { "card_name": "科学家", "on_discard": "lose" } }
   ],
   "progress_conditions": [
-    { "text": "收集医疗用品", "type": "hold_items", "params": { "card_name": "医疗用品", "count": 2 } },
-    { "text": "收集解毒剂", "type": "hold_items", "params": { "card_name": "解毒剂", "count": 3 } },
+    { "text": "提交医疗用品", "type": "submitted_count", "params": { "card_name": "医疗用品", "count": 2 } },
+    { "text": "提交解毒剂", "type": "submitted_count", "params": { "card_name": "解毒剂", "count": 3 } },
     { "text": "回合结束时，携带\"科学家\"的玩家在\"医院\"，且没有死亡，获得游戏胜利", "type": "escort_at_block", "params": { "card_name": "科学家", "block_name": "医院" } }
   ]
 }

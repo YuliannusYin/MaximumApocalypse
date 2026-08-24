@@ -142,8 +142,6 @@ func _start_game_flow() -> void:
 	_gui_input.redraw_decision_requested.connect(_on_redraw_decision_requested)
 	_gui_input.judge_confirm_requested.connect(_on_judge_confirm_requested)
 	_gui_input.dice_animation_requested.connect(_on_dice_animation_requested)
-	# 任务详情弹窗的任务行动按钮通过 gui_input_ref 注入 mission_action 行动
-	_popup_manager.gui_input_ref = _gui_input
 	_popup_manager.option_selected.connect(_gui_input.respond_choose)
 	_popup_manager.confirm_responded.connect(_gui_input.respond_confirm)
 	_popup_manager.cards_selected.connect(_gui_input.respond_choose_card)
@@ -700,6 +698,8 @@ func _on_player_moved(player: Variant, source_block: Variant, target_block: Vari
 	_table_map_controller.refresh_map()
 	_refresh_all_panels()
 	_pile_manager.refresh_pile_highlights()
+	# 移动完成后地块技能/任务行动技能已挂载/卸载，刷新技能栏
+	_active_skill_bar.refresh(Game.get_current_player())
 
 
 func _on_block_revealed(block: Variant, _player: Variant) -> void:

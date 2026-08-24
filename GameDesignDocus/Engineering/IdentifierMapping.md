@@ -122,6 +122,7 @@
 | 怪物技能 | `monster` | 怪物技能 |
 | 地块技能 | `block` | 地图块技能 |
 | 通用技能 | `common` | 通用主动技能 |
+| 任务行动技能 | `任务` | 任务行动组件运行时构建挂载（非 JSON 声明），技能栏金色区分 |
 
 ### 2.5 射程 range
 
@@ -402,6 +403,13 @@ trigger 名在 JSON 数据中用英文 snake_case，技能 `trigger` 字段可�
 | `Pile.is_empty()` / `size()` | 空与大小 |
 | `Pile.get_all()` | 获取所有牌 |
 | `RoleCard.get_sneak()` | 按正反面返回潜行值 |
+
+### 5.8 MissionConfig
+
+| 方法 | 说明 |
+| --- | --- |
+| `mount_action_skills(player, block)` | 挂载任务行动技能：玩家进入地块时按行动组件 `get_action_skill_decl()` 声明构建 Skill（`english_name` 为 `mission_action_<组件索引>`）加入 `player.skills`，与地块技能获取并列 |
+| `unmount_action_skills(player)` | 卸载全部任务行动技能：按 `english_name` 前缀 `mission_action_` 识别并 `remove_skill`，与地块技能清理并列 |
 
 ---
 
