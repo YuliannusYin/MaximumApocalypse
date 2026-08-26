@@ -12,6 +12,9 @@ var monster_name: String = ""
 ## 怪物类型："alien"（外星人）/ "mutant"（突变体）/ "zombie"（僵尸）/ "robot"（机器人）
 var monster_type: String = ""
 
+## 怪物英文名（来自 MonsterCard.english_name）。归档怪物击杀统计的分型键
+var english_name: String = ""
+
 ## 怪物级别："boss"（首领）/ "elite"（精英）/ "normal"（普通）
 var monster_level: String = "normal"
 

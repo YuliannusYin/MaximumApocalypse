@@ -209,16 +209,26 @@ func get_all_missions() -> Array:
 	return result
 
 
-## 获取可用任务（player 模式返回 mission_id 0~3）。
+## 获取可用任务（player 模式按解锁进度过滤：任务 0 恒可用，任务 N 需
+## 任务 N-1 任意人数通关一次后解锁；dev 模式返回全部）。
 func get_available_missions() -> Array:
 	if Settings.dev_mode:
 		return get_all_missions()
 	var result: Array = []
 	for mission in _missions.values():
-		if mission.mission_id <= 12:
+		if _is_mission_unlocked(mission.mission_id):
 			result.append(mission)
 	result.sort_custom(func(a, b): return a.mission_id < b.mission_id)
 	return result
+
+
+## 解锁判定委托 ArchiveManager。本 autoload 注册顺序早于 ArchiveManager，
+## 但本查询仅在运行期（GameRoom 等场景）调用，届时 ArchiveManager 必已就绪；
+## 防御：ArchiveManager 不可用时按空档案处理（仅任务 0 解锁），不崩溃。
+func _is_mission_unlocked(mission_id: int) -> bool:
+	if ArchiveManager == null or not is_instance_valid(ArchiveManager):
+		return mission_id <= 0
+	return ArchiveManager.is_mission_unlocked(mission_id)
 
 
 ## 检查任务是否存在。

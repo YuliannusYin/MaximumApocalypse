@@ -1,0 +1,68 @@
+[
+	{
+		"id": "first_win",
+		"name": "末日幸存者",
+		"description": "首次以胜利结算一局",
+		"condition": {"type": "win_total", "value": 1}
+	},
+	{
+		"id": "wins_10",
+		"name": "老练幸存者",
+		"description": "累计胜利 10 局",
+		"condition": {"type": "win_total", "value": 10}
+	},
+	{
+		"id": "wins_50",
+		"name": "末日传奇",
+		"description": "累计胜利 50 局",
+		"condition": {"type": "win_total", "value": 50}
+	},
+	{
+		"id": "total_kills_100",
+		"name": "百人斩",
+		"description": "累计击杀怪物 100 只",
+		"condition": {"type": "stat_total", "stat": "total_kills", "value": 100}
+	},
+	{
+		"id": "total_kills_500",
+		"name": "怪物克星",
+		"description": "累计击杀怪物 500 只",
+		"condition": {"type": "stat_total", "stat": "total_kills", "value": 500}
+	},
+	{
+		"id": "single_damage_30",
+		"name": "火力全开",
+		"description": "单局造成伤害 ≥ 30",
+		"condition": {"type": "stat_best", "stat": "best_damage", "value": 30}
+	},
+	{
+		"id": "single_damage_60",
+		"name": "毁灭打击",
+		"description": "单局造成伤害 ≥ 60",
+		"condition": {"type": "stat_best", "stat": "best_damage", "value": 60}
+	},
+	{
+		"id": "total_healing_50",
+		"name": "战地医师",
+		"description": "累计治疗量 ≥ 50",
+		"condition": {"type": "stat_total", "stat": "total_healing", "value": 50}
+	},
+	{
+		"id": "first_boss_kill",
+		"name": "巨兽猎人",
+		"description": "首次击杀首领",
+		"condition": {"type": "stat_total", "stat": "boss_kills", "value": 1}
+	},
+	{
+		"id": "all_survivors_win",
+		"name": "全能幸存者",
+		"description": "用全部 6 名求生者各取得一次胜利",
+		"condition": {"type": "survivor_wins_all"}
+	},
+	{
+		"id": "mission_complete_all",
+		"name": "世界旅人",
+		"description": "通关全部任务（任意人数）",
+		"condition": {"type": "missions_complete_all"}
+	}
+]

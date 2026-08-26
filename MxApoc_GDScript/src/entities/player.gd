@@ -1057,8 +1057,12 @@ func start_turn() -> void:
 	# 节点 6：摸牌阶段前
 	in_phase = "draw"
 	await trigger("before_draw_phase", event)
-	# 节点 7：摸牌阶段（牌堆空 → 死亡）
-	draw(1)
+	# 节点 7：摸牌阶段（牌堆空 → 死亡；手牌超限 → 跳过摸牌）
+	if role_card != null and hand.size() >= role_card.hand_size_limit:
+		if Game != null and is_instance_valid(Game):
+			Game.log_message(LogColors.player(player_name) + " 手牌超限跳过摸牌")
+	else:
+		draw(1)
 	if not is_alive():
 		return
 	# 节点 8：行动阶段前（含潜行检定）

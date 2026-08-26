@@ -3,6 +3,8 @@ extends Control
 ## 游戏结算场景。
 ## 场景结构由 GameResult.tscn 提供（固定 1430×780 绝对坐标布局），
 ## 脚本仅在 _ready 中填充动态数据：胜负标题、时长、角色牌、统计表格。
+## 归档接入：结算页就绪时（玩家模式 + 取得有效胜负结果）执行一次归档
+## （ArchiveManager.record_game_result），并展示本局新达成成就。
 
 const _STAT_HEADERS: PackedStringArray = [
 	"造成伤害", "受到伤害", "击杀", "移动", "摸牌", "拾荒",
@@ -28,6 +30,12 @@ const _ROW_HEIGHT: float = 30.0
 
 var _log_panel: Node = null
 
+## 归档防重入标记：同一结算页实例只归档一次（_ready 重复触发或二次调用直接返回）。
+## 重新开局后的结算页是新实例，标记随之重置，不受影响。
+var _archive_recorded: bool = false
+## 本局新达成的成就定义列表（record_game_result 返回，元素含 id/name/description）。
+var _new_achievements: Array = []
+
 
 func _ready() -> void:
 	# 读取本局数据
@@ -44,13 +52,16 @@ func _ready() -> void:
 			all_stats = Game.stats_tracker.get_all_stats()
 			duration_msec = Game.stats_tracker.game_duration_msec
 		players = Game.players
-	_fill_title(result, players)
-	_fill_duration(duration_msec)
-	_fill_role_cards(players)
-	_fill_stats(all_stats, current_player, players)
-	_back_button.pressed.connect(_on_back_pressed)
-	_log_button.pressed.connect(_on_view_log_pressed)
-	_restart_button.pressed.connect(_on_restart_pressed)
+		_fill_title(result, players)
+		_fill_duration(duration_msec)
+		_fill_role_cards(players)
+		_fill_stats(all_stats, current_player, players)
+		_back_button.pressed.connect(_on_back_pressed)
+		_log_button.pressed.connect(_on_view_log_pressed)
+		_restart_button.pressed.connect(_on_restart_pressed)
+	# 结算归档（玩家模式 + 正常结算时执行一次）与本局新成就展示
+	_record_archive(result)
+	_fill_new_achievements()
 
 
 # === 数据填充 ===
@@ -120,6 +131,78 @@ func _fill_stats(all_stats: Dictionary, current_player: Variant, players: Array)
 		_stats_grid.add_child(_make_cell(name_text, _NAME_COL_WIDTH, HORIZONTAL_ALIGNMENT_LEFT, row_sb, 13, text_color))
 		for value in _stats_to_array(all_stats.get(player, null)):
 			_stats_grid.add_child(_make_cell(str(value), _STAT_COL_WIDTH, HORIZONTAL_ALIGNMENT_CENTER, row_sb, 13, text_color))
+
+
+# === 结算归档 ===
+
+## 结算归档：仅玩家模式（Settings.dev_mode == false）且取得有效胜负结果时执行。
+## 将本局统计（Game.stats_tracker 汇总）写入 ArchiveManager 并立即落盘，
+## 取回本局新达成成就列表供 _fill_new_achievements 展示。
+## result 非 WIN/LOSE（未结算/异常直入结算页）时不归档。
+## _archive_recorded 防重入：同一结算页实例只归档一次；重新开局后的结算页
+## 是新实例，标记重置，正常再次归档。
+func _record_archive(result: int) -> void:
+	if _archive_recorded:
+		return
+	_archive_recorded = true
+	if Settings == null or not is_instance_valid(Settings) or Settings.dev_mode:
+		return
+	if ArchiveManager == null or not is_instance_valid(ArchiveManager):
+		return
+	if Game == null or not is_instance_valid(Game) or Game.stats_tracker == null:
+		return
+	var result_str: String = ""
+	if result == GameStateMachine.GameResult.WIN:
+		result_str = "win"
+	elif result == GameStateMachine.GameResult.LOSE:
+		result_str = "lose"
+	else:
+		return
+	var summary: Dictionary = Game.stats_tracker.get_archive_summary(result_str)
+	_new_achievements = ArchiveManager.record_game_result(summary)
+
+
+## 新达成成就区块：在结算页右侧（座位区/统计表右旁的空区）动态构建，
+## 结构为 标题「新达成成就」+ 滚动列表（每条成就：名称 + 描述）。
+## 本局无新成就（开发者模式 / 未归档 / 无新解锁）时不创建该区块（天然隐藏）。
+func _fill_new_achievements() -> void:
+	if _new_achievements.is_empty():
+		return
+	var frame := PanelContainer.new()
+	frame.name = "NewAchievements"
+	frame.position = Vector2(1150.0, 130.0)
+	frame.size = Vector2(270.0, 570.0)
+	frame.add_theme_stylebox_override("panel", _make_stylebox(Color(0.16, 0.13, 0.08)))
+	var outer := VBoxContainer.new()
+	outer.add_theme_constant_override("separation", 8)
+	frame.add_child(outer)
+	var title := Label.new()
+	title.text = "新达成成就"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 18)
+	title.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+	outer.add_child(title)
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	outer.add_child(scroll)
+	var list := VBoxContainer.new()
+	list.size_flags_horizontal = SIZE_EXPAND_FILL
+	list.add_theme_constant_override("separation", 6)
+	scroll.add_child(list)
+	for def in _new_achievements:
+		var ach_name := Label.new()
+		ach_name.text = str(def.get("name", def.get("id", "")))
+		ach_name.add_theme_font_size_override("font_size", 14)
+		ach_name.add_theme_color_override("font_color", Color(1.0, 0.95, 0.6))
+		list.add_child(ach_name)
+		var desc := Label.new()
+		desc.text = str(def.get("description", ""))
+		desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		desc.add_theme_font_size_override("font_size", 12)
+		desc.add_theme_color_override("font_color", Color(0.75, 0.75, 0.75))
+		list.add_child(desc)
+	add_child(frame)
 
 
 # === 辅助函数 ===
