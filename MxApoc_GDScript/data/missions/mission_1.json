@@ -39,25 +39,20 @@
   "objective_marks": [],
   "scavenge_config": {
     "red": [
-      { "card_name": "食物", "count": 2 },
+      { "card_name": "食物", "count": 3 },
       { "card_name": "燃料", "count": 4 },
       { "card_name": "医疗用品", "count": 2 },
       { "card_name": "弹药", "count": 1 },
       { "card_name": "双筒望远镜", "count": 1 },
       { "card_name": "多余配件", "count": 1 },
-      { "card_name": "一无所获", "count": 1 },
-      { "card_name": "伏击！", "count": 1 },
-      { "card_name": "解毒剂", "count": 2 }
+      { "card_name": "伏击！", "count": 1 }
     ],
     "green": [
-      { "card_name": "食物", "count": 6 },
+      { "card_name": "食物", "count": 8 },
       { "card_name": "燃料", "count": 2 },
       { "card_name": "弹药", "count": 1 },
       { "card_name": "手电筒", "count": 1 },
-      { "card_name": "多余配件", "count": 1 },
-      { "card_name": "一无所获", "count": 1 },
-      { "card_name": "伏击！", "count": 1 },
-      { "card_name": "解毒剂", "count": 2 }
+      { "card_name": "多余配件", "count": 1 }
     ],
     "blue": [
       { "card_name": "食物", "count": 2 },
@@ -67,8 +62,7 @@
       { "card_name": "手枪", "count": 1 },
       { "card_name": "对讲机", "count": 1 },
       { "card_name": "多余配件", "count": 1 },
-      { "card_name": "一无所获", "count": 2 },
-      { "card_name": "解毒剂", "count": 1 },
+      { "card_name": "一无所获", "count": 1 },
       { "card_name": "医疗用品", "count": 1 }
     ]
   },

@@ -876,6 +876,7 @@ func _create_monster_card_from_data(card_data: MonsterCardData, monster_type: St
 	card.card_name = card_data.monster_name
 	card.card_type = "monster"
 	card.source = "monster"
+	card.english_name = card_data.english_name
 	card.monster_type = monster_type
 	card.monster_level = card_data.monster_level
 	card.max_hp = card_data.max_hp

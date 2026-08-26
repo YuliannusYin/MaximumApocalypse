@@ -32,50 +32,79 @@ func _ready() -> void:
 	_add_seat_button.pressed.connect(_on_add_seat)
 	_remove_seat_button.pressed.connect(_on_remove_seat)
 
+## 填充任务下拉框：恒显示全部任务；玩家模式下未解锁任务置灰不可选并附解锁提示，
+## “随机任务”选项仅在全部任务通关（或开发者模式）后出现。
 func _populate_missions() -> void:
 	_mission_option.clear()
-	var missions := DataManager.get_available_missions()
-	if missions.size() > 1:
-		_mission_option.add_item("随机任务", 0)
-		_mission_option.set_item_metadata(0, null)
-		for i in range(missions.size()):
-			var mission = missions[i]
-			_mission_option.add_item("%s（%s）" % [mission.mission_name, mission.difficulty_display], i + 1)
-			_mission_option.set_item_metadata(i + 1, mission)
-	else:
-		for i in range(missions.size()):
-			var mission = missions[i]
-			_mission_option.add_item("%s（%s）" % [mission.mission_name, mission.difficulty_display], i)
-			_mission_option.set_item_metadata(i, mission)
-		_mission_option.select(0)
-		_on_mission_selected(0)
+	if Settings.dev_mode or ArchiveManager.is_random_and_variants_unlocked():
+		_mission_option.add_item("随机任务", RANDOM_MISSION_IDX)
+		_mission_option.set_item_metadata(RANDOM_MISSION_IDX, null)
+	for mission in DataManager.get_all_missions():
+		var idx := _mission_option.item_count
+		var locked := not Settings.dev_mode and not ArchiveManager.is_mission_unlocked(mission.mission_id)
+		var label := "%s（%s）" % [mission.mission_name, mission.difficulty_display]
+		if locked:
+			label += "（未解锁）"
+		_mission_option.add_item(label, idx)
+		_mission_option.set_item_metadata(idx, mission)
+		_mission_option.set_item_disabled(idx, locked)
 
+## 填充变体复选框：未解锁（且非开发者模式）时置灰并附提示文案；
+## 只创建控件，不改动 RoomState.variants 既有值（勾选状态由 _restore_state 恢复）。
 func _populate_variants() -> void:
 	for child in _variant_list.get_children():
 		child.queue_free()
 	_variant_checkboxes.clear()
 	var variants := DataManager.get_all_variants()
+	var variants_locked := not Settings.dev_mode and not ArchiveManager.is_random_and_variants_unlocked()
 	for variant in variants:
 		var cb := CheckBox.new()
 		cb.text = variant.display_name
-		cb.tooltip_text = variant.desc
+		if variants_locked:
+			cb.disabled = true
+			cb.tooltip_text = "%s\n\n（通关全部任务后解锁）" % variant.desc
+		else:
+			cb.tooltip_text = variant.desc
 		var vid: String = variant.id
 		cb.toggled.connect(func(toggled: bool): _on_variant_toggled(vid, toggled))
 		_variant_list.add_child(cb)
 		_variant_checkboxes[variant.id] = cb
 
 func _restore_state() -> void:
-	if RoomState.selected_mission_is_random:
+	if RoomState.selected_mission_is_random and _has_random_option():
 		_mission_option.select(RANDOM_MISSION_IDX)
-	elif RoomState.selected_mission != null:
-		for i in range(_mission_option.item_count):
-			var meta = _mission_option.get_item_metadata(i)
-			if meta != null and meta is MissionData and meta.mission_id == RoomState.selected_mission.mission_id:
-				_mission_option.select(i)
-				break
+	elif RoomState.selected_mission == null:
+		_select_default_mission()
+	elif not _select_mission_if_enabled(RoomState.selected_mission.mission_id):
+		# 残留的既往选择已锁定（如开发者模式切换后）：回退到第一个可选项
+		_select_default_mission()
 	for key in _variant_checkboxes:
 		_variant_checkboxes[key].set_pressed_no_signal(RoomState.variants.get(key, false))
 	_refresh_detail_panel()
+
+## “随机任务”选项当前是否存在（存在时必为第 0 项，metadata 为 null）。
+func _has_random_option() -> bool:
+	return _mission_option.item_count > 0 and _mission_option.get_item_metadata(RANDOM_MISSION_IDX) == null
+
+## 选中指定任务（若未置灰）；返回是否选中成功。
+func _select_mission_if_enabled(mission_id: int) -> bool:
+	for i in range(_mission_option.item_count):
+		var meta = _mission_option.get_item_metadata(i)
+		if meta != null and meta is MissionData and meta.mission_id == mission_id:
+			if _mission_option.is_item_disabled(i):
+				return false
+			_mission_option.select(i)
+			return true
+	return false
+
+## 默认选中第一个可选项（“随机任务”存在时即随机任务，否则为任务 0）并同步 RoomState。
+func _select_default_mission() -> void:
+	for i in range(_mission_option.item_count):
+		if _mission_option.is_item_disabled(i):
+			continue
+		_mission_option.select(i)
+		_on_mission_selected(i)
+		return
 
 func _rebuild_seats() -> void:
 	# 规避Bug: queue_free 是延迟删除,旧子节点仍在树中直到帧结束,
@@ -209,8 +238,8 @@ func _on_back() -> void:
 
 func _on_reset() -> void:
 	RoomState.clear()
-	# 刷新任务选择下拉框选中项
-	_mission_option.select(RANDOM_MISSION_IDX)
+	# 刷新任务选择下拉框选中项（随机任务未解锁时回退到第一个可选任务）
+	_select_default_mission()
 	# 刷新变体复选框
 	for key in _variant_checkboxes:
 		_variant_checkboxes[key].set_pressed_no_signal(false)
