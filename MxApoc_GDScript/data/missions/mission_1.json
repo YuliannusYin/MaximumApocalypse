@@ -40,7 +40,7 @@
   "scavenge_config": {
     "red": [
       { "card_name": "食物", "count": 3 },
-      { "card_name": "燃料", "count": 4 },
+      { "card_name": "燃料", "count": 5 },
       { "card_name": "医疗用品", "count": 2 },
       { "card_name": "弹药", "count": 1 },
       { "card_name": "双筒望远镜", "count": 1 },
@@ -49,13 +49,13 @@
     ],
     "green": [
       { "card_name": "食物", "count": 8 },
-      { "card_name": "燃料", "count": 2 },
+      { "card_name": "燃料", "count": 3 },
       { "card_name": "弹药", "count": 1 },
       { "card_name": "手电筒", "count": 1 },
       { "card_name": "多余配件", "count": 1 }
     ],
     "blue": [
-      { "card_name": "食物", "count": 2 },
+      { "card_name": "食物", "count": 3 },
       { "card_name": "燃料", "count": 2 },
       { "card_name": "弹药", "count": 3 },
       { "card_name": "双筒望远镜", "count": 1 },
