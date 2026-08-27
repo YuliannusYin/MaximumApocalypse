@@ -471,6 +471,14 @@ func play_monster_pulse() -> void:
 	tween.tween_property(_monster_button, "scale", Vector2.ONE, 0.125).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
+## 返回怪物区按钮的全局中心位置（供怪物抓取动画计算飞行终点）。
+## 按钮不存在或已释放时返回 Vector2.ZERO（调用方据此让动画原地淡出）。
+func get_monster_zone_button_global_position() -> Vector2:
+	if _monster_button == null or not is_instance_valid(_monster_button):
+		return Vector2.ZERO
+	return _monster_button.global_position + _monster_button.size * 0.5
+
+
 ## 在锚点控件位置生成上浮淡出飘字（18 号字 + 黑描边），约 0.8 秒后自动释放。
 func _spawn_float_label(text: String, color: Color, anchor: Control) -> void:
 	if not is_inside_tree() or anchor == null or not is_instance_valid(anchor):

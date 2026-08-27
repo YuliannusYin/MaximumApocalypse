@@ -17,6 +17,7 @@ static func generate() -> void:
 	manifest["survivor"] = _scan_grouped_dir("res://images/survivor")
 	manifest["gamemark"] = _scan_flat_dir("res://images/gamemark")
 	manifest["monster"] = _scan_grouped_dir("res://images/monster")
+	manifest["monster_card_back"] = _scan_root_images("res://images/monster")
 	manifest["scavenging"] = _scan_flat_dir("res://images/scavenging")
 
 	var json_str := JSON.stringify(manifest, "  ")
@@ -40,6 +41,25 @@ static func generate() -> void:
 
 ## 扫描扁平目录，返回 res:// 路径数组（已排序）。
 static func _scan_flat_dir(dir_path: String) -> Array:
+	var result: Array = []
+	var dir := DirAccess.open(dir_path)
+	if dir == null:
+		push_warning("无法打开目录: " + dir_path)
+		return result
+	dir.list_dir_begin()
+	var file_name := dir.get_next()
+	while file_name != "":
+		if not dir.current_is_dir() and not file_name.begins_with(".") and _is_image(file_name):
+			result.append(dir_path + "/" + file_name)
+		file_name = dir.get_next()
+	dir.list_dir_end()
+	result.sort()
+	return result
+
+
+## 扫描目录根层级的图片文件（不含子目录），返回 res:// 路径数组（已排序）。
+## 用于收录分组目录根层级的图片（如 images/monster/怪物卡牌背面.jpg）。
+static func _scan_root_images(dir_path: String) -> Array:
 	var result: Array = []
 	var dir := DirAccess.open(dir_path)
 	if dir == null:

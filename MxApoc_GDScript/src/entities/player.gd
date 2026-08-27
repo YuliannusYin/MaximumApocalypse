@@ -280,6 +280,8 @@ func draw_monster(n: int) -> void:
 			Game.log_message(LogColors.player(player_name) + " 抓取了怪物牌 " + LogColors.card(card.card_name))
 		if EventBus != null and is_instance_valid(EventBus):
 			EventBus.monster_card_drawn.emit(self, card)
+		# 播放抓取怪物牌动画（居中翻卡展示后飞向持有者面板怪物区），动画播完前阻塞流程
+		await _play_monster_draw_animation(card)
 		# b. 抓取怪物卡时（每张触发）
 		await trigger("on_draw_monster_card", event)
 		# c. 怪物卡进入求生者怪物区前（每张触发）
@@ -535,6 +537,13 @@ func _play_dice_animation(d1: int, d2: int, label: String, outcome: String) -> v
 	if input == null or not is_instance_valid(input):
 		return
 	await input.play_dice_animation(d1, d2, label, outcome)
+
+
+## 播放抓取怪物牌动画（居中翻卡展示后飞向持有者面板怪物区），动画播完前阻塞流程。
+func _play_monster_draw_animation(card: MonsterCard) -> void:
+	if input == null or not is_instance_valid(input):
+		return
+	await input.play_monster_draw_animation(self, card)
 
 
 ## 潜行检定（4 节点，投骰前含确认门，确认后播放骰子动画）。

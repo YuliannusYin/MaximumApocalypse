@@ -204,6 +204,9 @@
       "res://images/monster/zombie/僵尸狗.png"
     ]
   },
+  "monster_card_back": [
+    "res://images/monster/怪物卡牌背面.jpg"
+  ],
   "scavenging": [
     "res://images/scavenging/一无所获.png",
     "res://images/scavenging/伏击.png",
