@@ -30,6 +30,7 @@ func instantiate(player: Player = null) -> Monster:
 	var monster: Monster = Monster.new()
 	monster.monster_name = card_name
 	monster.monster_type = monster_type
+	monster.english_name = english_name
 	monster.monster_level = monster_level
 	monster.max_hp = max_hp
 	monster.hp = max_hp

@@ -6,8 +6,8 @@
   "difficulty": "normal",
   "van_fuel_required": 3,
   "intro_text": "有传闻说，一枚锁在电厂里的炸弹即将爆炸，这将使整个反应堆燃烧。很明显，它被锁在一处只有高级人员才能出入的地方。一名老员工写的满是灰尘的日记本应该能帮我们进去。",
-  "objective_text": "目标：找到满是灰尘的日记本然后前往电厂。花费 2 个行动来解除炸弹。在解除炸弹后，你们只有 3 个回合来返回面包车上。",
-  "special_setup": "设置：把一个目标标记放到离你们的面包车至少 5 个地图块的一个地图块上。当你到达该地图块时，获得满是灰尘的日记本并抓取首领牌。",
+  "objective_text": "找到“满是灰尘的日记本”；解除“电厂”上的炸弹；给“面包车”添加“燃料”(0/3)；回合结束时，所有存活玩家在“面包车”上且“面包车”上没有任何怪物，获得胜利。",
+  "special_setup": "将怪物牌堆中的首领级怪物牌随机分布到怪物牌堆中的下半部分。\n有玩家进入带有“任务标记”的地块时，移除该地块上的“任务标记”，该玩家获得“满是灰尘的日记本”并抓取一张首领牌。\n游戏倒计时结束时，消灭所有不在地图块“面包车”上的玩家。",
   "monster_pack_type": "mutant",
   "map_blocks_config": {
     "面包车": 1,
@@ -26,17 +26,17 @@
     "购物中心": 1
   },
   "map_layout": [
-    [-1, -1, -1, -1, 1, 1, 1],
-    [1, 1, 1, 1, 1, -1, 1],
-    [0, 1, -1, -1, 1, 1, 3],
-    [1, 1, 1, 1, 1, -1, 1],
-    [-1, -1, -1, -1, 1, 1, 1]
+    [0, 0, 1, 2, 1, 0, 0],
+    [0, 1, 1, 1, 1, 1, 0],
+    [1, 1, 1, 1, 1, 1, 1],
+    [4, 1, 1, 1, 1, 1, 3]
   ],
   "map_legend": {
-    "-1": "no_block",
-    "0": { "type": "spawn", "block_name": "面包车" },
+    "0": "no_block",
     "1": "random_block",
-    "3": { "type": "marked_block" }
+    "2": { "type": "spawn", "block_name": "面包车", "face": true },
+    "3": { "type": "game_end", "block_name": "电厂", "face": true },
+    "4": { "type": "random_block", "face": false, "mission_mark": 1 }
   },
   "objective_marks": [
     {
@@ -83,5 +83,20 @@
       { "card_name": "多余配件", "count": 3 }
     ]
   },
-  "win_condition_code": ""
+  "win_conditions": [
+    { "component": "state_flag", "params": { "key": "bomb_defused" } }
+  ],
+  "actions": [
+    { "component": "defuse_bomb", "params": { "block_name": "电厂", "cost": 2, "card_name": "满是灰尘的日记本" } }
+  ],
+  "triggers": [
+    { "component": "mark_enter_reward", "params": { "rewards": { "mark_1": { "cards": { "满是灰尘的日记本": 1 }, "draw_boss": true } } } },
+    { "component": "turn_countdown", "params": { "rounds": 3, "expire_kill_outside": "面包车" } }
+  ],
+  "progress_conditions": [
+    { "text": "找到\"满是灰尘的日记本\"", "type": "hold_items", "params": { "card_name": "满是灰尘的日记本", "count": 1 } },
+    { "text": "解除\"电厂\"上的炸弹", "type": "state_flag", "params": { "key": "bomb_defused" } },
+    { "text": "给\"面包车\"添加\"燃料\"", "type": "van_fuel" },
+    { "text": "回合结束时，所有存活玩家在地图块\"面包车\"上，且\"面包车\"上没有任何怪物，就获得胜利", "type": "van_boarding" }
+  ]
 }

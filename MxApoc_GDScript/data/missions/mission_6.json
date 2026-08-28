@@ -6,8 +6,8 @@
   "difficulty": "normal",
   "van_fuel_required": 3,
   "intro_text": "我们开车离开时，看见了远处的蘑菇云。我们心烦意乱，撞上了一辆侧翻的废弃汽车，我们的面包车嘎吱嘎吱地停了下来。我们要在核辐射杀死我们之前离开这。",
-  "objective_text": "目标：收集 3 个多余配件并修理面包车来逃离。作为 1 个行动，你可以打出 1 张多余配件来修理面包车。面包车需要被修理 3 次。当怪物出生阶段投出 7 时，展示地图最外围的一个地图块。当所有的外围地图块被展示后，再次投出 7 时，移除一个外围地图块。",
-  "special_setup": "地图初始设置：把面包车放在地图的最中间。确保你们的地图是从面包车向外构建的。\n首领设置：从怪物牌堆中抓 5 张牌，把首领卡加入其中并正面朝下洗混。把这 6 张牌放到怪物牌堆底。",
+  "objective_text": "使用3次“维修面包车”(0/3)；给“面包车”添加“燃料”(0/3)；回合结束时，所有存活玩家在“面包车”上且“面包车”上没有任何怪物，获得胜利。",
+  "special_setup": "将怪物牌堆中的首领级怪物牌随机分布到怪物牌堆中的下半部分。\n监听“怪物出生”的结果，当结果为 7 时，展示地图最外围的一个地图块。\n当所有的外围地图块被展示后，再次投出 7 时，移除一个外围地图块。",
   "monster_pack_type": "mutant",
   "map_blocks_config": {
     "面包车": 1,
@@ -30,14 +30,14 @@
   "map_layout": [
     [1, 1, 1, 1, 1],
     [1, 1, 1, 1, 1],
-    [1, 1, 0, 1, 1],
+    [1, 1, 2, 1, 1],
     [1, 1, 1, 1, 1],
     [1, 1, 1, 1, 1]
   ],
   "map_legend": {
-    "-1": "no_block",
-    "0": { "type": "spawn", "block_name": "面包车" },
-    "1": "random_block"
+    "0": "no_block",
+    "1": "random_block",
+    "2": { "type": "spawn", "block_name": "面包车", "face": true }
   },
   "objective_marks": [],
   "scavenge_config": {
@@ -76,5 +76,18 @@
       { "card_name": "多余配件", "count": 3 }
     ]
   },
-  "win_condition_code": ""
+  "win_conditions": [
+    { "component": "state_flag", "params": { "key": "van_repaired" } }
+  ],
+  "actions": [
+    { "component": "repair_van", "params": { "block_name": "面包车", "card_name": "多余配件", "times": 3 } }
+  ],
+  "triggers": [
+    { "component": "spawn_dice_effect", "params": { "value": 7 } }
+  ],
+  "progress_conditions": [
+    { "text": "使用3次\"维修面包车\"", "type": "state_count", "params": { "key": "van_repair_count", "target": 3 } },
+    { "text": "给\"面包车\"添加\"燃料\"", "type": "van_fuel" },
+    { "text": "回合结束时，所有存活玩家在地图块\"面包车\"上，且\"面包车\"上没有任何怪物，就获得胜利", "type": "van_boarding" }
+  ]
 }

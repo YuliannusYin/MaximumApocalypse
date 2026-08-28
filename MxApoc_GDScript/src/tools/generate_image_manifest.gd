@@ -17,7 +17,15 @@ static func generate() -> void:
 	manifest["survivor"] = _scan_grouped_dir("res://images/survivor")
 	manifest["gamemark"] = _scan_flat_dir("res://images/gamemark")
 	manifest["monster"] = _scan_grouped_dir("res://images/monster")
-	manifest["scavenging"] = _scan_flat_dir("res://images/scavenging")
+	manifest["monster_card_back"] = _scan_root_images("res://images/monster")
+	# 拾荒牌背面单独收录（scavenge_card_back 键），并从卡图列表中排除
+	var scavenge_all: Array = _scan_flat_dir("res://images/scavenging")
+	var scavenge_cards: Array = []
+	for p in scavenge_all:
+		if p.get_file().get_basename() != "拾荒牌背面":
+			scavenge_cards.append(p)
+	manifest["scavenge_card_back"] = _filter_by_basename(scavenge_all, "拾荒牌背面")
+	manifest["scavenging"] = scavenge_cards
 
 	var json_str := JSON.stringify(manifest, "  ")
 	var file := FileAccess.open("res://data/image_manifest.json", FileAccess.WRITE)
@@ -56,6 +64,25 @@ static func _scan_flat_dir(dir_path: String) -> Array:
 	return result
 
 
+## 扫描目录根层级的图片文件（不含子目录），返回 res:// 路径数组（已排序）。
+## 用于收录分组目录根层级的图片（如 images/monster/怪物卡牌背面.jpg）。
+static func _scan_root_images(dir_path: String) -> Array:
+	var result: Array = []
+	var dir := DirAccess.open(dir_path)
+	if dir == null:
+		push_warning("无法打开目录: " + dir_path)
+		return result
+	dir.list_dir_begin()
+	var file_name := dir.get_next()
+	while file_name != "":
+		if not dir.current_is_dir() and not file_name.begins_with(".") and _is_image(file_name):
+			result.append(dir_path + "/" + file_name)
+		file_name = dir.get_next()
+	dir.list_dir_end()
+	result.sort()
+	return result
+
+
 ## 扫描分组目录（子目录为分组键），返回 Dictionary[group_name → Array[res:// path]]。
 ## 子目录键按名称排序，以保证输出确定。
 static func _scan_grouped_dir(dir_path: String) -> Dictionary:
@@ -75,6 +102,15 @@ static func _scan_grouped_dir(dir_path: String) -> Dictionary:
 	sub_dirs.sort()
 	for sub_name in sub_dirs:
 		result[sub_name] = _scan_flat_dir(dir_path + "/" + sub_name)
+	return result
+
+
+## 从路径数组中筛选文件主名（不含扩展名）等于指定名称的路径。
+static func _filter_by_basename(paths: Array, file_basename: String) -> Array:
+	var result: Array = []
+	for p in paths:
+		if p.get_file().get_basename() == file_basename:
+			result.append(p)
 	return result
 
 

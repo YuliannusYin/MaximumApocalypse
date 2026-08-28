@@ -24,15 +24,19 @@ func _ready() -> void:
 	create_room_button.pressed.connect(_on_create_room_pressed)
 	quit_button.pressed.connect(_on_quit_pressed)
 	settings_button.pressed.connect(_on_settings_pressed)
+	achievement_button.pressed.connect(_on_achievement_pressed)
 	github_button.pressed.connect(_on_github_pressed)
 	version_label.gui_input.connect(_on_version_label_gui_input)
-	# JoinRoomButton / WikiButton / AchievementButton 保持禁用占位，不连接信号
+	# JoinRoomButton / WikiButton 保持禁用占位，不连接信号
 
 func _on_create_room_pressed() -> void:
 	get_tree().change_scene_to_file("res://scenes/GameRoom.tscn")
 
 func _on_settings_pressed() -> void:
 	get_tree().change_scene_to_file("res://scenes/SettingsScene.tscn")
+
+func _on_achievement_pressed() -> void:
+	get_tree().change_scene_to_file("res://scenes/AchievementScene.tscn")
 
 func _on_github_pressed() -> void:
 	OS.shell_open(GITHUB_URL)

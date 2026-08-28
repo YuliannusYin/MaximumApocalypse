@@ -84,7 +84,7 @@
           "trigger": "after_monster_enter_zone",
           "forced": true,
           "filter": "return true",
-          "content": "var drawer = event.player\nif drawer.has_card(\"equipment\"):\n\tvar choice = drawer.choose([\"弃置一张装备\", \"受到6点伤害\"])\n\tif choice == \"弃置一张装备\":\n\t\tdrawer.choose_to_discard(1, \"equipment\")\n\telif choice == \"受到6点伤害\":\n\t\tdrawer.damage(6, self)\nelse:\n\tdrawer.damage(6, self)"
+          "content": "var drawer = event.player\nvar equip_cards = drawer.get_cards(\"equipment\")\nif equip_cards.is_empty():\n\tdrawer.damage(6, event[\"card\"])\nelif await drawer.confirm(\"\\\"外星科学家\\\": 是否弃置一张装备，否则受到 6 点伤害\"):\n\tvar chosen = await drawer.choose_card(1, equip_cards)\n\tif chosen.is_empty():\n\t\tdrawer.damage(6, event[\"card\"])\n\telse:\n\t\tdrawer.discard(chosen)\nelse:\n\tdrawer.damage(6, event[\"card\"])"
         },
         {
           "skill_name": "外星科学家-协同强化",

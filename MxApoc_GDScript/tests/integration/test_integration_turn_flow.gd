@@ -5,7 +5,23 @@ extends GutTest
 ## 设计文档：GameDesignDocus/GameSystem/Core/GameStateMachine.md
 ##
 ## 注意：next_turn() 是 while 循环，CliPlayerInput.wait_action 不阻塞，
-## 因此必须设置 mission_config.check_win_condition 让循环在第一回合后退出。
+## 因此必须设置 mission_config 胜利组件让循环在第一回合后退出。
+
+# === 测试用内嵌任务组件 ===
+
+# 恒真胜利组件，替代旧 Callable 语义。
+class AlwaysWinComponent extends MissionComponent:
+	func check_win(game: Game) -> bool:
+		return true
+
+
+# 计数胜利组件：第一次检查返回 false，第二次起返回 true（用于验证回合推进）。
+class CountingWinComponent extends MissionComponent:
+	var call_count: Array = [0]
+
+	func check_win(game: Game) -> bool:
+		call_count[0] += 1
+		return call_count[0] >= 2
 
 
 # === 辅助方法 ===
@@ -31,7 +47,7 @@ func _make_winning_mission_config() -> MissionConfig:
 	# 设置一个第一回合后立即胜利的任务配置
 	var mc: MissionConfig = MissionConfig.new()
 	mc.van_fuel_required = -1  # NULL 燃料，不检查面包车
-	mc.check_win_condition = func() -> bool: return true
+	mc.win_condition_components.append(AlwaysWinComponent.new())
 	return mc
 
 
@@ -112,13 +128,10 @@ func test_next_turn_advances_to_next_player() -> void:
 	Game.monster_pile = Pile.new()
 	for i in 4:
 		Game.monster_pile.add(_make_monster_card("z" + str(i)))
-	# 用计数器追踪 win_condition，第二次调用返回 true
-	var call_count: Array = [0]
+	# 用计数胜利组件追踪检查次数，第二次调用返回 true
 	var mc: MissionConfig = MissionConfig.new()
 	mc.van_fuel_required = -1
-	mc.check_win_condition = func() -> bool:
-		call_count[0] += 1
-		return call_count[0] >= 2  # 第二次检查时胜利
+	mc.win_condition_components.append(CountingWinComponent.new())
 	Game.mission_config = mc
 	await Game.state_machine.start_game()
 	# start_game 后第一玩家 p1 完成回合，check_win_condition 返回 false

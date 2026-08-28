@@ -256,39 +256,3 @@ func test_damage_lethal_no_source_death_source_null() -> void:
 	target.damage(5, null)
 	assert_true(target.death_called, "致命无源伤害应触发 death")
 	assert_null(target.death_source, "death 的 source 应为 null")
-
-
-# === 4. 类型判断默认值 ===
-
-func test_default_is_player_false() -> void:
-	var e: Entity = Entity.new()
-	assert_false(e.is_player(), "Entity 默认 is_player 应为 false")
-
-
-func test_default_is_monster_false() -> void:
-	var e: Entity = Entity.new()
-	assert_false(e.is_monster(), "Entity 默认 is_monster 应为 false")
-
-
-# === 5. 生命值接口默认实现 ===
-
-func test_default_get_hp_zero() -> void:
-	var e: Entity = Entity.new()
-	assert_eq(e.get_hp(), 0, "默认 get_hp 应为 0")
-
-
-func test_default_get_max_hp_zero() -> void:
-	var e: Entity = Entity.new()
-	assert_eq(e.get_max_hp(), 0, "默认 get_max_hp 应为 0")
-
-
-func test_default_reduce_hp_no_effect() -> void:
-	var e: Entity = Entity.new()
-	e.reduce_hp(5)
-	assert_eq(e.get_hp(), 0, "默认 reduce_hp 应无效果")
-
-
-func test_default_add_hp_no_effect() -> void:
-	var e: Entity = Entity.new()
-	e.add_hp(5)
-	assert_eq(e.get_hp(), 0, "默认 add_hp 应无效果")

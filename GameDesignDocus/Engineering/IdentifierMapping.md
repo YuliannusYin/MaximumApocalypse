@@ -122,6 +122,7 @@
 | 怪物技能 | `monster` | 怪物技能 |
 | 地块技能 | `block` | 地图块技能 |
 | 通用技能 | `common` | 通用主动技能 |
+| 任务行动技能 | `任务` | 任务行动组件运行时构建挂载（非 JSON 声明），技能栏金色区分 |
 
 ### 2.5 射程 range
 
@@ -158,7 +159,7 @@
 | 怪物类型 monster_type | 外星人 `alien` / 突变体 `mutant` / 僵尸 `zombie` / 机器人 `robot` |
 | 拾荒颜色 color | 红色 `red` / 绿色 `green` / 蓝色 `blue` / 灰色 `gray` |
 | 任务难度 difficulty | 特别简单 `tutorial` / 非常简单 `very_easy` / 简单 `easy` / 正常 `normal` / 困难 `hard` / 非常困难 `very_hard` |
-| map_legend type | 出生点 `spawn` / 游戏结束点 `game_end` / 标记地块 `marked_block` |
+| map_legend type | 出生点 `spawn` / 游戏结束点 `game_end` / 随机地块 `random_block` |
 
 ---
 
@@ -403,6 +404,13 @@ trigger 名在 JSON 数据中用英文 snake_case，技能 `trigger` 字段可�
 | `Pile.get_all()` | 获取所有牌 |
 | `RoleCard.get_sneak()` | 按正反面返回潜行值 |
 
+### 5.8 MissionConfig
+
+| 方法 | 说明 |
+| --- | --- |
+| `mount_action_skills(player, block)` | 挂载任务行动技能：玩家进入地块时按行动组件 `get_action_skill_decl()` 声明构建 Skill（`english_name` 为 `mission_action_<组件索引>`）加入 `player.skills`，与地块技能获取并列 |
+| `unmount_action_skills(player)` | 卸载全部任务行动技能：按 `english_name` 前缀 `mission_action_` 识别并 `remove_skill`，与地块技能清理并列 |
+
 ---
 
 ## 六、EventBus 信号映射
@@ -438,6 +446,7 @@ trigger 名在 JSON 数据中用英文 snake_case，技能 `trigger` 字段可�
 | `phase_changed` | `(player, old_phase, new_phase)` | 回合阶段变化 |
 | `action_consumed` | `(player, num)` | 消耗行动次数 |
 | `sneak_judge_triggered` | `(player, block)` | 潜行检定触发 |
+| `monster_spawn_judged` | `(player, value)` | 怪物出生检定投骰结果出来时 |
 | `log_message` | `(message)` | 日志消息 |
 | `damage_dealt` | `(source, target, amount)` | 造成伤害 |
 | `damage_taken` | `(target, source, amount)` | 受到伤害 |
@@ -479,3 +488,28 @@ trigger 名在 JSON 数据中用英文 snake_case，技能 `trigger` 字段可�
 | `create_monster_act_event` | `(monster)` | `monster` / `target_players` |
 
 辅助静态方法：`cancel(event)`（取消事件）、`is_cancelled(event)`（是否已取消）、`set_trigger_name(event, trigger_name)`（写入当前触发名）。
+
+---
+
+## 八、mission_state 键映射
+
+`MissionConfig.mission_state` 为任务特定运行时状态字典，由任务组件（`src/game/mission/components/`）读写（当前无内置任务脚本）。已约定的键：
+
+| 键 | 类型 | 使用方 | 说明 |
+| --- | --- | --- | --- |
+| `kill_counts` | Dictionary{怪物名: Int} | `kill_monsters`（`triggers` 声明的实例写、`win_conditions` 声明的实例读） | 已击杀各怪物计数（双声明共享） |
+| `submitted_items` | Dictionary{物品名: Int} | `submit_items`（写）、`collect_items`（`mode: submit` 时读） | 已在目标地块提交的物品计数 |
+| `van_repair_count` | Int | `repair_van`（读写） | 面包车已维修次数 |
+| `van_repaired` | Bool | `repair_van`（写） | 面包车是否已维修完成（达到 `times` 次后置 true） |
+| `bomb_defused` | Bool | `defuse_bomb`（写） | 炸弹是否已被拆除 |
+| `countdown_activate` | Bool | 外部组件（写）、`turn_countdown`（读） | 置 true 时在下一个 `on_event` 中激活倒计时，激活后清除该键 |
+| `countdown_active` | Bool | `turn_countdown` | 倒计时是否已激活 |
+| `countdown_remaining` | Int | `turn_countdown` | 倒计时剩余轮数 |
+| `countdown_expired` | Bool | `turn_countdown` | 倒计时是否已归零（`check_lose` 依据此键判定失败） |
+| `rescue_judge_done` | Bool | `rescue_judge_win`（读写） | 是否已执行过解救检定（任务 8，仅一次） |
+| `card_discard_failed` | Bool | `card_discard_watch`（`triggers` 声明的实例写、`lose_conditions` 声明的实例读） | 监视卡被弃置且 `on_discard: lose` 时置 true（双声明共享，`check_lose` 依据此键判定失败） |
+| `first_enter_done_<block_name>` | Bool | `first_enter_draw_boss`（读写） | 指定地块是否已有玩家首次抵达（全队共享一次，键名按 `block_name` 拼接） |
+| `scientist_rescued` | Bool | `spend_action_rescue`（写）、`escort_equipment_at_block`（读） | 科学家（或解救目标卡）是否已被解救 |
+| `scientist_holder` | Player | `spend_action_rescue`（写）、`escort_equipment_at_block`（读） | 解救目标的持有者玩家 |
+
+> 说明：新组件新增 `mission_state` 键时，须同步本表。`spend_action_rescue` 与 `escort_equipment_at_block` 的键名可通过 `params` 的 `rescued_key` / `holder_key` 改写，默认即上表键名。`kill_monsters` 与 `card_discard_watch` 需在 `triggers` 与 `win_conditions` / `lose_conditions` 两处声明（两个实例共享同一 `mission_state`）。

@@ -42,7 +42,7 @@
           "trigger": "after_monster_enter_zone",
           "forced": true,
           "filter": "return true",
-          "content": "var list = game.get_all_players()\nfor p in list:\n\tif p.has_card(\"equipment\"):\n\t\tvar choice = p.choose([\"弃置一张装备\", \"受到4点伤害\"])\n\t\tif choice == \"弃置一张装备\":\n\t\t\tp.choose_to_discard(1, \"equipment\")\n\t\telif choice == \"受到4点伤害\":\n\t\t\tp.damage(4, self)\n\telse:\n\t\tp.damage(4, self)"
+          "content": "var list = game.get_all_players()\nfor p in list:\n\tvar equip_cards = p.get_cards(\"equipment\")\n\tif equip_cards.is_empty():\n\t\tp.damage(4, event[\"card\"])\n\telif await p.confirm(\"\\\"达克斯顿·贾格\\\": 是否弃置一张装备，否则受到 4 点伤害\"):\n\t\tvar chosen = await p.choose_card(1, equip_cards)\n\t\tif chosen.is_empty():\n\t\t\tp.damage(4, event[\"card\"])\n\t\telse:\n\t\t\tp.discard(chosen)\n\telse:\n\t\tp.damage(4, event[\"card\"])"
         }
       ]
     },
@@ -64,7 +64,7 @@
           "trigger": "after_monster_enter_zone",
           "forced": true,
           "filter": "return true",
-          "content": "var drawer = event.player\nif drawer.has_card(\"equipment\"):\n\tvar choice = drawer.choose([\"弃置一张装备\", \"受到4点伤害\"])\n\tif choice == \"弃置一张装备\":\n\t\tdrawer.choose_to_discard(1, \"equipment\")\n\telif choice == \"受到4点伤害\":\n\t\tdrawer.damage(4, self)\nelse:\n\tdrawer.damage(4, self)"
+          "content": "var drawer = event.player\nvar equip_cards = drawer.get_cards(\"equipment\")\nif equip_cards.is_empty():\n\tdrawer.damage(4, event[\"card\"])\nelif await drawer.confirm(\"\\\"军部残余武装\\\": 是否弃置一张装备，否则受到 4 点伤害\"):\n\tvar chosen = await drawer.choose_card(1, equip_cards)\n\tif chosen.is_empty():\n\t\tdrawer.damage(4, event[\"card\"])\n\telse:\n\t\tdrawer.discard(chosen)\nelse:\n\tdrawer.damage(4, event[\"card\"])"
         }
       ]
     },
@@ -86,7 +86,7 @@
           "trigger": "after_monster_enter_zone",
           "forced": true,
           "filter": "return true",
-          "content": "var drawer = event.player\nif drawer.has_card(\"hand\", \"scavenge\"):\n\tvar choice = drawer.choose([\"弃置一张拾荒牌\", \"受到3点伤害\"])\n\tif choice == \"弃置一张拾荒牌\":\n\t\tdrawer.choose_to_discard(1, \"hand\", \"scavenge\")\n\telif choice == \"受到3点伤害\":\n\t\tdrawer.damage(3, self)\nelse:\n\tdrawer.damage(3, self)"
+          "content": "var drawer = event.player\nvar scavenge_cards = drawer.get_cards(\"\", \"\", 0, \"scavenge\")\nif scavenge_cards.is_empty():\n\tdrawer.damage(3, event[\"card\"])\nelif await drawer.confirm(\"\\\"强盗\\\": 是否弃置一张拾荒牌，否则受到 3 点伤害\"):\n\tvar chosen = await drawer.choose_card(1, scavenge_cards)\n\tif chosen.is_empty():\n\t\tdrawer.damage(3, event[\"card\"])\n\telse:\n\t\tdrawer.discard(chosen)\nelse:\n\tdrawer.damage(3, event[\"card\"])"
         }
       ]
     },

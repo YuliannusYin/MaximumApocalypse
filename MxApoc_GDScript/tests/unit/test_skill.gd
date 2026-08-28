@@ -136,7 +136,6 @@ func test_no_residual_on_card_enter_leave_equipment_in_survivors() -> void:
 		"hunter.json",
 		"mechanic.json",
 		"surgeon.json",
-		"veteran.json",
 	]
 	var found_files: Dictionary = {}
 	var fname: String = dir.get_next()
@@ -159,4 +158,4 @@ func test_no_residual_on_card_enter_leave_equipment_in_survivors() -> void:
 	dir.list_dir_end()
 	for expected in expected_files:
 		assert_true(found_files.has(expected), "应遍历到 survivor 文件: " + expected)
-	assert_eq(found_files.size(), 6, "应共遍历到 6 个 survivor 文件")
+	assert_eq(found_files.size(), 5, "应共遍历到 5 个 survivor 文件")

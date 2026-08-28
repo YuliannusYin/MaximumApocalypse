@@ -233,6 +233,7 @@
 | `english_name` | String | 是 | 任务英文名 |
 | `difficulty` | String | 是 | 难度（`tutorial`/`very_easy`/`easy`/`normal`/`hard`/`very_hard`） |
 | `van_fuel_required` | Int | 是 | 启动面包车所需燃料；`-1` 表示不通过面包车胜利 |
+| `no_initial_monster_draw` | Bool | 否 | 开局跳过每名玩家的初始抓怪（如任务 11）；缺省 `false` |
 | `intro_text` | String | 是 | 任务介绍 |
 | `objective_text` | String | 是 | 任务目标 |
 | `special_setup` | String | 是 | 特殊设置 |
@@ -242,14 +243,26 @@
 | `map_legend` | Dictionary | 是 | 编号说明 |
 | `objective_marks` | Array | 否 | 目标标记定义 |
 | `scavenge_config` | Dictionary | 是 | 拾荒牌堆配置 |
-| `win_condition_code` | String | 是 | 胜利条件代码（空字符串表示靠面包车胜利） |
+| `win_conditions` | Array&lt;Object&gt; | 否 | 胜利条件组件声明列表，每项 `{ "component": <组件 id>, "params": {...} }` |
+| `lose_conditions` | Array&lt;Object&gt; | 否 | 失败条件组件声明列表，结构同 `win_conditions` |
+| `triggers` | Array&lt;Object&gt; | 否 | 触发器组件声明列表，结构同 `win_conditions` |
+| `actions` | Array&lt;Object&gt; | 否 | 行动选项组件声明列表，结构同 `win_conditions` |
+| `progress_conditions` | Array&lt;Object&gt; | 否 | 任务进度面板条件行声明，每项 `{ "text": <显示文案>, "type": <进度类型>, "params": {...} }`；面板按序号自动编号，完成加 `✔`，计数型显示 `(x/n)`；缺省为空（类型表见下） |
+| `mission_script` | String | 否 | 专用任务脚本 id（空字符串表示无脚本） |
 
 **`map_legend` 值类型：**
 
-值可为 `String` 或 `Object`：
+编号任意取值，含义由图例声明（引擎无硬编码编号语义）。值可为 `String` 或 `Object`：
 
-- 字符串：如 `"no_block"`（无地块）、`"random_block"`（未知随机地块）。
-- 对象：`{ "type": "spawn" | "game_end" | "marked_block", "block_name": "<地块名>" }`，其中 `marked_block` 可省略 `block_name`。
+- 字符串：`"no_block"`（无地块）、`"random_block"`（未知随机地块）。
+- 对象：`{ "type": "spawn" | "game_end" | "random_block", "block_name": "<地块名>", "face": <bool>, "monster_mark": <int>, "mission_mark": <int> }`：
+  - `type`：地块类型。`spawn`（出生点）/ `game_end`（游戏结束点）用 `block_name` 指定地块；`random_block` 从 `map_blocks_config` 抽取池取块。
+  - `block_name`：指定地块名，`spawn` / `game_end` 必填。
+  - `face`：初始是否翻开，缺省 `spawn` / `game_end` 为 `true`、`random_block` 为 `false`。
+  - `monster_mark`：初始放置的怪物标记数，缺省 0，上限 3。
+  - `mission_mark`：初始放置的任务标记数，缺省 0，按 `map_layout` 行优先顺序从 `objective_marks` 取 N 个。
+
+> 旧 `marked_block` 类型已移除，其旧语义（随机地块 + 1 个任务标记 + 初始翻开）由 `{ "type": "random_block", "face": true, "mission_mark": 1 }` 表达。
 
 **`scavenge_config` 结构：**
 
@@ -262,6 +275,43 @@
 ```
 
 > `objective_marks[]` 元素含 `mark_id`、`mark_description`、`initial_monster_marks`、`remove_condition`、`effect_code` 字段。
+
+**三层架构声明字段（`win_conditions` / `lose_conditions` / `triggers` / `actions` / `mission_script`）：**
+
+> 任务逻辑采用三层架构，任务 JSON 只做**声明式配置**，不写代码：
+> - **第一层（本文件）**：任务 JSON 通过上述五个字段声明组件 id / 脚本 id 及其 `params`
+> - **第二层（可复用组件）**：`src/game/mission/components/` 下的组件类，由 `MissionComponentRegistry` 按 id 实例化并注入 `params`
+> - **第三层（专用脚本）**：`src/game/mission/scripts/` 下的脚本类，由 `MissionScriptRegistry` 按 id 实例化，仅用于组件无法表达的极特殊任务逻辑
+>
+> 组件按声明位置区分职责：`win_conditions` 实现 `check_win`、`lose_conditions` 实现 `check_lose`、`triggers` 实现 `on_event`、`actions` 实现 `get_action_options`；脚本与组件共用同一套注入通道。
+>
+> **内置组件 id**（共 22 个，按声明位置分三类）：
+> - **判定类**（实现 `check_win` / `check_lose`，声明于 `win_conditions` / `lose_conditions`）：`collect_items`（收集指定物品，params：`items`、`mode` hold/submit）/ `all_players_at_block`（全员抵达指定地块，params：`block_name`、`no_monster`）/ `escort_equipment_at_block`（护送指定卡牌抵达地块，直接查持有者，params：`card_name`、`block_name`）/ `kill_monsters`（击杀各怪物计数达标，params：`counts`；**需 `triggers`+`win_conditions` 双声明共享 `kill_counts` 计数**）/ `all_blocks_revealed`（全部地块已翻开）/ `objective_marks_cleared`（场上目标标记清至指定数，params：`count`，0=全清）/ `state_flag`（指定 mission_state 键为真即满足，params：`key`）/ `action_win_only`（行动直胜占位，`check_win` 恒 false，防止 win_conditions 为空时的空真误判）
+> - **行动类**（实现 `get_action_options` 与 `get_action_skill_decl`，声明于 `actions`）：`spend_action_rescue`（花费行动解救目标卡并装备，params：`block_name`、`cost`、`card_name`、`skill_name` 可覆盖默认技能名）/ `destroy_current_mark`（花费行动摧毁当前地块目标标记，params：`cost`、`require_no_monster`）/ `submit_items`（在指定地块提交物品，params：`block_name`、`items`）/ `repair_van`（花费行动维修面包车累计次数，params：`block_name`、`card_name`、`times`）/ `defuse_bomb`（花费行动拆炸弹并可启动倒计时，params：`block_name`、`cost`、`card_name`、`countdown`）/ `upload_virus`（持指定装备在上传点花费行动直胜，params：`block_name`、`equipment`）/ `rescue_judge_win`（花费行动解救并潜行检定决胜，params：`card_name`）
+> - **触发类**（实现 `on_event`，声明于 `triggers`）：`turn_countdown`（轮数倒计时，归零判负，params：`rounds`、`expire_kill_outside`、`auto_activate`）/ `mark_enter_reward`（首次进入指定目标标记地块发放奖励，params：`rewards`，按 `mark_id` 配 `cards` / `draw_boss`）/ `first_enter_draw_boss`（全队首次抵达指定地块抽首领卡，params：`block_name`）/ `reveal_mark_draw_boss`（展示带目标标记的地块时展示者抽首领卡，每地块仅一次）/ `card_discard_watch`（监视卡被弃置时销毁或判负，params：`card_name`、`on_discard` destroy/lose；**lose 模式需 `triggers`+`lose_conditions` 双声明共享 `card_discard_failed` 标记**）/ `setup_equip_card`（开局给玩家装备指定卡，params：`card_name`）/ `spawn_dice_effect`（怪物出生检定投出指定点数时执行外围地块效果，params：`value`、`block_name`）
+>
+> **行动组件技能化**：行动组件同时以 Skill 形式挂载技能栏——玩家进入匹配地块时，`MissionConfig.mount_action_skills(player, block)` 遍历行动组件的 `get_action_skill_decl()` 技能声明，`block_match` 匹配的组件构建为主动 Skill（`active="action"`、`skill_type="任务"`，技能栏金色按钮区分）挂到 `player.skills`；离开地块时 `unmount_action_skills(player)` 卸载（按 `english_name` 前缀 `mission_action_<组件索引>` 识别）。复用地块技能管线：filter 不满足时按钮灰化、confirm_prompt 确认门、use_active_skill 执行；技能栏为任务行动的唯一 UI 入口。地块匹配规则（`block_match`）：静态组件按 `params.block_name` 匹配地块名；动态组件（`destroy_current_mark` / `rescue_judge_win`）按地块存在未移除任务标记匹配。技能名默认表：`spend_action_rescue`→解救科学家（可用 `params.skill_name` 覆盖）、`destroy_current_mark`→摧毁目标、`submit_items`→提交物资、`repair_van`→维修面包车、`defuse_bomb`→解除炸弹、`upload_virus`→上传病毒、`rescue_judge_win`→解救科学家。
+>
+> **内置脚本 id**：当前无内置脚本（`MissionScriptRegistry` 内置注册为空；脚本通道保留给组件无法表达的极特殊任务逻辑）。
+>
+> 各组件 `params` 键名见组件类头注释；运行时写入的 `mission_state` 键名详见 `IdentifierMapping.md` §八。
+
+**`progress_conditions[]` 进度类型（共 10 个 `type`）：**
+
+`progress_conditions` 由任务进度面板读取显示。面板 `MissionProgressPanel`（`src/ui/mission_progress_panel.gd`）为常驻 UI 层右侧的固定尺寸滚动面板（200×150 @(1210,300)），每帧重算条件并做文本变更检测后刷新；条件行按序号自动编号，完成加 `✔` 前缀，计数型追加 `(x/n)` 后缀；未知 `type` 时 `push_error` 并跳过该行（不显示、不占序号）。面板判定语义与任务组件对齐：`all_at_block` ↔ `all_players_at_block` 组件、`escort_at_block` ↔ `escort_equipment_at_block` 组件、`hold_items` 变体族匹配 ↔ `collect_items` 组件、`van_boarding` ↔ 引擎面包车判定（`GameStateMachine.check_win_condition` 面包车段）。
+
+| type | params | 显示形式 | 数据来源 |
+| --- | --- | --- | --- |
+| `van_fuel` | — | (x/n) | 面包车地块当前燃料 / `van_fuel_required`；无面包车地块或需求 ≤ 0 时容错为未完成（无后缀） |
+| `van_boarding` | — | ✔ | 全部存活玩家在面包车地块（首块）且该地块无怪（无怪物标记、同地块玩家怪物卡之和为 0） |
+| `state_flag` | `key` | ✔ | `mission_state[key]` 为真 |
+| `state_count` | `key`、`name`（可选）、`target` | (x/n) | `name` 为空读 `mission_state[key]`，非空读 `mission_state[key][name]`；显示值钳制到 `target` |
+| `hold_items` | `card_name`、`count` | (x/n) | 存活玩家手牌 + 装备区中该牌计数（变体族匹配：精确匹配或 `名（` 前缀，如"医疗用品"匹配"医疗用品（便携）"） |
+| `submitted_count` | `card_name`、`count` | (x/n) | `mission_state.submitted_items[card_name]` |
+| `all_at_block` | `block_name`、`no_monster`（可选） | ✔ | 全部存活玩家 `current_block` 地块名匹配；`no_monster` 时还需所在地块无怪；无存活玩家视为未完成 |
+| `escort_at_block` | `card_name`、`block_name`、`no_monster`（可选） | ✔ | 存在存活玩家装备该卡（`has_equipment`）且 `current_block` 地块名匹配；`no_monster` 时还需该地块无怪 |
+| `marks_cleared` | `count` | (x/n) | 已移除标记数 = `initial_objective_mark_count` − 存活地块剩余 `objective_marks` 之和（负数钳 0） |
+| `all_revealed` | — | (x/n) | 存活地块已揭示数 / 存活地块总数；无存活地块时容错为未完成（无后缀） |
 
 ### 3.5 map_blocks/map_blocks.json
 
@@ -346,7 +396,7 @@
 | `skill_name` | String | 技能中文名 |
 | `english_name` | String | 技能英文名（代码标识符） |
 | `skill_description` | String | 自然语言描述 |
-| `skill_type` | String | 技能类型枚举：`equipment` / `action` / `monster` / `block` / `common` |
+| `skill_type` | String | 技能类型枚举：`equipment` / `action` / `monster` / `block` / `common` / `任务`（任务行动技能，运行时由行动组件构建，非 JSON 声明） |
 | `active` | String | 可用阶段（主动技能） |
 | `trigger` | String | 触发时机（被动技能）；**可用中文顿号分隔多个触发**，如 `"on_reveal_block、on_enter_block"` |
 | `forced` | Bool | 是否强制发动 |
@@ -387,7 +437,7 @@ JSON 中的 `filter` / `content` / `filter_target` / `filter_card` / `confirm_pr
 
 **降级行为：** 编译失败时降级为 no-op——`filter` / `filter_target` / `filter_card` 恒真（返回 `true`），`content` 无操作，`confirm_prompt` 返回空字符串。空字符串代码同样视为 no-op。
 
-**任务胜利条件代码：** `win_condition_code` 不走上述 5 个接口，而由 `game.gd` 的 `_compile_win_condition` 单独编译，包装为 `func _fn(game) -> bool:` 整函数形式，签名 `(game) -> bool`。详见 [CodeExecutor.md](CodeExecutor.md) 第五节。
+**任务逻辑不走代码编译：** 任务胜利/失败条件与行动选项已改为三层架构的声明式组件/脚本配置（见 §3.4），不再使用代码字符串字段，与 `CodeExecutor` 的 `compile_*` 接口无关。
 
 ---
 
