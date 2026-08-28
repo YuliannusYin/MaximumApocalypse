@@ -33,6 +33,7 @@ var _event_log_panel: EventLogPanel
 var _dice_animation_view: DiceAnimationView
 var _turn_banner_view: TurnBannerView
 var _monster_draw_animation_view: MonsterDrawAnimationView
+var _skill_trigger_animation_view: SkillTriggerAnimationView
 
 # === 游戏状态 ===
 var _gui_input: GUIPlayerInput
@@ -86,6 +87,10 @@ func _create_modules() -> void:
 	# 怪物抓取动画视图：挂在 UI 层，抓取怪物牌时触发播放（await play 播完整轮才返回）
 	_monster_draw_animation_view = MonsterDrawAnimationView.new()
 	_ui_layer.add_child(_monster_draw_animation_view)
+
+	# "抓取时"技能触发动画视图：挂在 UI 层，抓取带 forced on_draw_scavenge_card 技能的拾荒牌时触发播放
+	_skill_trigger_animation_view = SkillTriggerAnimationView.new()
+	_ui_layer.add_child(_skill_trigger_animation_view)
 
 	# 回合切换横幅视图：挂在 UI 层，回合开始时中央提示（fire-and-forget，不阻塞流程）
 	_turn_banner_view = TurnBannerView.new()
@@ -148,6 +153,7 @@ func _start_game_flow() -> void:
 	_gui_input.judge_confirm_requested.connect(_on_judge_confirm_requested)
 	_gui_input.dice_animation_requested.connect(_on_dice_animation_requested)
 	_gui_input.monster_draw_animation_requested.connect(_on_monster_draw_animation_requested)
+	_gui_input.scavenge_draw_animation_requested.connect(_on_scavenge_draw_animation_requested)
 	_popup_manager.option_selected.connect(_gui_input.respond_choose)
 	_popup_manager.confirm_responded.connect(_gui_input.respond_confirm)
 	_popup_manager.cards_selected.connect(_gui_input.respond_choose_card)
@@ -676,6 +682,12 @@ func _on_monster_draw_animation_requested(player: Variant, card: Variant) -> voi
 		target_position = panel.get_monster_zone_button_global_position()
 	await _monster_draw_animation_view.play(card, target_position)
 	_gui_input.respond_monster_draw_animation()
+
+
+# 拾荒牌"抓取时"技能触发动画：原地放大淡出（无飞行终点）；播放完毕后结算响应，阻塞后续请求派发
+func _on_scavenge_draw_animation_requested(_player: Variant, card: Variant) -> void:
+	await _skill_trigger_animation_view.play(card)
+	_gui_input.respond_scavenge_draw_animation()
 
 
 # === EventBus 信号处理 ===

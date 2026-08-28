@@ -16,6 +16,7 @@ static var _monster_mark_texture: Texture2D = null
 static var _objective_mark_texture: Texture2D = null
 static var _monster_textures: Dictionary = {}  # monster_name → Texture2D
 static var _monster_card_back_texture: Texture2D = null
+static var _scavenge_card_back_texture: Texture2D = null
 static var _card_textures: Dictionary = {}  # card_name → Texture2D
 static var _initialized: bool = false
 static var _manifest: Dictionary = {}
@@ -48,6 +49,7 @@ static func _ensure_initialized() -> void:
 	_scan_gamemark_images()
 	_scan_monster_images()
 	_scan_monster_card_back()
+	_scan_scavenge_card_back()
 	_scan_card_images()
 
 
@@ -155,6 +157,16 @@ static func _scan_monster_card_back() -> void:
 	_monster_card_back_texture = load(paths[0])
 
 
+## 扫描拾荒牌背面图片（images/scavenging 目录，清单 scavenge_card_back 键）。
+static func _scan_scavenge_card_back() -> void:
+	if not _manifest.has("scavenge_card_back"):
+		return
+	var paths: Array = _manifest["scavenge_card_back"]
+	if paths.is_empty():
+		return
+	_scavenge_card_back_texture = load(paths[0])
+
+
 ## 扫描卡牌图片：survivor 下各角色目录 + scavenging。
 ## 排除非卡牌图片（角色牌正面/背面/头像/游戏牌背面等），按 card_name 索引。
 ## 清单中列出的图片均已导入（含 .import 文件），直接 load() 即可。
@@ -174,10 +186,10 @@ static func _scan_card_images() -> void:
 
 
 ## 根据单个图片路径登记卡牌纹理，按文件主名（card_name）索引。
-## 排除文件名包含"角色牌"、"头像"、"游戏牌背面"的非卡牌图片。
+## 排除文件名包含"角色牌"、"头像"、"游戏牌背面"、"拾荒牌背面"的非卡牌图片。
 static func _add_card_texture(path: String) -> void:
 	var stem: String = path.get_file().get_basename().strip_edges()
-	if stem.find("角色牌") < 0 and stem.find("头像") < 0 and stem.find("游戏牌背面") < 0:
+	if stem.find("角色牌") < 0 and stem.find("头像") < 0 and stem.find("游戏牌背面") < 0 and stem.find("拾荒牌背面") < 0:
 		_card_textures[stem] = load(path)
 
 
@@ -244,6 +256,12 @@ static func get_monster_texture(monster_name: String) -> Texture2D:
 static func get_monster_card_back_texture() -> Texture2D:
 	_ensure_initialized()
 	return _monster_card_back_texture
+
+
+## 返回拾荒牌背面纹理。无则返回 null。
+static func get_scavenge_card_back_texture() -> Texture2D:
+	_ensure_initialized()
+	return _scavenge_card_back_texture
 
 
 ## 返回指定卡牌的图片纹理。无匹配时返回 null。
