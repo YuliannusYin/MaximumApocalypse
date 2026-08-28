@@ -1093,11 +1093,13 @@ func start_turn() -> void:
 	# 节点 12：求生者饥饿状态结算前
 	in_phase = "hunger"
 	await trigger("before_hunger_settlement", event)
+	var hunger_cancelled: bool = EventSystem.is_cancelled(event)
+	if not hunger_cancelled:
 	# 节点 13：求生者饥饿状态结算时
-	await trigger("on_hunger_settlement", event)
-	increase_hunger(1)
-	if not is_alive():
-		return
+		await trigger("on_hunger_settlement", event)
+		increase_hunger(1)
+		if not is_alive():
+			return
 	# 节点 14：求生者中毒状态结算前
 	in_phase = "poison"
 	await trigger("before_poison_settlement", event)

@@ -473,6 +473,25 @@ func get_random_card(player: Variant, areas: Array) -> Variant:
 	return all_cards[randi() % all_cards.size()]
 
 
+## 从玩家指定区域随机返回最多 n 张不重复的牌；不足 n 张返回全部，无牌返回空数组。
+## 装备区持有 Equipment 实体，返回时映射为来源 EquipmentCard，与 get_random_card 语义一致。
+func get_random_cards(player: Variant, areas: Array, n: int) -> Array:
+	if player == null or not is_instance_valid(player) or n <= 0:
+		return []
+	var all_cards: Array = []
+	for area in areas:
+		if area == "hand" and "hand" in player:
+			all_cards.append_array(player.hand)
+		elif area == "equipment" and "equipment_zone" in player:
+			for e in player.equipment_zone:
+				if e != null and is_instance_valid(e) and e.get("equipment_card") != null:
+					all_cards.append(e.equipment_card)
+	all_cards.shuffle()
+	if all_cards.size() <= n:
+		return all_cards
+	return all_cards.slice(0, n)
+
+
 ## 根据卡牌名创建拾荒卡实例。
 ## 遍历所有拾荒包数据（red/green/blue/gray），按 card_name 精确匹配 ScavengeCardData，
 ## 找到时调用 _create_scavenge_card_from_data 创建实例并返回；未找到返回 null 并记录日志。
@@ -896,11 +915,11 @@ func get_all_discard_pile_equipments() -> Array:
 		var pile: Variant = player.get("game_discard_pile")
 		if pile != null and pile.has_method("get_all"):
 			for card in pile.get_all():
-				if card != null and card is EquipmentCard:
+				if card != null and card is EquipmentCard and card.card_type == "equipment":
 					result.append(card)
 	if scavenge_discard_pile != null and scavenge_discard_pile.has_method("get_all"):
 		for card in scavenge_discard_pile.get_all():
-			if card != null and card is EquipmentCard:
+			if card != null and card is EquipmentCard and card.card_type == "equipment":
 				result.append(card)
 	return result
 
@@ -913,11 +932,11 @@ func has_equipment_in_discard_piles() -> bool:
 		var pile: Variant = player.get("game_discard_pile")
 		if pile != null and pile.has_method("get_all"):
 			for card in pile.get_all():
-				if card != null and card is EquipmentCard:
+				if card != null and card is EquipmentCard and card.card_type == "equipment":
 					return true
 	if scavenge_discard_pile != null and scavenge_discard_pile.has_method("get_all"):
 		for card in scavenge_discard_pile.get_all():
-			if card != null and card is EquipmentCard:
+			if card != null and card is EquipmentCard and card.card_type == "equipment":
 				return true
 	return false
 

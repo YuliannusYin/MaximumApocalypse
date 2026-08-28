@@ -3,8 +3,9 @@ extends Control
 
 ## 怪物抓取动画组件（纯代码构建，无 .tscn）。
 ## 全屏覆盖层：半透明黑背景 + 一张怪物卡（牌背淡入 → 翻面 → 正面定格 → 飞向目标点）。
-## 牌面图片优先：牌背用 images/monster/怪物卡牌背面.jpg；正面有怪物立绘时
-## 参考 CardView 以图片为底、信息叠加渲染（级别/名称/数值行），无图回退纯文字卡面。
+## 正面复用共享组件 MonsterCardView（玩家面板怪物区样式，120×180 基准等比放大 1.5 倍
+## = 内卡 180×270），抓取阶段怪物 HP 显示 max_hp/max_hp；
+## 牌背用固定图片 images/monster/怪物卡牌背面.jpg 拉伸铺满整卡，无图回退深色 + "?"。
 ## 用法：实例化后加入 CanvasLayer，await play(card, target_position) 播放完整动画。
 ## 所有节点 mouse_filter 均为 IGNORE，播放期间不遮挡其他 UI 点击。
 
@@ -30,65 +31,17 @@ var _fly_tween: Tween = null
 
 # === 怪物卡（内部类） ===
 
-## 怪物卡：牌背（真实牌背图，无图回退深色 + "?"）与正面（图片叠加信息，无图回退文字卡面）
-## 双层节点，翻面时切换显隐。scale:x 收窄/展开由外部 Tween 驱动，pivot 为卡中心。
+## 怪物卡：牌背（固定牌背图拉伸铺满，无图回退深色 + "?"）与正面（共享组件
+## MonsterCardView，怪物区样式放大 1.5 倍）双层节点，翻面时切换显隐。
+## scale:x 收窄/展开由外部 Tween 驱动，pivot 为卡中心。
 class MonsterCardFace extends Control:
-	const CARD_SIZE: Vector2 = Vector2(200.0, 280.0)
-
-	# === 正面布局（卡内坐标） ===
-	const ROW_WIDTH: float = 180.0        # 文本行宽（左右留边 10）
-	const NAME_Y: float = 26.0            # 怪物名称顶部
-	const LEVEL_Y: float = 78.0           # 级别标签顶部
-	const TYPE_Y: float = 116.0           # 怪物类型顶部
-	const HP_Y: float = 154.0             # 生命值顶部
-	const DAMAGE_Y: float = 190.0         # 攻击伤害顶部
-	const RANGE_Y: float = 226.0          # 射程顶部
-
-	# === 正面文案映射 ===
-	# 怪物类型
-	const MONSTER_TYPE_NAMES: Dictionary = {
-		"alien": "外星人",
-		"mutant": "突变体",
-		"zombie": "僵尸",
-		"robot": "机器人",
-	}
-	# 怪物级别
-	const MONSTER_LEVEL_NAMES: Dictionary = {
-		"boss": "首领",
-		"elite": "精英",
-		"normal": "普通",
-	}
-	# 射程
-	const RANGE_NAMES: Dictionary = {
-		"none": "无",
-		"short": "短程",
-		"medium": "中程",
-		"long": "远程",
-		"infinity": "无限",
-	}
-	# 级别标签配色：首领=红 / 精英=橙 / 普通=灰白
-	const LEVEL_COLORS: Dictionary = {
-		"boss": Color(1.0, 0.35, 0.35),
-		"elite": Color(1.0, 0.62, 0.2),
-		"normal": Color(0.85, 0.85, 0.88),
-	}
-
-	# 正面文案配色
-	const COLOR_NAME: Color = Color(1.0, 1.0, 1.0)     # 名称：白
-	const COLOR_TYPE: Color = Color(0.65, 0.65, 0.7)   # 类型：灰
-	const COLOR_STAT: Color = Color(0.92, 0.92, 0.92)  # 数值行：灰白
+	# 整卡尺寸：MonsterCardView 以 1.5 倍渲染（内卡 180×270 + 黑边外框）
+	const CARD_SIZE: Vector2 = Vector2(195.0, 285.0)
 
 	var _back: Panel
 	var _back_label: Label
 	var _back_texture_rect: TextureRect
-	var _front: Panel
-	var _front_texture_rect: TextureRect
-	var _name_label: Label
-	var _level_label: Label
-	var _type_label: Label
-	var _hp_label: Label
-	var _damage_label: Label
-	var _range_label: Label
+	var _front_view: MonsterCardView
 	var _home_position: Vector2 = Vector2.ZERO
 
 	func _init() -> void:
@@ -101,7 +54,7 @@ class MonsterCardFace extends Control:
 		_apply_back_texture()
 		show_back()
 
-	## 构建牌背：真实牌背图打底（无图时回退深色底 + 边框 + 居中"?"大字）。
+	## 构建牌背：固定牌背图打底（拉伸铺满整卡），无图时回退深色 + 边框 + 居中"?"大字。
 	func _build_back() -> void:
 		_back = Panel.new()
 		_back.size = CARD_SIZE
@@ -115,7 +68,7 @@ class MonsterCardFace extends Control:
 		_back_texture_rect = TextureRect.new()
 		_back_texture_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
 		_back_texture_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		_back_texture_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		_back_texture_rect.stretch_mode = TextureRect.STRETCH_SCALE
 		_back_texture_rect.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 		_back_texture_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_back_texture_rect.visible = false
@@ -134,7 +87,7 @@ class MonsterCardFace extends Control:
 		_back.add_child(_back_label)
 		add_child(_back)
 
-	## 应用牌背纹理：有真实牌背图时铺满牌背并隐藏"?"，无图保持占位样式。
+	## 应用牌背纹理：有牌背图时拉伸铺满整卡并隐藏"?"，无图保持占位样式。
 	func _apply_back_texture() -> void:
 		var tex: Texture2D = ImageCache.get_monster_card_back_texture()
 		if tex == null:
@@ -143,134 +96,25 @@ class MonsterCardFace extends Control:
 		_back_texture_rect.visible = true
 		_back_label.visible = false
 
-	## 构建正面：图片打底（有立绘时叠加信息），无图回退文字卡面
-	## （名称 / 级别 / 类型 / 生命值 / 攻击伤害 / 射程）。
+	## 构建正面：共享组件 MonsterCardView（怪物区样式，内卡 180×270 = 放大 1.5 倍）。
 	func _build_front() -> void:
-		_front = Panel.new()
-		_front.size = CARD_SIZE
-		_front.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var style := StyleBoxFlat.new()
-		style.bg_color = Color(0.16, 0.16, 0.2)
-		style.set_corner_radius_all(12)
-		style.set_border_width_all(3)
-		style.border_color = Color(0.55, 0.55, 0.62)
-		_front.add_theme_stylebox_override("panel", style)
-		add_child(_front)
-		_front_texture_rect = TextureRect.new()
-		_front_texture_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
-		_front_texture_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		_front_texture_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		_front_texture_rect.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-		_front_texture_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_front_texture_rect.visible = false
-		_front.add_child(_front_texture_rect)
-		_name_label = _make_row_label(NAME_Y, 40.0, 26, COLOR_NAME, true)
-		_level_label = _make_row_label(LEVEL_Y, 28.0, 18, LEVEL_COLORS["normal"], true)
-		_type_label = _make_row_label(TYPE_Y, 24.0, 16, COLOR_TYPE, false)
-		_hp_label = _make_row_label(HP_Y, 24.0, 16, COLOR_STAT, false)
-		_damage_label = _make_row_label(DAMAGE_Y, 24.0, 16, COLOR_STAT, false)
-		_range_label = _make_row_label(RANGE_Y, 24.0, 16, COLOR_STAT, false)
+		_front_view = MonsterCardView.new(180.0, 270.0)
+		_front_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(_front_view)
 
-	## 构建正面单行居中文本标签（可选黑描边），加入 _front。
-	func _make_row_label(y: float, height: float, font_size: int, color: Color, outlined: bool) -> Label:
-		var label := Label.new()
-		label.position = Vector2((CARD_SIZE.x - ROW_WIDTH) * 0.5, y)
-		label.size = Vector2(ROW_WIDTH, height)
-		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		label.add_theme_font_size_override("font_size", font_size)
-		label.add_theme_color_override("font_color", color)
-		if outlined:
-			label.add_theme_color_override("font_outline_color", Color.BLACK)
-			label.add_theme_constant_override("outline_size", 4)
-		_front.add_child(label)
-		return label
-
-	## 填充正面数据：有怪物立绘时走图片布局（参考 CardView），无图回退文字卡面。
+	## 填充正面数据：传入 MonsterCard（组件内 hp 取 max_hp，即显示 max_hp/max_hp）。
 	func set_card_data(card: MonsterCard) -> void:
-		var tex: Texture2D = ImageCache.get_monster_texture(card.card_name)
-		if tex != null:
-			_apply_image_layout(card, tex)
-		else:
-			_apply_text_layout(card)
-
-	## 图片布局：立绘铺满卡面 + 顶部级别徽章 + 中下名称 + 名称下数值行（均黑描边）。
-	func _apply_image_layout(card: MonsterCard, tex: Texture2D) -> void:
-		_front_texture_rect.texture = tex
-		_front_texture_rect.visible = true
-		# 级别徽章：顶部居中，配色随级别
-		_level_label.text = MONSTER_LEVEL_NAMES.get(card.monster_level, "普通")
-		_level_label.add_theme_color_override("font_color", LEVEL_COLORS.get(card.monster_level, LEVEL_COLORS["normal"]))
-		_level_label.position = Vector2((CARD_SIZE.x - ROW_WIDTH) * 0.5, 12.0)
-		_level_label.size = Vector2(ROW_WIDTH, 26.0)
-		_level_label.add_theme_font_size_override("font_size", 18)
-		_level_label.visible = true
-		# 名称：中下
-		_name_label.text = card.card_name
-		_name_label.position = Vector2((CARD_SIZE.x - ROW_WIDTH) * 0.5, CARD_SIZE.y - 84.0)
-		_name_label.size = Vector2(ROW_WIDTH, 40.0)
-		_name_label.add_theme_font_size_override("font_size", 24)
-		_name_label.visible = true
-		# 数值行：名称下方一行合并展示（生命/伤害/射程），复用生命值标签
-		_hp_label.text = "生命 %d · 伤害 %d · 射程 %s" % [
-			card.max_hp,
-			card.damage_value,
-			RANGE_NAMES.get(card.range, card.range),
-		]
-		_hp_label.position = Vector2((CARD_SIZE.x - ROW_WIDTH) * 0.5, CARD_SIZE.y - 42.0)
-		_hp_label.size = Vector2(ROW_WIDTH, 26.0)
-		_hp_label.add_theme_font_size_override("font_size", 15)
-		_hp_label.add_theme_color_override("font_outline_color", Color.BLACK)
-		_hp_label.add_theme_constant_override("outline_size", 4)
-		_hp_label.visible = true
-		# 图片模式不单独显示类型/伤害/射程行
-		_type_label.visible = false
-		_damage_label.visible = false
-		_range_label.visible = false
-
-	## 文字布局：纯文字卡面（名称 / 级别 / 类型 / 生命值 / 攻击伤害 / 射程）。
-	func _apply_text_layout(card: MonsterCard) -> void:
-		_front_texture_rect.visible = false
-		_name_label.text = card.card_name
-		_name_label.position = Vector2((CARD_SIZE.x - ROW_WIDTH) * 0.5, NAME_Y)
-		_name_label.size = Vector2(ROW_WIDTH, 40.0)
-		_name_label.add_theme_font_size_override("font_size", 26)
-		_name_label.visible = true
-		_level_label.text = MONSTER_LEVEL_NAMES.get(card.monster_level, "普通")
-		_level_label.add_theme_color_override("font_color", LEVEL_COLORS.get(card.monster_level, LEVEL_COLORS["normal"]))
-		_level_label.position = Vector2((CARD_SIZE.x - ROW_WIDTH) * 0.5, LEVEL_Y)
-		_level_label.size = Vector2(ROW_WIDTH, 28.0)
-		_level_label.add_theme_font_size_override("font_size", 18)
-		_level_label.visible = true
-		_type_label.text = MONSTER_TYPE_NAMES.get(card.monster_type, card.monster_type)
-		_type_label.position = Vector2((CARD_SIZE.x - ROW_WIDTH) * 0.5, TYPE_Y)
-		_type_label.size = Vector2(ROW_WIDTH, 24.0)
-		_type_label.add_theme_font_size_override("font_size", 16)
-		_type_label.visible = true
-		_hp_label.text = "生命值 " + str(card.max_hp)
-		_hp_label.position = Vector2((CARD_SIZE.x - ROW_WIDTH) * 0.5, HP_Y)
-		_hp_label.size = Vector2(ROW_WIDTH, 24.0)
-		_hp_label.add_theme_font_size_override("font_size", 16)
-		_hp_label.visible = true
-		_damage_label.text = "攻击伤害 " + str(card.damage_value)
-		_damage_label.position = Vector2((CARD_SIZE.x - ROW_WIDTH) * 0.5, DAMAGE_Y)
-		_damage_label.size = Vector2(ROW_WIDTH, 24.0)
-		_damage_label.visible = true
-		_range_label.text = "射程 " + RANGE_NAMES.get(card.range, card.range)
-		_range_label.position = Vector2((CARD_SIZE.x - ROW_WIDTH) * 0.5, RANGE_Y)
-		_range_label.size = Vector2(ROW_WIDTH, 24.0)
-		_range_label.visible = true
+		_front_view.set_monster(card)
 
 	## 显示牌背（隐藏正面）。
 	func show_back() -> void:
 		_back.visible = true
-		_front.visible = false
+		_front_view.visible = false
 
 	## 显示正面（隐藏牌背）。
 	func show_front() -> void:
 		_back.visible = false
-		_front.visible = true
+		_front_view.visible = true
 
 	## 设置基准位置（飞行起点与复位均以此为原点）。
 	func set_home_position(pos: Vector2) -> void:
