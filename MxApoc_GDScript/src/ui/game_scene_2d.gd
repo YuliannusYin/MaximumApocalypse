@@ -32,6 +32,8 @@ var _active_skill_bar: ActiveSkillBar
 var _event_log_panel: EventLogPanel
 var _dice_animation_view: DiceAnimationView
 var _turn_banner_view: TurnBannerView
+var _monster_draw_animation_view: MonsterDrawAnimationView
+var _skill_trigger_animation_view: SkillTriggerAnimationView
 
 # === 游戏状态 ===
 var _gui_input: GUIPlayerInput
@@ -82,6 +84,14 @@ func _create_modules() -> void:
 	_dice_animation_view = DiceAnimationView.new()
 	_ui_layer.add_child(_dice_animation_view)
 
+	# 怪物抓取动画视图：挂在 UI 层，抓取怪物牌时触发播放（await play 播完整轮才返回）
+	_monster_draw_animation_view = MonsterDrawAnimationView.new()
+	_ui_layer.add_child(_monster_draw_animation_view)
+
+	# "抓取时"技能触发动画视图：挂在 UI 层，抓取带 forced on_draw_scavenge_card 技能的拾荒牌时触发播放
+	_skill_trigger_animation_view = SkillTriggerAnimationView.new()
+	_ui_layer.add_child(_skill_trigger_animation_view)
+
 	# 回合切换横幅视图：挂在 UI 层，回合开始时中央提示（fire-and-forget，不阻塞流程）
 	_turn_banner_view = TurnBannerView.new()
 	_ui_layer.add_child(_turn_banner_view)
@@ -121,6 +131,9 @@ func _start_game_flow() -> void:
 
 	Game.initialize_game(mission, variants, seats)
 	_table_map_controller.build_table_and_map()
+	# 任务进度面板：常驻 UI 层右侧固定位置，_process 自刷新任务条件进度
+	var progress_panel: MissionProgressPanel = MissionProgressPanel.new()
+	_ui_layer.add_child(progress_panel)
 	_build_player_panels()
 	_build_hand_area()
 	_assign_player_panels()
@@ -139,6 +152,8 @@ func _start_game_flow() -> void:
 	_gui_input.redraw_decision_requested.connect(_on_redraw_decision_requested)
 	_gui_input.judge_confirm_requested.connect(_on_judge_confirm_requested)
 	_gui_input.dice_animation_requested.connect(_on_dice_animation_requested)
+	_gui_input.monster_draw_animation_requested.connect(_on_monster_draw_animation_requested)
+	_gui_input.scavenge_draw_animation_requested.connect(_on_scavenge_draw_animation_requested)
 	_popup_manager.option_selected.connect(_gui_input.respond_choose)
 	_popup_manager.confirm_responded.connect(_gui_input.respond_confirm)
 	_popup_manager.cards_selected.connect(_gui_input.respond_choose_card)
@@ -658,6 +673,23 @@ func _on_dice_animation_requested(d1: int, d2: int, label: String, outcome: Stri
 	_gui_input.respond_dice_animation()
 
 
+# 怪物抓取动画：飞行终点取该玩家面板怪物区按钮的全局中心位置，
+# 面板不存在或按钮无效时终点为 Vector2.ZERO（视图原地淡出）；播放完毕后结算响应，阻塞后续请求派发
+func _on_monster_draw_animation_requested(player: Variant, card: Variant) -> void:
+	var target_position: Vector2 = Vector2.ZERO
+	var panel: PlayerPanel = _get_panel_for_player(player)
+	if panel != null:
+		target_position = panel.get_monster_zone_button_global_position()
+	await _monster_draw_animation_view.play(card, target_position)
+	_gui_input.respond_monster_draw_animation()
+
+
+# 拾荒牌"抓取时"技能触发动画：原地放大淡出（无飞行终点）；播放完毕后结算响应，阻塞后续请求派发
+func _on_scavenge_draw_animation_requested(_player: Variant, card: Variant) -> void:
+	await _skill_trigger_animation_view.play(card)
+	_gui_input.respond_scavenge_draw_animation()
+
+
 # === EventBus 信号处理 ===
 
 func _on_turn_started(player: Variant) -> void:
@@ -695,6 +727,8 @@ func _on_player_moved(player: Variant, source_block: Variant, target_block: Vari
 	_table_map_controller.refresh_map()
 	_refresh_all_panels()
 	_pile_manager.refresh_pile_highlights()
+	# 移动完成后地块技能/任务行动技能已挂载/卸载，刷新技能栏
+	_active_skill_bar.refresh(Game.get_current_player())
 
 
 func _on_block_revealed(block: Variant, _player: Variant) -> void:

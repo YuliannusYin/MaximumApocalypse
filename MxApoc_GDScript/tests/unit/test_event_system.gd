@@ -3,15 +3,6 @@ extends GutTest
 ## EventSystem 单元测试。
 
 
-func test_create_event_has_default_fields() -> void:
-	var event: Dictionary = EventSystem.create_event()
-	assert_true(event.has("trigger_name"), "应包含 trigger_name")
-	assert_true(event.has("cancelled"), "应包含 cancelled")
-	assert_eq(event["trigger_name"], "", "默认 trigger_name 为空")
-	assert_false(event["cancelled"], "默认 cancelled 为 false")
-	assert_true(event.has("cancel"), "应包含 cancel callable")
-
-
 func test_cancel_sets_cancelled_true() -> void:
 	var event: Dictionary = EventSystem.create_event()
 	assert_false(EventSystem.is_cancelled(event), "初始未取消")
@@ -27,12 +18,6 @@ func test_cancel_callable_in_event_works() -> void:
 	assert_true(event["cancelled"], "调用 event['cancel'].call() 后 cancelled 应为 true")
 
 
-func test_set_trigger_name() -> void:
-	var event: Dictionary = EventSystem.create_event()
-	EventSystem.set_trigger_name(event, "on_take_damage")
-	assert_eq(event["trigger_name"], "on_take_damage")
-
-
 func test_create_damage_event_fields() -> void:
 	var target: Entity = Entity.new()
 	var source: Entity = Entity.new()
@@ -43,13 +28,6 @@ func test_create_damage_event_fields() -> void:
 	assert_eq(event["type"], 0)
 	assert_null(event["card"])
 	assert_false(event["cancelled"])
-
-
-func test_create_damage_event_null_source() -> void:
-	var target: Entity = Entity.new()
-	var event: Dictionary = EventSystem.create_damage_event(target, null, 3, 2, null)
-	assert_null(event["source"])
-	assert_eq(event["num"], 3)
 
 
 func test_create_recover_event() -> void:

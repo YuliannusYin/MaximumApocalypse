@@ -249,6 +249,9 @@ func draw_scavenge_card(card: Card, pile: Pile, event: Dictionary) -> void:
 		for s in card.get_all_skills():
 			if s.forced and s.matches_trigger("on_draw_scavenge_card"):
 				mounted_skills.append(s)
+	# 播放"抓取时"技能触发动画（居中翻卡展示后原地放大淡出），动画播完前阻塞流程
+	if not mounted_skills.is_empty():
+		await _play_scavenge_draw_animation(card)
 	await trigger_only("on_draw_scavenge_card", event, mounted_skills)
 
 
@@ -280,6 +283,8 @@ func draw_monster(n: int) -> void:
 			Game.log_message(LogColors.player(player_name) + " 抓取了怪物牌 " + LogColors.card(card.card_name))
 		if EventBus != null and is_instance_valid(EventBus):
 			EventBus.monster_card_drawn.emit(self, card)
+		# 播放抓取怪物牌动画（居中翻卡展示后飞向持有者面板怪物区），动画播完前阻塞流程
+		await _play_monster_draw_animation(card)
 		# b. 抓取怪物卡时（每张触发）
 		await trigger("on_draw_monster_card", event)
 		# c. 怪物卡进入求生者怪物区前（每张触发）
@@ -420,15 +425,23 @@ func move_to(target: MapBlock) -> bool:
 	await trigger("on_leave_block", event)
 	# 3. 离开地块后
 	await trigger("after_leave_block", event)
-	# 4. 获取目标地块技能（先获取，再准入检定）
+	# 4. 获取目标地块技能（先获取，再准入检定）；并列挂载任务行动技能
 	if target != null and target.has_method("_acquire_skills_for_player"):
 		target._acquire_skills_for_player(self)
+	if target != null and Game != null and is_instance_valid(Game) and Game.mission_config != null:
+		Game.mission_config.mount_action_skills(self, target)
 	# 5. 进入地块前（取消点）
 	await trigger("before_enter_block", event)
 	if EventSystem.is_cancelled(event):
-		# 移动取消，回滚：移除刚获取的目标地块技能
+		# 移动取消，回滚：移除刚获取的目标地块技能（旧地块技能本就未移除，无需恢复）；
+		# 任务行动技能在挂载时已被卸载，需卸载目标地块的并按旧地块重挂，
+		# 使回滚后玩家持有的技能与留在旧地块的状态一致
 		if target != null and target.has_method("_clear_skills_for_player"):
 			target._clear_skills_for_player(self)
+		if Game != null and is_instance_valid(Game) and Game.mission_config != null:
+			Game.mission_config.unmount_action_skills(self)
+			if source != null and is_instance_valid(source):
+				Game.mission_config.mount_action_skills(self, source)
 		return false
 	# 6. 移动时（坐标变更）
 	current_block = target
@@ -456,7 +469,7 @@ func move_to(target: MapBlock) -> bool:
 		if not await sneak_judge():
 			var num: int = target.count_monster_mark()
 			target.remove_monster_mark(num)
-			draw_monster(num)
+			await draw_monster(num)
 	# 11. 触发目标标记
 	if target != null and target.has_method("trigger_objective_marks"):
 		await target.trigger_objective_marks(self)
@@ -484,9 +497,13 @@ func pull_toward_one_block_no_effect(source: Variant) -> void:
 			best_dist = d
 	if best == null or best == from_block:
 		return
-	# 维护地块技能挂载（移除旧地块技能、获取新地块技能，不触发任何事件）
+	# 维护地块技能挂载（移除旧地块技能、获取新地块技能，不触发任何事件）；
+	# 并列维护任务行动技能挂载（卸载旧地块的、挂载新地块的）
 	from_block._clear_skills_for_player(self)
 	best._acquire_skills_for_player(self)
+	if Game != null and is_instance_valid(Game) and Game.mission_config != null:
+		Game.mission_config.unmount_action_skills(self)
+		Game.mission_config.mount_action_skills(self, best)
 	# 坐标变更（与 move_to 的第 6 步保持一致的状态记录）
 	current_block = best
 	add_mark("moved_this_turn", 1, "", "", false)
@@ -523,6 +540,20 @@ func _play_dice_animation(d1: int, d2: int, label: String, outcome: String) -> v
 	if input == null or not is_instance_valid(input):
 		return
 	await input.play_dice_animation(d1, d2, label, outcome)
+
+
+## 播放抓取怪物牌动画（居中翻卡展示后飞向持有者面板怪物区），动画播完前阻塞流程。
+func _play_monster_draw_animation(card: MonsterCard) -> void:
+	if input == null or not is_instance_valid(input):
+		return
+	await input.play_monster_draw_animation(self, card)
+
+
+## 播放"抓取时"技能触发动画（居中翻卡展示后原地放大淡出），动画播完前阻塞流程。
+func _play_scavenge_draw_animation(card: Card) -> void:
+	if input == null or not is_instance_valid(input):
+		return
+	await input.play_scavenge_draw_animation(self, card)
 
 
 ## 潜行检定（4 节点，投骰前含确认门，确认后播放骰子动画）。
@@ -581,6 +612,8 @@ func monster_spawn_judge() -> void:
 		await _play_dice_animation(dice[0], dice[1], "怪物生成", "")
 		if Game != null and is_instance_valid(Game):
 			Game.log_message(LogColors.player(player_name) + " 执行了 " + LogColors.skill("怪物生成") + ", 点数为 " + str(dice_value))
+		if EventBus != null and is_instance_valid(EventBus):
+			EventBus.monster_spawn_judged.emit(self, dice_value)
 		event["result"] = {"value": dice_value, "success": true}
 	# 3. 怪物出生检定时
 	await trigger("on_spawn_judge", event)
@@ -600,7 +633,7 @@ func monster_spawn_judge() -> void:
 				elif block.count_monster_mark() == 3 and block.has_player():
 					for p in block.get_players():
 						if p != null and is_instance_valid(p) and p.is_alive():
-							p.draw_monster(1)
+							await p.draw_monster(1)
 
 
 # === 六、死亡流程 ===
@@ -1043,8 +1076,12 @@ func start_turn() -> void:
 	# 节点 6：摸牌阶段前
 	in_phase = "draw"
 	await trigger("before_draw_phase", event)
-	# 节点 7：摸牌阶段（牌堆空 → 死亡）
-	draw(1)
+	# 节点 7：摸牌阶段（牌堆空 → 死亡；手牌超限 → 跳过摸牌）
+	if role_card != null and hand.size() >= role_card.hand_size_limit:
+		if Game != null and is_instance_valid(Game):
+			Game.log_message(LogColors.player(player_name) + " 手牌超限跳过摸牌")
+	else:
+		draw(1)
 	if not is_alive():
 		return
 	# 节点 8：行动阶段前（含潜行检定）
@@ -1055,7 +1092,7 @@ func start_turn() -> void:
 			if not await sneak_judge():
 				var num: int = current_block.count_monster_mark()
 				current_block.remove_monster_mark(num)
-				draw_monster(num)
+				await draw_monster(num)
 	await trigger("before_action_phase", event)
 	# 节点 9：行动阶段
 	await wait_player_action()
@@ -1066,11 +1103,13 @@ func start_turn() -> void:
 	# 节点 12：求生者饥饿状态结算前
 	in_phase = "hunger"
 	await trigger("before_hunger_settlement", event)
+	var hunger_cancelled: bool = EventSystem.is_cancelled(event)
+	if not hunger_cancelled:
 	# 节点 13：求生者饥饿状态结算时
-	await trigger("on_hunger_settlement", event)
-	increase_hunger(1)
-	if not is_alive():
-		return
+		await trigger("on_hunger_settlement", event)
+		increase_hunger(1)
+		if not is_alive():
+			return
 	# 节点 14：求生者中毒状态结算前
 	in_phase = "poison"
 	await trigger("before_poison_settlement", event)
@@ -1492,11 +1531,27 @@ func wait_player_action() -> void:
 			elif action_type == "pile_draw":
 				var pile_key: String = choice.get("pile_key", "")
 				await _execute_pile_draw(pile_key)
+			elif action_type == "mission_action":
+				var option_id: String = choice.get("option_id", "")
+				await _execute_mission_action(option_id)
 			elif action_type == "move":
 				var target_block: Variant = choice.get("target", null)
 				if target_block != null and is_instance_valid(target_block):
 					consume_action(1)
 					await move_to(target_block)
+
+
+## 执行任务行动选项（actions 组件/任务脚本提供的专属行动）。
+func _execute_mission_action(option_id: String) -> void:
+	if Game == null or not is_instance_valid(Game) or Game.mission_config == null:
+		return
+	var options: Array = Game.mission_config.get_action_options(Game, self)
+	for opt in options:
+		if opt is Dictionary and opt.get("id", "") == option_id:
+			var fn: Callable = opt.get("execute", Callable())
+			if fn.is_valid():
+				await fn.call()
+			return
 
 
 ## 执行牌堆抓牌动作（UI 牌堆点击触发）。
@@ -1874,34 +1929,4 @@ func draw_boss_card() -> void:
 		return
 	# 4. 放到怪物牌堆顶部，复用 draw_monster(1)
 	Game.monster_pile.cards.push_front(boss_card)
-	draw_monster(1)
-
-
-## 获得解救科学家的选项。
-func rescue_scientist_option() -> void:
-	var choice: String = await input.choose(["花费 1 行动解救科学家", "不解救"])
-	if choice == "不解救":
-		Game.log_message(LogColors.player(player_name) + " 选择不解救科学家。")
-		return
-	if action_count < 1:
-		Game.log_message(LogColors.player(player_name) + " 行动次数不足，无法解救科学家。")
-		return
-	if Game == null or Game.mission_config == null:
-		return
-	var scientist: Variant = Game.mission_config.mission_state.get("scientist_equipment", null)
-	if scientist == null:
-		Game.log_message("科学家已被解救！")
-		return
-	reduce_action_count(1)
-	equip(scientist)
-	Game.mission_config.mission_state["scientist_equipment"] = null
-	Game.mission_config.mission_state["scientist_rescued"] = true
-	Game.log_message(LogColors.player(player_name) + " 解救了科学家，装备到面前！")
-
-
-## 记录科学家信息。
-func record_scientist_info() -> void:
-	if Game == null or Game.mission_config == null:
-		return
-	Game.mission_config.mission_state["scientist_info_recorded"] = true
-	Game.log_message(LogColors.player(player_name) + " 记录了科学家信息。")
+	await draw_monster(1)

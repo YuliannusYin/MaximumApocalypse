@@ -74,7 +74,7 @@
 #### start_game()
 
 > 游戏开局流程。**委托给** [GameStateMachine.start_game()](../Core/GameStateMachine.md)，使用 `await` 等待完成。
-> 在 `initialize_game` 之后调用。依次执行：状态转换 setup → playing → 抓初始手牌（含可选重调）→ 抓初始怪物卡 → 触发「游戏开始时」trigger → 进入第一玩家回合。
+> 在 `initialize_game` 之后调用。依次执行：状态转换 setup → playing → 抓初始手牌（含可选重调）→ 抓初始怪物卡（任务声明 `no_initial_monster_draw` 时跳过，如任务 11）→ 触发「游戏开始时」trigger → 进入第一玩家回合。
 > 落地 [EventSystem §4.12](../Core/EventSystem.md) 的「游戏开始时」trigger。
 
 #### game_over(result)
@@ -91,7 +91,7 @@
 - **所有玩家死亡** → `all_players_dead()` 为真 → `game_over("lose")`（[Player.playerDeath](../Entities/Player.md) 末尾检查）
 - **怪物牌堆重洗后仍空**（所有怪物卡都在场上）→ `game_over("lose")`（见 [Player.drawMonster](../Entities/Player.md)）
 - **同生共死变体**：`coop_death_mode` 为真时，任一玩家死亡即 `game_over("lose")`（[Player.playerDeath](../Entities/Player.md) 末尾在全灭判定之前检查）
-- **任务特定失败**：任务系统检查后调用 `game_over("lose")`（如任务 8 潜行检定失败且无日记本）
+- **任务特定失败**：任务系统检查后调用 `game_over("lose")`（如 `turn_countdown` 倒计时归零、`card_discard_watch` lose 模式监视卡被弃置、任务 8 `rescue_judge_win` 解救检定失败且未持有情报卡）
 
 ##### 游戏胜利条件
 
@@ -99,7 +99,7 @@
 > 详见 [GameInstructions/02_开局与流程.md](../../GameInstructions/02_开局与流程.md)。
 > 在玩家的回合结束时，胜利条件才触发（玩家依然会在回合结束前受到伤害）。
 
-- 玩家完成了任务（`check_mission_win_condition()` 委托给 `mission_config.check_win_condition`）
+- 玩家完成了任务（`check_mission_win_condition()` 委托给 `mission_config.check_win`，由胜利条件组件 AND + 专用脚本编排）
 - 往「面包车」添加了所需要的燃料值（`mission_config.van_fuel_required`；为 -1 时跳过此条件及以下条件）
 - 所有存活玩家都返回到了地图块「面包车」上
 - 地图块「面包车」内没有任何怪物和怪物标记
@@ -116,14 +116,25 @@
 
 #### check_mission_win_condition()
 
-> 检查任务特定胜利条件。
-> 若 `mission_config` 为 null 或 `mission_config.check_win_condition` 不是有效 Callable，返回 false；否则 `call()` 该 Callable 并返回其布尔结果。
-> 由 [GameStateMachine.check_win_condition()](../Core/GameStateMachine.md) 调用，作为胜利判定的第一项条件。
+> 检查任务特定胜利条件。**委托给** `mission_config.check_win(Game)`（三层架构组件/脚本编排）。
+> 若 `mission_config` 为 null 返回 false。由 [GameStateMachine.check_win_condition()](../Core/GameStateMachine.md) 调用，作为胜利判定的第一项条件。
 
-> **设计说明**：
-> - 任务胜利条件由任务包自行定义，支持任意复杂逻辑（如任务 8 检查"已记录科学家信息 + 所有玩家在军事基地"、任务 9 检查"已摧毁 2 个发射器 + 科学家在坠碎点"等）
-> - 任务状态存储在 `mission_config.mission_state` 字典中，由任务包各方法（如 `player.记录科学家信息()`）写入
-> - 与面包车胜利条件的关系：若 `van_fuel_required == -1`，[check_win_condition](../Core/GameStateMachine.md) 仅依赖本方法；否则两者均需满足
+> **任务配置结构 MissionConfig（三层架构运行时容器）**：
+> - `van_fuel_required`：启动面包车所需燃料；-1 表 NULL（该任务不通过面包车胜利，如任务 4/8/9/11）
+> - `no_initial_monster_draw`：开局跳过每名玩家的初始抓怪（来自任务 JSON 同名字段，如任务 11）
+> - `initial_objective_mark_count`：开局时场上任务标记总数，由 `initialize_game` 在 `build_map` 之后遍历 `map_area` 累加各地块 `objective_marks.size()` 统计写入，供 `objective_marks_cleared` 等组件计算已移除数
+> - `win_condition_components` / `lose_condition_components` / `trigger_components` / `action_components`：按任务 JSON 声明（`win_conditions` / `lose_conditions` / `triggers` / `actions` 字段）挂载的四类可复用组件实例数组（`src/game/mission/components/`，经 `MissionComponentRegistry` 实例化）
+> - `mission_script_instance`：专用任务脚本实例（`src/game/mission/scripts/`，经 `MissionScriptRegistry` 实例化，仅用于组件无法表达的极特殊逻辑，可为 null）
+> - `mission_state`：任务特定运行时状态字典，由组件/脚本读写，键名约定见 `IdentifierMapping.md` §八
+> - 旧 `check_win_condition` Callable 与 `_compile_win_condition` 编译机制已移除，判定统一走 `MissionConfig.check_win` / `check_lose`
+
+> **判定链（回合结束时，[GameStateMachine.check_win_condition](../Core/GameStateMachine.md)）**：
+> 1. **先失败后胜利**：先查 `mission_config.check_lose`（任一失败组件或脚本为 true 即 `game_over(LOSE)`），再查 `check_win`
+> 2. **组件 AND**：`check_win` 要求所有胜利组件为 true 且（无脚本或脚本为 true）；无组件且无脚本时空真（视为任务条件满足）
+> 3. **脚本共用通道**：脚本与组件共用 `check_win` / `check_lose` / `on_event` / `get_action_options` 注入通道，由 `MissionConfig` 统一编排
+> 4. **面包车判定**：`van_fuel_required < 0` 时任务胜利即直接胜利；否则还需满足面包车燃料达标、全员上车、面包车无怪物及怪物标记
+
+> **事件转发与行动选项**：`Game` 将 EventBus 的 10 个信号（`turn_started` / `turn_ended` / `player_moved` / `block_revealed` / `block_destroyed` / `monster_died` / `objective_mark_triggered` / `equipment_equipped` / `card_discarded` / `monster_spawn_judged`）转发到 `mission_config.on_event`（触发器组件与脚本共用）；行动组件同时以 Skill 形式挂载技能栏：玩家进出地块时由 `mission_config.mount_action_skills` / `unmount_action_skills` 挂载/卸载到 `player.skills`（`active="action"`、`skill_type="任务"`，金色按钮区分），经 `use_active_skill` 执行，技能栏为任务行动的唯一 UI 入口；`mission_config.get_action_options` 汇总行动组件与脚本的选项（接口与 `{"type": "mission_action", "option_id": ...}` 执行通道保留，见 [Player.wait_player_action](../Entities/Player.md)）。
 
 ---
 
@@ -131,33 +142,29 @@
 
 #### build_map(mission_config_arg)
 
-> 根据任务包配置构建游戏地图。触发场景：游戏初始化步骤 4「根据任务说明构建地图」。
+> 根据任务包配置构建游戏地图，legend 驱动：单元格编号本身无固定语义，逐格查 `map_legend[String(cell)]` 解释。触发场景：游戏初始化步骤 4「根据任务说明构建地图」。
 >
 > **构建逻辑**（模板 + 指定 + 随机）：
 > 1. 清空 `map_area`、`map_width`、`map_height`
-> 2. 读取配置的 `map_template` 二维数组，确定 `map_height`（行数）和 `map_width`（列数）
-> 3. 读取 `spawn_block_name`（出生点地块名）与 `end_block_name`（结束点地块名）
-> 4. 统计 `map_template` 中 code 0（出生点）和 code 2（结束点）格子数；这两类格子直接使用指定地块名，需从 `map_block_config` 的对应计数中扣除，否则同名地块会重复出现在地图上
-> 5. 构建 `block_pool`：遍历 `map_block_config`，对每条 `{block_name, count}`，扣除同名 spawn/end 的格子数后按数量展开。若该地块在 DataManager 中有 variants（变体），则将变体索引随机洗混后逐一入池，否则 variant_index 置 -1
-> 6. 遍历 `map_template` 二维数组，按编码实例化地块：
->    - `-1`（无地块）→ 跳过
->    - `0`（出生点）→ 使用 `spawn_block_name`；若该地块有 variants 则随机选一个 variant_index
->    - `1`（未知随机地块）→ 从 `block_pool` 中随机抽取一项（pop_at），取其 `block_name` 与 `variant_index`
->    - `2`（游戏结束点）→ 使用 `end_block_name`；若该地块有 variants 则随机选一个 variant_index
->    - `3`（标记地块）→ 从 `block_pool` 中随机抽取一项；实例化后从配置的 `objective_marks` 列表 `pop_front` 取一个目标标记调用 `block.add_objective_mark(mark)`，并根据标记的 `initial_monster_marks` 字段调用 `block.add_monster_mark(initial_marks)` 预置怪物标记
-> 7. 对 code 0/2/3 的地块设置 `block.revealed = true`（默认展示）
-> 8. 调用 `_create_map_block(block_name, variant_index)` 实例化地块，`block.set_coordinate(x, y)` 设置坐标，追加到 `map_area`
+> 2. 读取配置的 `map_template` 二维数组与 `map_legend` 图例，确定 `map_height`（行数）和 `map_width`（列数）
+> 3. 按 legend 条目 `type` 统计 `spawn` / `game_end` 各 `block_name` 的占用格数；这两类格子直接使用指定地块名，需从 `map_block_config` 的对应计数中扣除，否则同名地块会重复出现在地图上
+> 4. 构建 `block_pool`：遍历 `map_block_config`，对每条 `{block_name, count}`，扣除同名 spawn/end 的格子数后按数量展开。若该地块在 DataManager 中有 variants（变体），则将变体索引随机洗混后逐一入池，否则 variant_index 置 -1
+> 5. 行优先遍历 `map_template` 二维数组，逐格查 `map_legend[String(cell)]` 实例化地块：
+>    - 字符串 `"no_block"` → 跳过（无地块）
+>    - 字符串 `"random_block"` → 从 `block_pool` 中随机抽取一项（pop_at），取其 `block_name` 与 `variant_index`
+>    - 对象 `type == "spawn"` / `"game_end"` → 使用条目的 `block_name`；若该地块有 variants 则随机选一个 variant_index
+>    - 对象 `type == "random_block"` → 从 `block_pool` 中随机抽取一项（pop_at）
+>    - 单元格编号不在 legend 中、字符串值非法、`type` 未知或 spawn/game_end 缺 `block_name` → `push_error` 记录错误，该格按无地块跳过
+> 6. 按条目字段初始化地块状态：
+>    - `face`（bool，缺省：spawn/game_end 为 true、random_block 为 false）→ 设置 `block.revealed`（初始是否翻开）
+>    - `monster_mark`（int，缺省 0，上限 3）→ 初始放置 N 个怪物标记
+>    - `mission_mark`（int，缺省 0）→ 从配置的 `objective_marks` 列表 `pop_front` 取 N 个目标标记调用 `block.add_objective_mark(mark)`，并根据标记的 `initial_monster_marks` 字段调用 `block.add_monster_mark(initial_marks)` 预置怪物标记
+> 7. 调用 `_create_map_block(block_name, variant_index)` 实例化地块，`block.set_coordinate(x, y)` 设置坐标，追加到 `map_area`
 
-> **任务地图模板编码**：
-> - `-1` = 无地块
-> - `0` = 出生点（任务包指定地块名，如"购物中心"）
-> - `1` = 未知随机地块（从地块池随机抽取）
-> - `2` = 游戏结束点（任务包指定地块名，如"面包车"）
-> - `3` = 标记地块（从地块池随机抽取 + 添加目标标记 + 预置怪物标记）
-
-> **地块池耗尽**：若 `block_pool` 不够（code 1/3 位置过多），跳过该格。
+> **任务地图图例**：`map_layout` 单元格编号任意取值，含义完全由 `map_legend` 声明（0=无地块、1=未知随机地块、2=出生点、3=结束点等为约定编号）。legend 值可为字符串（`no_block` / `random_block`）或对象（`type` / `block_name` / `face` / `monster_mark` / `mission_mark`），字段规范见 [DataFormat.md](../../Engineering/DataFormat.md)。
+> **地块池耗尽**：若 `block_pool` 不够（random_block 位置过多），跳过该格。
 > **目标标记**：任务包通过 `objective_marks` 数组按 `pop_front` 顺序返回 ObjectiveMark 结构（标记ID、描述、效果函数、`initial_monster_marks` 等）。
-> **预置怪物标记**：标记地块可根据目标标记的 `initial_monster_marks` 字段预置怪物标记（任务 9/11）。预置的怪物标记与怪物出生检定添加的标记共用同一字段，上限 3。
+> **预置怪物标记**：地块可根据目标标记的 `initial_monster_marks` 字段预置怪物标记（任务 9/11）。预置的怪物标记与怪物出生检定添加的标记共用同一字段，上限 3。
 
 #### destroy_map_block(block, source)
 
@@ -171,7 +178,7 @@
 >    - 调用 `block.get_players()` 获取地块上的玩家
 >    - 调用 `block.get_adjacent_blocks()` 获取相邻存活地块
 >    - 相邻为空：玩家受到 5 点无源伤害（紧急逃生失败），日志输出 `LogColors.player(player.player_name) + " 无处可逃，受到 5 点伤害"`，`player.damage(5, null, "block_destroy")`
->    - 相邻非空：`target = await player.choose_map_block(adjacent)`；若 `target == null` 取 `adjacent[0]`；调用 `block._clear_skills_for_player(player)` 清理旧地块技能；`player.current_block = target` 底层坐标变更（不触发完整移动钩子）；`target._acquire_skills_for_player(player)` 获取新地块技能；若 `target` 未展示则 `await target.reveal(true, player)` 展示（触发「展示地块时」效果）
+>    - 相邻非空：`target = await player.choose_map_block(adjacent)`；若 `target == null` 取 `adjacent[0]`；调用 `block._clear_skills_for_player(player)` 清理旧地块技能；`player.current_block = target` 底层坐标变更（不触发完整移动钩子）；`target._acquire_skills_for_player(player)` 获取新地块技能；并列维护任务行动技能挂载（`mission_config.unmount_action_skills(player)` 卸载被摧毁地块的、`mission_config.mount_action_skills(player, target)` 挂载迁移目标地块的）；若 `target` 未展示则 `await target.reveal(true, player)` 展示（触发「展示地块时」效果）
 > 4. 消灭地块上的所有怪物标记：`block.monster_marks = 0`
 > 5. 触发 `on_destroy_block`（系统结算）：对所有 `players` 调用 `await player.trigger("on_destroy_block", event)`
 > 6. 地块状态变更：`block.block_state = "destroyed"`，`map_area.erase(block)`，日志输出 `LogColors.block(block.block_name) + " 被摧毁了"`
@@ -179,7 +186,7 @@
 > 8. 返回 true
 
 > **trigger 触发对象**：所有 player（按座位顺序）。Game 类不继承 Entity，无自身 trigger。
-> **玩家弹出规则**：弹出不消耗行动次数，不触发完整移动钩子（非主动移动）；清理旧地块技能 → 底层坐标变更 → 获取新地块技能 → 展示未展示的地块。
+> **玩家弹出规则**：弹出不消耗行动次数，不触发完整移动钩子（非主动移动）；清理旧地块技能 → 底层坐标变更 → 获取新地块技能 → 迁移任务行动技能（卸载被摧毁地块的、挂载迁移目标地块的）→ 展示未展示的地块。
 > **地块上的怪物卡**：怪物纠缠的是玩家而非地块，玩家弹出后怪物继续纠缠该玩家（不随地块摧毁死亡）。
 > **目标标记**：地块被摧毁时，其上的目标标记一并销毁（未触发的标记不会再触发）。
 
@@ -251,7 +258,7 @@
 #### create_scavenge_card(card_name)
 
 > 根据卡牌名创建一张新的拾荒卡实例。**不消耗任何牌堆**中的牌，直接从 DataManager 加载的拾荒卡数据克隆一张新卡。
-> 遍历 `["red", "green", "blue", "gray"]` 四色 DataManager.get_scavenge_pile(color)，按 `card_name` 精确匹配 ScavengeCardData；找到时调用 `_create_scavenge_card_from_data(card_data, color)` 创建实例并返回；未找到返回 null 并日志输出 `LogColors.card(card_name)`。
+> 遍历 `["red", "green", "blue", "gray"]` 四色 DataManager.get_scavenge_pile(color)，按 `card_name` 精确匹配 ScavengeCardData；找到时调用 `_create_scavenge_card_from_data(card_data, color)` 创建实例并返回。四色均无精确匹配时按**变体族前缀回退**：取首个以 `card_name + "（"` 开头的卡（如 "医疗用品" 匹配 "医疗用品（便携）"）创建实例。仍未找到返回 null 并日志输出 `LogColors.card(card_name)`。
 > 调用场景：[Player.收集物品](../Entities/Player.md)（任务物品直接生成加入手牌区）。
 
 > **设计说明**：直接生成新卡牌而不从牌堆抽取，是因为任务物品（如「满是灰尘的日记本」）作为拾荒卡虽存在于拾荒牌堆中，但任务设计上希望玩家通过触发目标标记获得，而非随机抽到。这可能造成牌堆中仍存在同名卡（可接受，任务设计已考虑）。
@@ -296,8 +303,9 @@
 > 1. **确定任务**：mission 为 null 时随机抽取；赋值给 `current_mission`
 > 2. **设置任务配置**：创建 `MissionConfig` 实例
 >    - `van_fuel_required = int(mission.van_fuel_required)`（mission 字段为 null 时置 -1）
->    - 若 `mission.win_condition_code` 非空字符串，调用 `_compile_win_condition(mission.win_condition_code)` 编译并赋给 `mission_config.check_win_condition`
+>    - `no_initial_monster_draw = mission.no_initial_monster_draw`（开局跳过每名玩家的初始抓怪，如任务 11）
 >    - `mission_config.mission_state = {}`
+>    - 调用 `_mount_mission_components(mission)` 按任务 JSON 声明挂载组件与脚本实例（三层架构第二/三层）
 > 3. **创建玩家**：清空 `players`，遍历 `seats`：
 >    - 跳过 `type == "empty"` 或 `"ai"` 的座位，或 `survivor == null` 的座位
 >    - 创建 `Player`，设置 `seat_number`、`player_name = survivor.character_name`、`max_hp`、`hp = survivor.initial_hp`、`hunger = 1`
@@ -306,10 +314,12 @@
 >    - 挂载通用主动技能：遍历 `DataManager.get_common_skills()` 调用 `_create_skill_from_data` 后 `player.add_skill`
 >    - 挂载角色固有技能：遍历 `player.role_card.intrinsic_skills` 调用 `player.add_skill`
 >    - 追加到 `players`
-> 4. **构建地图**：`map_config = _build_map_config(mission)`，调用 `build_map(map_config)`
+> 4. **构建地图**：`map_config = _build_map_config(mission)`，调用 `build_map(map_config)`；随后遍历 `map_area` 累加各地块 `objective_marks.size()` 写入 `mission_config.initial_objective_mark_count`（开局场上任务标记总数，供 `objective_marks_cleared` 等组件计算已移除数）
 > 5. **将玩家放到出生点**：`spawn_block = _find_spawn_block(mission)`，若非 null 则将所有 `players` 的 `current_block` 设为 `spawn_block`
 > 6. **初始化全局牌堆**：调用 `_init_global_piles(mission)`
-> 7. **初始化状态机**：`state_machine.init()`
+> 7. **初始化任务组件**：调用 `mission_config.setup_components(self)` 初始化全部组件与脚本实例（在玩家/地图/牌堆全部就绪后执行——`setup_equip_card` 等组件的 setup 依赖运行时数据）
+> 7.5. **出生点技能挂载**：`spawn_block` 有效时对每名玩家调用 `spawn_block._acquire_skills_for_player(player)` 挂载出生点地块技能，并调用 `mission_config.mount_action_skills(player, spawn_block)` 挂载任务行动技能（置于 `setup_components` 之后，保证行动组件 params 默认值与 `mission_state` 初始化完成后再挂载；同时修复出生点地块技能此前从未挂载的既有缺口）
+> 8. **初始化状态机**：`state_machine.init()`
 
 #### _build_map_config(mission)
 
@@ -317,18 +327,18 @@
 > 字段映射：
 > - `map_template` ← `mission.map_layout`
 > - `map_block_config` ← 将 `mission.map_blocks_config`（`Dictionary{name: count}`）转为 `Array<{block_name, count}>`
-> - `spawn_block_name` ← `mission.map_legend["0"].block_name`（无则空字符串）
-> - `end_block_name` ← `mission.map_legend["2"].block_name`（无则空字符串）
+> - `map_legend` ← `mission.map_legend`（传递完整图例，由 `build_map` 逐格解释，不再提取固定键的出生/结束点地块名）
 > - `objective_marks` ← `mission.objective_marks.duplicate(true)`（深拷贝，因为 `build_map` 会 `pop_front` 消费）
 
 #### _find_spawn_block(mission)
 
-> 内部方法：查找任务的出生点地块。读取 `mission.map_legend["0"].block_name`，在 `map_area` 中查找第一个 `block_name` 匹配的地块；未找到返回 null。
+> 内部方法：查找任务的出生点地块。扫描 `mission.map_legend` 中 `type == "spawn"` 的条目取其 `block_name`，在 `map_area` 中查找第一个 `block_name` 匹配的地块；未找到返回 null。
 
 #### _init_global_piles(mission)
 
 > 内部方法：初始化全局牌堆（怪物牌堆 + 拾荒牌堆 + 弃牌堆）。
-> **怪物牌堆**：新建 `monster_pile` 与 `monster_discard_pile`；从 `DataManager.get_monster_pack(mission.monster_pack_type)` 加载怪物卡数据，按 `card_data.count` 重复调用 `_create_monster_card_from_data` 创建实例加入 `monster_pile`；最后 `shuffle()`
+> **怪物牌堆**：新建 `monster_pile` 与 `monster_discard_pile`；从 `DataManager.get_monster_pack(mission.monster_pack_type)` 加载怪物卡数据，按 `card_data.count` 重复调用 `_create_monster_card_from_data` 创建实例加入 `monster_pile`；`shuffle()` 后调用 `_distribute_boss_cards_to_bottom_half()` 将首领卡分布到牌堆下半部分
+> **首领卡分布**：设计约定所有任务首领卡延迟出现——先移除全部 `monster_level == "boss"` 的卡，再逐张随机插回牌堆下半区（含牌底）；多张时每次插入后位置重新随机。边界：非首领卡为 0 张时退化插入顶部（可接受）
 > **拾荒牌堆**：新建 `scavenge_discard_pile`；对 `["red", "green", "blue"]` 三色分别：
 > - 读取 `mission.scavenge_config[color]` 卡牌条目列表
 > - 每条 `{card_name, count}` 按 count 重复：调用 `_find_scavenge_card_variants(card_name)` 查找匹配数据，取 `variants[i % variants.size()]`，调用 `_create_scavenge_card_from_data(card_data, color)` 创建实例加入 pile
@@ -341,19 +351,13 @@
 > 先精确匹配 `card_data.card_name == card_name`，若无则前缀匹配 `card_data.card_name.begins_with(card_name + "（")`（如 "食物" 匹配 "食物（微量）"）。
 > 返回所有匹配的 ScavengeCardData 数组（可能跨色）；精确匹配优先于前缀匹配。
 
-#### _compile_win_condition(code)
+#### _mount_mission_components(mission)
 
-> 内部方法：编译任务胜利条件代码字符串为 Callable。
-> **特殊处理**：直接访问 `CodeExecutor` 的私有 static 成员，**不**走 `CodeExecutor.compile_*` 公开接口：
-> - 拼接源码 `"extends RefCounted\nfunc _fn(game) -> bool:\n\t" + code`（注意签名是单参 `game`，与 `compile_filter` 的四参不同）
-> - `script = GDScript.new()`、`script.source_code = full_code`
-> - `script.resource_path = "res://addons/gut/not_a_real_file/wc_%d.gd" % CodeExecutor._path_counter`（直接读 `_path_counter`）
-> - `CodeExecutor._path_counter += 1`（直接递增）
-> - `script.reload()`；失败 `push_warning` 并返回空 Callable
-> - 成功后 `CodeExecutor._scripts.append(script)`、`instance = script.new()`、`CodeExecutor._instances.append(instance)`（直接追加防 GC）
-> - 返回闭包 `func() -> bool: return instance.call("_fn", Game)`（捕获全局 `Game` autoload 作为 game 参数）
+> 内部方法：按任务数据声明挂载任务组件与脚本实例（三层架构第二/三层）。
+> `win_conditions` / `lose_conditions` / `triggers` / `actions` 逐项经 `MissionComponentRegistry.create(component, params)` 实例化并注入 `params`（未知 id 由注册表 `push_error` 并返回 null，此处跳过不挂载）；`mission_script` 非空时经 `MissionScriptRegistry.create()` 创建脚本实例。
+> 挂载前先清空四类组件数组与脚本实例引用（重复挂载安全）。
 >
-> 详见 [CodeExecutor.md](../System/CodeExecutor.md) 与 [Engineering/CodeExecutor.md](../../Engineering/CodeExecutor.md)。
+> 详见 [MissionConfig.md](./MissionConfig.md) 与 [Engineering/DataFormat.md](../../Engineering/DataFormat.md) §3.4。
 
 #### _config_get(config, field, default)
 
@@ -444,7 +448,7 @@
 | [MissionConfig](./MissionConfig.md) | Game 持有 `mission_config`，由 `initialize_game` 从 MissionData 构造 |
 | [StatsTracker](../System/StatsTracker.md) | Game 持有 `stats_tracker`，订阅 EventBus 信号聚合本局统计 |
 | [EventBus](../System/EventBus.md) | `log_message` 通过 `EventBus.publish_log` 推送 UI 日志面板 |
-| [CodeExecutor](../System/CodeExecutor.md) | 工厂方法编译 skill 代码字段；`_compile_win_condition` 直接访问其私有 static 成员 |
+| [CodeExecutor](../System/CodeExecutor.md) | 工厂方法编译 skill 代码字段 |
 | [LogColors](../System/LogColors.md) | 日志输出使用 `LogColors` 着色实体名 |
 | [DataManager](../../Engineering/DataFormat.md) | 工厂方法从 DataManager 加载 `*Data` 类（`MapBlockData` / `SurvivorData` / `ScavengeCardData` / `MonsterCardData` / `SkillData` / 通用技能等） |
 | [Player](../Entities/Player.md) | Game 管理所有玩家；玩家死亡触发全灭判定 |

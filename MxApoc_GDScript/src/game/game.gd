@@ -40,6 +40,7 @@ func _ready() -> void:
 	state_machine = GameStateMachine.new()
 	state_machine.init()
 	stats_tracker = StatsTracker.new()
+	_wire_mission_event_forwarding()
 
 
 ## 日志输出。方法名避开 GDScript 内置 log()（自然对数）。
@@ -87,13 +88,77 @@ func get_current_player() -> Variant:
 	return null
 
 
-## 检查任务特定胜利条件。委托给 mission_config.check_win_condition。
+## 检查任务特定胜利条件。委托给 mission_config.check_win（三层架构组件/脚本编排）。
 func check_mission_win_condition() -> bool:
 	if mission_config == null:
 		return false
-	if mission_config.check_win_condition.is_valid():
-		return mission_config.check_win_condition.call()
-	return false
+	return mission_config.check_win(self)
+
+
+# === 任务事件转发（三层架构：EventBus → mission_config.on_event） ===
+
+## 一次性连接 EventBus 信号到任务事件转发处理方法。
+## Game 为 autoload，_ready() 仅执行一次，无需断开重连。
+func _wire_mission_event_forwarding() -> void:
+	if EventBus == null or not is_instance_valid(EventBus):
+		return
+	EventBus.turn_started.connect(_on_event_turn_started)
+	EventBus.turn_ended.connect(_on_event_turn_ended)
+	EventBus.player_moved.connect(_on_event_player_moved)
+	EventBus.block_revealed.connect(_on_event_block_revealed)
+	EventBus.block_destroyed.connect(_on_event_block_destroyed)
+	EventBus.monster_died.connect(_on_event_monster_died)
+	EventBus.objective_mark_triggered.connect(_on_event_objective_mark_triggered)
+	EventBus.equipment_equipped.connect(_on_event_equipment_equipped)
+	EventBus.card_discarded.connect(_on_mission_card_discarded)
+	EventBus.monster_spawn_judged.connect(_on_mission_monster_spawn_judged)
+
+
+## 转发事件到任务配置（mission_config 为 null 时忽略）。
+func _forward_mission_event(event_name: String, event: Dictionary) -> void:
+	if mission_config == null:
+		return
+	mission_config.on_event(self, event_name, event)
+
+
+func _on_event_turn_started(player: Variant) -> void:
+	_forward_mission_event("turn_started", {"player": player})
+
+
+func _on_event_turn_ended(player: Variant) -> void:
+	_forward_mission_event("turn_ended", {"player": player})
+
+
+func _on_event_player_moved(player: Variant, source_block: Variant, target_block: Variant) -> void:
+	_forward_mission_event("player_moved", {"player": player, "source_block": source_block, "target_block": target_block})
+
+
+func _on_event_block_revealed(block: Variant, player: Variant) -> void:
+	_forward_mission_event("block_revealed", {"block": block, "player": player})
+
+
+func _on_event_block_destroyed(block: Variant, source: Variant) -> void:
+	_forward_mission_event("block_destroyed", {"block": block, "source": source})
+
+
+func _on_event_monster_died(monster: Variant, source: Variant) -> void:
+	_forward_mission_event("monster_died", {"monster": monster, "source": source})
+
+
+func _on_event_objective_mark_triggered(player: Variant, block: Variant, mark: Variant) -> void:
+	_forward_mission_event("objective_mark_triggered", {"player": player, "block": block, "mark": mark})
+
+
+func _on_event_equipment_equipped(player: Variant, card: Variant) -> void:
+	_forward_mission_event("equipment_equipped", {"player": player, "card": card})
+
+
+func _on_mission_card_discarded(player: Variant, card: Variant) -> void:
+	_forward_mission_event("card_discarded", {"player": player, "card": card})
+
+
+func _on_mission_monster_spawn_judged(player: Variant, value: int) -> void:
+	_forward_mission_event("monster_spawn_judged", {"player": player, "value": value})
 
 
 # === 地图管理 ===
@@ -123,7 +188,8 @@ func get_adjacent_alive_blocks(block: MapBlock) -> Array:
 
 
 ## 根据任务包配置构建游戏地图。
-## 编码：-1=无地块 / 0=出生点 / 1=随机地块 / 2=结束点 / 3=标记地块
+## 编码语义由 map_legend 声明：字符串值 "no_block"/"random_block"；字典型条目按 type 解释
+## （spawn/game_end 用 block_name 指定地块，random_block 从抽取池取块），编号本身无固定语义。
 func build_map(mission_config_arg: Variant) -> void:
 	map_area.clear()
 	map_width = 0
@@ -133,31 +199,31 @@ func build_map(mission_config_arg: Variant) -> void:
 	var map_template: Variant = _config_get(mission_config_arg, "map_template")
 	if map_template == null or map_template.is_empty():
 		return
+	var map_legend: Variant = _config_get(mission_config_arg, "map_legend", {})
+	if map_legend == null:
+		map_legend = {}
 	map_height = map_template.size()
 	map_width = map_template[0].size()
-	var spawn_name: String = _config_get(mission_config_arg, "spawn_block_name", "")
-	var end_name: String = _config_get(mission_config_arg, "end_block_name", "")
-	# 统计出生点（code 0）和结束点（code 2）格子数，这些格子直接使用 spawn_name/end_name，
-	# 不从随机池中抽取，因此需从 map_block_config 的计数中扣除，否则同名地块会重复出现在地图上
-	var spawn_cell_count: int = 0
-	var end_cell_count: int = 0
+	# 按 legend 条目统计 spawn/game_end 各 block_name 的占用格数：这些格子直接使用指定地块，
+	# 不从随机池中抽取，因此需从 map_block_config 对应 block_name 的计数中扣除，
+	# 否则同名地块会重复出现在地图上
+	var named_usage: Dictionary = {}
 	for y in map_height:
 		for x in map_width:
-			var code0: int = map_template[y][x]
-			if code0 == 0:
-				spawn_cell_count += 1
-			elif code0 == 2:
-				end_cell_count += 1
+			var stat_entry: Variant = _config_get(map_legend, str(int(map_template[y][x])), null)
+			if stat_entry is Dictionary:
+				var stat_type: String = _config_get(stat_entry, "type", "")
+				if stat_type == "spawn" or stat_type == "game_end":
+					var stat_name: String = _config_get(stat_entry, "block_name", "")
+					if stat_name != "":
+						named_usage[stat_name] = named_usage.get(stat_name, 0) + 1
 	var block_pool: Array = []
 	var block_config: Variant = _config_get(mission_config_arg, "map_block_config")
 	if block_config != null:
 		for entry in block_config:
 			var block_name: String = _config_get(entry, "block_name", "")
 			var count: int = _config_get(entry, "count", 0)
-			if block_name == spawn_name:
-				count -= spawn_cell_count
-			elif block_name == end_name:
-				count -= end_cell_count
+			count -= int(named_usage.get(block_name, 0))
 			var block_def: MapBlockData = DataManager.get_map_block_def_by_name(block_name)
 			if block_def != null and block_def.variants.size() > 0:
 				var variant_indices: Array = []
@@ -169,48 +235,71 @@ func build_map(mission_config_arg: Variant) -> void:
 			else:
 				for i in max(0, count):
 					block_pool.append({"block_name": block_name, "variant_index": -1})
+	var marks_queue: Variant = _config_get(mission_config_arg, "objective_marks")
 	for y in map_height:
 		for x in map_width:
-			var code: int = map_template[y][x]
-			if code == -1:
+			var cell_code: int = map_template[y][x]
+			var legend_entry: Variant = _config_get(map_legend, str(cell_code), null)
+			if legend_entry == null:
+				push_error("build_map: 单元格编号 %d 不在 map_legend 中，跳过该格" % cell_code)
 				continue
 			var block_name: String = ""
 			var block: MapBlock = null
 			var variant_index: int = -1
-			if code == 0:
-				block_name = spawn_name
-				var spawn_def: MapBlockData = DataManager.get_map_block_def_by_name(spawn_name)
-				if spawn_def != null and spawn_def.variants.size() > 0:
-					variant_index = randi() % spawn_def.variants.size()
-			elif code == 1:
+			var face: bool = false
+			var monster_mark_count: int = 0
+			var mission_mark_count: int = 0
+			if legend_entry is Dictionary:
+				var entry_type: String = _config_get(legend_entry, "type", "")
+				if entry_type == "spawn" or entry_type == "game_end":
+					block_name = _config_get(legend_entry, "block_name", "")
+					if block_name == "":
+						push_error("build_map: map_legend[%s] 的 %s 条目缺少 block_name，跳过该格" % [str(cell_code), entry_type])
+						continue
+					face = _config_get(legend_entry, "face", true)
+					var named_def: MapBlockData = DataManager.get_map_block_def_by_name(block_name)
+					if named_def != null and named_def.variants.size() > 0:
+						variant_index = randi() % named_def.variants.size()
+				elif entry_type == "random_block":
+					if block_pool.is_empty():
+						continue
+					var idx3: int = randi() % block_pool.size()
+					var entry3: Dictionary = block_pool.pop_at(idx3)
+					block_name = entry3["block_name"]
+					variant_index = entry3.get("variant_index", -1)
+					face = _config_get(legend_entry, "face", false)
+				else:
+					push_error("build_map: map_legend[%s] 的条目 type \"%s\" 未知（仅支持 spawn/game_end/random_block），跳过该格" % [str(cell_code), entry_type])
+					continue
+				monster_mark_count = _config_get(legend_entry, "monster_mark", 0)
+				mission_mark_count = _config_get(legend_entry, "mission_mark", 0)
+			elif legend_entry is String:
+				if legend_entry == "no_block":
+					continue
+				if legend_entry != "random_block":
+					push_error("build_map: map_legend[%s] 的字符串值 \"%s\" 无效（仅支持 no_block/random_block），跳过该格" % [str(cell_code), legend_entry])
+					continue
 				if block_pool.is_empty():
 					continue
 				var idx: int = randi() % block_pool.size()
 				var entry: Dictionary = block_pool.pop_at(idx)
 				block_name = entry["block_name"]
 				variant_index = entry.get("variant_index", -1)
-			elif code == 2:
-				block_name = end_name
-				var end_def: MapBlockData = DataManager.get_map_block_def_by_name(end_name)
-				if end_def != null and end_def.variants.size() > 0:
-					variant_index = randi() % end_def.variants.size()
-			elif code == 3:
-				if block_pool.is_empty():
-					continue
-				var idx3: int = randi() % block_pool.size()
-				var entry3: Dictionary = block_pool.pop_at(idx3)
-				block_name = entry3["block_name"]
-				variant_index = entry3.get("variant_index", -1)
+			else:
+				push_error("build_map: map_legend[%s] 的条目类型无效（仅支持 String/Dictionary），跳过该格" % str(cell_code))
+				continue
 			block = _create_map_block(block_name, variant_index)
 			if block == null:
 				continue
 			block.set_coordinate(x, y)
-			if code == 0 or code == 2 or code == 3:
-				block.revealed = true
-			if code == 3:
-				var marks: Variant = _config_get(mission_config_arg, "objective_marks")
-				if marks != null and not marks.is_empty():
-					var mark: Variant = marks.pop_front()
+			block.revealed = face
+			if monster_mark_count > 0:
+				block.add_monster_mark(monster_mark_count)
+			if mission_mark_count > 0 and marks_queue != null:
+				for i in mission_mark_count:
+					if marks_queue.is_empty():
+						break
+					var mark: Variant = marks_queue.pop_front()
 					block.add_objective_mark(mark)
 					var initial_marks: int = _config_get(mark, "initial_monster_marks", 0)
 					if initial_marks > 0:
@@ -274,6 +363,10 @@ func destroy_map_block(block: MapBlock, source: Variant) -> bool:
 			player.current_block = target
 			if target.has_method("_acquire_skills_for_player"):
 				target._acquire_skills_for_player(player)
+			# 并列维护任务行动技能挂载（卸载被摧毁地块的、挂载迁移目标地块的）
+			if mission_config != null:
+				mission_config.unmount_action_skills(player)
+				mission_config.mount_action_skills(player, target)
 			if not target.is_revealed():
 				await target.reveal(true, player)
 	# 3. 消灭地块上的所有怪物标记
@@ -380,15 +473,43 @@ func get_random_card(player: Variant, areas: Array) -> Variant:
 	return all_cards[randi() % all_cards.size()]
 
 
+## 从玩家指定区域随机返回最多 n 张不重复的牌；不足 n 张返回全部，无牌返回空数组。
+## 装备区持有 Equipment 实体，返回时映射为来源 EquipmentCard，与 get_random_card 语义一致。
+func get_random_cards(player: Variant, areas: Array, n: int) -> Array:
+	if player == null or not is_instance_valid(player) or n <= 0:
+		return []
+	var all_cards: Array = []
+	for area in areas:
+		if area == "hand" and "hand" in player:
+			all_cards.append_array(player.hand)
+		elif area == "equipment" and "equipment_zone" in player:
+			for e in player.equipment_zone:
+				if e != null and is_instance_valid(e) and e.get("equipment_card") != null:
+					all_cards.append(e.equipment_card)
+	all_cards.shuffle()
+	if all_cards.size() <= n:
+		return all_cards
+	return all_cards.slice(0, n)
+
+
 ## 根据卡牌名创建拾荒卡实例。
 ## 遍历所有拾荒包数据（red/green/blue/gray），按 card_name 精确匹配 ScavengeCardData，
 ## 找到时调用 _create_scavenge_card_from_data 创建实例并返回；未找到返回 null 并记录日志。
+## 通用名（如 "医疗用品"）无精确卡时按变体族前缀匹配（与 _find_scavenge_card_variants
+## 的建堆语义一致："医疗用品" 匹配 "医疗用品（便携）" 等）。
 func create_scavenge_card(card_name: String) -> Card:
+	var prefix_matched: ScavengeCardData = null
+	var prefix_color: String = ""
 	for color in ["red", "green", "blue", "gray"]:
 		var pile_data: Array = DataManager.get_scavenge_pile(color)
 		for card_data in pile_data:
 			if card_data.card_name == card_name:
 				return _create_scavenge_card_from_data(card_data, color)
+			if prefix_matched == null and card_data.card_name.begins_with(card_name + "（"):
+				prefix_matched = card_data
+				prefix_color = color
+	if prefix_matched != null:
+		return _create_scavenge_card_from_data(prefix_matched, prefix_color)
 	log_message("未找到拾荒卡：" + LogColors.card(card_name))
 	return null
 
@@ -430,9 +551,9 @@ func initialize_game(mission: MissionData, variants: Dictionary, seats: Array) -
 	# 2. 设置任务配置
 	mission_config = MissionConfig.new()
 	mission_config.van_fuel_required = int(mission.van_fuel_required) if mission.van_fuel_required != null else -1
-	if not mission.win_condition_code.strip_edges().is_empty():
-		mission_config.check_win_condition = _compile_win_condition(mission.win_condition_code)
+	mission_config.no_initial_monster_draw = mission.no_initial_monster_draw
 	mission_config.mission_state = {}
+	_mount_mission_components(mission)
 
 	# 3. 创建玩家
 	players.clear()
@@ -464,6 +585,11 @@ func initialize_game(mission: MissionData, variants: Dictionary, seats: Array) -
 	# 4. 构建地图
 	var map_config: Dictionary = _build_map_config(mission)
 	build_map(map_config)
+	# 统计开局场上任务标记总数（供 objective_marks_cleared 等组件计算已移除数）
+	mission_config.initial_objective_mark_count = 0
+	for block in map_area:
+		if block != null and is_instance_valid(block):
+			mission_config.initial_objective_mark_count += block.objective_marks.size()
 
 	# 5. 将玩家放到出生点
 	var spawn_block: MapBlock = _find_spawn_block(mission)
@@ -474,9 +600,50 @@ func initialize_game(mission: MissionData, variants: Dictionary, seats: Array) -
 	# 6. 初始化全局牌堆
 	_init_global_piles(mission)
 
-	# 7. 初始化状态机
+	# 7. 初始化任务组件（玩家/地图/牌堆全部就绪后；setup_equip_card 等组件依赖运行时数据）
+	mission_config.setup_components(self)
+
+	# 7.5 出生点技能挂载：地块技能 + 任务行动技能（修复既有缺口：出生点地块技能此前从未挂载；
+	# 置于 setup_components 之后，保证行动组件 params 默认值与 mission_state 初始化完成后再挂载）
+	if spawn_block != null and is_instance_valid(spawn_block):
+		for player in players:
+			spawn_block._acquire_skills_for_player(player)
+			mission_config.mount_action_skills(player, spawn_block)
+
+	# 8. 初始化状态机
 	if state_machine != null and is_instance_valid(state_machine):
 		state_machine.init()
+
+
+## 内部方法：按任务数据声明挂载任务组件与脚本实例（三层架构第二/三层）。
+## win_conditions / lose_conditions / triggers / actions 逐项经注册表实例化，
+## 未知 id 由注册表 push_error 并返回 null，此处跳过不挂载。
+func _mount_mission_components(mission: MissionData) -> void:
+	if mission_config == null:
+		return
+	mission_config.win_condition_components.clear()
+	mission_config.lose_condition_components.clear()
+	mission_config.trigger_components.clear()
+	mission_config.action_components.clear()
+	mission_config.mission_script_instance = null
+	for cfg in mission.win_conditions:
+		var win_component: MissionComponent = MissionComponentRegistry.create(cfg.get("component", ""), cfg.get("params", {}))
+		if win_component != null:
+			mission_config.win_condition_components.append(win_component)
+	for cfg in mission.lose_conditions:
+		var lose_component: MissionComponent = MissionComponentRegistry.create(cfg.get("component", ""), cfg.get("params", {}))
+		if lose_component != null:
+			mission_config.lose_condition_components.append(lose_component)
+	for cfg in mission.triggers:
+		var trigger_component: MissionComponent = MissionComponentRegistry.create(cfg.get("component", ""), cfg.get("params", {}))
+		if trigger_component != null:
+			mission_config.trigger_components.append(trigger_component)
+	for cfg in mission.actions:
+		var action_component: MissionComponent = MissionComponentRegistry.create(cfg.get("component", ""), cfg.get("params", {}))
+		if action_component != null:
+			mission_config.action_components.append(action_component)
+	if mission.mission_script != "":
+		mission_config.mission_script_instance = MissionScriptRegistry.create(mission.mission_script)
 
 
 ## 内部方法：从 MissionData 构建 build_map() 所需的配置字典。
@@ -488,23 +655,20 @@ func _build_map_config(mission: MissionData) -> Dictionary:
 	for block_name in mission.map_blocks_config:
 		block_config.append({"block_name": block_name, "count": mission.map_blocks_config[block_name]})
 	config["map_block_config"] = block_config
-	# 从 map_legend 提取 spawn_block_name 和 end_block_name
-	config["spawn_block_name"] = ""
-	config["end_block_name"] = ""
-	if mission.map_legend.has("0") and mission.map_legend["0"] is Dictionary:
-		config["spawn_block_name"] = mission.map_legend["0"].get("block_name", "")
-	if mission.map_legend.has("2") and mission.map_legend["2"] is Dictionary:
-		config["end_block_name"] = mission.map_legend["2"].get("block_name", "")
+	# 完整传递 map_legend：单元格语义（no_block/random_block/spawn/game_end 等）由 legend 条目声明
+	config["map_legend"] = mission.map_legend
 	# objective_marks 需要 copy，因为 build_map 会 pop_front 消费
 	config["objective_marks"] = mission.objective_marks.duplicate(true)
 	return config
 
 
-## 内部方法：查找任务的出生点地块。
+## 内部方法：查找任务的出生点地块。扫描 map_legend 中第一个 type=="spawn" 的字典型条目。
 func _find_spawn_block(mission: MissionData) -> MapBlock:
 	var spawn_name: String = ""
-	if mission.map_legend.has("0") and mission.map_legend["0"] is Dictionary:
-		spawn_name = mission.map_legend["0"].get("block_name", "")
+	for legend_entry in mission.map_legend.values():
+		if legend_entry is Dictionary and _config_get(legend_entry, "type", "") == "spawn":
+			spawn_name = _config_get(legend_entry, "block_name", "")
+			break
 	if spawn_name == "":
 		return null
 	for block in map_area:
@@ -550,6 +714,28 @@ func _init_global_piles(mission: MissionData) -> void:
 			"blue":
 				blue_scavenge_pile = pile
 
+	# 首领卡分布到怪物牌堆下半部分（设计约定：所有任务首领卡延迟出现）
+	_distribute_boss_cards_to_bottom_half()
+
+
+## 内部方法：首领卡分布到怪物牌堆下半部分（设计约定：所有任务首领卡延迟出现）。
+## 先移除全部首领卡，再逐张随机插回下半区（含牌底）；多张时每次插入后位置重新随机。
+## 边界：非首领卡为 0 张时 half=0，插入位置为顶部——退化场景可接受。
+func _distribute_boss_cards_to_bottom_half() -> void:
+	if monster_pile == null or monster_pile.cards.size() == 0:
+		return
+	var boss_cards: Array = []
+	for card in monster_pile.cards.duplicate():
+		if card != null and is_instance_valid(card) and card.get("monster_level") == "boss":
+			boss_cards.append(card)
+			monster_pile.cards.erase(card)
+	if boss_cards.is_empty():
+		return
+	var half: int = monster_pile.cards.size() / 2
+	for boss in boss_cards:
+		var pos: int = half + randi() % max(1, monster_pile.cards.size() - half + 1)
+		monster_pile.cards.insert(pos, boss)
+
 
 ## 内部方法：按名称在所有颜色的拾荒卡数据中查找匹配项。
 ## 先精确匹配，若无则前缀匹配（如 "食物" 匹配 "食物（微量）"）。
@@ -567,26 +753,6 @@ func _find_scavenge_card_variants(card_name: String) -> Array:
 	if not exact_matches.is_empty():
 		return exact_matches
 	return prefix_matches
-
-
-## 内部方法：编译任务胜利条件代码。
-func _compile_win_condition(code: String) -> Callable:
-	var full_code: String = "extends RefCounted\nfunc _fn(game) -> bool:\n\t" + code
-	var script: GDScript = GDScript.new()
-	script.source_code = full_code
-	script.resource_path = "res://addons/gut/not_a_real_file/wc_%d.gd" % CodeExecutor._path_counter
-	CodeExecutor._path_counter += 1
-	var result: int = script.reload()
-	if result != OK:
-		push_warning("Game: win_condition_code 编译失败: " + code)
-		return Callable()
-	CodeExecutor._scripts.append(script)
-	var instance: Object = script.new()
-	if instance == null:
-		return Callable()
-	CodeExecutor._instances.append(instance)
-	return func() -> bool:
-		return instance.call("_fn", Game)
 
 
 # === 工厂方法 ===
@@ -729,6 +895,7 @@ func _create_monster_card_from_data(card_data: MonsterCardData, monster_type: St
 	card.card_name = card_data.monster_name
 	card.card_type = "monster"
 	card.source = "monster"
+	card.english_name = card_data.english_name
 	card.monster_type = monster_type
 	card.monster_level = card_data.monster_level
 	card.max_hp = card_data.max_hp
@@ -748,11 +915,11 @@ func get_all_discard_pile_equipments() -> Array:
 		var pile: Variant = player.get("game_discard_pile")
 		if pile != null and pile.has_method("get_all"):
 			for card in pile.get_all():
-				if card != null and card is EquipmentCard:
+				if card != null and card is EquipmentCard and card.card_type == "equipment":
 					result.append(card)
 	if scavenge_discard_pile != null and scavenge_discard_pile.has_method("get_all"):
 		for card in scavenge_discard_pile.get_all():
-			if card != null and card is EquipmentCard:
+			if card != null and card is EquipmentCard and card.card_type == "equipment":
 				result.append(card)
 	return result
 
@@ -765,11 +932,11 @@ func has_equipment_in_discard_piles() -> bool:
 		var pile: Variant = player.get("game_discard_pile")
 		if pile != null and pile.has_method("get_all"):
 			for card in pile.get_all():
-				if card != null and card is EquipmentCard:
+				if card != null and card is EquipmentCard and card.card_type == "equipment":
 					return true
 	if scavenge_discard_pile != null and scavenge_discard_pile.has_method("get_all"):
 		for card in scavenge_discard_pile.get_all():
-			if card != null and card is EquipmentCard:
+			if card != null and card is EquipmentCard and card.card_type == "equipment":
 				return true
 	return false
 

@@ -85,11 +85,12 @@ func start_game() -> void:
 		if player == null or not is_instance_valid(player):
 			continue
 		player.draw(4)
-	# 3. 每个玩家抓 1 张初始怪物卡
-	for player in Game.players:
-		if player == null or not is_instance_valid(player):
-			continue
-		player.draw_monster(1)
+	# 3. 每个玩家抓 1 张初始怪物卡（任务声明 no_initial_monster_draw 时跳过，如任务 11）
+	if Game.mission_config == null or not Game.mission_config.no_initial_monster_draw:
+		for player in Game.players:
+			if player == null or not is_instance_valid(player):
+				continue
+			await player.draw_monster(1)
 	# 4. 第零轮：重调阶段
 	await _round_zero()
 	# 5. 进入第一玩家回合
@@ -142,7 +143,8 @@ func _round_zero() -> void:
 
 ## 游戏结束流程：→ GAME_OVER + 设置结果 + 触发游戏结束时。
 ## 可从 PLAYING 或 WAITING 状态调用（WAITING 时直接强制进入 GAME_OVER，用于测试/异常场景）。
-func game_over(result: int) -> void:
+## reason 非空时替代默认的 WIN/LOSE 结束日志（如任务特定失败原因）。
+func game_over(result: int, reason: String = "") -> void:
 	if current_state == GameState.GAME_OVER:
 		return
 	current_state = GameState.GAME_OVER
@@ -155,9 +157,9 @@ func game_over(result: int) -> void:
 	# 日志输出
 	if Game != null and is_instance_valid(Game):
 		if result == GameResult.WIN:
-			Game.log_message("求生者成功逃离启示录的废土！")
+			Game.log_message(reason if reason != "" else "求生者成功逃离启示录的废土！")
 		elif result == GameResult.LOSE:
-			Game.log_message("所有求生者死亡，游戏失败。")
+			Game.log_message(reason if reason != "" else "所有求生者死亡，游戏失败。")
 		# 触发「游戏结束时」trigger
 		for player in Game.players:
 			if player == null or not is_instance_valid(player):
@@ -276,6 +278,10 @@ func check_win_condition() -> bool:
 		return false
 	if Game == null or not is_instance_valid(Game):
 		return false
+	# 0. 任务特定失败条件（优先于胜利检查）
+	if Game.mission_config != null and Game.mission_config.check_lose(Game):
+		game_over(GameResult.LOSE, "任务目标失败，游戏结束。")
+		return true
 	# 1. 玩家完成了任务（由任务系统检查）
 	if not _check_mission_win_condition():
 		return false
@@ -307,15 +313,13 @@ func check_win_condition() -> bool:
 	return true
 
 
-## 内部方法：委托给 mission_config.check_win_condition。
+## 内部方法：委托给 mission_config.check_win（三层架构组件/脚本编排）。
 func _check_mission_win_condition() -> bool:
 	if Game == null or not is_instance_valid(Game):
 		return false
 	if Game.mission_config == null:
 		return false
-	if Game.mission_config.check_win_condition.is_valid():
-		return Game.mission_config.check_win_condition.call()
-	return true
+	return Game.mission_config.check_win(Game)
 
 
 # === 查询方法 ===

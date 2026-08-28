@@ -128,3 +128,13 @@ func wait_judge_confirm(player: Variant, prompt: String, allow_cancel: bool) -> 
 func play_dice_animation(d1: int, d2: int, label: String, outcome: String) -> void:
 	# 命令行模式无动画，仅打印骰子结果并立即返回，不阻塞流程
 	print("[骰子] " + label + ": " + str(d1) + " + " + str(d2) + " = " + str(d1 + d2) + (" " + outcome if outcome != "" else ""))
+
+
+func play_monster_draw_animation(_player: Variant, card: Variant) -> void:
+	# 命令行模式无动画，仅打印抓取的怪物牌并立即返回，不阻塞流程
+	print("[抓怪] " + card.card_name)
+
+
+func play_scavenge_draw_animation(_player: Variant, card: Variant) -> void:
+	# 命令行模式无动画，仅打印抓取的拾荒牌并立即返回，不阻塞流程
+	print("[抓牌] " + card.card_name)

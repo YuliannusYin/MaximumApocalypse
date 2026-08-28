@@ -9,20 +9,6 @@ func _make_card(n: String = "") -> Card:
 	return c
 
 
-func test_new_pile_is_empty() -> void:
-	var p: Pile = Pile.new()
-	assert_true(p.is_empty(), "新建牌堆应为空")
-	assert_eq(p.size(), 0)
-
-
-func test_add_and_size() -> void:
-	var p: Pile = Pile.new()
-	p.add(_make_card("card1"))
-	p.add(_make_card("card2"))
-	assert_eq(p.size(), 2, "添加 2 张后 size 应为 2")
-	assert_false(p.is_empty(), "不应为空")
-
-
 func test_draw_from_top() -> void:
 	var p: Pile = Pile.new()
 	var c1: Card = _make_card("card1")

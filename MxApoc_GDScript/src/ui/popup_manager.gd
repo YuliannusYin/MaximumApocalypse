@@ -467,13 +467,17 @@ func show_target_select_area(targets: Array, n: int, zone_labels: Array = [], pr
 
 		_popup_item_views.clear()
 		for target in targets:
-			var card_panel: Panel = null
+			var card_panel: Control = null
 			if target is Monster:
-				card_panel = _build_monster_card(target, 120, 180)
+				var mview := MonsterCardView.new(120.0, 180.0)
+				mview.set_monster(target)
+				# 目标选择需要接收点击（组件默认 IGNORE 不挡点击）
+				mview.mouse_filter = Control.MOUSE_FILTER_STOP
+				card_panel = mview
 				# 添加"纠缠: 玩家名"标签
 				var m: Monster = target
 				if m.attack_target != null and is_instance_valid(m.attack_target):
-					var inner: Panel = card_panel.get_child(0)
+					var inner: Panel = mview.get_inner()
 					var entangle_lbl := Label.new()
 					entangle_lbl.text = "纠缠: " + m.attack_target.player_name
 					entangle_lbl.position = Vector2(2, 2)
@@ -634,7 +638,7 @@ func _on_target_card_cancelled() -> void:
 	targets_selected.emit([])
 
 
-func _on_entity_card_clicked(event: InputEvent, target: Variant, panel: Panel) -> void:
+func _on_entity_card_clicked(event: InputEvent, target: Variant, panel: Control) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		var idx: int = _popup_selected.find(target)
 		if idx >= 0:
@@ -1264,7 +1268,9 @@ func show_monster_zone_popup(player: Variant) -> void:
 		for m in monsters:
 			if m == null or not is_instance_valid(m):
 				continue
-			flow.add_child(_build_monster_card(m, 120, 180))
+			var mview := MonsterCardView.new(120.0, 180.0)
+			mview.set_monster(m)
+			flow.add_child(mview)
 
 	var ok_btn := Button.new()
 	ok_btn.text = "关闭"
@@ -1274,105 +1280,6 @@ func show_monster_zone_popup(player: Variant) -> void:
 	vbox.add_child(ok_btn)
 
 	_finish_popup_build(overlay)
-
-
-## 构建单个怪物卡片（外层130×190黑色边框 + 内层120×180）：图片 + 属性叠加。
-func _build_monster_card(m: Variant, w: int, h: int) -> Panel:
-	var card := Panel.new()
-	card.custom_minimum_size = Vector2(w + 10, h + 10)
-	card.size = Vector2(w + 10, h + 10)
-
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color.BLACK
-	card.add_theme_stylebox_override("panel", style)
-
-	var inner := Panel.new()
-	inner.position = Vector2(5, 5)
-	inner.size = Vector2(w, h)
-	var inner_style := StyleBoxFlat.new()
-	inner_style.bg_color = Color(0.15, 0.15, 0.18, 1.0)
-	inner.add_theme_stylebox_override("panel", inner_style)
-	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card.add_child(inner)
-
-	# 怪物图片
-	var tex: Texture2D = ImageCache.get_monster_texture(m.get("monster_name"))
-	if tex != null:
-		var img := TextureRect.new()
-		img.set_anchors_preset(PRESET_FULL_RECT)
-		img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		img.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-		img.texture = tex
-		if m.get("stunned"):
-			img.modulate = Color(0.5, 0.5, 0.8, 0.7)
-		inner.add_child(img)
-
-	# HP/MaxHP（右上角）
-	var hp_lbl := Label.new()
-	hp_lbl.text = "%d/%d" % [m.get("hp"), m.get("max_hp")]
-	hp_lbl.position = Vector2(w - 58, 4)
-	hp_lbl.size = Vector2(54, 16)
-	hp_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	hp_lbl.add_theme_font_size_override("font_size", 12)
-	hp_lbl.add_theme_color_override("font_outline_color", Color.BLACK)
-	hp_lbl.add_theme_constant_override("outline_size", 3)
-	inner.add_child(hp_lbl)
-
-	# 攻击力（HP 下方）
-	var atk_lbl := Label.new()
-	atk_lbl.text = "攻 %d" % [m.get("damage_value")]
-	atk_lbl.position = Vector2(w - 58, 21)
-	atk_lbl.size = Vector2(54, 16)
-	atk_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	atk_lbl.add_theme_font_size_override("font_size", 11)
-	atk_lbl.add_theme_color_override("font_outline_color", Color.BLACK)
-	atk_lbl.add_theme_constant_override("outline_size", 3)
-	inner.add_child(atk_lbl)
-
-	# 怪物名（中下）
-	var name_lbl := Label.new()
-	name_lbl.text = m.get("monster_name")
-	name_lbl.position = Vector2(4, h - 52)
-	name_lbl.size = Vector2(w - 8, 20)
-	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	name_lbl.add_theme_font_size_override("font_size", 14)
-	name_lbl.add_theme_color_override("font_outline_color", Color.BLACK)
-	name_lbl.add_theme_constant_override("outline_size", 3)
-	inner.add_child(name_lbl)
-
-	# 距离（名字下方：短/中/长彩色，纠缠白字）
-	var range_val: Variant = m.get("range")
-	var range_str: String = range_val if range_val is String else ""
-	var range_lbl := Label.new()
-	if CardView.RANGE_MAP.has(range_str):
-		range_lbl.text = CardView.RANGE_MAP[range_str]
-		range_lbl.add_theme_color_override("font_color", CardView.RANGE_COLORS[range_str])
-	elif range_str == "none":
-		range_lbl.text = "纠缠"
-	else:
-		range_lbl.text = "无限" if range_str == "infinity" else range_str
-	range_lbl.position = Vector2(4, h - 32)
-	range_lbl.size = Vector2(w - 8, 18)
-	range_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	range_lbl.add_theme_font_size_override("font_size", 11)
-	range_lbl.add_theme_color_override("font_outline_color", Color.BLACK)
-	range_lbl.add_theme_constant_override("outline_size", 3)
-	inner.add_child(range_lbl)
-
-	# 眩晕标识（左上角）
-	if m.get("stunned"):
-		var stun_lbl := Label.new()
-		stun_lbl.text = "眩晕"
-		stun_lbl.position = Vector2(4, 4)
-		stun_lbl.size = Vector2(34, 16)
-		stun_lbl.add_theme_font_size_override("font_size", 10)
-		stun_lbl.add_theme_color_override("font_color", Color(0.6, 0.8, 1.0, 1.0))
-		stun_lbl.add_theme_color_override("font_outline_color", Color.BLACK)
-		stun_lbl.add_theme_constant_override("outline_size", 2)
-		inner.add_child(stun_lbl)
-
-	return card
 
 
 ## 构建玩家目标卡片（外层 w+10×h+10 黑色边框 + 内层 w×h 蓝色背景）。
@@ -1432,7 +1339,10 @@ func _build_player_card(p: Variant, w: int, h: int) -> Panel:
 
 
 ## 设置实体卡选中态（金色边框）。
-func _set_entity_card_selected(panel: Panel, selected: bool) -> void:
+func _set_entity_card_selected(panel: Control, selected: bool) -> void:
+	if panel.has_method("set_selected"):
+		panel.set_selected(selected)
+		return
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color.BLACK
 	if selected:

@@ -29,6 +29,7 @@ var difficulty: String = ""  # "tutorial"/"very_easy"/"easy"/"normal"/"hard"/"ve
 var difficulty_display: String = ""  # 中文显示名，由 difficulty 映射
 var difficulty_order: int = 0  # 排序值，由 difficulty 映射
 var van_fuel_required: Variant = null  # int 或 null（NULL 表示不通过面包车胜利）
+var no_initial_monster_draw: bool = false  # 开局跳过初始怪物牌抓取（如任务 11）
 var intro_text: String = ""
 var objective_text: String = ""
 var special_setup: String = ""
@@ -38,7 +39,19 @@ var map_layout: Array = []  # Array[Array[int]]：二维数组
 var map_legend: Dictionary = {}  # 编号说明
 var objective_marks: Array = []  # Array[Dictionary]
 var scavenge_config: Dictionary = {}  # {颜色: [{card_name, count}]}
-var win_condition_code: String = ""
+## 任务进度面板条件行声明，每项 {text, type, params}，由 MissionProgressPanel 实时求值显示。
+var progress_conditions: Array = []
+
+## 三层架构声明：胜利条件组件列表。每项 {component: String, params: Dictionary}。
+var win_conditions: Array = []
+## 三层架构声明：失败条件组件列表。每项 {component: String, params: Dictionary}。
+var lose_conditions: Array = []
+## 三层架构声明：触发器组件列表。每项 {component: String, params: Dictionary}。
+var triggers: Array = []
+## 三层架构声明：行动选项组件列表。每项 {component: String, params: Dictionary}。
+var actions: Array = []
+## 三层架构声明：任务脚本 id（第三层，仅用于组件无法表达的极特殊任务逻辑）。
+var mission_script: String = ""
 
 
 func _init(data: Dictionary = {}) -> void:
@@ -47,6 +60,7 @@ func _init(data: Dictionary = {}) -> void:
 	english_name = data.get("english_name", "")
 	difficulty = data.get("difficulty", "normal")
 	van_fuel_required = data.get("van_fuel_required", null)
+	no_initial_monster_draw = data.get("no_initial_monster_draw", false)
 	intro_text = data.get("intro_text", "")
 	objective_text = data.get("objective_text", "")
 	special_setup = data.get("special_setup", "")
@@ -56,6 +70,11 @@ func _init(data: Dictionary = {}) -> void:
 	map_legend = data.get("map_legend", {})
 	objective_marks = data.get("objective_marks", [])
 	scavenge_config = data.get("scavenge_config", {})
-	win_condition_code = data.get("win_condition_code", "")
+	progress_conditions = data.get("progress_conditions", [])
+	win_conditions = data.get("win_conditions", [])
+	lose_conditions = data.get("lose_conditions", [])
+	triggers = data.get("triggers", [])
+	actions = data.get("actions", [])
+	mission_script = data.get("mission_script", "")
 	difficulty_display = DIFFICULTY_DISPLAY.get(difficulty, difficulty)
 	difficulty_order = int(DIFFICULTY_ORDER.get(difficulty, 0))

@@ -23,6 +23,8 @@ signal set_prompt_requested(text: String)
 signal redraw_decision_requested()
 signal judge_confirm_requested(prompt: String, allow_cancel: bool)
 signal dice_animation_requested(d1: int, d2: int, label: String, outcome: String)
+signal monster_draw_animation_requested(player: Variant, card: Variant)
+signal scavenge_draw_animation_requested(player: Variant, card: Variant)
 
 # === 请求队列（插入结算机制核心） ===
 # 所有玩家输入请求串行处理：空闲时立即派发，忙碌时入队等待；
@@ -162,6 +164,20 @@ func play_dice_animation(d1: int, d2: int, label: String, outcome: String) -> vo
 	await _wait_for_request(req)
 
 
+## 播放抓取怪物牌动画并等待结束。动画播完后由 UI 调用 respond_monster_draw_animation 结算，期间阻塞后续请求派发。
+func play_monster_draw_animation(player: Variant, card: Variant) -> void:
+	var req: Dictionary = _enqueue_request(func() -> void:
+		monster_draw_animation_requested.emit(player, card))
+	await _wait_for_request(req)
+
+
+## 播放抓取拾荒牌"抓取时"技能触发动画并等待结束。动画播完后由 UI 调用 respond_scavenge_draw_animation 结算，期间阻塞后续请求派发。
+func play_scavenge_draw_animation(player: Variant, card: Variant) -> void:
+	var req: Dictionary = _enqueue_request(func() -> void:
+		scavenge_draw_animation_requested.emit(player, card))
+	await _wait_for_request(req)
+
+
 # === 响应方法（GameScene2D 调用，写入当前活动请求） ===
 
 func respond_action(choice: Variant) -> void:
@@ -197,4 +213,12 @@ func respond_judge_confirm(result: bool) -> void:
 
 
 func respond_dice_animation() -> void:
+	_respond_active(null)
+
+
+func respond_monster_draw_animation() -> void:
+	_respond_active(null)
+
+
+func respond_scavenge_draw_animation() -> void:
 	_respond_active(null)

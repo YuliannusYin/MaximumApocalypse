@@ -79,5 +79,15 @@ func play_dice_animation(d1: int, d2: int, label: String, outcome: String) -> vo
 	_push_override_error("play_dice_animation")
 
 
+## 播放抓取怪物牌动画并等待结束。
+func play_monster_draw_animation(player: Variant, card: Variant) -> void:
+	_push_override_error("play_monster_draw_animation")
+
+
+## 播放抓取拾荒牌"抓取时"技能触发动画并等待结束。
+func play_scavenge_draw_animation(player: Variant, card: Variant) -> void:
+	_push_override_error("play_scavenge_draw_animation")
+
+
 func _push_override_error(method_name: String) -> void:
 	push_error("IPlayerInput.%s must be overridden by subclass" % method_name)

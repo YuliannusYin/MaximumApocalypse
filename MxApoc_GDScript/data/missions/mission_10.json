@@ -4,10 +4,10 @@
   "mission_name": "10. 运输",
   "english_name": "transport",
   "difficulty": "hard",
-  "van_fuel_required": 6,
+  "van_fuel_required": null,
   "intro_text": "机器人们继续抓捕或杀死任何他们遇到的人类。我们必须继续抵抗。",
-  "objective_text": "目标：带着 6 个燃料、3 个脏毯子、2 个医疗用品和 2 个多余零件返回基地。",
-  "special_setup": "设置：把面包车和军事基地地图块分别放在地图相对的两边。把 3 个目标标记彼此距离至少 2 个地图块放到地图上。玩家初始共有 4 张燃料牌，由玩家选择如何分配。\n效果：第 1 名到达每个目标标记的玩家触发以下标记效果：\n标记 1：收集 3 个多余零件和 2 个医疗用品。\n标记 2：抓取首领卡，收集 3 个脏毯子。\n标记 3：收集 2 个燃料和 1 个医疗用品（这些物品不要从拾荒牌堆中拿取）。",
+  "objective_text": "收集物资：收集燃料(0/6)、收集脏毯子(0/3)、收集医疗用品(0/2)、收集多余配件(0/2)；回合结束时，所有存活玩家在“军事基地”上且“军事基地”上没有任何怪物，获得胜利。",
+  "special_setup": "将怪物牌堆中的首领级怪物牌随机分布到怪物牌堆中的下半部分。\n当玩家进入带有“任务标记”的地图块时，移除该地图块上的任务标记并执行对应效果：\n标记 1：获得 3 个多余配件和 2 个医疗用品。\n标记 2：抓取首领卡，收集 3 个脏毯子。\n标记 3：获得 2 个燃料和 1 个医疗用品。",
   "monster_pack_type": "robot",
   "map_blocks_config": {
     "面包车": 1,
@@ -30,21 +30,16 @@
     "沙漠": 1
   },
   "map_layout": [
-    [-1, -1, -1, -1, -1, 1, 1, 2],
-    [-1, -1, -1, -1, -1, 1, -1, 1],
-    [-1, -1, -1, -1, 1, 1, 1, 1],
-    [-1, -1, -1, 1, 3, 1, -1, -1],
-    [-1, 3, 1, 1, 1, -1, -1, -1],
-    [1, 1, -1, 1, -1, -1, -1, -1],
-    [1, -1, 1, 3, -1, -1, -1, -1],
-    [0, 1, 1, -1, -1, -1, -1, -1]
+    [1, 1, 1, 1, 4, 1, 1, 1, 1],
+    [2, 1, 1, 0, 1, 0, 1, 1, 3],
+    [1, 1, 4, 1, 1, 1, 4, 1, 1]
   ],
   "map_legend": {
-    "-1": "no_block",
-    "0": { "type": "spawn", "block_name": "面包车" },
+    "0": "no_block",
     "1": "random_block",
-    "2": { "type": "game_end", "block_name": "军事基地" },
-    "3": { "type": "marked_block" }
+    "2": { "type": "spawn", "block_name": "面包车", "face": true },
+    "3": { "type": "game_end", "block_name": "军事基地", "face": true },
+    "4": { "type": "random_block", "face": false, "mission_mark": 1 }
   },
   "objective_marks": [
     {
@@ -102,5 +97,25 @@
       { "card_name": "一无所获", "count": 1 }
     ]
   },
-  "win_condition_code": ""
+  "win_conditions": [
+    { "component": "collect_items", "params": { "mode": "submit", "items": { "燃料": 6, "脏毯子": 3, "医疗用品": 2, "多余配件": 2 } } },
+    { "component": "all_players_at_block", "params": { "block_name": "军事基地", "no_monster": true } }
+  ],
+  "actions": [
+    { "component": "submit_items", "params": { "block_name": "军事基地", "items": { "燃料": 6, "脏毯子": 3, "医疗用品": 2, "多余配件": 2 } } }
+  ],
+  "triggers": [
+    { "component": "mark_enter_reward", "params": { "rewards": {
+      "mark_1": { "cards": { "多余配件": 3, "医疗用品": 2 } },
+      "mark_2": { "cards": { "脏毯子": 3 }, "draw_boss": true },
+      "mark_3": { "cards": { "燃料": 2, "医疗用品": 1 } }
+    } } }
+  ],
+  "progress_conditions": [
+    { "text": "提交燃料", "type": "submitted_count", "params": { "card_name": "燃料", "count": 6 } },
+    { "text": "提交脏毯子", "type": "submitted_count", "params": { "card_name": "脏毯子", "count": 3 } },
+    { "text": "提交医疗用品", "type": "submitted_count", "params": { "card_name": "医疗用品", "count": 2 } },
+    { "text": "提交多余配件", "type": "submitted_count", "params": { "card_name": "多余配件", "count": 2 } },
+    { "text": "回合结束时，所有存活玩家在地图块\"军事基地\"上，且\"军事基地\"地图块上没有任何怪物，就获得胜利", "type": "all_at_block", "params": { "block_name": "军事基地", "no_monster": true } }
+  ]
 }

@@ -1,13 +1,13 @@
 {
   "$schema": "mission",
   "mission_id": 0,
-  "mission_name": "教程",
+  "mission_name": "0. 教程",
   "english_name": "tutorial",
   "difficulty": "tutorial",
   "van_fuel_required": 4,
   "intro_text": "当一切陷入地狱之前，我们只听到了警报的声音。我们很幸运，离一家购物中心很近，但是现在，我们已经没有食物了并且援助还没到。我们要知道外面到底发生了什么。",
-  "objective_text": "目标：找到 4 桶燃料并逃到你们从屋顶上看到的一辆远处的面包车里。当所有人都成功上车并且你们有足够的燃料，你们就能开车逃离这里了。",
-  "special_setup": "初始设置：所有玩家在购物中心地图块。该地图块初始时是展示的。",
+  "objective_text": "给“面包车”添加“燃料”(0/4)；回合结束时，所有存活玩家在“面包车”上且“面包车”上没有任何怪物，获得胜利。",
+  "special_setup": "将怪物牌堆中的首领级怪物牌随机分布到怪物牌堆中的下半部分。",
   "monster_pack_type": "zombie",
   "map_blocks_config": {
     "面包车": 1,
@@ -24,15 +24,15 @@
     "避难所": 1
   },
   "map_layout": [
-    [0, 1, 1, 1, 1, -1],
-    [1, 1, 1, -1, 1, 2],
-    [-1, 1, 1, 1, 1, -1]
+    [2, 1, 1, 1, 1, 0],
+    [1, 1, 1, 0, 1, 3],
+    [0, 1, 1, 1, 1, 0]
   ],
   "map_legend": {
-    "-1": "no_block",
-    "0": { "type": "spawn", "block_name": "购物中心" },
+    "0": "no_block",
     "1": "random_block",
-    "2": { "type": "game_end", "block_name": "面包车" }
+    "2": { "type": "spawn", "block_name": "购物中心", "face": true },
+    "3": { "type": "game_end", "block_name": "面包车", "face": true }
   },
   "objective_marks": [],
   "scavenge_config": {
@@ -64,5 +64,8 @@
       { "card_name": "一无所获", "count": 1 }
     ]
   },
-  "win_condition_code": ""
+  "progress_conditions": [
+    { "text": "给\"面包车\"添加\"燃料\"", "type": "van_fuel" },
+    { "text": "回合结束时，所有存活玩家在地图块\"面包车\"上，且\"面包车\"上没有任何怪物，就获得胜利", "type": "van_boarding" }
+  ]
 }
