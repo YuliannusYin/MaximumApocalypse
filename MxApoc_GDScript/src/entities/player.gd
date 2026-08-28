@@ -249,6 +249,9 @@ func draw_scavenge_card(card: Card, pile: Pile, event: Dictionary) -> void:
 		for s in card.get_all_skills():
 			if s.forced and s.matches_trigger("on_draw_scavenge_card"):
 				mounted_skills.append(s)
+	# 播放"抓取时"技能触发动画（居中翻卡展示后原地放大淡出），动画播完前阻塞流程
+	if not mounted_skills.is_empty():
+		await _play_scavenge_draw_animation(card)
 	await trigger_only("on_draw_scavenge_card", event, mounted_skills)
 
 
@@ -544,6 +547,13 @@ func _play_monster_draw_animation(card: MonsterCard) -> void:
 	if input == null or not is_instance_valid(input):
 		return
 	await input.play_monster_draw_animation(self, card)
+
+
+## 播放"抓取时"技能触发动画（居中翻卡展示后原地放大淡出），动画播完前阻塞流程。
+func _play_scavenge_draw_animation(card: Card) -> void:
+	if input == null or not is_instance_valid(input):
+		return
+	await input.play_scavenge_draw_animation(self, card)
 
 
 ## 潜行检定（4 节点，投骰前含确认门，确认后播放骰子动画）。

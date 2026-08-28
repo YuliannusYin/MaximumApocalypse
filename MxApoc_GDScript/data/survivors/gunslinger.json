@@ -234,7 +234,7 @@
           "window_prompt": "\"战术领导力\": 选择目标玩家",
           "filter_target_range": "infinity",
           "defer_action_cost": true,
-          "content": "player.consume_action(1)\ntarget.execute_action_immediately(1)"
+          "content": "player.consume_action(1)\ntarget.execute_action_immediately(2)"
         }
       ]
     },

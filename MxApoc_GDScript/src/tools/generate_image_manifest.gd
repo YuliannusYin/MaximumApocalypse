@@ -18,7 +18,14 @@ static func generate() -> void:
 	manifest["gamemark"] = _scan_flat_dir("res://images/gamemark")
 	manifest["monster"] = _scan_grouped_dir("res://images/monster")
 	manifest["monster_card_back"] = _scan_root_images("res://images/monster")
-	manifest["scavenging"] = _scan_flat_dir("res://images/scavenging")
+	# 拾荒牌背面单独收录（scavenge_card_back 键），并从卡图列表中排除
+	var scavenge_all: Array = _scan_flat_dir("res://images/scavenging")
+	var scavenge_cards: Array = []
+	for p in scavenge_all:
+		if p.get_file().get_basename() != "拾荒牌背面":
+			scavenge_cards.append(p)
+	manifest["scavenge_card_back"] = _filter_by_basename(scavenge_all, "拾荒牌背面")
+	manifest["scavenging"] = scavenge_cards
 
 	var json_str := JSON.stringify(manifest, "  ")
 	var file := FileAccess.open("res://data/image_manifest.json", FileAccess.WRITE)
@@ -95,6 +102,15 @@ static func _scan_grouped_dir(dir_path: String) -> Dictionary:
 	sub_dirs.sort()
 	for sub_name in sub_dirs:
 		result[sub_name] = _scan_flat_dir(dir_path + "/" + sub_name)
+	return result
+
+
+## 从路径数组中筛选文件主名（不含扩展名）等于指定名称的路径。
+static func _filter_by_basename(paths: Array, file_basename: String) -> Array:
+	var result: Array = []
+	for p in paths:
+		if p.get_file().get_basename() == file_basename:
+			result.append(p)
 	return result
 
 

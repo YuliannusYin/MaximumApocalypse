@@ -153,7 +153,7 @@
         {
           "skill_name": "能量饮料",
           "english_name": "energy_drink",
-          "skill_description": "行动：直到你的下个回合开始，你免疫饥饿伤害。你抓一张牌",
+          "skill_description": "行动：跳过下一次饥饿结算。你抓一张牌",
           "skill_type": "action",
           "active": "action",
           "filter": "return player.in_phase == \"action\"",
@@ -166,7 +166,7 @@
               "trigger": "before_hunger_settlement",
               "forced": true,
               "filter": "return true",
-              "content": "EventSystem.cancel(event)"
+              "content": "EventSystem.cancel(event)\nfor s in player.get_all_skills():\n\tif s.english_name == \"energy_drink_satiety\":\n\t\tplayer.remove_skill(s)\n\t\tbreak"
             }
           }
         }

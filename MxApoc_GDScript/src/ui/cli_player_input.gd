@@ -133,3 +133,8 @@ func play_dice_animation(d1: int, d2: int, label: String, outcome: String) -> vo
 func play_monster_draw_animation(_player: Variant, card: Variant) -> void:
 	# 命令行模式无动画，仅打印抓取的怪物牌并立即返回，不阻塞流程
 	print("[抓怪] " + card.card_name)
+
+
+func play_scavenge_draw_animation(_player: Variant, card: Variant) -> void:
+	# 命令行模式无动画，仅打印抓取的拾荒牌并立即返回，不阻塞流程
+	print("[抓牌] " + card.card_name)
