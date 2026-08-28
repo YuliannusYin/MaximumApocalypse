@@ -128,6 +128,8 @@ func act() -> void:
 	await trigger("before_monster_attack", event)
 
 	# 4. on_monster_attack + 调用 _attack()
+	# 先填充 target_players，供 on_monster_attack 数据技能（如突变体中毒、外星人技能）遍历
+	event["target_players"] = _get_attack_targets()
 	await trigger("on_monster_attack", event)
 	_attack()
 
@@ -140,23 +142,28 @@ func act() -> void:
 
 # === 攻击流程 ===
 
-## 怪物根据射程对目标发动攻击。
+## 计算攻击目标列表。
 ## 以纠缠玩家所在地块为中心，按射程确定攻击目标列表。
-## 对每个目标造成伤害（source = self）。
 ## range="none" 时只攻击纠缠玩家，无需查询地块。
-func _attack() -> void:
+## attack_target 为 null/无效或其所在地块为 null 时返回空列表。
+func _get_attack_targets() -> Array:
 	if attack_target == null or not is_instance_valid(attack_target):
-		return
+		return []
 
-	var targets: Array = []
 	if range == "none":
 		# 只攻击纠缠玩家，无需地块查询
-		targets = [attack_target]
-	else:
-		var block: MapBlock = attack_target.get_current_block()
-		if block == null:
-			return
-		targets = block.get_players_in_range(range, true)
+		return [attack_target]
+
+	var block: MapBlock = attack_target.get_current_block()
+	if block == null:
+		return []
+	return block.get_players_in_range(range, true)
+
+
+## 怪物根据射程对目标发动攻击。
+## 对 _get_attack_targets() 返回的每个存活目标造成伤害（source = self）。
+func _attack() -> void:
+	var targets: Array = _get_attack_targets()
 
 	for target in targets:
 		if target != null and is_instance_valid(target) and target.is_alive():
