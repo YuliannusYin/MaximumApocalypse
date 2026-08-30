@@ -9,7 +9,7 @@ extends MissionComponent
 ## 说明：玩家抵达带目标标记的地块、objective_mark_triggered 事件触发时，
 ## 按 mark.get("mark_id") 匹配 rewards 发放奖励：
 ## - cards：逐张生成拾荒卡（game.create_scavenge_card）进入玩家手牌（player.gain，
-##   与引擎摸牌入手机行为一致，手牌上限由回合结束弃牌阶段统一处理）；
+##   与引擎摸牌入手机行为一致，手牌满时经 try_add_card_to_hand 弹窗弃牌腾位）；
 ##   卡牌不存在时跳过该张并记录日志。
 ## - draw_boss：玩家额外抓取一张首领卡（player.draw_boss_card）。
 ## 同一标记由引擎 trigger_objective_marks 保证仅触发一次，组件无需去重。
@@ -43,7 +43,7 @@ func on_event(game: Game, event_name: String, event: Dictionary) -> void:
 			if card == null:
 				game.log_message("未找到奖励拾荒卡：" + LogColors.card(card_name) + "，跳过")
 				continue
-			player.gain(card)
+			await player.gain(card)
 			gained_names.append(card_name)
 	# 2. 首领奖励：抓取一张首领卡
 	var draw_boss: bool = reward.get("draw_boss", false) == true
