@@ -80,7 +80,7 @@ func start_game() -> void:
 			continue
 		var event: Dictionary = EventSystem.create_event({"player": player})
 		await player.trigger("on_game_start", event)
-	# 2. 每个玩家抓 4 张初始手牌
+	# 2. 每个玩家抓 4 张初始手牌（豁免超限弹窗：从空手牌抓起，初始手牌数不会超过上限）
 	for player in Game.players:
 		if player == null or not is_instance_valid(player):
 			continue
