@@ -574,18 +574,7 @@ func _on_choose_target_requested(n: int, skill: Variant, prompt: String, min_n: 
 			filtered.append(target)
 	# 处理 select_target
 	var select_n: int = n
-	if select_n == -1:
-		# 自动选取全部过滤后候选，不弹 UI
-		_gui_input.respond_choose_target.call_deferred(filtered)
-		return
-	if filtered.is_empty():
-		_gui_input.respond_choose_target.call_deferred([])
-		return
-	if select_n >= filtered.size():
-		# 候选数 ≤ 所需数，直接全选
-		_gui_input.respond_choose_target.call_deferred(filtered)
-		return
-	# 弹出目标选择区
+	# 构建装备区 zone_labels（下方弹窗调用共用）
 	var zone_labels: Array = []
 	if target_type == "equipment":
 		zone_labels = ["装备区"]
@@ -600,6 +589,29 @@ func _on_choose_target_requested(n: int, skill: Variant, prompt: String, min_n: 
 			var wp: Variant = skill.get("window_prompt")
 			if wp != null:
 				merged_prompt = str(wp)
+	if filtered.is_empty():
+		# 无合法候选：直接返回空，不弹 UI
+		_gui_input.respond_choose_target.call_deferred([])
+		return
+	if select_n == -1:
+		# 全选模式
+		if Settings.skip_target_selection:
+			# 设置开启：自动选取全部过滤后候选，不弹 UI
+			_gui_input.respond_choose_target.call_deferred(filtered)
+		else:
+			# 设置关闭：弹出目标选择区并预选全部，玩家确认后经 targets_selected -> respond_choose_target 回传
+			_popup_manager.show_target_select_area(filtered, filtered.size(), zone_labels, merged_prompt, -1, true)
+		return
+	if select_n >= filtered.size():
+		# 候选数 ≤ 所需数
+		if Settings.skip_target_selection:
+			# 设置开启：直接全选
+			_gui_input.respond_choose_target.call_deferred(filtered)
+		else:
+			# 设置关闭：以候选数为选择数弹窗并预选全部，玩家确认后经 targets_selected -> respond_choose_target 回传
+			_popup_manager.show_target_select_area(filtered, filtered.size(), zone_labels, merged_prompt, min_n, true)
+		return
+	# 弹出目标选择区
 	_popup_manager.show_target_select_area(filtered, select_n, zone_labels, merged_prompt, min_n)
 
 
