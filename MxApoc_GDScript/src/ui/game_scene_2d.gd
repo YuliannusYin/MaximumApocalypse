@@ -7,6 +7,7 @@ extends Control
 const SETTINGS_DIALOG_SCENE := preload("res://scenes/SettingsDialog.tscn")
 const TUTORIAL_DIALOG_SCENE := preload("res://scenes/TutorialDialog.tscn")
 const TutorialManager = preload("res://src/ui/tutorial_manager.gd")
+const TargetLinkAnimationViewScript = preload("res://src/ui/target_link_animation_view.gd")
 
 # === 层节点（来自 .tscn）===
 @onready var _table_layer: CanvasLayer = $TableLayer
@@ -34,9 +35,12 @@ var _dice_animation_view: DiceAnimationView
 var _turn_banner_view: TurnBannerView
 var _monster_draw_animation_view: MonsterDrawAnimationView
 var _skill_trigger_animation_view: SkillTriggerAnimationView
+var _target_link_animation_layer: CanvasLayer
+var _target_link_animation_view: Control
 
 # === 游戏状态 ===
 var _gui_input: GUIPlayerInput
+var _pending_target_source: Variant = null
 
 # === 设置弹出菜单 ===
 var _settings_popup: PopupMenu
@@ -91,6 +95,13 @@ func _create_modules() -> void:
 	# "抓取时"技能触发动画视图：挂在 UI 层，抓取带 forced on_draw_scavenge_card 技能的拾荒牌时触发播放
 	_skill_trigger_animation_view = SkillTriggerAnimationView.new()
 	_ui_layer.add_child(_skill_trigger_animation_view)
+
+	# 目标确认动画视图：独立最高层，确保不被弹窗、HUD 或其他演出遮挡。
+	_target_link_animation_layer = CanvasLayer.new()
+	_target_link_animation_layer.layer = 3
+	add_child(_target_link_animation_layer)
+	_target_link_animation_view = TargetLinkAnimationViewScript.new()
+	_target_link_animation_layer.add_child(_target_link_animation_view)
 
 	# 回合切换横幅视图：挂在 UI 层，回合开始时中央提示（fire-and-forget，不阻塞流程）
 	_turn_banner_view = TurnBannerView.new()
@@ -157,7 +168,7 @@ func _start_game_flow() -> void:
 	_popup_manager.option_selected.connect(_gui_input.respond_choose)
 	_popup_manager.confirm_responded.connect(_gui_input.respond_confirm)
 	_popup_manager.cards_selected.connect(_gui_input.respond_choose_card)
-	_popup_manager.targets_selected.connect(_gui_input.respond_choose_target)
+	_popup_manager.targets_selected.connect(_on_popup_targets_selected)
 	_popup_manager.block_selected.connect(_on_popup_block_selected)
 	_action_selection_controller.redraw_decision_responded.connect(_gui_input.respond_redraw_decision)
 	_action_selection_controller.judge_confirm_responded.connect(_gui_input.respond_judge_confirm)
@@ -495,11 +506,39 @@ func _on_choose_card_requested(n: int, param: Variant, filter: Variant, prompt: 
 	_popup_manager.show_card_select_popup(cards, n, label, zone_labels, prompt, min_n)
 
 
+## 目标弹窗确认后先播放 A→B 指向动画，再恢复等待中的 choose_target 请求。
+func _on_popup_targets_selected(targets: Array) -> void:
+	var source: Variant = _pending_target_source
+	_pending_target_source = null
+	if targets.is_empty() or source == null or not is_instance_valid(source):
+		_gui_input.respond_choose_target(targets)
+		return
+	var source_panel: PlayerPanel = _get_panel_for_player(source)
+	if source_panel == null:
+		_gui_input.respond_choose_target(targets)
+		return
+	var player_positions: Array[Vector2] = []
+	var monsters: Array = []
+	for target in targets:
+		if target is Player and is_instance_valid(target):
+			var target_panel: PlayerPanel = _get_panel_for_player(target)
+			if target_panel != null:
+				player_positions.append(target_panel.get_role_card_global_position())
+		elif target is Monster and is_instance_valid(target):
+			monsters.append(target)
+	if player_positions.is_empty() and monsters.is_empty():
+		_gui_input.respond_choose_target(targets)
+		return
+	await _target_link_animation_view.play(source_panel.get_role_card_global_position(), player_positions, monsters)
+	_gui_input.respond_choose_target(targets)
+
+
 func _on_choose_target_requested(n: int, skill: Variant, prompt: String, min_n: int) -> void:
 	var current: Variant = Game.get_current_player()
 	if current == null or not is_instance_valid(current):
 		_gui_input.respond_choose_target([])
 		return
+	_pending_target_source = current
 	var current_block: Variant = current.get("current_block")
 	# 读取 skill 的 target_type / filter_target_range（兼容 skill 为 null / Dictionary / Object）
 	var target_type: String = ""
