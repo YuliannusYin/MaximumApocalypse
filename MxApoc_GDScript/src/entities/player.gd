@@ -447,6 +447,9 @@ func remove_card(target: Variant, position: String = "", quantity: int = 1) -> v
 		var src_card: Variant = entity.equipment_card if entity != null else card
 		event["card"] = src_card
 		event["cards"].append(src_card)
+		# 销毁演出在实际移出区域前完成，确保展示的卡面仍与当前状态一致。
+		if input != null and src_card is Card:
+			await input.play_card_destroy_animation(src_card)
 		_remove_card_from_zone(card)
 		if Game != null:
 			Game.remove_card(src_card, true)

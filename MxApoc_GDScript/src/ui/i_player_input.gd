@@ -89,5 +89,10 @@ func play_scavenge_draw_animation(player: Variant, card: Variant) -> void:
 	_push_override_error("play_scavenge_draw_animation")
 
 
+## 播放卡牌移出游戏动画并等待结束。
+func play_card_destroy_animation(card: Card) -> void:
+	_push_override_error("play_card_destroy_animation")
+
+
 func _push_override_error(method_name: String) -> void:
 	push_error("IPlayerInput.%s must be overridden by subclass" % method_name)
