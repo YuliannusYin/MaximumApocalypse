@@ -8,6 +8,7 @@ const SETTINGS_DIALOG_SCENE := preload("res://scenes/SettingsDialog.tscn")
 const TUTORIAL_DIALOG_SCENE := preload("res://scenes/TutorialDialog.tscn")
 const TutorialManager = preload("res://src/ui/tutorial_manager.gd")
 const TargetLinkAnimationViewScript = preload("res://src/ui/target_link_animation_view.gd")
+const CardDestroyAnimationViewScript = preload("res://src/ui/card_destroy_animation_view.gd")
 
 # === 层节点（来自 .tscn）===
 @onready var _table_layer: CanvasLayer = $TableLayer
@@ -35,6 +36,7 @@ var _dice_animation_view: DiceAnimationView
 var _turn_banner_view: TurnBannerView
 var _monster_draw_animation_view: MonsterDrawAnimationView
 var _skill_trigger_animation_view: SkillTriggerAnimationView
+var _card_destroy_animation_view: CardDestroyAnimationView
 var _target_link_animation_layer: CanvasLayer
 var _target_link_animation_view: Control
 
@@ -95,6 +97,10 @@ func _create_modules() -> void:
 	# "抓取时"技能触发动画视图：挂在 UI 层，抓取带 forced on_draw_scavenge_card 技能的拾荒牌时触发播放
 	_skill_trigger_animation_view = SkillTriggerAnimationView.new()
 	_ui_layer.add_child(_skill_trigger_animation_view)
+
+	# 卡牌销毁动画视图：居中焚毁卡面，播放期间阻塞销毁事件的后续结算。
+	_card_destroy_animation_view = CardDestroyAnimationViewScript.new()
+	_ui_layer.add_child(_card_destroy_animation_view)
 
 	# 目标确认动画视图：独立最高层，确保不被弹窗、HUD 或其他演出遮挡。
 	_target_link_animation_layer = CanvasLayer.new()
@@ -165,6 +171,7 @@ func _start_game_flow() -> void:
 	_gui_input.dice_animation_requested.connect(_on_dice_animation_requested)
 	_gui_input.monster_draw_animation_requested.connect(_on_monster_draw_animation_requested)
 	_gui_input.scavenge_draw_animation_requested.connect(_on_scavenge_draw_animation_requested)
+	_gui_input.card_destroy_animation_requested.connect(_on_card_destroy_animation_requested)
 	_popup_manager.option_selected.connect(_gui_input.respond_choose)
 	_popup_manager.confirm_responded.connect(_gui_input.respond_confirm)
 	_popup_manager.cards_selected.connect(_gui_input.respond_choose_card)
@@ -739,6 +746,12 @@ func _on_monster_draw_animation_requested(player: Variant, card: Variant) -> voi
 func _on_scavenge_draw_animation_requested(_player: Variant, card: Variant) -> void:
 	await _skill_trigger_animation_view.play(card)
 	_gui_input.respond_scavenge_draw_animation()
+
+
+## 卡牌销毁动画：居中焚毁卡面，结束后释放等待中的销毁事件。
+func _on_card_destroy_animation_requested(card: Card) -> void:
+	await _card_destroy_animation_view.play(card)
+	_gui_input.respond_card_destroy_animation()
 
 
 # === EventBus 信号处理 ===
