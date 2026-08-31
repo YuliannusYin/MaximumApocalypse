@@ -350,7 +350,8 @@ func _on_card_select_cancelled() -> void:
 
 ## 目标选择区（315,120 800×420）：仅选目标时弹出。
 ## min_n：范围模式最小选择数（-1 = 精确模式，必须选 n 个）；min_n>=0 时允许 [min_n, n] 个。
-func show_target_select_area(targets: Array, n: int, zone_labels: Array = [], prompt: String = "", min_n: int = -1) -> void:
+## preselect_all：为 true 时打开弹窗即预选全部目标（选中数达标，确认按钮立即可用）。
+func show_target_select_area(targets: Array, n: int, zone_labels: Array = [], prompt: String = "", min_n: int = -1, preselect_all: bool = false) -> void:
 	if targets.is_empty():
 		targets_selected.emit([])
 		return
@@ -424,6 +425,12 @@ func show_target_select_area(targets: Array, n: int, zone_labels: Array = [], pr
 		cancel_btn.custom_minimum_size = Vector2(80, 30)
 		cancel_btn.pressed.connect(_on_target_card_cancelled)
 		hbox.add_child(cancel_btn)
+		if preselect_all:
+			for i in range(min(targets.size(), _popup_required_n)):
+				if not _popup_selected.has(targets[i]):
+					_popup_selected.append(targets[i])
+				_popup_item_views[i].set_selected(true)
+			_refresh_popup_ok_button()
 		_finish_popup_build(overlay)
 		return
 	# 实体目标：使用卡片网格布局（Monster/Player）
@@ -499,6 +506,9 @@ func show_target_select_area(targets: Array, n: int, zone_labels: Array = [], pr
 				card_panel.gui_input.connect(_on_entity_card_clicked.bind(target, card_panel))
 				grid.add_child(card_panel)
 				_popup_item_views.append(card_panel)
+				if preselect_all and not _popup_selected.has(target) and _popup_selected.size() < _popup_required_n:
+					_popup_selected.append(target)
+					_set_entity_card_selected(card_panel, true)
 
 		var hbox := HBoxContainer.new()
 		hbox.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -518,6 +528,8 @@ func show_target_select_area(targets: Array, n: int, zone_labels: Array = [], pr
 		cancel_btn.custom_minimum_size = Vector2(80, 30)
 		cancel_btn.pressed.connect(_on_entity_card_cancelled)
 		hbox.add_child(cancel_btn)
+		if preselect_all:
+			_refresh_popup_ok_button()
 		_finish_popup_build(overlay)
 		return
 	# 非卡牌/实体目标：原有 Button 布局（同样支持 min_n 范围模式）
@@ -559,6 +571,9 @@ func show_target_select_area(targets: Array, n: int, zone_labels: Array = [], pr
 		btn.add_theme_font_size_override("font_size", 13)
 		btn.pressed.connect(_on_target_area_clicked.bind(target, btn))
 		grid.add_child(btn)
+		if preselect_all and not _popup_selected.has(target) and _popup_selected.size() < _popup_required_n:
+			_popup_selected.append(target)
+			btn.modulate = Color(0.4, 0.8, 0.4, 1.0)
 	var hbox := HBoxContainer.new()
 	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	hbox.add_theme_constant_override("separation", 20)
@@ -575,8 +590,20 @@ func show_target_select_area(targets: Array, n: int, zone_labels: Array = [], pr
 	cancel_btn.custom_minimum_size = Vector2(80, 30)
 	cancel_btn.pressed.connect(_on_target_area_cancelled)
 	hbox.add_child(cancel_btn)
+	if preselect_all:
+		_refresh_popup_ok_button()
 
 	_finish_popup_build(overlay)
+
+
+## preselect_all 打开弹窗后刷新确认按钮：选中数达标时立即可确认。
+func _refresh_popup_ok_button() -> void:
+	if _popup_ok_button != null and is_instance_valid(_popup_ok_button):
+		_popup_ok_button.text = "确认（%d/%d）" % [_popup_selected.size(), _popup_required_n]
+		if _popup_min_n >= 0:
+			_popup_ok_button.disabled = _popup_selected.size() < _popup_min_n
+		else:
+			_popup_ok_button.disabled = _popup_selected.size() != _popup_required_n
 
 
 func _on_target_area_clicked(target: Variant, btn: Button) -> void:

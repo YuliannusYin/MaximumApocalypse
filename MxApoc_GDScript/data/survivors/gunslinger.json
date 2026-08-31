@@ -225,7 +225,7 @@
         {
           "skill_name": "战术领导力",
           "english_name": "tactical_leadership",
-          "skill_description": "行动：选择另一名玩家，该玩家立即执行一个行动。",
+          "skill_description": "行动：选择另一名玩家，该玩家立即执行两个行动。",
           "skill_type": "action",
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
