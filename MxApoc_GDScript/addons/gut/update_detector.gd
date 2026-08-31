@@ -29,12 +29,12 @@ var Vnt = load("res://addons/gut/version_numbers.gd").VerNumTools
 const REMOTE_FILE_URL = "https://api.github.com/repos/bitwes/gut/contents/addons/gut/versions.json"
 const LOCAL_FILE_PATH = "res://addons/gut/versions.json"
 const REMOTE_FILE_PATH = "user://gut_temp_directory/versions.json"
-const VERSION_ZERO = "0.0.0"
+const VERSION_ZERO = "0.9.1"
 
 class VersionData:
 	var _data := {}
 	var data_issues = []
-	const VERSION_ZERO = "0.0.0"
+	const VERSION_ZERO = "0.9.1"
 
 	var Vnt = load("res://addons/gut/version_numbers.gd").VerNumTools
 
@@ -296,7 +296,7 @@ func get_update_string(url_formatter:Callable=_url_formatter):
 			"Check the readme for install links/instructions:  ", url_formatter.call('https://github.com/bitwes/Gut'))
 		else:
 			version_info = str('This version of GUT may not be compatible with Godot ', godot_v, '.  ')
-			if(rec_ver == '0.0.0'):
+			if(rec_ver == '0.9.1'):
 				version_info += str("No release or branch exists for this version of Godot yet.  Check back soon.")
 			else:
 				version_info += str('Consider changing to ', rec_ver_link)
