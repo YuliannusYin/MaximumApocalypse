@@ -36,6 +36,8 @@ var _dice_animation_view: DiceAnimationView
 var _turn_banner_view: TurnBannerView
 var _monster_draw_animation_view: MonsterDrawAnimationView
 var _skill_trigger_animation_view: SkillTriggerAnimationView
+var _monster_skill_trigger_animation_view: MonsterSkillTriggerAnimationView
+var _monster_attack_animation_view: MonsterAttackAnimationView
 var _card_destroy_animation_view: CardDestroyAnimationView
 var _target_link_animation_layer: CanvasLayer
 var _target_link_animation_view: Control
@@ -97,6 +99,14 @@ func _create_modules() -> void:
 	# "抓取时"技能触发动画视图：挂在 UI 层，抓取带 forced on_draw_scavenge_card 技能的拾荒牌时触发播放
 	_skill_trigger_animation_view = SkillTriggerAnimationView.new()
 	_ui_layer.add_child(_skill_trigger_animation_view)
+
+	# 怪物技能触发动画视图：挂在 UI 层，怪物触发固有技能时播放（await play 播完才返回）
+	_monster_skill_trigger_animation_view = MonsterSkillTriggerAnimationView.new()
+	_ui_layer.add_child(_monster_skill_trigger_animation_view)
+
+	# 怪物攻击动画视图：挂在 UI 层，怪物攻击目标玩家时播放（await play 播完才返回）
+	_monster_attack_animation_view = MonsterAttackAnimationView.new()
+	_ui_layer.add_child(_monster_attack_animation_view)
 
 	# 卡牌销毁动画视图：居中焚毁卡面，播放期间阻塞销毁事件的后续结算。
 	_card_destroy_animation_view = CardDestroyAnimationViewScript.new()
@@ -172,6 +182,8 @@ func _start_game_flow() -> void:
 	_gui_input.monster_draw_animation_requested.connect(_on_monster_draw_animation_requested)
 	_gui_input.scavenge_draw_animation_requested.connect(_on_scavenge_draw_animation_requested)
 	_gui_input.card_destroy_animation_requested.connect(_on_card_destroy_animation_requested)
+	_gui_input.monster_skill_trigger_animation_requested.connect(_on_monster_skill_trigger_animation_requested)
+	_gui_input.monster_attack_animation_requested.connect(_on_monster_attack_animation_requested)
 	_popup_manager.option_selected.connect(_gui_input.respond_choose)
 	_popup_manager.confirm_responded.connect(_gui_input.respond_confirm)
 	_popup_manager.cards_selected.connect(_gui_input.respond_choose_card)
@@ -752,6 +764,25 @@ func _on_scavenge_draw_animation_requested(_player: Variant, card: Variant) -> v
 func _on_card_destroy_animation_requested(card: Card) -> void:
 	await _card_destroy_animation_view.play(card)
 	_gui_input.respond_card_destroy_animation()
+
+
+# 怪物技能触发动画：播放完毕后结算响应，阻塞后续请求派发
+func _on_monster_skill_trigger_animation_requested(monster: Variant) -> void:
+	await _monster_skill_trigger_animation_view.play(monster)
+	_gui_input.respond_monster_skill_trigger_animation()
+
+
+# 怪物攻击动画：飞行终点取各目标玩家面板角色牌的全局中心位置，
+# 面板不存在或目标无效时跳过该目标；播放完毕后结算响应，阻塞后续请求派发
+func _on_monster_attack_animation_requested(monster: Variant, targets: Array) -> void:
+	var positions: Array = []
+	for target in targets:
+		if target is Player and is_instance_valid(target):
+			var target_panel: PlayerPanel = _get_panel_for_player(target)
+			if target_panel != null:
+				positions.append(target_panel.get_role_card_global_position())
+	await _monster_attack_animation_view.play(monster, positions)
+	_gui_input.respond_monster_attack_animation()
 
 
 # === EventBus 信号处理 ===

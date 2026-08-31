@@ -62,19 +62,39 @@ func is_monster() -> bool:
 	return true
 
 
-## 返回怪物所在的地块。
-## 怪物不直接持有地块引用，需遍历 Game.players 找到其所属玩家
-## （怪物在该玩家的 monster_zone 中），返回该玩家的当前地块。
-## 未找到所属玩家时返回 null。
-func get_current_block() -> MapBlock:
+## 返回怪物的所属玩家（monster_zone 持有该怪的玩家）。
+## 怪物不直接持有玩家引用，需遍历 Game.players 查找。
+## Game 无效或未找到所属玩家时返回 null。
+func get_owner_player() -> Player:
 	if Game == null or not is_instance_valid(Game):
 		return null
 	for p in Game.players:
 		if p == null or not is_instance_valid(p):
 			continue
 		if "monster_zone" in p and p.monster_zone.has(self):
-			return p.get_current_block()
+			return p
 	return null
+
+
+## 返回怪物所在的地块。
+## 怪物不直接持有地块引用，经所属玩家（monster_zone 持有者）的当前地块取得。
+## 未找到所属玩家时返回 null。
+func get_current_block() -> MapBlock:
+	var owner: Player = get_owner_player()
+	if owner == null:
+		return null
+	return owner.get_current_block()
+
+
+## 覆写基类钩子：怪物技能通过 filter 后、content 执行前播放"触发怪物技能"动画。
+## 经所属玩家（monster_zone 持有者）的 input 播放；找不到所属玩家或 input 时静默跳过。
+func _notify_monster_skill_triggered() -> void:
+	var owner: Player = get_owner_player()
+	if owner == null or not is_instance_valid(owner):
+		return
+	if owner.input == null or not is_instance_valid(owner.input):
+		return
+	await owner.input.play_monster_skill_trigger_animation(self)
 
 
 # === 纠缠对象 ===
@@ -109,7 +129,7 @@ func stun(source: Variant, expire_trigger: String) -> void:
 
 ## 怪物行动流程。
 ## 击晕的怪物跳过行动；击晕仅持续到下次行动。
-## 节点：before_monster_act → on_monster_act → before_monster_attack → on_monster_attack + _attack() → after_monster_attack → after_monster_act
+## 节点：before_monster_act → on_monster_act → before_monster_attack → on_monster_attack 前（含攻击演出）→ on_monster_attack + _attack() → after_monster_attack → after_monster_act
 func act() -> void:
 	# 击晕的怪物跳过行动，击晕仅持续到下次行动
 	if stunned:
@@ -130,6 +150,9 @@ func act() -> void:
 	# 4. on_monster_attack + 调用 _attack()
 	# 先填充 target_players，供 on_monster_attack 数据技能（如突变体中毒、外星人技能）遍历
 	event["target_players"] = _get_attack_targets()
+	# 攻击演出：目标非空时先播放居中怪物牌 + 血红色箭头动画（经所属玩家 input）
+	if not event["target_players"].is_empty():
+		await _play_attack_animation(event["target_players"])
 	await trigger("on_monster_attack", event)
 	_attack()
 
@@ -170,6 +193,16 @@ func _attack() -> void:
 			if Game != null and is_instance_valid(Game):
 				Game.log_message(LogColors.monster(monster_name) + " 攻击了 " + LogColors.player(target.player_name))
 			target.damage(damage_value, self, "monster_attack")
+
+
+## 播放"怪物攻击"动画：经所属玩家 input 请求，阻塞至播完；无所属玩家或 input 时跳过。
+func _play_attack_animation(targets: Array) -> void:
+	var owner: Player = get_owner_player()
+	if owner == null or not is_instance_valid(owner):
+		return
+	if owner.input == null or not is_instance_valid(owner.input):
+		return
+	await owner.input.play_monster_attack_animation(self, targets)
 
 
 # === 死亡流程（3 节点） ===

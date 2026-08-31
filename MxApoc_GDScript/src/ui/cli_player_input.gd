@@ -143,3 +143,13 @@ func play_scavenge_draw_animation(_player: Variant, card: Variant) -> void:
 func play_card_destroy_animation(_card: Card) -> void:
 	# 命令行与 headless 测试环境不播放动画，立即完成销毁流程。
 	pass
+
+
+func play_monster_skill_trigger_animation(_monster: Variant) -> void:
+	# 命令行模式不播动画，立即完成技能触发流程，不阻塞流程。
+	pass
+
+
+func play_monster_attack_animation(_monster: Variant, _targets: Array) -> void:
+	# 命令行模式不播动画，立即完成怪物攻击流程，不阻塞流程。
+	pass
