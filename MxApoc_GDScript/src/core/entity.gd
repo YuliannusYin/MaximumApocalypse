@@ -42,6 +42,7 @@ func trigger(trigger_name: String, event: Dictionary) -> void:
 			var _skill_name: String = s.skill_name if s.skill_name != "" else s.english_name
 			if _actor_name != "":
 				Game.log_message(LogColors.player(_actor_name) + " 触发了 " + LogColors.skill_by_type(_skill_name, s.skill_type))
+		await _notify_monster_skill_triggered()
 		await s.execute_content(self, event)
 		if EventSystem.is_cancelled(event):
 			break
@@ -71,9 +72,15 @@ func trigger_only(trigger_name: String, event: Dictionary, skill_list: Array) ->
 			var _skill_name: String = s.skill_name if s.skill_name != "" else s.english_name
 			if _actor_name != "":
 				Game.log_message(LogColors.player(_actor_name) + " 触发了 " + LogColors.skill_by_type(_skill_name, s.skill_type))
+		await _notify_monster_skill_triggered()
 		await s.execute_content(self, event)
 		if EventSystem.is_cancelled(event):
 			break
+
+
+## 怪物技能触发通知钩子（动画用）。基类 no-op，Monster 覆写以播放"触发怪物技能"动画。
+func _notify_monster_skill_triggered() -> void:
+	pass
 
 
 # === 2. 技能挂载 ===
