@@ -20,7 +20,7 @@
           "trigger": "on_monster_death",
           "forced": true,
           "filter": "return event.target.monster_type == \"zombie\"",
-          "content": "await event.source.draw_monster(1)"
+          "content": "actions.draw_monster(event.source, 1)"
         }
       ]
     },
@@ -42,7 +42,7 @@
           "trigger": "after_monster_enter_zone",
           "forced": true,
           "filter": "return true",
-          "content": "var drawer = event.player\nvar list = drawer.get_current_block().get_adjacent_blocks()\nfor i in list:\n\ti.add_monster_mark(1)\nawait drawer.draw_monster(1)"
+          "content": "var drawer = event.player\nvar list = drawer.get_current_block().get_adjacent_blocks()\nfor i in list:\n\tactions.add_monster_mark(i, 1)\nactions.draw_monster(drawer, 1)"
         }
       ]
     },
@@ -97,7 +97,7 @@
           "trigger": "after_monster_enter_zone",
           "forced": true,
           "filter": "return true",
-          "content": "await event.player.draw_monster(1)"
+          "content": "actions.draw_monster(event.player, 1)"
         }
       ]
     },
@@ -130,7 +130,7 @@
           "trigger": "after_monster_attack",
           "forced": true,
           "filter": "return true",
-          "content": "var list = game.get_alive_players()\nif list.is_empty():\n\treturn\ntarget = list[0]\nfor p in list:\n\tif p.get_hp() < target.get_hp():\n\t\ttarget = p\nevent.monster.change_engaged_target(target)"
+          "content": "var list = game.get_alive_players()\nif list.is_empty():\n\treturn\ntarget = list[0]\nfor p in list:\n\tif p.get_hp() < target.get_hp():\n\t\ttarget = p\nactions.change_engaged_target(event.monster, target)"
         }
       ]
     }

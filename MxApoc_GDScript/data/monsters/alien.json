@@ -20,7 +20,7 @@
           "trigger": "after_monster_enter_zone",
           "forced": true,
           "filter": "return true",
-          "content": "var list = game.get_all_players()\nfor i in list:\n\tvar equipment = game.get_cards(i, \"equipment\")\n\tfor c in equipment:\n\t\tawait i.remove_card(c)"
+          "content": "var list = game.get_all_players()\nfor i in list:\n\tvar equipment = game.get_cards(i, \"equipment\")\n\tfor c in equipment:\n\t\tactions.remove_card(i, c)"
         },
         {
           "skill_name": "外星收割者-烧毁",
@@ -30,7 +30,7 @@
           "trigger": "on_monster_attack",
           "forced": true,
           "filter": "return true",
-          "content": "for target_player in event.target_players:\n\tvar card = game.get_random_card(target_player, [\"hand\", \"equipment\"])\n\tif card != null:\n\t\tawait target_player.remove_card(card)"
+          "content": "for target_player in event.target_players:\n\tvar card = game.get_random_card(target_player, [\"hand\", \"equipment\"])\n\tif card != null:\n\t\tactions.remove_card(target_player, card)"
         }
       ]
     },
@@ -52,7 +52,7 @@
           "trigger": "after_monster_enter_zone",
           "forced": true,
           "filter": "return true",
-          "content": "var list = game.get_all_players()\nfor p in list:\n\tfor m in p.monster_zone:\n\t\tif m.monster_type == \"alien\":\n\t\t\tm.hp = m.max_hp"
+          "content": "var list = game.get_all_players()\nfor p in list:\n\tfor m in p.monster_zone:\n\t\tif m.monster_type == \"alien\":\n\t\t\tactions.restore_full_health(m)"
         },
         {
           "skill_name": "外星指挥官-烧毁",
@@ -62,7 +62,7 @@
           "trigger": "on_monster_attack",
           "forced": true,
           "filter": "return true",
-          "content": "for target_player in event.target_players:\n\tvar cards = game.get_random_cards(target_player, [\"hand\", \"equipment\"], 2)\n\tfor c in cards:\n\t\tawait target_player.remove_card(c)"
+          "content": "for target_player in event.target_players:\n\tvar cards = game.get_random_cards(target_player, [\"hand\", \"equipment\"], 2)\n\tfor c in cards:\n\t\tactions.remove_card(target_player, c)"
         }
       ]
     },
@@ -84,7 +84,7 @@
           "trigger": "after_monster_enter_zone",
           "forced": true,
           "filter": "return true",
-          "content": "var drawer = event.player\nvar equip_cards = drawer.get_cards(\"equipment\")\nif equip_cards.is_empty():\n\tawait drawer.damage(6, event[\"card\"])\nelif await drawer.confirm(\"\\\"外星科学家\\\": 是否弃置一张装备，否则受到 6 点伤害\"):\n\tvar chosen = await drawer.choose_card(1, equip_cards)\n\tif chosen.is_empty():\n\t\tawait drawer.damage(6, event[\"card\"])\n\telse:\n\t\tawait drawer.discard(chosen)\nelse:\n\tawait drawer.damage(6, event[\"card\"])"
+          "content": "var drawer = event.player\nvar equip_cards = drawer.get_cards(\"equipment\")\nif equip_cards.is_empty():\n\tactions.damage(drawer, 6, event[\"card\"])\nelif await drawer.confirm(\"\\\"外星科学家\\\": 是否弃置一张装备，否则受到 6 点伤害\"):\n\tvar chosen = await drawer.choose_card(1, equip_cards)\n\tif chosen.is_empty():\n\t\tactions.damage(drawer, 6, event[\"card\"])\n\telse:\n\t\tactions.discard(drawer, chosen)\nelse:\n\tactions.damage(drawer, 6, event[\"card\"])"
         },
         {
           "skill_name": "外星科学家-协同强化",
@@ -116,7 +116,7 @@
           "trigger": "after_monster_enter_zone",
           "forced": true,
           "filter": "return true",
-          "content": "var drawer = event.player\nvar cards = game.get_random_cards(drawer, [\"hand\", \"equipment\"], 2)\nfor c in cards:\n\tawait drawer.remove_card(c)"
+          "content": "var drawer = event.player\nvar cards = game.get_random_cards(drawer, [\"hand\", \"equipment\"], 2)\nfor c in cards:\n\tactions.remove_card(drawer, c)"
         }
       ]
     },
@@ -138,7 +138,7 @@
           "trigger": "on_monster_attack",
           "forced": true,
           "filter": "return true",
-          "content": "for target_player in event.target_players:\n\tvar card = game.get_random_card(target_player, [\"hand\", \"equipment\"])\n\tif card != null:\n\t\tawait target_player.remove_card(card)"
+          "content": "for target_player in event.target_players:\n\tvar card = game.get_random_card(target_player, [\"hand\", \"equipment\"])\n\tif card != null:\n\t\tactions.remove_card(target_player, card)"
         }
       ]
     },
@@ -160,7 +160,7 @@
           "trigger": "on_monster_attack",
           "forced": true,
           "filter": "return true",
-          "content": "for target_player in event.target_players:\n\tvar card = game.get_random_card(target_player, [\"hand\", \"equipment\"])\n\tif card != null:\n\t\tawait target_player.remove_card(card)"
+          "content": "for target_player in event.target_players:\n\tvar card = game.get_random_card(target_player, [\"hand\", \"equipment\"])\n\tif card != null:\n\t\tactions.remove_card(target_player, card)"
         },
         {
           "skill_name": "外星飞船-高空规避",
