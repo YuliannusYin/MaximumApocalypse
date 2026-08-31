@@ -189,6 +189,29 @@ static func create_active_skill_event(player: Variant, targets: Array) -> Dictio
 	})
 
 
+# === 行动次数与状态结算 event ===
+static func create_consume_action_event(player: Variant, num: int) -> Dictionary:
+	return create_event({"player": player, "num": num})
+
+
+static func create_hunger_event(player: Variant, num: int, direction: String) -> Dictionary:
+	return create_event({"player": player, "num": num, "direction": direction})
+
+
+static func create_poison_event(player: Variant, num: int) -> Dictionary:
+	return create_event({"player": player, "num": num})
+
+
+static func create_engaged_target_event(monster: Variant, target: Variant) -> Dictionary:
+	return create_event({"monster": monster, "target": target})
+
+
+static func create_stun_event(monster: Variant, source: Variant, expire_trigger: String) -> Dictionary:
+	return create_event({
+		"monster": monster, "source": source, "expire_trigger": expire_trigger,
+	})
+
+
 # === 游戏开始/结束 event ===
 static func create_game_start_event(player: Variant) -> Dictionary:
 	return create_event({"player": player})

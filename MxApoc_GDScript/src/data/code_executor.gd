@@ -8,7 +8,7 @@ extends RefCounted
 ## 参考模式：addons/gut/dynamic_gdscript.gd
 
 const _FILTER_PREFIX := "extends RefCounted\nfunc _fn(player, target, event, game) -> bool:\n"
-const _CONTENT_PREFIX := "extends RefCounted\nfunc _fn(player, target, event, game) -> void:\n"
+const _CONTENT_PREFIX := "extends RefCounted\nfunc _fn(player, target, event, game) -> void:\n\tvar actions = event.get(\"actions\", null)\n"
 const _CONFIRM_PROMPT_PREFIX := "extends RefCounted\nfunc _fn(player, target, event, game) -> String:\n"
 
 

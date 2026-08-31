@@ -40,7 +40,7 @@
           "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\" && target.charge_current > 0",
           "window_prompt": "\"集中射击\": 选取消耗弹药的武器牌",
           "defer_action_cost": true,
-          "content": "var _selected = await player.choose_target(1, {\"filter_target_range\": \"long\", \"filter_target\": \"return target != player\"}, \"\\\"集中射击\\\": 选取攻击的目标\")\nif _selected.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar target2 = _selected[0]\nplayer.consume_action(1)\nplayer.consume_charge(target, 1)\ntarget2.damage(5, player)"
+          "content": "var _selected = await player.choose_target(1, {\"filter_target_range\": \"long\", \"filter_target\": \"return target != player\"}, \"\\\"集中射击\\\": 选取攻击的目标\")\nif _selected.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar target2 = _selected[0]\nactions.consume_action(player, 1)\nactions.consume_charge(player, target, 1)\nactions.damage(target2, 5, player)"
         }
       ]
     },
@@ -57,14 +57,14 @@
           "skill_type": "action",
           "active": "action",
           "filter": "return player.in_phase == \"action\"",
-          "content": "player.increase_max_action(2)\nplayer.add_temp_skill(\"pull_trigger_happy_clear\", \"before_turn_end\")\nplayer.add_action(2)",
+          "content": "actions.increase_max_action(player, 2)\nactions.add_temp_skill(player, \"pull_trigger_happy_clear\", \"before_turn_end\")\nactions.add_action(player, 2)",
           "sub_skills": {
             "clear": {
               "skill_name": "扣动扳机让我快乐_清除",
               "english_name": "pull_trigger_happy_clear",
               "trigger": "before_turn_end",
               "forced": true,
-              "content": "player.decrease_max_action(2)"
+              "content": "actions.decrease_max_action(player, 2)"
             }
           }
         }
@@ -88,7 +88,7 @@
           "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\"",
           "window_prompt": "\"空尖弹\": 选取需要装填空尖弹的武器",
           "defer_action_cost": true,
-          "content": "player.consume_action(1)\nplayer.mount_sub_skill(\"hollow_point_damage\")\nplayer.mount_sub_skill(\"hollow_point_remove\")\ntarget.change_charge_type(\"hollow_point\")\ntarget.fill_charge()\nawait player.remove_card(event.card)",
+          "content": "actions.consume_action(player, 1)\nactions.mount_sub_skill(player, \"hollow_point_damage\")\nactions.mount_sub_skill(player, \"hollow_point_remove\")\nactions.change_charge_type(target, \"hollow_point\")\nactions.fill_charge(target)\nactions.remove_card(player, event.card)",
           "sub_skills": {
             "damage": {
               "skill_name": "空尖弹_伤害",
@@ -104,7 +104,7 @@
               "trigger": "on_charge_depleted",
               "forced": true,
               "filter": "return event.get(\"card\", null) != null and event.get(\"card\", null).charge_type == \"hollow_point\"",
-              "content": "var c = event.get(\"card\", null)\nif c != null:\n\tawait player.discard(c, \"equipment\")"
+              "content": "var c = event.get(\"card\", null)\nif c != null:\n\tactions.discard(player, c, \"equipment\")"
             }
           }
         }
@@ -130,7 +130,7 @@
           "window_prompt": "\"齐射\": 选择攻击目标",
           "filter_target_range": "medium",
           "defer_action_cost": true,
-          "content": "player.consume_action(1)\nvar num = player.get_total_charge_count(\"ammo\")\nawait player.clear_charge(\"ammo\")\nfor i in range(num):\n\ttarget.damage(2, player)"
+          "content": "actions.consume_action(player, 1)\nvar num = player.get_total_charge_count(\"ammo\")\nactions.clear_charge(player, \"ammo\")\nfor i in range(num):\n\tactions.damage(target, 2, player)"
         }
       ]
     },
@@ -154,7 +154,7 @@
           "window_prompt": "\"手榴弹\": 选择攻击目标",
           "filter_target_range": "medium",
           "defer_action_cost": true,
-          "content": "player.consume_action(1)\ntarget.damage(5, player)\nvar list = game.get_target(target.get_current_block())\nfor i in list:\n\tif i != target:\n\t\ti.damage(3, player)"
+          "content": "actions.consume_action(player, 1)\nactions.damage(target, 5, player)\nvar list = game.get_target(target.get_current_block())\nfor i in list:\n\tif i != target:\n\t\tactions.damage(i, 3, player)"
         }
       ]
     },
@@ -171,7 +171,7 @@
           "skill_type": "action",
           "active": "action",
           "filter": "return player.in_phase == \"action\" && not player.has_skill_by_english_name(\"search_corpse_draw\")",
-          "content": "player.mount_sub_skill(\"search_corpse_draw\")\nplayer.add_temp_skill(\"search_corpse_clear\", \"before_turn_end\")",
+          "content": "actions.mount_sub_skill(player, \"search_corpse_draw\")\nactions.add_temp_skill(player, \"search_corpse_clear\", \"before_turn_end\")",
           "sub_skills": {
             "draw": {
               "skill_name": "搜索尸体_抓牌",
@@ -179,7 +179,7 @@
               "trigger": "on_monster_death",
               "forced": true,
               "filter": "return event.get(\"source\", null) == player",
-              "content": "var non_empty = []\nif Game.red_scavenge_pile != null and not Game.red_scavenge_pile.is_empty():\n\tnon_empty.append(Game.red_scavenge_pile)\nif Game.green_scavenge_pile != null and not Game.green_scavenge_pile.is_empty():\n\tnon_empty.append(Game.green_scavenge_pile)\nif Game.blue_scavenge_pile != null and not Game.blue_scavenge_pile.is_empty():\n\tnon_empty.append(Game.blue_scavenge_pile)\nif non_empty.is_empty():\n\tGame.log(\"所有拾荒牌堆均为空，跳过随机抓取\")\nelse:\n\tvar chosen = non_empty[randi() % non_empty.size()]\n\tawait player.draw_scavenge(1, chosen)"
+              "content": "var non_empty = []\nif Game.red_scavenge_pile != null and not Game.red_scavenge_pile.is_empty():\n\tnon_empty.append(Game.red_scavenge_pile)\nif Game.green_scavenge_pile != null and not Game.green_scavenge_pile.is_empty():\n\tnon_empty.append(Game.green_scavenge_pile)\nif Game.blue_scavenge_pile != null and not Game.blue_scavenge_pile.is_empty():\n\tnon_empty.append(Game.blue_scavenge_pile)\nif non_empty.is_empty():\n\tGame.log(\"所有拾荒牌堆均为空，跳过随机抓取\")\nelse:\n\tvar chosen = non_empty[randi() % non_empty.size()]\n\tactions.draw_scavenge(player, 1, chosen)"
             },
             "clear": {
               "skill_name": "搜索尸体_清除",
@@ -212,7 +212,7 @@
           "window_prompt": "\"套索\": 选择攻击目标",
           "filter_target_range": "medium",
           "defer_action_cost": true,
-          "content": "player.consume_action(1)\ntarget.stun(player, \"before_next_turn_start\")\ntarget.change_engaged_target(player)"
+          "content": "actions.consume_action(player, 1)\nactions.stun(target, player, \"before_next_turn_start\")\nactions.change_engaged_target(target, player)"
         }
       ]
     },
@@ -234,7 +234,7 @@
           "window_prompt": "\"战术领导力\": 选择目标玩家",
           "filter_target_range": "infinity",
           "defer_action_cost": true,
-          "content": "player.consume_action(1)\ntarget.execute_action_immediately(2)"
+          "content": "actions.consume_action(player, 1)\nactions.execute_action_immediately(target, 2)"
         }
       ]
     },
@@ -280,7 +280,7 @@
           "filter_target": "return target != player",
           "window_prompt": "\"柯尔特手枪\": 选择攻击目标",
           "filter_target_range": "medium",
-          "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"colt_pistol\")\nplayer.consume_charge(weapon, 1)\ntarget.damage(2, player, \"weapon_attack\", weapon.equipment_card)"
+          "content": "actions.consume_action(player, 1)\nvar weapon = player.get_equipment(\"colt_pistol\")\nactions.consume_charge(player, weapon, 1)\nactions.damage(target, 2, player, \"weapon_attack\", weapon.equipment_card)"
         }
       ]
     },
@@ -299,7 +299,7 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
           "defer_action_cost": true,
-          "content": "var max_steps = 2\nvar steps = 0\nwhile steps < max_steps:\n\tvar prompt = \"\\\"骑马\\\": （\" + str(steps + 1) + \"/2）选择目标地图块\"\n\tvar _candidates = player.get_current_block().get_blocks_in_range(\"medium\")\n\tvar _valid = []\n\tfor _b in _candidates:\n\t\ttarget = _b\n\t\tif target != player.get_current_block():\n\t\t\t_valid.append(_b)\n\t\ttarget = _b\n\tvar _blocks = await player.choose_block_inline(_valid, prompt, 1)\n\ttarget = _blocks[0] if _blocks.size() > 0 else null\n\tif target == null:\n\t\tif steps == 0:\n\t\t\tEventSystem.cancel(event)\n\t\t\treturn\n\t\tbreak\n\tif steps == 0:\n\t\tplayer.consume_action(1)\n\tvar success = await player.move_to(target)\n\tif not success:\n\t\tbreak\n\tsteps += 1"
+          "content": "var max_steps = 2\nvar steps = 0\nwhile steps < max_steps:\n\tvar prompt = \"\\\"骑马\\\": （\" + str(steps + 1) + \"/2）选择目标地图块\"\n\tvar _candidates = player.get_current_block().get_blocks_in_range(\"medium\")\n\tvar _valid = []\n\tfor _b in _candidates:\n\t\ttarget = _b\n\t\tif target != player.get_current_block():\n\t\t\t_valid.append(_b)\n\t\ttarget = _b\n\tvar _blocks = await player.choose_block_inline(_valid, prompt, 1)\n\ttarget = _blocks[0] if _blocks.size() > 0 else null\n\tif target == null:\n\t\tif steps == 0:\n\t\t\tEventSystem.cancel(event)\n\t\t\treturn\n\t\tbreak\n\tif steps == 0:\n\t\tactions.consume_action(player, 1)\n\tvar success = await player.move_to(target)\n\tif not success:\n\t\tbreak\n\tsteps += 1"
         },
         {
           "skill_name": "食马",
@@ -308,7 +308,7 @@
           "skill_type": "equipment",
           "active": "action",
           "filter": "return player.in_phase == \"action\"",
-          "content": "player.discard(\"horse\", \"equipment\")\nvar list = game.get_all_players()\nfor i in list:\n\ti.decrease_hunger(1)"
+          "content": "actions.discard(player, \"horse\", \"equipment\")\nvar list = game.get_all_players()\nfor i in list:\n\tactions.decrease_hunger(i, 1)"
         }
       ]
     },
@@ -327,7 +327,7 @@
           "trigger": "on_equip、on_unequip",
           "filter": "return event.card.english_name == \"ranger_hat\"",
           "forced": true,
-          "content": "if event.trigger_name == \"on_equip\":\n\tplayer.recover(3)",
+          "content": "if event.trigger_name == \"on_equip\":\n\tactions.recover(player, 3)",
           "sub_skills": {
             "damage": {
               "skill_name": "游侠帽_伤害",
@@ -364,7 +364,7 @@
           "filter_target": "return target != player",
           "window_prompt": "\"左轮手枪\": 选择攻击目标",
           "filter_target_range": "medium",
-          "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"revolver\")\nawait player.consume_charge(weapon, 1)\nawait target.damage(3, player, \"weapon_attack\", weapon.equipment_card)\nif player.get_charge_count(\"revolver\") > 0:\n\tvar _selected = await player.choose_target(1, {\"filter_target_range\": \"medium\", \"filter_target\": \"return target != player\"}, \"\\\"左轮手枪\\\": 额外消耗弹药再次攻击\")\n\tif not _selected.is_empty():\n\t\tvar target2 = _selected[0]\n\t\tawait player.consume_charge(weapon, 1)\n\t\tawait target2.damage(3, player, \"weapon_attack\", weapon.equipment_card)"
+          "content": "actions.consume_action(player, 1)\nvar weapon = player.get_equipment(\"revolver\")\nactions.consume_charge(player, weapon, 1)\nactions.damage(target, 3, player, \"weapon_attack\", weapon.equipment_card)\nif player.get_charge_count(\"revolver\") > 0:\n\tvar _selected = await player.choose_target(1, {\"filter_target_range\": \"medium\", \"filter_target\": \"return target != player\"}, \"\\\"左轮手枪\\\": 额外消耗弹药再次攻击\")\n\tif not _selected.is_empty():\n\t\tvar target2 = _selected[0]\n\t\tactions.consume_charge(player, weapon, 1)\n\t\tactions.damage(target2, 3, player, \"weapon_attack\", weapon.equipment_card)"
         }
       ]
     }

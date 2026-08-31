@@ -12,6 +12,6 @@
     "window_prompt": "\"制衡\": 选择两张求生者游戏牌",
     "usable": 1,
     "filter": "return player.in_phase == \"action\"",
-    "content": "var cards = event[\"cards\"]\nawait player.discard(cards)\nawait player.draw(1)"
+    "content": "var cards = event[\"cards\"]\nactions.discard(player, cards)\nactions.draw(player, 1)"
   }
 ]

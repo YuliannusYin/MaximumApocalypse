@@ -124,18 +124,32 @@ func increase_hunger(num: int) -> void:
 		if count_mark("hunger_damage_level") > 0:
 			var level: int = count_mark("hunger_damage_level")
 			if level == 1:
-				damage(2, null, "hunger")
+				await damage(2, null, "hunger")
 			elif level == 2:
-				damage(4, null, "hunger")
+				await damage(4, null, "hunger")
 			elif level == 3:
-				damage(6, null, "hunger")
+				await damage(6, null, "hunger")
 			elif level == 4:
-				damage(8, null, "hunger")
+				await damage(8, null, "hunger")
 			elif level >= 5:
 				Game.log_message(LogColors.player(player_name) + " 被饿死了")
-				damage(get_max_hp(), null, "hunger")
+				await damage(get_max_hp(), null, "hunger")
 		num -= 1
 	EventBus.player_hunger_changed.emit(self, old_hunger, hunger)
+
+
+## 事件化的饥饿增加；保留 increase_hunger 兼容既有 JSON。
+func increase_hunger_evented(num: int) -> bool:
+	var event: Dictionary = EventSystem.create_hunger_event(self, num, "increase")
+	await trigger("before_increase_hunger", event)
+	if EventSystem.is_cancelled(event):
+		return false
+	await trigger("on_increase_hunger", event)
+	if EventSystem.is_cancelled(event):
+		return false
+	await increase_hunger(event["num"])
+	await trigger("after_increase_hunger", event)
+	return true
 
 ## 减少饥饿值。最低降至 1，减少后清除饥饿伤害标记并恢复角色卡正面。
 func decrease_hunger(num: int) -> void:
@@ -159,11 +173,39 @@ func decrease_hunger(num: int) -> void:
 		EventBus.player_hunger_changed.emit(self, old_hunger, hunger)
 
 
+## 事件化的饥饿减少；保留 decrease_hunger 兼容既有 JSON。
+func decrease_hunger_evented(num: int) -> bool:
+	var event: Dictionary = EventSystem.create_hunger_event(self, num, "decrease")
+	await trigger("before_decrease_hunger", event)
+	if EventSystem.is_cancelled(event):
+		return false
+	await trigger("on_decrease_hunger", event)
+	if EventSystem.is_cancelled(event):
+		return false
+	decrease_hunger(event["num"])
+	await trigger("after_decrease_hunger", event)
+	return true
+
+
 ## 中毒结算。中毒标记数 = 受到无来源伤害值。
 func poison() -> void:
 	if count_mark("poison") > 0:
 		var num: int = count_mark("poison")
-		damage(num, null, "poison")
+		await damage(num, null, "poison")
+
+
+func poison_evented() -> bool:
+	var event: Dictionary = EventSystem.create_poison_event(self, count_mark("poison"))
+	await trigger("before_poison", event)
+	if EventSystem.is_cancelled(event):
+		return false
+	await trigger("on_poison", event)
+	if EventSystem.is_cancelled(event):
+		return false
+	if event["num"] > 0:
+		await damage(event["num"], null, "poison")
+	await trigger("after_poison", event)
+	return true
 
 
 # === 二、抓牌流程 ===
@@ -764,7 +806,7 @@ func use_card(card: Card) -> bool:
 				deferred = true
 				break
 	if not deferred:
-		consume_action(1)
+		await consume_action_evented(1)
 	# 按卡牌类型分流
 	if card.card_type == "equipment":
 		if Game != null and is_instance_valid(Game):
@@ -1151,9 +1193,9 @@ func start_turn() -> void:
 	await trigger("before_hunger_settlement", event)
 	var hunger_cancelled: bool = EventSystem.is_cancelled(event)
 	if not hunger_cancelled:
-	# 节点 13：求生者饥饿状态结算时
+		# 节点 13：求生者饥饿状态结算时
 		await trigger("on_hunger_settlement", event)
-		increase_hunger(1)
+		await increase_hunger_evented(1)
 		if not is_alive():
 			return
 	# 节点 14：求生者中毒状态结算前
@@ -1161,7 +1203,7 @@ func start_turn() -> void:
 	await trigger("before_poison_settlement", event)
 	# 节点 15：求生者中毒状态结算时
 	await trigger("on_poison_settlement", event)
-	poison()
+	await poison_evented()
 	if not is_alive():
 		return
 	# 节点 16：面前怪物行动前
@@ -1252,6 +1294,22 @@ func consume_action(n: int) -> void:
 	reduce_action_count(n)
 	if Game != null and is_instance_valid(Game):
 		Game.log_message(LogColors.player(player_name) + " 消耗了 " + str(n) + " 点行动点数")
+
+
+## 事件化的行动次数消耗。新操作入口应使用本方法；保留 consume_action 兼容既有 JSON。
+func consume_action_evented(n: int) -> bool:
+	if n <= 0 or action_count < n:
+		return false
+	var event: Dictionary = EventSystem.create_consume_action_event(self, n)
+	await trigger("before_consume_action", event)
+	if EventSystem.is_cancelled(event):
+		return false
+	await trigger("on_consume_action", event)
+	if EventSystem.is_cancelled(event):
+		return false
+	consume_action(event["num"])
+	await trigger("after_consume_action", event)
+	return true
 
 
 ## 增加 n 点行动次数（野地夹克使用）。
@@ -1565,26 +1623,29 @@ func wait_player_action() -> void:
 		if choice == null:
 			break  # 结束回合
 		if typeof(choice) == TYPE_DICTIONARY:
-			var action_type: String = choice.get("type", "")
-			if action_type == "skill":
-				var skill: Skill = choice.get("skill", null)
-				if skill != null and is_instance_valid(skill):
-					await use_active_skill(skill)
-			elif action_type == "card":
-				var card: Card = choice.get("card", null)
-				if card != null and is_instance_valid(card):
-					await use_card(card)
-			elif action_type == "pile_draw":
-				var pile_key: String = choice.get("pile_key", "")
-				await _execute_pile_draw(pile_key)
-			elif action_type == "mission_action":
-				var option_id: String = choice.get("option_id", "")
-				await _execute_mission_action(option_id)
-			elif action_type == "move":
-				var target_block: Variant = choice.get("target", null)
-				if target_block != null and is_instance_valid(target_block):
-					consume_action(1)
-					await move_to(target_block)
+			await dispatch_player_action(choice)
+
+
+## 所有 UI/CLI 玩家意图的统一领域分发入口。
+func dispatch_player_action(choice: Dictionary) -> void:
+	var action_type: String = choice.get("type", "")
+	if action_type == "skill":
+		var skill: Skill = choice.get("skill", null)
+		if skill != null and is_instance_valid(skill):
+			await use_active_skill(skill)
+	elif action_type == "card":
+		var card: Card = choice.get("card", null)
+		if card != null and is_instance_valid(card):
+			await use_card(card)
+	elif action_type == "pile_draw":
+		await _execute_pile_draw(choice.get("pile_key", ""))
+	elif action_type == "mission_action":
+		await _execute_mission_action(choice.get("option_id", ""))
+	elif action_type == "move":
+		var target_block: Variant = choice.get("target", null)
+		if target_block != null and is_instance_valid(target_block):
+			if await consume_action_evented(1):
+				await move_to(target_block)
 
 
 ## 执行任务行动选项（actions 组件/任务脚本提供的专属行动）。
@@ -1604,8 +1665,8 @@ func _execute_mission_action(option_id: String) -> void:
 ## pile_key 为 "game_deck" / "red_scavenge" / "green_scavenge" / "blue_scavenge"。
 func _execute_pile_draw(pile_key: String) -> void:
 	if pile_key == "game_deck":
-		consume_action(1)
-		await draw(1)
+		if await consume_action_evented(1):
+			await draw(1)
 		return
 	var pile: Pile = null
 	match pile_key:
@@ -1619,8 +1680,8 @@ func _execute_pile_draw(pile_key: String) -> void:
 			return
 	if pile == null:
 		return
-	consume_action(1)
-	await draw_scavenge(1, pile)
+	if await consume_action_evented(1):
+		await draw_scavenge(1, pile)
 
 
 ## 设置标记让 wait_player_action 循环跳出。phase 为请求结束的阶段名。
@@ -1654,16 +1715,18 @@ func use_active_skill(skill: Skill) -> void:
 		return
 	if not skill.is_usable():
 		return
-	var event: Dictionary = EventSystem.create_event({
-		"player": self,
-		"target": null,
-		"targets": [],
-		"cards": [],
-	})
-	# 1. filter 检查
+	var event: Dictionary = EventSystem.create_active_skill_event(self, [])
+	event["target"] = null
+	event["cards"] = []
+	event["skill"] = skill
+	# 1. 主动技能使用前（取消点）
+	await trigger("before_use_active_skill", event)
+	if EventSystem.is_cancelled(event):
+		return
+	# 2. filter 检查
 	if not skill.execute_filter(self, event):
 		return
-	# 2. 目标选择
+	# 3. 目标选择
 	var target_type: String = skill.target_type
 	if target_type == "block":
 		var range_str: String = skill.filter_target_range
@@ -1729,13 +1792,17 @@ func use_active_skill(skill: Skill) -> void:
 				return
 			event["target"] = targets[0] if not targets.is_empty() else null
 			event["targets"] = targets
-	# 3. 卡牌选择
+	# 4. 卡牌选择
 	if skill.select_card > 0:
 		var cards: Array = await choose_card(skill.select_card, skill.position, skill.filter_card)
 		if cards.size() < skill.select_card:
 			return
 		event["cards"] = cards
-	# 4. 输出使用日志（有 target 时输出"对目标使用了"，无 target 时输出"使用了"）
+	# 5. 主动技能使用时（取消点）
+	await trigger("on_use_active_skill", event)
+	if EventSystem.is_cancelled(event):
+		return
+	# 6. 输出使用日志（有 target 时输出"对目标使用了"，无 target 时输出"使用了"）
 	if Game != null and is_instance_valid(Game):
 		var _skill_name: String = skill.skill_name if skill.skill_name != "" else skill.english_name
 		var _target: Variant = event.get("target", null)
@@ -1743,14 +1810,16 @@ func use_active_skill(skill: Skill) -> void:
 			Game.log_message(LogColors.player(player_name) + " 对 " + _format_target_name(_target) + " 使用了 " + LogColors.skill(_skill_name))
 		else:
 			Game.log_message(LogColors.player(player_name) + " 使用了 " + LogColors.skill(_skill_name))
-	# 5. 执行 content
+	# 7. 执行 content
 	await skill.execute_content(self, event)
-	# 5.5 取消检查：content 中通过 EventSystem.cancel(event) 取消时不记录使用
+	# 7.5 取消检查：content 中通过 EventSystem.cancel(event) 取消时不记录使用
 	if EventSystem.is_cancelled(event):
 		return
-	# 6. 记录使用
+	# 8. 记录使用
 	skill.record_use()
-	# 7. 统计信号：技能成功使用
+	# 9. 主动技能使用后
+	await trigger("after_use_active_skill", event)
+	# 10. 统计信号：技能成功使用
 	if EventBus != null and is_instance_valid(EventBus):
 		EventBus.skill_used.emit(self, skill)
 

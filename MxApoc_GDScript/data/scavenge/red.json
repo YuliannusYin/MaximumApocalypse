@@ -17,7 +17,7 @@
           "filter": "return player.in_phase == \"action\" && player.get_hp() < player.get_max_hp()",
           "select_target": 1,
           "filter_target": "return target == player",
-          "content": "player.recover(2)"
+          "content": "actions.recover(player, 2)"
         }
       ]
     },
@@ -36,7 +36,7 @@
           "filter": "return player.in_phase == \"action\" && player.get_hp() < player.get_max_hp()",
           "select_target": 1,
           "filter_target": "return target == player",
-          "content": "player.recover(4)"
+          "content": "actions.recover(player, 4)"
         }
       ]
     },
@@ -55,7 +55,7 @@
           "filter": "return player.in_phase == \"action\" && player.get_hp() < player.get_max_hp()",
           "select_target": 1,
           "filter_target": "return target == player",
-          "content": "player.recover(6)"
+          "content": "actions.recover(player, 6)"
         }
       ]
     },
@@ -73,7 +73,7 @@
           "filter": "return player.in_phase == \"action\"",
           "select_target": 1,
           "filter_target": "return target == player",
-          "content": "player.heal_all_status()"
+          "content": "actions.heal_all_status(player)"
         }
       ]
     },
@@ -94,7 +94,7 @@
           "trigger": "on_draw_scavenge_card",
           "forced": true,
           "filter": "return event.card.english_name == \"fuel\"",
-          "content": "var card = event.card\nvar ok = await player.confirm('是否立即装备 \"燃料\", 否则立即弃置')\nif ok:\n\tvar equipped = await player.equip(card)\n\tif not equipped:\n\t\tplayer.discard(card)\nelse:\n\tplayer.discard(card)"
+          "content": "var card = event.card\nvar ok = await player.confirm('是否立即装备 \"燃料\", 否则立即弃置')\nif ok:\n\tvar equipped = await player.equip(card)\n\tif not equipped:\n\t\tactions.discard(player, card)\nelse:\n\tactions.discard(player, card)"
         },
         {
           "skill_name": "加油",
@@ -108,7 +108,7 @@
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
           "filter_target": "return target.in_equipment_area && target.charge_type == \"fuel\" && target.charge_current < target.charge_max",
           "window_prompt": "\"加油\": 选择未满的燃料装备",
-          "content": "player.consume_action(1)\nplayer.fill_charge_to(target)\nvar fuel_to_discard = null\nfor e in player.equipment_zone:\n\tif e.get(\"english_name\") == \"fuel\":\n\t\tfuel_to_discard = e\n\t\tbreak\nif fuel_to_discard != null:\n\tawait player.discard(fuel_to_discard)"
+          "content": "actions.consume_action(player, 1)\nactions.fill_charge_to(player, target)\nvar fuel_to_discard = null\nfor e in player.equipment_zone:\n\tif e.get(\"english_name\") == \"fuel\":\n\t\tfuel_to_discard = e\n\t\tbreak\nif fuel_to_discard != null:\n\tactions.discard(player, fuel_to_discard)"
         }
       ]
     }

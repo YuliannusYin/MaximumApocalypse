@@ -17,7 +17,7 @@
       "active": "action",
       "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && game.has_equipment_in_discard_piles()",
       "defer_action_cost": true,
-      "content": "var list = game.get_all_discard_pile_equipments()\nvar _filtered = []\nfor _c in list:\n\tif _c.card_type == \"equipment\":\n\t\t_filtered.append(_c)\nif _filtered.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar _selected = await player.choose_card(1, _filtered, null, \"\\\"维修\\\": 选取一张装备牌\")\nif _selected.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar card = _selected[0]\nplayer.consume_action(1)\ngame.take_card_from_discard_piles(card)\nvar _event_scavenge = EventSystem.create_draw_scavenge_event(player, null, 0)\nawait player.draw_scavenge_card(card, null, _event_scavenge)"
+      "content": "var list = game.get_all_discard_pile_equipments()\nvar _filtered = []\nfor _c in list:\n\tif _c.card_type == \"equipment\":\n\t\t_filtered.append(_c)\nif _filtered.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar _selected = await player.choose_card(1, _filtered, null, \"\\\"维修\\\": 选取一张装备牌\")\nif _selected.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar card = _selected[0]\nactions.consume_action(player, 1)\ngame.take_card_from_discard_piles(card)\nvar _event_scavenge = EventSystem.create_draw_scavenge_event(player, null, 0)\nactions.draw_scavenge_card(player, card, null, _event_scavenge)"
     }
   ],
   "deck": [
@@ -41,7 +41,7 @@
           "filter_target": "return target != player",
           "window_prompt": "\"扳手\": 选择攻击目标",
           "filter_target_range": "short",
-          "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"wrench\")\ntarget.damage(2, player, \"weapon_attack\", weapon.equipment_card)"
+          "content": "actions.consume_action(player, 1)\nvar weapon = player.get_equipment(\"wrench\")\nactions.damage(target, 2, player, \"weapon_attack\", weapon.equipment_card)"
         }
       ]
     },
@@ -64,7 +64,7 @@
           "window_prompt": "\"钉子炸弹\": 选择攻击目标",
           "filter_target_range": "medium",
           "defer_action_cost": true,
-          "content": "player.consume_action(1)\nvar list = event.targets\nfor i in list:\n\ti.damage(5, player)"
+          "content": "actions.consume_action(player, 1)\nvar list = event.targets\nfor i in list:\n\tactions.damage(i, 5, player)"
         }
       ]
     },
@@ -83,7 +83,7 @@
           "trigger": "after_monster_enter_zone",
           "filter": "return true",
           "forced": true,
-          "content": "var weapon = player.get_equipment(\"proximity_mine\")\nvar _target_monster = null\nfor _m in player.monster_zone:\n\tif _m.monster_card == event.card:\n\t\t_target_monster = _m\n\t\tbreak\nplayer.discard(\"proximity_mine\", \"equipment\")\nif _target_monster != null:\n\t_target_monster.damage(7, player, \"weapon_attack\", weapon.equipment_card)"
+          "content": "var weapon = player.get_equipment(\"proximity_mine\")\nvar _target_monster = null\nfor _m in player.monster_zone:\n\tif _m.monster_card == event.card:\n\t\t_target_monster = _m\n\t\tbreak\nactions.discard(player, \"proximity_mine\", \"equipment\")\nif _target_monster != null:\n\tactions.damage(_target_monster, 7, player, \"weapon_attack\", weapon.equipment_card)"
         }
       ]
     },
@@ -120,7 +120,7 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\"",
           "defer_action_cost": true,
-          "content": "player.consume_action(1)\nvar list = game.get_all_players()\nfor i in list:\n\ti.mount_sub_skill(\"check_weapon_damage\")\n\ti.add_temp_skill(\"check_weapon_clear\", \"before_turn_end\")",
+          "content": "actions.consume_action(player, 1)\nvar list = game.get_all_players()\nfor i in list:\n\tactions.mount_sub_skill(i, \"check_weapon_damage\")\n\tactions.add_temp_skill(i, \"check_weapon_clear\", \"before_turn_end\")",
           "sub_skills": {
             "damage": {
               "skill_name": "检查武器_伤害",
@@ -164,7 +164,7 @@
           "filter_target": "return target != player",
           "window_prompt": "\"喷灯\": 选择攻击目标",
           "filter_target_range": "short",
-          "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"blowtorch\")\nplayer.consume_charge(weapon, 1)\ntarget.damage(5, player, \"weapon_attack\", weapon.equipment_card)"
+          "content": "actions.consume_action(player, 1)\nvar weapon = player.get_equipment(\"blowtorch\")\nactions.consume_charge(player, weapon, 1)\nactions.damage(target, 5, player, \"weapon_attack\", weapon.equipment_card)"
         }
       ]
     },
@@ -186,7 +186,7 @@
           "window_prompt": "\"启动汽车\": 选择要移动的玩家",
           "filter_target_range": "infinity",
           "defer_action_cost": true,
-          "content": "var _blocks = []\nfor _b in game.map_area:\n\tif _b != null and is_instance_valid(_b) and _b.is_alive() and _b.is_revealed():\n\t\t_blocks.append(_b)\nif _blocks.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar prompt = \"\\\"启动汽车\\\": 选择目标地块\"\nvar _selected = await player.choose_block_inline(_blocks, prompt, 1)\nvar _block = _selected[0] if _selected.size() > 0 else null\nif _block == null:\n\tEventSystem.cancel(event)\n\treturn\nplayer.consume_action(1)\nawait target.move_to(_block)"
+          "content": "var _blocks = []\nfor _b in game.map_area:\n\tif _b != null and is_instance_valid(_b) and _b.is_alive() and _b.is_revealed():\n\t\t_blocks.append(_b)\nif _blocks.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar prompt = \"\\\"启动汽车\\\": 选择目标地块\"\nvar _selected = await player.choose_block_inline(_blocks, prompt, 1)\nvar _block = _selected[0] if _selected.size() > 0 else null\nif _block == null:\n\tEventSystem.cancel(event)\n\treturn\nactions.consume_action(player, 1)\nawait target.move_to(_block)"
         }
       ]
     },
@@ -211,7 +211,7 @@
           "window_prompt": "\"升级\": 选择目标武器",
           "filter_target_range": "medium",
           "defer_action_cost": true,
-          "content": "player.consume_action(1)\ntarget.equipment_card.add_mark_skill(\"upgrade_damage_plus_1\", 1, \"\", \"升级\", \"该武器额外造成1点伤害\", true)\nplayer.mount_sub_skill(\"upgrade_damage\")\nplayer.mount_sub_skill(\"upgrade_clear_mark_discard\")\nplayer.mount_sub_skill(\"upgrade_clear_mark_unequip\")",
+          "content": "actions.consume_action(player, 1)\nactions.add_mark_skill(target.equipment_card, \"upgrade_damage_plus_1\", 1, \"\", \"升级\", \"该武器额外造成1点伤害\", true)\nactions.mount_sub_skill(player, \"upgrade_damage\")\nactions.mount_sub_skill(player, \"upgrade_clear_mark_discard\")\nactions.mount_sub_skill(player, \"upgrade_clear_mark_unequip\")",
           "sub_skills": {
             "damage": {
               "skill_name": "升级_伤害",
@@ -227,7 +227,7 @@
               "trigger": "on_discard",
               "forced": true,
               "filter": "return event.card != null && event.card.has_mark_skill(\"upgrade_damage_plus_1\")",
-              "content": "event.card.remove_mark(\"upgrade_damage_plus_1\")"
+              "content": "actions.remove_mark(event.card, \"upgrade_damage_plus_1\")"
             },
             "clear_on_unequip": {
               "skill_name": "升级_清除标记_卸下",
@@ -235,7 +235,7 @@
               "trigger": "on_unequip",
               "forced": true,
               "filter": "return event.card != null && event.card.has_mark_skill(\"upgrade_damage_plus_1\")",
-              "content": "event.card.remove_mark(\"upgrade_damage_plus_1\")"
+              "content": "actions.remove_mark(event.card, \"upgrade_damage_plus_1\")"
             }
           }
         }
@@ -264,7 +264,7 @@
           "filter_target": "return target != player",
           "window_prompt": "\"手枪\": 选择攻击目标",
           "filter_target_range": "medium",
-          "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"pistol\")\nplayer.consume_charge(weapon, 1)\ntarget.damage(2, player, \"weapon_attack\", weapon.equipment_card)"
+          "content": "actions.consume_action(player, 1)\nvar weapon = player.get_equipment(\"pistol\")\nactions.consume_charge(player, weapon, 1)\nactions.damage(target, 2, player, \"weapon_attack\", weapon.equipment_card)"
         }
       ]
     },
@@ -282,7 +282,7 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
           "defer_action_cost": true,
-          "content": "var _candidates = player.get_current_block().get_blocks_in_range(\"infinity\")\nvar _valid = []\nfor _b in _candidates:\n\tif _b.is_revealed():\n\t\t_valid.append(_b)\nif _valid.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar _blocks = await player.choose_block_inline(_valid, \"\\\"无人机攻击\\\": 选择目标地块\", 1)\ntarget = _blocks[0] if _blocks.size() > 0 else null\nif target == null:\n\tEventSystem.cancel(event)\n\treturn\nplayer.consume_action(1)\ntarget.remove_all_monster_marks()"
+          "content": "var _candidates = player.get_current_block().get_blocks_in_range(\"infinity\")\nvar _valid = []\nfor _b in _candidates:\n\tif _b.is_revealed():\n\t\t_valid.append(_b)\nif _valid.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar _blocks = await player.choose_block_inline(_valid, \"\\\"无人机攻击\\\": 选择目标地块\", 1)\ntarget = _blocks[0] if _blocks.size() > 0 else null\nif target == null:\n\tEventSystem.cancel(event)\n\treturn\nactions.consume_action(player, 1)\nactions.remove_all_monster_marks(target)"
         }
       ]
     },
@@ -307,7 +307,7 @@
           "window_prompt": "\"阅读使用说明\": 选择要给出的装备",
           "filter_target_range": "medium",
           "defer_action_cost": true,
-          "content": "var _selected = await player.choose_target(1, {\"filter_target\": \"return target.is_player() && target != player\", \"filter_target_range\": \"medium\"}, \"\\\"阅读使用说明\\\": 选择装备目标玩家\")\nif _selected.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar target2 = _selected[0]\nplayer.consume_action(1)\nvar _card = target.equipment_card\nawait player.unequip(target)\nawait target2.equip(_card)\nplayer.draw(1)"
+          "content": "var _selected = await player.choose_target(1, {\"filter_target\": \"return target.is_player() && target != player\", \"filter_target_range\": \"medium\"}, \"\\\"阅读使用说明\\\": 选择装备目标玩家\")\nif _selected.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar target2 = _selected[0]\nactions.consume_action(player, 1)\nvar _card = target.equipment_card\nawait player.unequip(target)\nawait target2.equip(_card)\nactions.draw(player, 1)"
         }
       ]
     },
@@ -329,7 +329,7 @@
           "trigger": "on_take_damage",
           "filter": "return event.source != null && event.source != player && player.get_charge_count(\"auto_turret\") > 0",
           "forced": true,
-          "content": "var weapon = player.get_equipment(\"auto_turret\")\nplayer.consume_charge(weapon, 1)\nevent.source.damage(4, player, \"weapon_attack\", weapon.equipment_card)"
+          "content": "var weapon = player.get_equipment(\"auto_turret\")\nactions.consume_charge(player, weapon, 1)\nactions.damage(event.source, 4, player, \"weapon_attack\", weapon.equipment_card)"
         }
       ]
     },
@@ -354,7 +354,7 @@
           "window_prompt": "\"自制子弹\": 选择装填的武器",
           "filter_target_range": "short",
           "defer_action_cost": true,
-          "content": "player.consume_action(1)\ntarget.fill_charge()"
+          "content": "actions.consume_action(player, 1)\nactions.fill_charge(target)"
         }
       ]
     }

@@ -20,7 +20,7 @@
       "filter_target": "return target.is_player()",
       "window_prompt": "\"缝合\": 选择治疗目标",
       "filter_target_range": "short",
-      "content": "player.consume_action(1)\ntarget.recover(1)"
+      "content": "actions.consume_action(player, 1)\nactions.recover(target, 1)"
     }
   ],
   "deck": [
@@ -38,7 +38,7 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
           "defer_action_cost": true,
-          "content": "player.consume_action(1)\nplayer.draw(2)\nvar non_empty = []\nif game.red_scavenge_pile != null and not game.red_scavenge_pile.is_empty():\n\tnon_empty.append(game.red_scavenge_pile)\nif game.green_scavenge_pile != null and not game.green_scavenge_pile.is_empty():\n\tnon_empty.append(game.green_scavenge_pile)\nif game.blue_scavenge_pile != null and not game.blue_scavenge_pile.is_empty():\n\tnon_empty.append(game.blue_scavenge_pile)\nif non_empty.is_empty():\n\tgame.log(\"所有拾荒牌堆均为空，跳过随机抓取\")\nelse:\n\tvar chosen = non_empty[randi() % non_empty.size()]\n\tplayer.draw_scavenge(1, chosen)"
+          "content": "actions.consume_action(player, 1)\nactions.draw(player, 2)\nvar non_empty = []\nif game.red_scavenge_pile != null and not game.red_scavenge_pile.is_empty():\n\tnon_empty.append(game.red_scavenge_pile)\nif game.green_scavenge_pile != null and not game.green_scavenge_pile.is_empty():\n\tnon_empty.append(game.green_scavenge_pile)\nif game.blue_scavenge_pile != null and not game.blue_scavenge_pile.is_empty():\n\tnon_empty.append(game.blue_scavenge_pile)\nif non_empty.is_empty():\n\tgame.log(\"所有拾荒牌堆均为空，跳过随机抓取\")\nelse:\n\tvar chosen = non_empty[randi() % non_empty.size()]\n\tactions.draw_scavenge(player, 1, chosen)"
         }
       ]
     },
@@ -62,7 +62,7 @@
           "filter_target": "return target.is_player() && target != player",
           "window_prompt": "\"轮床\": 选择要拉近的玩家",
           "filter_target_range": "long",
-          "content": "player.consume_action(1)\ntarget.pull_toward_one_block_no_effect(player)"
+          "content": "actions.consume_action(player, 1)\ntarget.pull_toward_one_block_no_effect(player)"
         }
       ]
     },
@@ -86,7 +86,7 @@
           "window_prompt": "\"莫洛托夫鸡尾酒\": 选择攻击目标",
           "filter_target_range": "medium",
           "defer_action_cost": true,
-          "content": "player.consume_action(1)\nvar list = event.targets\nfor i in list:\n\ti.damage(3, player)"
+          "content": "actions.consume_action(player, 1)\nvar list = event.targets\nfor i in list:\n\tactions.damage(i, 3, player)"
         }
       ]
     },
@@ -120,7 +120,7 @@
           "filter_target": "return target != player",
           "window_prompt": "\"手术刀\": 选择攻击目标",
           "filter_target_range": "short",
-          "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"scalpel\")\ntarget.damage(2, player, \"weapon_attack\", weapon.equipment_card)"
+          "content": "actions.consume_action(player, 1)\nvar weapon = player.get_equipment(\"scalpel\")\nactions.damage(target, 2, player, \"weapon_attack\", weapon.equipment_card)"
         }
       ]
     },
@@ -163,7 +163,7 @@
           "filter_target": "return target.is_monster()",
           "window_prompt": "\"泰瑟枪\": 选择击晕目标",
           "filter_target_range": "medium",
-          "content": "player.consume_action(1)\ntarget.stun(player, \"before_next_turn_start\")"
+          "content": "actions.consume_action(player, 1)\nactions.stun(target, player, \"before_next_turn_start\")"
         }
       ]
     },
@@ -185,7 +185,7 @@
           "window_prompt": "\"希波克拉底誓言\": 选择治疗目标",
           "filter_target_range": "infinity",
           "defer_action_cost": true,
-          "content": "player.consume_action(1)\ntarget.recover(6)"
+          "content": "actions.consume_action(player, 1)\nactions.recover(target, 6)"
         }
       ]
     },
@@ -209,7 +209,7 @@
           "filter_target": "return target.is_player()",
           "window_prompt": "\"研钵\": 选择目标玩家",
           "filter_target_range": "short",
-          "content": "player.consume_action(1)\nif target.count_mark(\"poison\") > 0:\n\tvar ok = await player.confirm(\"\\\"研钵\\\":是否清除选取玩家的异常状态，否则降低该玩家 1 点饥饿值\")\n\tif ok:\n\t\ttarget.remove_mark(\"poison\")\n\telse:\n\t\ttarget.decrease_hunger(1)\nelse:\n\ttarget.decrease_hunger(1)"
+          "content": "actions.consume_action(player, 1)\nif target.count_mark(\"poison\") > 0:\n\tvar ok = await player.confirm(\"\\\"研钵\\\":是否清除选取玩家的异常状态，否则降低该玩家 1 点饥饿值\")\n\tif ok:\n\t\tactions.remove_mark(target, \"poison\")\n\telse:\n\t\tactions.decrease_hunger(target, 1)\nelse:\n\tactions.decrease_hunger(target, 1)"
         }
       ]
     },
@@ -231,7 +231,7 @@
           "window_prompt": "\"注射类固醇\": 选择目标玩家",
           "filter_target_range": "infinity",
           "defer_action_cost": true,
-          "content": "player.consume_action(1)\nawait target.play_card_immediately()\nawait target.play_card_immediately()"
+          "content": "actions.consume_action(player, 1)\nactions.play_card_immediately(target)\nactions.play_card_immediately(target)"
         }
       ]
     },
@@ -253,7 +253,7 @@
           "window_prompt": "\"注射肾上腺素\": 选择目标玩家",
           "filter_target_range": "infinity",
           "defer_action_cost": true,
-          "content": "player.consume_action(1)\nawait target.execute_action_immediately(2)"
+          "content": "actions.consume_action(player, 1)\nactions.execute_action_immediately(target, 2)"
         }
       ]
     },
@@ -277,7 +277,7 @@
           "filter_target": "return target != player",
           "window_prompt": "\"钻头\": 选择攻击目标",
           "filter_target_range": "short",
-          "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"drill\")\ntarget.damage(3, player, \"weapon_attack\", weapon.equipment_card)"
+          "content": "actions.consume_action(player, 1)\nvar weapon = player.get_equipment(\"drill\")\nactions.damage(target, 3, player, \"weapon_attack\", weapon.equipment_card)"
         }
       ]
     }
