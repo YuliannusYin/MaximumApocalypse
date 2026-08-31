@@ -89,5 +89,20 @@ func play_scavenge_draw_animation(player: Variant, card: Variant) -> void:
 	_push_override_error("play_scavenge_draw_animation")
 
 
+## 播放卡牌移出游戏动画并等待结束。
+func play_card_destroy_animation(card: Card) -> void:
+	_push_override_error("play_card_destroy_animation")
+
+
+## 播放触发怪物技能动画并等待结束。
+func play_monster_skill_trigger_animation(monster: Variant) -> void:
+	_push_override_error("play_monster_skill_trigger_animation")
+
+
+## 播放怪物攻击动画并等待结束。
+func play_monster_attack_animation(monster: Variant, targets: Array) -> void:
+	_push_override_error("play_monster_attack_animation")
+
+
 func _push_override_error(method_name: String) -> void:
 	push_error("IPlayerInput.%s must be overridden by subclass" % method_name)

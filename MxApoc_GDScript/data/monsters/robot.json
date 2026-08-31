@@ -20,7 +20,7 @@
           "trigger": "after_monster_enter_zone",
           "forced": true,
           "filter": "return true",
-          "content": "var drawer = event.player\nvar hand_cards = game.get_cards(drawer, \"hand\")\nfor c in hand_cards:\n\tdrawer.discard(c)\nvar list = game.get_target_in_range(self.engaged_player, \"medium\")\nfor p in list:\n\tp.damage(4, self)"
+          "content": "var drawer = event.player\nvar hand_cards = game.get_cards(drawer, \"hand\")\nfor c in hand_cards:\n\tawait drawer.discard(c)\nvar list = game.get_target_in_range(self.engaged_player, \"medium\")\nfor p in list:\n\tawait p.damage(4, self)"
         }
       ]
     },
@@ -42,7 +42,7 @@
           "trigger": "after_monster_enter_zone",
           "forced": true,
           "filter": "return true",
-          "content": "var drawer = event.player\nvar equipment = game.get_cards(drawer, \"equipment\")\nfor c in equipment:\n\tdrawer.discard(c)\nvar list = game.get_target_in_range(self.engaged_player, \"medium\")\nfor p in list:\n\tp.damage(6, self)"
+          "content": "var drawer = event.player\nvar equipment = game.get_cards(drawer, \"equipment\")\nfor c in equipment:\n\tawait drawer.discard(c)\nvar list = game.get_target_in_range(self.engaged_player, \"medium\")\nfor p in list:\n\tawait p.damage(6, self)"
         }
       ]
     },
@@ -108,7 +108,7 @@
           "trigger": "on_monster_death",
           "forced": true,
           "filter": "return event.target == self",
-          "content": "var list = game.get_target_in_range(self.engaged_player, \"medium\")\nfor p in list:\n\tp.damage(4, self)"
+          "content": "var list = game.get_target_in_range(self.engaged_player, \"medium\")\nfor p in list:\n\tawait p.damage(4, self)"
         }
       ]
     },
@@ -130,7 +130,7 @@
           "trigger": "on_monster_death",
           "forced": true,
           "filter": "return event.target == self",
-          "content": "self.engaged_player.damage(2, self)"
+          "content": "await self.engaged_player.damage(2, self)"
         },
         {
           "skill_name": "爆破机器人-定点爆破",

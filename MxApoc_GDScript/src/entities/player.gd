@@ -184,12 +184,14 @@ func draw(n: int) -> void:
 	# 3. 逐张抓取
 	var num_to_draw: int = event["num"]
 	var _drawn_names: Array = []
+	var drawn_cards: Array = []
 	for i in num_to_draw:
 		if game_deck == null or game_deck.is_empty():
 			death(null)
 			return
 		var card: Card = game_deck.draw()
 		hand.append(card)
+		drawn_cards.append(card)
 		_drawn_names.append(LogColors.card(card.card_name))
 		if EventBus != null and is_instance_valid(EventBus):
 			EventBus.card_drawn.emit(self, card)
@@ -197,13 +199,52 @@ func draw(n: int) -> void:
 	# 批量输出抓牌日志
 	if _drawn_names.size() > 0 and Game != null and is_instance_valid(Game):
 		Game.log_message(LogColors.player(player_name) + " 抓取了游戏牌 " + ", ".join(_drawn_names))
+	# 手牌超限结算（先入手后判定：整批合并为单次弹窗；死亡 return 路径不结算）
+	await resolve_hand_overflow(drawn_cards)
 	# 4. 抓取游戏牌后
 	await trigger("after_draw_game_card", event)
 
 
 ## 将卡牌加入手牌区（content 代码调用入口）。
+## 手牌满时先入手，超限由 try_add_card_to_hand 内的 resolve_hand_overflow 弹窗结算（含 await，为协程入口）。
 func gain(card: Card) -> void:
+	await try_add_card_to_hand(card)
+
+
+## 将卡牌加入手牌区（先入手，超限随后结算）。
+## 返回 true = card 已加入手牌（若超限已触发弹窗结算）。
+func try_add_card_to_hand(card: Card) -> bool:
 	hand.append(card)
+	await resolve_hand_overflow([card])
+	return true
+
+
+## 手牌入手后超限结算：手牌数超上限时弹窗弃置恰好 K 张（K = 超出数）。
+## new_cards 为本批新入手的牌（取消时自动弃置新牌直到不超限，后入手的先弃）。
+func resolve_hand_overflow(new_cards: Array) -> void:
+	if role_card == null:
+		return
+	var k: int = hand.size() - role_card.hand_size_limit
+	if k <= 0:
+		return
+	# 单次弹窗：精确模式弃置恰好 K 张手牌
+	var selected: Array = await choose_card(k, "hand", null, "\"手牌超限\": 请弃置 %d 张手牌" % k)
+	if selected.is_empty():
+		# 玩家取消：自动弃置 new_cards 中后入手的 K 张（从数组末尾往前取仍在手牌中的牌）
+		var auto_names: Array = []
+		for i in range(new_cards.size() - 1, -1, -1):
+			if auto_names.size() >= k:
+				break
+			var nc: Card = new_cards[i]
+			if nc != null and is_instance_valid(nc) and hand.has(nc):
+				await discard(nc, "", 1, "", true)
+				auto_names.append(LogColors.card(nc.card_name))
+		if auto_names.size() > 0 and Game != null and is_instance_valid(Game):
+			Game.log_message(LogColors.player(player_name) + " 手牌超限，自动弃置了 " + ", ".join(auto_names))
+		return
+	# 选中：逐张弃置所选牌（带默认弃牌日志）
+	for c in selected:
+		await discard(c)
 
 
 ## 从指定拾荒牌堆抓 n 张牌（4 节点）。
@@ -253,6 +294,8 @@ func draw_scavenge_card(card: Card, pile: Pile, event: Dictionary) -> void:
 	if not mounted_skills.is_empty():
 		await _play_scavenge_draw_animation(card)
 	await trigger_only("on_draw_scavenge_card", event, mounted_skills)
+	# 手牌超限结算（先入手、抓取技能结算完再弹窗；技能可能改变手牌，K 动态计算天然正确）
+	await resolve_hand_overflow([card])
 
 
 ## 从怪物牌堆抓 n 张怪物卡（7 节点）。
@@ -404,6 +447,9 @@ func remove_card(target: Variant, position: String = "", quantity: int = 1) -> v
 		var src_card: Variant = entity.equipment_card if entity != null else card
 		event["card"] = src_card
 		event["cards"].append(src_card)
+		# 销毁演出在实际移出区域前完成，确保展示的卡面仍与当前状态一致。
+		if input != null and src_card is Card:
+			await input.play_card_destroy_animation(src_card)
 		_remove_card_from_zone(card)
 		if Game != null:
 			Game.remove_card(src_card, true)
@@ -849,9 +895,13 @@ func equip(card: Card) -> bool:
 			if e != null and is_instance_valid(e):
 				total_size += int(e.get("size"))
 		while total_size + new_size > role_card.equipment_capacity and not equipment_zone.is_empty():
-			var selected: Array = await choose_card(1, equipment_zone)
+			var selected: Array = await choose_card(1, equipment_zone, null, "\"装备栏超限\": 请弃置装备区中的装备以容纳新装备")
 			if selected.is_empty():
+				# 玩家取消：中止装备流程，这张打算装备的牌（仍在手牌）因装备栏超限被弃置
 				EventSystem.cancel(event)
+				await discard(card, "", 1, "", true)
+				if Game != null and is_instance_valid(Game):
+					Game.log_message(LogColors.player(player_name) + " 装备栏超限，弃置了 " + LogColors.card(card.card_name))
 				return false
 			await discard(selected[0])
 			total_size = 0
@@ -1076,12 +1126,8 @@ func start_turn() -> void:
 	# 节点 6：摸牌阶段前
 	in_phase = "draw"
 	await trigger("before_draw_phase", event)
-	# 节点 7：摸牌阶段（牌堆空 → 死亡；手牌超限 → 跳过摸牌）
-	if role_card != null and hand.size() >= role_card.hand_size_limit:
-		if Game != null and is_instance_valid(Game):
-			Game.log_message(LogColors.player(player_name) + " 手牌超限跳过摸牌")
-	else:
-		draw(1)
+	# 节点 7：摸牌阶段（牌堆空 → 死亡；手牌超限时由 draw 内的 resolve_hand_overflow 弹窗弃牌）
+	await draw(1)
 	if not is_alive():
 		return
 	# 节点 8：行动阶段前（含潜行检定）
@@ -1891,7 +1937,7 @@ func collect_item(card_name: String, quantity: int) -> void:
 			var card: Card = Game.create_scavenge_card(card_name)
 			if card == null:
 				return
-			hand.append(card)
+			await try_add_card_to_hand(card)
 	if Game != null:
 		Game.log_message(LogColors.player(player_name) + " 获得了 " + str(quantity) + " 张 " + LogColors.card(card_name))
 

@@ -479,6 +479,14 @@ func get_monster_zone_button_global_position() -> Vector2:
 	return _monster_button.global_position + _monster_button.size * 0.5
 
 
+## 返回角色牌的全局中心位置（供目标指向动画计算端点）。
+## 角色牌不存在或已释放时返回 Vector2.ZERO。
+func get_role_card_global_position() -> Vector2:
+	if _role_card_panel == null or not is_instance_valid(_role_card_panel):
+		return Vector2.ZERO
+	return _role_card_panel.global_position + _role_card_panel.size * 0.5
+
+
 ## 在锚点控件位置生成上浮淡出飘字（18 号字 + 黑描边），约 0.8 秒后自动释放。
 func _spawn_float_label(text: String, color: Color, anchor: Control) -> void:
 	if not is_inside_tree() or anchor == null or not is_instance_valid(anchor):

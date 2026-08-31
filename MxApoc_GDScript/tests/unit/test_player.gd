@@ -152,6 +152,14 @@ class _ChooseTargetSpyInput extends CliPlayerInput:
 		return await super.choose_target(n, skill, prompt, min_n)
 
 
+## 探针 input：记录销毁动画展示的卡牌。
+class _CardDestroySpyInput extends CliPlayerInput:
+	var destroyed_cards: Array = []
+
+	func play_card_destroy_animation(card: Card) -> void:
+		destroyed_cards.append(card)
+
+
 # === 1. 默认字段与 _init ===
 
 func test_init_auto_injects_cli_input() -> void:
@@ -468,6 +476,45 @@ func test_remove_card_basic() -> void:
 	await p.remove_card(c)
 	assert_eq(p.hand.size(), 0, "销毁后手牌应减少")
 	assert_eq(Game.removed_cards.size(), 1, "应进入 removed_cards")
+
+
+func test_remove_card_plays_animation_before_removal() -> void:
+	var p: Player = _make_player()
+	_setup_game_for_player(p)
+	var spy: _CardDestroySpyInput = _CardDestroySpyInput.new()
+	p.input = spy
+	var c: Card = _make_card("c1")
+	p.hand.append(c)
+	await p.remove_card(c)
+	assert_eq(spy.destroyed_cards, [c], "销毁应展示被移出游戏的手牌")
+	assert_eq(p.hand.size(), 0)
+
+
+func test_remove_equipment_plays_source_card_animation() -> void:
+	var p: Player = _make_player()
+	_setup_game_for_player(p)
+	var spy: _CardDestroySpyInput = _CardDestroySpyInput.new()
+	p.input = spy
+	var e: EquipmentCard = _make_equipment("装备牌")
+	p.hand.append(e)
+	await p.equip(e)
+	await p.remove_card(e)
+	assert_eq(spy.destroyed_cards, [e], "装备销毁应展示来源 EquipmentCard")
+	assert_eq(p.equipment_zone.size(), 0)
+	assert_eq(Game.removed_cards, [e])
+
+
+func test_cancelled_remove_card_skips_animation() -> void:
+	var p: Player = _make_player()
+	_setup_game_for_player(p)
+	var spy: _CardDestroySpyInput = _CardDestroySpyInput.new()
+	p.input = spy
+	p.add_skill(_make_cancel_skill("before_remove_card"))
+	var c: Card = _make_card("c1")
+	p.hand.append(c)
+	await p.remove_card(c)
+	assert_true(spy.destroyed_cards.is_empty(), "取消的销毁不应播放动画")
+	assert_eq(p.hand, [c])
 
 
 # === 5. 移动流程 ===
