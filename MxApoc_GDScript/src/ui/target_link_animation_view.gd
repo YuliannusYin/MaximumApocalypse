@@ -30,8 +30,7 @@ var _monster_cards: Array[Control] = []
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	set_anchors_preset(PRESET_FULL_RECT)
-	size = get_viewport_rect().size
+	set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	visible = false
 
 

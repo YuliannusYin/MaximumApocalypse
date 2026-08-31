@@ -7,8 +7,6 @@ extends Control
 const SETTINGS_DIALOG_SCENE := preload("res://scenes/SettingsDialog.tscn")
 const TUTORIAL_DIALOG_SCENE := preload("res://scenes/TutorialDialog.tscn")
 const TutorialManager = preload("res://src/ui/tutorial_manager.gd")
-const TargetLinkAnimationViewScript = preload("res://src/ui/target_link_animation_view.gd")
-const CardDestroyAnimationViewScript = preload("res://src/ui/card_destroy_animation_view.gd")
 
 # === 层节点（来自 .tscn）===
 @onready var _table_layer: CanvasLayer = $TableLayer
@@ -32,15 +30,7 @@ var _pile_manager: PileManager
 var _action_selection_controller: ActionSelectionController
 var _active_skill_bar: ActiveSkillBar
 var _event_log_panel: EventLogPanel
-var _dice_animation_view: DiceAnimationView
-var _turn_banner_view: TurnBannerView
-var _monster_draw_animation_view: MonsterDrawAnimationView
-var _skill_trigger_animation_view: SkillTriggerAnimationView
-var _monster_skill_trigger_animation_view: MonsterSkillTriggerAnimationView
-var _monster_attack_animation_view: MonsterAttackAnimationView
-var _card_destroy_animation_view: CardDestroyAnimationView
-var _target_link_animation_layer: CanvasLayer
-var _target_link_animation_view: Control
+var _animation_controller: AnimationController
 
 # === 游戏状态 ===
 var _gui_input: GUIPlayerInput
@@ -88,40 +78,9 @@ func _create_modules() -> void:
 	add_child(_action_selection_controller)
 	_action_selection_controller.build_buttons()
 
-	# 骰子投掷动画视图：挂在 UI 层，由确认门通过后触发播放
-	_dice_animation_view = DiceAnimationView.new()
-	_ui_layer.add_child(_dice_animation_view)
-
-	# 怪物抓取动画视图：挂在 UI 层，抓取怪物牌时触发播放（await play 播完整轮才返回）
-	_monster_draw_animation_view = MonsterDrawAnimationView.new()
-	_ui_layer.add_child(_monster_draw_animation_view)
-
-	# "抓取时"技能触发动画视图：挂在 UI 层，抓取带 forced on_draw_scavenge_card 技能的拾荒牌时触发播放
-	_skill_trigger_animation_view = SkillTriggerAnimationView.new()
-	_ui_layer.add_child(_skill_trigger_animation_view)
-
-	# 怪物技能触发动画视图：挂在 UI 层，怪物触发固有技能时播放（await play 播完才返回）
-	_monster_skill_trigger_animation_view = MonsterSkillTriggerAnimationView.new()
-	_ui_layer.add_child(_monster_skill_trigger_animation_view)
-
-	# 怪物攻击动画视图：挂在 UI 层，怪物攻击目标玩家时播放（await play 播完才返回）
-	_monster_attack_animation_view = MonsterAttackAnimationView.new()
-	_ui_layer.add_child(_monster_attack_animation_view)
-
-	# 卡牌销毁动画视图：居中焚毁卡面，播放期间阻塞销毁事件的后续结算。
-	_card_destroy_animation_view = CardDestroyAnimationViewScript.new()
-	_ui_layer.add_child(_card_destroy_animation_view)
-
-	# 目标确认动画视图：独立最高层，确保不被弹窗、HUD 或其他演出遮挡。
-	_target_link_animation_layer = CanvasLayer.new()
-	_target_link_animation_layer.layer = 3
-	add_child(_target_link_animation_layer)
-	_target_link_animation_view = TargetLinkAnimationViewScript.new()
-	_target_link_animation_layer.add_child(_target_link_animation_view)
-
-	# 回合切换横幅视图：挂在 UI 层，回合开始时中央提示（fire-and-forget，不阻塞流程）
-	_turn_banner_view = TurnBannerView.new()
-	_ui_layer.add_child(_turn_banner_view)
+	# 统一动画控制器：集中持有全屏演出、目标指向演出和回合横幅。
+	_animation_controller = AnimationController.new()
+	_ui_layer.add_child(_animation_controller)
 
 	_active_skill_bar = ActiveSkillBar.new()
 	_active_skill_bar.setup(_active_skill_grid)
@@ -548,7 +507,7 @@ func _on_popup_targets_selected(targets: Array) -> void:
 	if player_positions.is_empty() and monsters.is_empty():
 		_gui_input.respond_choose_target(targets)
 		return
-	await _target_link_animation_view.play(source_panel.get_role_card_global_position(), player_positions, monsters)
+	await _animation_controller.play_target_links(source_panel.get_role_card_global_position(), player_positions, monsters)
 	_gui_input.respond_choose_target(targets)
 
 
@@ -739,7 +698,7 @@ func _on_judge_confirm_requested(prompt: String, allow_cancel: bool) -> void:
 
 # 骰子投掷动画：播放完毕后结算响应，阻塞后续请求派发
 func _on_dice_animation_requested(d1: int, d2: int, label: String, outcome: String) -> void:
-	await _dice_animation_view.play(d1, d2, label, outcome)
+	await _animation_controller.play_dice(d1, d2, label, outcome)
 	_gui_input.respond_dice_animation()
 
 
@@ -750,25 +709,29 @@ func _on_monster_draw_animation_requested(player: Variant, card: Variant) -> voi
 	var panel: PlayerPanel = _get_panel_for_player(player)
 	if panel != null:
 		target_position = panel.get_monster_zone_button_global_position()
-	await _monster_draw_animation_view.play(card, target_position)
+	await _animation_controller.play_monster_draw(card, target_position)
 	_gui_input.respond_monster_draw_animation()
 
 
 # 拾荒牌"抓取时"技能触发动画：原地放大淡出（无飞行终点）；播放完毕后结算响应，阻塞后续请求派发
 func _on_scavenge_draw_animation_requested(_player: Variant, card: Variant) -> void:
-	await _skill_trigger_animation_view.play(card)
+	await _animation_controller.play_scavenge_draw(card)
 	_gui_input.respond_scavenge_draw_animation()
 
 
 ## 卡牌销毁动画：居中焚毁卡面，结束后释放等待中的销毁事件。
 func _on_card_destroy_animation_requested(card: Card) -> void:
-	await _card_destroy_animation_view.play(card)
+	await _animation_controller.play_card_destroy(card)
 	_gui_input.respond_card_destroy_animation()
+	# 回执会恢复 Player.remove_card 的后续流程，实际从 hand 移除发生在下一帧。
+	# 若不在实体移除后刷新，HandDisplayArea 会继续保留已经销毁的 CardView。
+	await get_tree().process_frame
+	_refresh_hand_area()
 
 
 # 怪物技能触发动画：播放完毕后结算响应，阻塞后续请求派发
 func _on_monster_skill_trigger_animation_requested(monster: Variant) -> void:
-	await _monster_skill_trigger_animation_view.play(monster)
+	await _animation_controller.play_monster_skill_trigger(monster)
 	_gui_input.respond_monster_skill_trigger_animation()
 
 
@@ -781,7 +744,7 @@ func _on_monster_attack_animation_requested(monster: Variant, targets: Array) ->
 			var target_panel: PlayerPanel = _get_panel_for_player(target)
 			if target_panel != null:
 				positions.append(target_panel.get_role_card_global_position())
-	await _monster_attack_animation_view.play(monster, positions)
+	await _animation_controller.play_monster_attack(monster, positions)
 	_gui_input.respond_monster_attack_animation()
 
 
@@ -798,7 +761,7 @@ func _on_turn_started(player: Variant) -> void:
 	_pile_manager.refresh_pile_counts()
 	_action_selection_controller.refresh_confirm_cancel_buttons()
 	# 回合切换横幅（fire-and-forget，文案与顶栏当前玩家标签一致）
-	_turn_banner_view.play("座位%d %s的回合" % [player.get("seat_number") + 1, player.player_name])
+	_animation_controller.play_turn_banner("座位%d %s的回合" % [player.get("seat_number") + 1, player.player_name])
 	# 当前回合玩家面板呼吸高亮，其余面板恢复普通边框（死亡面板由 set_turn_highlight 内部处理）
 	for panel in _player_panels:
 		if panel != null and is_instance_valid(panel):
