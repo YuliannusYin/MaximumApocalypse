@@ -132,9 +132,7 @@ class SkillCardFace extends Control:
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# 父为 CanvasLayer 时锚点可能不生效，先设全屏锚点再按视口尺寸显式铺满
-	set_anchors_preset(Control.PRESET_FULL_RECT)
-	size = get_viewport_rect().size
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_build_ui()
 	visible = false
 

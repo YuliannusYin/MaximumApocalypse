@@ -17,8 +17,7 @@ var _playing: bool = false
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	set_anchors_preset(Control.PRESET_FULL_RECT)
-	size = get_viewport_rect().size
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_build_ui()
 	visible = false
 
@@ -69,7 +68,6 @@ func play(card: Card) -> void:
 
 
 func _reset() -> void:
-	size = get_viewport_rect().size
 	modulate.a = 0.0
 	_card.modulate = Color.WHITE
 	_card.scale = Vector2.ONE * (CARD_SCALE * 0.88)
