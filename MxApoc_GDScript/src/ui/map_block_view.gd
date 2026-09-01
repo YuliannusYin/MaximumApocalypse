@@ -28,12 +28,19 @@ var _cell_player_ids: Dictionary = {}  # 头像格索引 -> 玩家 instance_id�
 var _avatar_cell_count: int = 0  # 头像占用的格数（其后连续段为怪物标记格）
 
 signal block_clicked(block: Variant)
+signal block_inspected(block: Variant)
 signal avatar_clicked(block: Variant)
+
+const CLICK_THRESHOLD := 6.0
+
+var _left_pressing: bool = false
+var _left_press_pos: Vector2 = Vector2.ZERO
 
 
 func _init() -> void:
 	custom_minimum_size = Vector2(BLOCK_SIZE, BLOCK_SIZE)
 	size = Vector2(BLOCK_SIZE, BLOCK_SIZE)
+	mouse_filter = Control.MOUSE_FILTER_PASS
 
 
 func setup(block: MapBlock, is_current_player_block: bool = false) -> void:
@@ -367,8 +374,21 @@ func _make_fill_style(color: Color) -> StyleBoxFlat:
 
 
 func _gui_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		block_clicked.emit(_block)
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+		block_inspected.emit(_block)
+		accept_event()
+		return
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			_left_pressing = true
+			_left_press_pos = event.position
+		else:
+			if _left_pressing and event.position.distance_to(_left_press_pos) < CLICK_THRESHOLD:
+				block_clicked.emit(_block)
+			_left_pressing = false
+	elif event is InputEventMouseMotion and _left_pressing:
+		if event.position.distance_to(_left_press_pos) >= CLICK_THRESHOLD:
+			_left_pressing = false
 
 
 ## 设置移动选取高亮状态：none/green/golden。
@@ -409,5 +429,9 @@ func set_move_highlight(state: String) -> void:
 
 
 func _on_avatar_cell_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+		block_inspected.emit(_block)
+		accept_event()
+		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		avatar_clicked.emit(_block)

@@ -284,7 +284,7 @@
           "filter_target": "return target != player",
           "filter_target_range": "medium",
           "defer_action_cost": true,
-          "content": "actions.consume_action(player, 1)\nactions.consume_charge(player, player.get_equipment(\"lighter\"), 1)\nvar list = event.targets\nfor i in list:\n\tactions.damage(i, 5, player)"
+          "content": "actions.consume_charge(player, player.get_equipment(\"lighter\"), 1)\nactions.consume_action(player, 1)\nvar list = event.targets\nfor i in list:\n\tactions.damage(i, 5, player)"
         }
       ]
     },

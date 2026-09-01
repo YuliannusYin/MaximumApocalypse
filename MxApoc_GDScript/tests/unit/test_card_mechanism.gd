@@ -203,7 +203,33 @@ func test_deferred_card_enters_settlement_at_content_cost() -> void:
 	assert_true(p.game_discard_pile.cards.has(card), "效果完成后卡牌应进入弃牌堆")
 
 
-# 测试 5: game.get_target 获取地块上的所有目标（玩家 + 怪物）
+# 测试 5：延迟扣点行动牌取消首次目标选择时应保留在手牌。
+func test_deferred_card_target_cancel_keeps_card_in_hand() -> void:
+	var p: Player = _make_test_player()
+	_setup_game_for_player(p)
+	var cli: CliPlayerInput = CliPlayerInput.new()
+	cli.queue_choose_target([])
+	p.input = cli
+	var card: Card = _make_card("cancel_target_card", "action")
+	var s: Skill = Skill.new()
+	s.active = "action"
+	s.defer_action_cost = true
+	s.select_target = 1
+	s.content = func(_player: Player, _target, _event: Dictionary, _game) -> void:
+		assert_true(false, "取消首次目标选择后不应执行 content")
+	card.add_skill(s)
+	p.hand.append(card)
+
+	var result: bool = await p.use_card(card)
+
+	assert_false(result, "取消首次目标选择时行动牌使用应失败")
+	assert_eq(p.action_count, 2, "取消首次目标选择时不应消耗行动点")
+	assert_true(p.hand.has(card), "取消首次目标选择时卡牌应保留在手牌")
+	assert_false(p.card_settlement_zone.has(card), "取消首次目标选择时结算区不应有卡牌")
+	assert_false(p.game_discard_pile.cards.has(card), "取消首次目标选择时卡牌不应进入弃牌堆")
+
+
+# 测试 6: game.get_target 获取地块上的所有目标（玩家 + 怪物）
 func test_game_get_target() -> void:
 	var p: Player = _make_test_player()
 	_setup_game_for_player(p)
