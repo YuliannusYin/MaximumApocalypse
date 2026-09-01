@@ -13,6 +13,8 @@ signal player_hunger_changed(player: Variant, old_value: int, new_value: int)
 signal card_drawn(player: Variant, card: Variant)
 signal card_discarded(player: Variant, card: Variant)
 signal card_used(player: Variant, card: Variant)
+signal card_settlement_started(player: Variant, card: Variant)
+signal card_settlement_finished(player: Variant, card: Variant)
 
 # === 怪物相关信号 ===
 signal monster_spawned(monster: Variant, player: Variant)

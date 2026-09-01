@@ -15,9 +15,13 @@ var action_count: int = 0
 var max_action_count: int = 4
 var in_phase: String = "idle"  # idle/turn_start/monster_spawn/draw/action/hunger/poison/monster_action/turn_end
 var _phase_end_requested: String = ""  # 内部信号：end_phase 设置后 wait_player_action 循环跳出
+var _card_effect_in_progress: bool = false  # 行动牌已统一预扣行动点，兼容旧 content 扣点
+var _pending_card_settlement: Card = null  # defer_action_cost 卡牌等待 content 首次选择完成
+var _card_cost_paid_by_content: bool = false
 
 # === 区域字段 ===
 var hand: Array = []  # List<Card>，上限 10
+var card_settlement_zone: Array = []  # List<Card>，正在结算的行动牌
 var equipment_zone: Array = []  # List<EquipmentCard>
 var monster_zone: Array = []  # List<Monster>
 var game_deck: Pile = null  # 求生者游戏牌堆
@@ -443,6 +447,7 @@ func discard(target: Variant, position: String = "", quantity: int = 1, type: St
 		else:
 			# 手牌卡
 			event["card"] = card
+			var was_in_settlement: bool = card_settlement_zone.has(card)
 			_remove_card_from_zone(card)
 			if card.source == "scavenge":
 				if Game != null and Game.scavenge_discard_pile != null:
@@ -454,6 +459,8 @@ func discard(target: Variant, position: String = "", quantity: int = 1, type: St
 				Game.log_message(LogColors.player(player_name) + " 弃置了 " + LogColors.card(card.card_name))
 			if EventBus != null and is_instance_valid(EventBus):
 				EventBus.card_discarded.emit(self, card)
+				if was_in_settlement:
+					EventBus.card_settlement_finished.emit(self, card)
 		# 触发弃置牌时
 		await trigger("on_discard", event)
 	# 3. 弃置牌后
@@ -798,17 +805,10 @@ func use_card(card: Card) -> bool:
 	await trigger("on_use_card", event)
 	if EventSystem.is_cancelled(event):
 		return false
-	# 3. 系统结算：消耗 1 点行动次数（defer_action_cost 的技能延迟到 content 中消耗）
-	var deferred: bool = false
-	if card.card_type != "equipment":
-		for _skill in card.get_all_skills():
-			if _skill.active == "action" and _skill.defer_action_cost:
-				deferred = true
-				break
-	if not deferred:
-		await consume_action_evented(1)
-	# 按卡牌类型分流
+	# 3. 按卡牌类型分流
 	if card.card_type == "equipment":
+		if not await consume_action_evented(1):
+			return false
 		if Game != null and is_instance_valid(Game):
 			Game.log_message(LogColors.player(player_name) + " 使用了 " + LogColors.card(card.card_name))
 		equip(card)
@@ -816,6 +816,9 @@ func use_card(card: Card) -> bool:
 		# 行动牌：执行 card 上声明 active="action" 的 skill 的完整流程
 		var skill_executed: bool = false
 		var use_logged: bool = false
+		var settlement_started: bool = false
+		var deferred_card: bool = false
+		_card_cost_paid_by_content = false
 		for skill in card.get_all_skills():
 			if skill.active != "action":
 				continue
@@ -830,8 +833,6 @@ func use_card(card: Card) -> bool:
 				var min_n: int = skill.select_target_min
 				targets = await choose_target(select_n, skill, skill.window_prompt, min_n)
 				if targets.is_empty():
-					if deferred:
-						return false  # 延迟消耗的技能：玩家取消选取，牌退回手牌
 					continue  # 玩家取消
 				event["target"] = targets[0]
 				event["targets"] = targets
@@ -839,10 +840,7 @@ func use_card(card: Card) -> bool:
 				# 自动选取全部合法目标（由 UI 层 _on_choose_target_requested 处理）
 				targets = await choose_target(-1, skill, skill.window_prompt)
 				if targets.is_empty():
-					if deferred:
-						return false
-					else:
-						continue
+					continue
 				event["target"] = targets[0] if not targets.is_empty() else null
 				event["targets"] = targets
 			# select_card 选牌（若有）
@@ -858,11 +856,32 @@ func use_card(card: Card) -> bool:
 				else:
 					Game.log_message(LogColors.player(player_name) + " 使用了 " + LogColors.card(card.card_name))
 				use_logged = true
-			# 执行 content（content 可通过 EventSystem.cancel(event) 取消，如第一步未确认目标）
+			# 效果开始前统一消耗 1 点行动次数，并把牌移入结算区。
+			# 目标/选牌取消发生在此之前，不消耗行动点，牌也保留在手牌。
+			if not settlement_started:
+				if skill.defer_action_cost:
+					# content 内通常会先完成一次选择，再调用 consume_action。
+					# 在该调用点完成“进入结算区 → 扣行动点”。
+					_pending_card_settlement = card
+					_card_cost_paid_by_content = false
+					deferred_card = true
+				else:
+					if not begin_card_settlement(card):
+						return false
+					if not await consume_action_evented(1):
+						cancel_card_settlement(card)
+						return false
+					settlement_started = true
+			# 执行 content（content 可通过 EventSystem.cancel(event) 取消）
+			_card_effect_in_progress = true
 			await skill.execute_content(self, event)
-			if deferred and EventSystem.is_cancelled(event):
-				# 延迟消耗的技能在 content 中取消：牌退回手牌，不弃牌，不触发 after_use_card
-				return false
+			_card_effect_in_progress = false
+			if deferred_card:
+				_pending_card_settlement = null
+				if not _card_cost_paid_by_content:
+					_card_cost_paid_by_content = false
+					return false
+				settlement_started = true
 			skill_executed = true
 		# 若所有 skill 的 filter 均不通过，仍输出"使用了"日志
 		if not use_logged and Game != null and is_instance_valid(Game):
@@ -871,8 +890,12 @@ func use_card(card: Card) -> bool:
 		# 若 content 已销毁牌（移出游戏），跳过弃置
 		if Game != null and is_instance_valid(Game) and Game.removed_cards.has(card):
 			pass  # 牌已被 content 销毁，跳过弃置
-		else:
+		elif not settlement_started:
+			# 没有可执行技能时保持原行为：从手牌直接弃置。
 			await discard(card, "", 1, "", true)
+		else:
+			await finish_card_settlement(card)
+		_card_cost_paid_by_content = false
 	# 4. 使用卡牌后
 	await trigger("after_use_card", event)
 	if EventBus != null and is_instance_valid(EventBus):
@@ -1291,6 +1314,17 @@ func reduce_action_count(n: int) -> void:
 
 ## 扣除 n 点行动次数（content 代码字符串统一调用名，等价 reduce_action_count）。
 func consume_action(n: int) -> void:
+	if _pending_card_settlement != null:
+		var card: Card = _pending_card_settlement
+		_pending_card_settlement = null
+		if begin_card_settlement(card):
+			_card_cost_paid_by_content = true
+			reduce_action_count(n)
+		return
+	if _card_cost_paid_by_content:
+		return
+	if _card_effect_in_progress:
+		return
 	reduce_action_count(n)
 	if Game != null and is_instance_valid(Game):
 		Game.log_message(LogColors.player(player_name) + " 消耗了 " + str(n) + " 点行动点数")
@@ -1298,6 +1332,23 @@ func consume_action(n: int) -> void:
 
 ## 事件化的行动次数消耗。新操作入口应使用本方法；保留 consume_action 兼容既有 JSON。
 func consume_action_evented(n: int) -> bool:
+	if _pending_card_settlement != null:
+		var card: Card = _pending_card_settlement
+		if not begin_card_settlement(card):
+			return false
+		_pending_card_settlement = null
+		var consumed: bool = await _consume_action_evented_internal(n)
+		if consumed:
+			_card_cost_paid_by_content = true
+		else:
+			cancel_card_settlement(card)
+		return consumed
+	if _card_cost_paid_by_content or _card_effect_in_progress:
+		return true
+	return await _consume_action_evented_internal(n)
+
+
+func _consume_action_evented_internal(n: int) -> bool:
 	if n <= 0 or action_count < n:
 		return false
 	var event: Dictionary = EventSystem.create_consume_action_event(self, n)
@@ -1307,7 +1358,9 @@ func consume_action_evented(n: int) -> bool:
 	await trigger("on_consume_action", event)
 	if EventSystem.is_cancelled(event):
 		return false
-	consume_action(event["num"])
+	reduce_action_count(event["num"])
+	if Game != null and is_instance_valid(Game):
+		Game.log_message(LogColors.player(player_name) + " 消耗了 " + str(event["num"]) + " 点行动点数")
 	await trigger("after_consume_action", event)
 	return true
 
@@ -1346,13 +1399,50 @@ func get_role_card() -> RoleCard:
 	return role_card
 
 
+## 将行动牌从手牌移入卡牌结算区。
+func begin_card_settlement(card: Card) -> bool:
+	if card == null or not is_instance_valid(card) or not hand.has(card):
+		return false
+	hand.erase(card)
+	if not card_settlement_zone.has(card):
+		card_settlement_zone.append(card)
+	if EventBus != null and is_instance_valid(EventBus):
+		EventBus.card_settlement_started.emit(self, card)
+	return true
+
+
+## 将结算区中的行动牌移入对应弃牌堆。
+func finish_card_settlement(card: Card) -> void:
+	if card == null or not is_instance_valid(card) or not card_settlement_zone.has(card):
+		return
+	await discard(card, "", 1, "", true)
+
+
+## 取消卡牌结算并将卡牌退回手牌（例如行动点扣除被取消）。
+func cancel_card_settlement(card: Card) -> void:
+	if card == null or not is_instance_valid(card) or not card_settlement_zone.has(card):
+		return
+	card_settlement_zone.erase(card)
+	if not hand.has(card):
+		hand.append(card)
+	if EventBus != null and is_instance_valid(EventBus):
+		EventBus.card_settlement_finished.emit(self, card)
+
+
 ## 按条件查询玩家区域中的牌。
 func get_cards(position: String = "", name: String = "", quantity: int = 0, source: String = "") -> Array:
 	var result: Array = []
 	var search_hand: bool = (position == "" or position == "hand")
+	var search_settlement: bool = (position == "settlement")
 	var search_equip: bool = (position == "" or position == "equipment")
 	if search_hand:
 		for card in hand:
+			if _card_matches(card, name, source):
+				result.append(card)
+				if quantity > 0 and result.size() >= quantity:
+					return result
+	if search_settlement:
+		for card in card_settlement_zone:
 			if _card_matches(card, name, source):
 				result.append(card)
 				if quantity > 0 and result.size() >= quantity:
@@ -1379,6 +1469,7 @@ func _card_matches(card: Variant, name: String, source: String) -> bool:
 func get_all_game_cards() -> Array:
 	var result: Array = []
 	result.append_array(hand)
+	result.append_array(card_settlement_zone)
 	for e in equipment_zone:
 		if e != null and e.equipment_card != null:
 			result.append(e.equipment_card)
@@ -1393,6 +1484,7 @@ func get_all_game_cards() -> Array:
 ## 装备区持有 Equipment 实体，需解析实体后 erase。
 func _remove_card_from_zone(card: Variant) -> void:
 	hand.erase(card)
+	card_settlement_zone.erase(card)
 	var entity: Equipment = _resolve_equipment_entity(card)
 	if entity != null:
 		equipment_zone.erase(entity)
@@ -1503,14 +1595,17 @@ func get_charge_count(equipment_name: String) -> int:
 
 
 ## 按名称获取玩家的牌堆。
-## name: "deck" = 角色游戏牌堆, "hand" = 手牌, "equipment" = 装备区, "discard" = 弃牌堆。
-## 注意：deck/discard 返回 Pile；hand/equipment 返回 Array（玩家手牌与装备区以 Array 存储）。
+## name: "deck" = 角色游戏牌堆, "hand" = 手牌, "settlement" = 卡牌结算区,
+## "equipment" = 装备区, "discard" = 弃牌堆。
+## 注意：deck/discard 返回 Pile；hand/equipment/settlement 返回 Array。
 func get_pile(name: String) -> Variant:
 	match name:
 		"deck":
 			return game_deck
 		"hand":
 			return hand
+		"settlement":
+			return card_settlement_zone
 		"equipment":
 			return equipment_zone
 		"discard":
