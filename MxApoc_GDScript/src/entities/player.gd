@@ -399,7 +399,8 @@ func draw_monster(n: int) -> void:
 
 ## 弃置卡牌到对应弃牌堆（3 节点）。
 ## target 可为 Card/Equipment/Array/String（卡牌名）；position 为区域名；quantity 为数量。
-## 装备区命中时走卸下分支，并把来源 EquipmentCard 送入弃牌堆（弃牌堆永远收来源卡）。
+## 装备区命中时走 `_unequip`（触发 on_unequip，不经过 before_unequip 取消点），
+## 并把来源 EquipmentCard 送入弃牌堆（弃牌堆永远收来源卡）。
 func discard(target: Variant, position: String = "", quantity: int = 1, type: String = "", silent: bool = false) -> void:
 	var cards_to_discard: Array = []
 	if type != "":
@@ -430,8 +431,8 @@ func discard(target: Variant, position: String = "", quantity: int = 1, type: St
 	for card in cards_to_discard:
 		var entity: Equipment = _resolve_equipment_entity(card)
 		if entity != null:
-			# 装备区实体：卸下 + 来源卡入弃牌堆
-			_unequip(entity)
+			# 装备区实体：离开装备区（on_unequip）+ 来源卡入弃牌堆
+			await _unequip(entity)
 			var src_card: EquipmentCard = entity.equipment_card
 			event["card"] = src_card
 			if src_card.source == "scavenge":
@@ -448,7 +449,7 @@ func discard(target: Variant, position: String = "", quantity: int = 1, type: St
 			# 手牌卡
 			event["card"] = card
 			var was_in_settlement: bool = card_settlement_zone.has(card)
-			_remove_card_from_zone(card)
+			await _remove_card_from_zone(card)
 			if card.source == "scavenge":
 				if Game != null and Game.scavenge_discard_pile != null:
 					Game.scavenge_discard_pile.add(card)
@@ -499,7 +500,7 @@ func remove_card(target: Variant, position: String = "", quantity: int = 1) -> v
 		# 销毁演出在实际移出区域前完成，确保展示的卡面仍与当前状态一致。
 		if input != null and src_card is Card:
 			await input.play_card_destroy_animation(src_card)
-		_remove_card_from_zone(card)
+		await _remove_card_from_zone(card)
 		if Game != null:
 			Game.remove_card(src_card, true)
 			Game.log_message(LogColors.player(player_name) + " 将 " + LogColors.card(src_card.card_name) + " 移出游戏")
@@ -755,16 +756,31 @@ func death(source: Entity) -> void:
 			Game.monster_discard_pile.add(m.monster_card)
 	if mark_count > 0 and current_block != null and current_block.has_method("add_monster_mark"):
 		current_block.add_monster_mark(mark_count)
-	# 3b. 所有求生者游戏牌移出游戏
+	# 3-equip. 装备区全部离开（触发 on_unequip），再按来源分流：游戏牌移出游戏，拾荒牌洗回颜色牌堆
+	var equipped: Array = equipment_zone.duplicate()
+	for e in equipped:
+		if e == null or not is_instance_valid(e):
+			continue
+		var eq_src: Variant = e.equipment_card if e is Equipment else e
+		await _unequip(e)
+		if eq_src == null:
+			continue
+		if eq_src.get("source") == "scavenge":
+			if Game != null and eq_src.has_method("get_color"):
+				var eq_pile: Pile = Game.get_scavenge_pile(eq_src.get_color())
+				if eq_pile != null:
+					eq_pile.add(eq_src)
+		elif Game != null:
+			Game.remove_card(eq_src)
+	# 3b. 其余求生者游戏牌移出游戏（装备区已在 3-equip 处理）
 	var game_cards: Array = get_all_game_cards()
 	for c in game_cards:
 		if Game != null:
 			Game.remove_card(c)
-	# 3c. 拾荒卡按颜色洗回对应拾荒牌堆
-	# 装备区返回的是 Equipment 实体，需用来源 ScavengeCard 入拾荒牌堆。
+	# 3c. 其余拾荒卡按颜色洗回对应拾荒牌堆
 	var scavenge_cards: Array = get_cards("", "", 0, "scavenge")
 	for c in scavenge_cards:
-		_remove_card_from_zone(c)
+		await _remove_card_from_zone(c)
 		var src_card: Variant = c.equipment_card if c is Equipment else c
 		if Game != null and src_card != null and src_card.has_method("get_color"):
 			var pile: Pile = Game.get_scavenge_pile(src_card.get_color())
@@ -974,7 +990,9 @@ func equip(card: Card) -> bool:
 				if e != null and is_instance_valid(e):
 					total_size += int(e.get("size"))
 	# 2. 卡牌进入装备区时
-	hand.erase(card)
+	# 从来源区域取出（手牌 / 牌堆 / 弃牌堆等），避免同一张来源卡仍留在牌堆被抽到手牌，
+	# 与装备实体共享 charge_current（枪手开局从牌堆装备柯尔特即此路径）。
+	_take_card_for_equip(card)
 	# 实体化：装备区持有 Equipment 实体；非 EquipmentCard 时保底直接入区
 	var entity: Equipment = null
 	if card is EquipmentCard and card.has_method("instantiate"):
@@ -999,7 +1017,7 @@ func equip(card: Card) -> bool:
 	return true
 
 
-## 装备离开装备区（3 节点）。
+## 装备离开装备区（3 节点）。仅对外接口经过 before_unequip 取消点。
 func unequip(card: Variant) -> bool:
 	# 解析装备实体（target 可为实体或来源卡）
 	var entity: Equipment = _resolve_equipment_entity(card)
@@ -1011,19 +1029,7 @@ func unequip(card: Variant) -> bool:
 	await trigger("before_unequip", event)
 	if EventSystem.is_cancelled(event):
 		return false
-	# 2. 卡牌离开装备区时
-	equipment_zone.erase(entity)
-	entity.in_equipment_area = false
-	await trigger("on_unequip", event)
-	# 移除装备技能（在 on_unequip 之后，确保 on_unequip 触发器仍可见装备技能）
-	for s in entity.get_all_skills():
-		remove_skill(s)
-	# 3. 卡牌离开装备区后
-	await trigger("after_unequip", event)
-	if Game != null and is_instance_valid(Game):
-		Game.log_message(LogColors.player(player_name) + " 卸下了 " + LogColors.card(src_card.card_name))
-	if EventBus != null and is_instance_valid(EventBus):
-		EventBus.equipment_unequipped.emit(self, src_card)
+	await _unequip(entity, true, event)
 	return true
 
 
@@ -1480,28 +1486,61 @@ func get_all_game_cards() -> Array:
 	return result
 
 
+## 装备前从来源区域取出卡牌。不只擦手牌：牌堆/弃牌堆/拾荒堆中的同一实例也必须离开，
+## 否则装备实体的 equipment_card 仍在别处，消耗填充物会同时改那张“另一份”牌。
+func _take_card_for_equip(card: Variant) -> void:
+	if card == null:
+		return
+	hand.erase(card)
+	card_settlement_zone.erase(card)
+	if game_deck != null:
+		game_deck.remove(card)
+	if game_discard_pile != null:
+		game_discard_pile.remove(card)
+	if Game == null or not is_instance_valid(Game):
+		return
+	if Game.scavenge_discard_pile != null:
+		Game.scavenge_discard_pile.remove(card)
+	for pile in [Game.red_scavenge_pile, Game.green_scavenge_pile, Game.blue_scavenge_pile]:
+		if pile != null:
+			pile.remove(card)
+
+
 ## 从所在区域移除一张牌（内部方法）。
-## 装备区持有 Equipment 实体，需解析实体后 erase。
+## 装备区命中时走 `_unequip`（触发 on_unequip / after_unequip，不经过 before_unequip 取消点）。
 func _remove_card_from_zone(card: Variant) -> void:
 	hand.erase(card)
 	card_settlement_zone.erase(card)
 	var entity: Equipment = _resolve_equipment_entity(card)
 	if entity != null:
-		equipment_zone.erase(entity)
+		await _unequip(entity)
 	else:
 		equipment_zone.erase(card)
 
 
-## 内部卸下装备（不触发钩子，供 discard 流程复用）。
+## 装备离开装备区的实际效果（弃置 / 销毁 / 死亡等强制离开走这里）。
+## 不经过 before_unequip 取消点，避免拦下已确定的离开。
 ## target 可为 Equipment 实体或 EquipmentCard 来源卡。
-func _unequip(target: Variant) -> void:
+## event 为 null 时新建 equip event；公开 unequip 传入同一 event 以衔接三节点。
+func _unequip(target: Variant, log_unequip: bool = false, event: Variant = null) -> void:
 	var entity: Equipment = _resolve_equipment_entity(target)
 	if entity == null:
 		return
+	var src_card: EquipmentCard = entity.equipment_card
+	var unequip_event: Dictionary = event if event is Dictionary else EventSystem.create_equip_event(self, src_card)
+	# 2. 卡牌离开装备区时
 	equipment_zone.erase(entity)
 	entity.in_equipment_area = false
+	await trigger("on_unequip", unequip_event)
+	# 移除装备技能（在 on_unequip 之后，确保 on_unequip 触发器仍可见装备技能）
 	for s in entity.get_all_skills():
 		remove_skill(s)
+	# 3. 卡牌离开装备区后
+	await trigger("after_unequip", unequip_event)
+	if log_unequip and Game != null and is_instance_valid(Game) and src_card != null:
+		Game.log_message(LogColors.player(player_name) + " 卸下了 " + LogColors.card(src_card.card_name))
+	if EventBus != null and is_instance_valid(EventBus):
+		EventBus.equipment_unequipped.emit(self, src_card)
 
 
 ## 解析装备实体：target 为 Equipment 实体时返回自身；

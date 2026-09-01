@@ -42,8 +42,8 @@ var in_equipment_area: bool = false
 ## 来源装备卡回引（弃置/回收时入弃牌堆用）
 var equipment_card: EquipmentCard = null
 
-## 当前填充物数量。委托给 equipment_card.charge_current，
-## 保留弃置→回收→重装时填充物不重置的现有行为。
+## 当前填充物数量。委托给 equipment_card.charge_current。
+## 进入装备区时由 EquipmentCard.instantiate 把来源卡重置为满填充 + 印刷类型。
 var charge_current: int:
 	get:
 		return equipment_card.charge_current if equipment_card != null else 0
