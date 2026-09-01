@@ -46,6 +46,9 @@ var _player_to_panel_idx: Dictionary = {}
 # === 手牌区 ===
 var _hand_area: HandDisplayArea
 
+# === 任务进度 ===
+var _progress_panel: MissionProgressPanel
+
 # === 事件日志 ===
 var _event_log: Array = []
 
@@ -119,8 +122,8 @@ func _start_game_flow() -> void:
 	Game.initialize_game(mission, variants, seats)
 	_table_map_controller.build_table_and_map()
 	# 任务进度面板：常驻 UI 层右侧固定位置，_process 自刷新任务条件进度
-	var progress_panel: MissionProgressPanel = MissionProgressPanel.new()
-	_ui_layer.add_child(progress_panel)
+	_progress_panel = MissionProgressPanel.new()
+	_ui_layer.add_child(_progress_panel)
 	_build_player_panels()
 	_build_hand_area()
 	_assign_player_panels()
@@ -186,15 +189,63 @@ func _start_game_flow() -> void:
 		EventBus.scavenge_drawn.connect(_on_pile_drawn)
 		EventBus.monster_card_drawn.connect(_on_pile_drawn)
 
-	# 教程系统
-	if Settings.tutorial_mode:
+	# 教程系统：任务 0 默认开启；设置勾选后任意任务也播
+	if _should_start_tutorial():
 		var tutorial_dialog: CanvasLayer = TUTORIAL_DIALOG_SCENE.instantiate()
 		add_child(tutorial_dialog)
 		var tutorial_manager: Node = TutorialManager.new()
 		add_child(tutorial_manager)
-		tutorial_manager.start(tutorial_dialog)
+		tutorial_manager.start(tutorial_dialog, get_tutorial_hole)
 
 	Game.start_game()
+
+
+func _should_start_tutorial() -> bool:
+	if Settings.tutorial_mode:
+		return true
+	var mission: Variant = Game.current_mission
+	if mission == null:
+		return false
+	return int(mission.get("mission_id")) == 0
+
+
+## 教程挖洞：按锚点名返回全局矩形；缺失时返回空矩形。
+func get_tutorial_hole(anchor_id: String) -> Rect2:
+	match anchor_id:
+		"mission":
+			if _progress_panel != null and is_instance_valid(_progress_panel):
+				return _progress_panel.get_global_rect()
+		"hp", "ap", "hunger", "monster_zone", "sneak":
+			var self_panel: PlayerPanel = _get_self_panel()
+			if self_panel != null:
+				return self_panel.get_element_rect(anchor_id)
+		"hand":
+			if _hand_area != null and is_instance_valid(_hand_area):
+				return _hand_area.get_global_rect()
+		"game_deck":
+			return _pile_manager.get_pile_rect("game_deck")
+		"scavenge":
+			return _pile_manager.get_piles_union_rect(["red_scavenge", "green_scavenge", "blue_scavenge"])
+		"action_rest":
+			return _pile_manager.get_piles_union_rect([
+				"game_deck", "red_scavenge", "green_scavenge", "blue_scavenge",
+			])
+		"avatar":
+			return _table_map_controller.get_current_player_avatar_rect()
+		"spawn_mark":
+			return _table_map_controller.get_marked_blocks_rect()
+		"skills":
+			return _active_skill_bar.get_bar_rect()
+	return Rect2()
+
+
+func _get_self_panel() -> PlayerPanel:
+	if _player_panels.is_empty():
+		return null
+	var panel: PlayerPanel = _player_panels[0]
+	if panel != null and is_instance_valid(panel):
+		return panel
+	return null
 
 
 func _input(event: InputEvent) -> void:

@@ -1,6 +1,6 @@
 extends Control
 
-## 游戏设置场景。从主菜单跳转进入，提供全屏、音量、跳过目标选择、教程模式四项设置。
+## 游戏设置场景。从主菜单跳转进入，提供全屏、音量、跳过目标选择、教程显示范围四项设置。
 
 @onready var fullscreen_checkbox: CheckBox = $Panel/FullscreenCheckBox
 @onready var volume_slider: HSlider = $Panel/VolumeSlider

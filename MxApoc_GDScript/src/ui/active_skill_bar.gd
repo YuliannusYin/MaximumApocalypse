@@ -55,6 +55,29 @@ func refresh(player: Variant) -> void:
 		_active_skill_buttons.append(btn)
 
 
+## 教程挖洞：技能按钮包围盒；没有按钮时用整栏。
+func get_bar_rect() -> Rect2:
+	if _active_skill_grid == null or not is_instance_valid(_active_skill_grid):
+		return Rect2()
+	var merged := Rect2()
+	for btn in _active_skill_buttons:
+		if btn == null or not is_instance_valid(btn):
+			continue
+		var r: Rect2 = btn.get_global_rect()
+		if r.size.x <= 0.0 or r.size.y <= 0.0:
+			continue
+		if merged.size == Vector2.ZERO:
+			merged = r
+		else:
+			merged = merged.merge(r)
+	if merged.size != Vector2.ZERO:
+		return merged
+	var parent: Node = _active_skill_grid.get_parent()
+	if parent is Control:
+		return (parent as Control).get_global_rect()
+	return _active_skill_grid.get_global_rect()
+
+
 func clear() -> void:
 	for btn in _active_skill_buttons:
 		if btn != null and is_instance_valid(btn):

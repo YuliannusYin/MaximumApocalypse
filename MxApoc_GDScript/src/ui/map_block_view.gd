@@ -265,6 +265,29 @@ func get_last_mark_count() -> int:
 	return _last_mark_count
 
 
+## 教程挖洞：指定玩家头像格；找不到则用地块整体。
+func get_player_avatar_rect(player: Variant) -> Rect2:
+	if player != null and is_instance_valid(player):
+		var pid: int = player.get_instance_id()
+		for cell_idx in _cell_player_ids:
+			if _cell_player_ids[cell_idx] == pid:
+				var idx: int = int(cell_idx)
+				if idx >= 0 and idx < _grid_cells.size():
+					return _grid_cells[idx].get_global_rect()
+	return get_global_rect()
+
+
+## 教程挖洞：怪物标记格的包围盒；没有标记则用地块整体。
+func get_monster_marks_rect() -> Rect2:
+	var cells: Array[TextureRect] = _get_mark_cells()
+	if cells.is_empty():
+		return get_global_rect()
+	var merged: Rect2 = cells[0].get_global_rect()
+	for i in range(1, cells.size()):
+		merged = merged.merge(cells[i].get_global_rect())
+	return merged
+
+
 ## 遍历头像格，将处于隐藏名单中的玩家头像设为不可见（隐藏者仍占格，避免其他头像位置跳动）。
 func _apply_avatar_visibility() -> void:
 	for cell_idx in _cell_player_ids:
