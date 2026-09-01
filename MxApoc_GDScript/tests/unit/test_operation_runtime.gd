@@ -30,3 +30,22 @@ func test_cancelled_operation_is_not_executed() -> void:
 
 	assert_false(called)
 	assert_eq(operation["status"], "cancelled")
+
+
+func test_nested_dispatch_uses_stack_order() -> void:
+	var runtime: OperationRuntime = OperationRuntime.new()
+	var order: Array[String] = []
+
+	var c_executor: Callable = func() -> void:
+		order.append("C")
+	var b_executor: Callable = func() -> void:
+		order.append("B")
+		await runtime.dispatch("C", c_executor)
+	var a_executor: Callable = func() -> void:
+		order.append("A-start")
+		await runtime.dispatch("B", b_executor)
+		order.append("A-end")
+
+	await runtime.dispatch("A", a_executor)
+
+	assert_eq(order, ["A-start", "B", "C", "A-end"])
