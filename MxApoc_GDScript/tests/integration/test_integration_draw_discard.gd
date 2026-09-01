@@ -116,15 +116,22 @@ func test_discard_equipment_triggers_unequip() -> void:
 	s.skill_name = "equip_skill"
 	s.trigger = "on_use_card"
 	e.add_skill(s)
+	var called: Array = []
+	var s_unequip: Skill = Skill.new()
+	s_unequip.trigger = "on_unequip"
+	s_unequip.content = func(_p, _t, _ev: Dictionary, _g) -> void:
+		called.append("on_unequip")
+	e.add_skill(s_unequip)
 	await p.equip(e)
 	assert_true(p.has_equipment("weapon"), "应有装备")
-	assert_eq(p.get_all_skills().size(), 1, "装备技能应已挂载")
+	assert_eq(p.get_all_skills().size(), 2, "装备技能应已挂载")
 	# 弃掉装备（来源卡入弃牌堆，实体从区里移除并卸下技能）
 	await p.discard(e)
 	assert_false(p.has_equipment("weapon"), "装备应已卸下")
 	assert_eq(p.game_discard_pile.get_all().size(), 1, "装备应进入弃牌堆")
 	assert_eq(p.game_discard_pile.get_all()[0], e, "弃牌堆应为来源卡")
 	assert_eq(p.get_all_skills().size(), 0, "弃置装备应移除技能（触发 unequip）")
+	assert_eq(called, ["on_unequip"], "弃置装备区装备应触发 on_unequip")
 
 
 func test_pile_shuffle_into_recycles_discard() -> void:

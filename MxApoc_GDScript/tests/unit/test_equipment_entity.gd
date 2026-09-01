@@ -2,7 +2,8 @@ extends GutTest
 
 ## Equipment 实体化回归测试。
 ## 覆盖装备牌实体化新契约：装备区持有 Equipment 实体（非卡），来源卡通过 equipment_card 回引，
-## charge_current 委托来源卡，弃置/卸下时来源卡入弃牌堆。
+## charge_current 委托来源卡；实体化时填充物补满并还原卡面类型。
+## 弃置/卸下时来源卡入弃牌堆。
 ## 并直接回归「弹药 filter_target 在 Equipment 上访问 in_equipment_area」的崩溃点。
 ## 设计文档：GameDesignDocus/GameSystem/Entities/Equipment.md
 ##
@@ -124,6 +125,19 @@ func test_instantiate_returns_equipment_with_identity() -> void:
 	assert_eq(entity.get_all_skills().size(), card.get_all_skills().size(), "技能数应一致")
 
 
+func test_instantiate_resets_charge_type_to_printed() -> void:
+	var card: EquipmentCard = _make_equipment("colt")
+	card.charge_max = 4
+	card.charge_current = 1
+	card.change_charge_type("hollow_point")
+	assert_eq(card.charge_type, "hollow_point")
+	var entity: Equipment = card.instantiate(null)
+	assert_eq(card.charge_type, "ammo", "实体化应还原卡面填充物类型")
+	assert_eq(entity.charge_type, "ammo", "装备实体应为卡面填充物类型")
+	assert_eq(card.charge_current, 4, "实体化应将填充物补满到上限")
+	assert_eq(entity.charge_current, 4)
+
+
 # === 2. charge_current 委托来源卡 ===
 
 func test_charge_current_delegates_to_source_card() -> void:
@@ -131,7 +145,8 @@ func test_charge_current_delegates_to_source_card() -> void:
 	card.charge_max = 4
 	card.charge_current = 3
 	var entity: Equipment = card.instantiate(null)
-	assert_eq(entity.charge_current, 3, "实体 charge_current 应委托来源卡（3）")
+	assert_eq(entity.charge_current, 4, "实体化进入装备区应将填充物补满到上限")
+	assert_eq(card.charge_current, 4, "来源卡应同步为满填充")
 	# add_charge 不超过 max，且写回来源卡
 	entity.add_charge(2, "ammo")
 	assert_eq(entity.charge_current, 4, "add_charge(2) 后不超过 max（4）")
@@ -155,7 +170,7 @@ func test_equip_puts_entity_in_zone() -> void:
 	assert_false(p.equipment_zone.has(card), "来源卡不应在装备区（实体在）")
 
 
-# === 4. 卸下/弃置来源卡入弃牌堆（charge 保留） ===
+# === 4. 卸下/弃置来源卡入弃牌堆（重装时填充物重置） ===
 
 func test_discard_scavenge_equipment_sends_source_to_scavenge_pile_with_charge() -> void:
 	var p: Player = _make_player()
@@ -176,7 +191,10 @@ func test_discard_scavenge_equipment_sends_source_to_scavenge_pile_with_charge()
 	assert_false(p.has_equipment("shotgun"), "弃置后装备区应无实体")
 	assert_eq(Game.scavenge_discard_pile.size(), 1, "scavenge 来源卡应进拾荒弃牌堆")
 	assert_eq(Game.scavenge_discard_pile.get_all()[0], weapon, "弃牌堆应为来源卡")
-	assert_eq(weapon.charge_current, 2, "弃置后来源卡 charge 应保留为 2")
+	assert_eq(weapon.charge_current, 2, "弃置后来源卡 charge 暂为 2（重装时再重置）")
+	await p.equip(weapon)
+	assert_eq(weapon.charge_current, 4, "再次装备应把填充物补满到上限")
+	assert_eq(weapon.charge_type, "ammo", "再次装备应还原卡面填充物类型")
 
 
 func test_discard_game_equipment_sends_source_to_game_pile() -> void:
@@ -209,6 +227,7 @@ func test_ammo_filter_target_on_equipment_entity_no_crash() -> void:
 	assert_not_null(pistol, "应能创建手枪卡")
 	pistol.charge_current = 3
 	var entity: Equipment = pistol.instantiate(null)
+	pistol.charge_current = 3
 	var p: Player = _make_player()
 	var event: Dictionary = {"player": p, "target": entity, "card": null}
 	# 未满 → 返回 true，不崩溃

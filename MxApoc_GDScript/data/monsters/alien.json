@@ -20,7 +20,7 @@
           "trigger": "after_monster_enter_zone",
           "forced": true,
           "filter": "return true",
-          "content": "var list = game.get_all_players()\nfor i in list:\n\tvar equipment = game.get_cards(i, \"equipment\")\n\tfor c in equipment:\n\t\tactions.remove_card(i, c)"
+          "content": "var list = game.get_all_players()\nfor i in list:\n\tvar equipment = i.get_cards(\"equipment\")\n\tfor c in equipment:\n\t\tactions.remove_card(i, c)"
         },
         {
           "skill_name": "外星收割者-烧毁",
