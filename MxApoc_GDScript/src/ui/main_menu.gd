@@ -1,6 +1,7 @@
 extends Control
 
 const GITHUB_URL := "https://github.com/YuliannusYin/MaximumApocalypse"
+const WIKI_OVERLAY_SCENE := preload("res://scenes/WikiOverlay.tscn")
 ## 连续点击时间窗口（秒）
 const CLICK_WINDOW := 1.5
 ## 触发切换所需点击次数
@@ -19,21 +20,31 @@ const CLICKS_REQUIRED := 3
 var _version_click_count: int = 0
 ## 上次点击时间戳
 var _last_click_time: float = 0.0
+var _wiki_overlay: Control = null
 
 func _ready() -> void:
 	create_room_button.pressed.connect(_on_create_room_pressed)
 	quit_button.pressed.connect(_on_quit_pressed)
 	settings_button.pressed.connect(_on_settings_pressed)
+	wiki_button.pressed.connect(_on_wiki_pressed)
 	achievement_button.pressed.connect(_on_achievement_pressed)
 	github_button.pressed.connect(_on_github_pressed)
 	version_label.gui_input.connect(_on_version_label_gui_input)
-	# JoinRoomButton / WikiButton 保持禁用占位，不连接信号
+	# JoinRoomButton 保持禁用占位，不连接信号
 
 func _on_create_room_pressed() -> void:
 	get_tree().change_scene_to_file("res://scenes/GameRoom.tscn")
 
 func _on_settings_pressed() -> void:
 	get_tree().change_scene_to_file("res://scenes/SettingsScene.tscn")
+
+func _on_wiki_pressed() -> void:
+	if _wiki_overlay != null and is_instance_valid(_wiki_overlay):
+		return
+	_wiki_overlay = WIKI_OVERLAY_SCENE.instantiate()
+	add_child(_wiki_overlay)
+	_wiki_overlay.closed.connect(func() -> void: _wiki_overlay = null)
+
 
 func _on_achievement_pressed() -> void:
 	get_tree().change_scene_to_file("res://scenes/AchievementScene.tscn")
