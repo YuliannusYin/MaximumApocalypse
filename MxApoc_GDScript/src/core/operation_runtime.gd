@@ -3,11 +3,35 @@ extends RefCounted
 
 ## 游戏操作事件运行时。
 ## 负责在一个规则/技能结算上下文中，按登记顺序串行执行操作。
-## 领域方法本身仍拥有 before/on/after 钩子和 EventBus 通知；本类只提供
-## 「不必在 JSON content 中逐项 await」的父子操作编排能力。
+## 领域方法本身仍拥有 before/on/after 钩子和 EventBus 通知；本类提供
+## 父子操作的栈式编排能力，子操作完成后才恢复父操作。
 
 var _operations: Array[Dictionary] = []
 var _is_flushing: bool = false
+var _stack: Array[Dictionary] = []
+
+
+## 立即执行一个操作。操作执行期间触发的子操作会压到栈顶，
+## 子操作完成后才恢复父操作。
+func dispatch(operation_name: String, executor: Callable, payload: Dictionary = {}) -> Variant:
+	var operation: Dictionary = EventSystem.create_event({
+		"operation_name": operation_name,
+		"payload": payload,
+		"status": "pending",
+		"result": null,
+		"error": "",
+		"parent": _stack.back() if not _stack.is_empty() else null,
+	})
+	operation["executor"] = executor
+	if EventSystem.is_cancelled(operation):
+		operation["status"] = "cancelled"
+		return null
+	_stack.append(operation)
+	operation["status"] = "running"
+	operation["result"] = await executor.call()
+	operation["status"] = "completed"
+	_stack.pop_back()
+	return operation["result"]
 
 
 ## 登记一个待执行操作。executor 必须是无参 Callable，可为协程。
