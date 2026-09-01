@@ -90,6 +90,7 @@ func _create_modules() -> void:
 	_ui_layer.add_child(_event_log_panel)
 
 	_table_map_controller.block_clicked.connect(_on_block_clicked)
+	_table_map_controller.block_inspected.connect(_on_block_inspected)
 	_table_map_controller.avatar_clicked.connect(_on_avatar_clicked)
 	_pile_manager.pile_clicked.connect(_on_pile_clicked)
 	_pile_manager.discard_pile_clicked.connect(_on_discard_pile_clicked)
@@ -306,8 +307,10 @@ func _refresh_hand_area() -> void:
 func _on_block_clicked(block: Variant) -> void:
 	if _action_selection_controller.is_in_move_mode():
 		_action_selection_controller.on_move_block_selected(block)
-	else:
-		_popup_manager.show_block_detail_popup(block)
+
+
+func _on_block_inspected(block: Variant) -> void:
+	_popup_manager.show_block_detail_popup(block)
 
 
 func _on_avatar_clicked(_block: Variant) -> void:

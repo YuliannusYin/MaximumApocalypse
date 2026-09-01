@@ -849,6 +849,8 @@ func use_card(card: Card) -> bool:
 				var min_n: int = skill.select_target_min
 				targets = await choose_target(select_n, skill, skill.window_prompt, min_n)
 				if targets.is_empty():
+					if skill.defer_action_cost:
+						return false  # 首次目标选择取消：卡牌保留在手牌
 					continue  # 玩家取消
 				event["target"] = targets[0]
 				event["targets"] = targets
@@ -856,6 +858,8 @@ func use_card(card: Card) -> bool:
 				# 自动选取全部合法目标（由 UI 层 _on_choose_target_requested 处理）
 				targets = await choose_target(-1, skill, skill.window_prompt)
 				if targets.is_empty():
+					if skill.defer_action_cost:
+						return false  # 首次目标选择取消：卡牌保留在手牌
 					continue
 				event["target"] = targets[0] if not targets.is_empty() else null
 				event["targets"] = targets
@@ -864,6 +868,8 @@ func use_card(card: Card) -> bool:
 			if select_card_n > 0:
 				var cards: Array = await choose_card(select_card_n, "hand", skill.filter_card)
 				event["cards"] = cards
+				if cards.size() < select_card_n and skill.defer_action_cost:
+					return false  # 首次选牌取消：卡牌保留在手牌
 			# 输出使用日志（有非自身目标时输出"对目标使用了"，否则输出"使用了"）
 			if not use_logged and Game != null and is_instance_valid(Game):
 				var _target: Variant = event.get("target", null)
