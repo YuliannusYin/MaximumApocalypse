@@ -180,6 +180,8 @@ func _start_game_flow() -> void:
 		EventBus.card_drawn.connect(_on_player_stat_changed)
 		EventBus.card_discarded.connect(_on_player_stat_changed)
 		EventBus.card_used.connect(_on_player_stat_changed)
+		EventBus.card_settlement_started.connect(_on_player_stat_changed)
+		EventBus.card_settlement_finished.connect(_on_player_stat_changed)
 		EventBus.scavenge_drawn.connect(_on_pile_drawn)
 		EventBus.monster_card_drawn.connect(_on_pile_drawn)
 
