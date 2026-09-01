@@ -56,6 +56,31 @@ func apply_pile_styles() -> void:
 	refresh_pile_highlights()
 
 
+## 教程挖洞：单个牌堆的全局矩形。
+func get_pile_rect(key: String) -> Rect2:
+	var entry: Variant = _pile_views.get(key)
+	if entry == null:
+		return Rect2()
+	var panel: Panel = entry["panel"]
+	if panel == null or not is_instance_valid(panel):
+		return Rect2()
+	return panel.get_global_rect()
+
+
+## 教程挖洞：多个牌堆的包围盒。
+func get_piles_union_rect(keys: Array) -> Rect2:
+	var merged := Rect2()
+	for key in keys:
+		var r: Rect2 = get_pile_rect(str(key))
+		if r.size.x <= 0.0 or r.size.y <= 0.0:
+			continue
+		if merged.size == Vector2.ZERO:
+			merged = r
+		else:
+			merged = merged.merge(r)
+	return merged
+
+
 func refresh_pile_counts() -> void:
 	_set_pile_count("red_scavenge", _get_pile_count(Game.red_scavenge_pile))
 	_set_pile_count("green_scavenge", _get_pile_count(Game.green_scavenge_pile))

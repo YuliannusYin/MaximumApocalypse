@@ -29,7 +29,7 @@ var fullscreen: bool = false
 var volume: float = 1.0
 ## 是否跳过目标选择（仅一个或全选目标时自动确认）。
 var skip_target_selection: bool = false
-## 是否启用教程模式。
+## 是否在所有任务中显示教程（任务 0 无论此项都会显示，除非跳过）。
 var tutorial_mode: bool = false
 ## 是否开发者模式。
 var dev_mode: bool = false

@@ -471,6 +471,25 @@ func play_monster_pulse() -> void:
 	tween.tween_property(_monster_button, "scale", Vector2.ONE, 0.125).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
+## 教程挖洞：返回指定元素的全局矩形。key 为 hp / sneak / hunger / ap / monster_zone。
+func get_element_rect(key: String) -> Rect2:
+	var node: Control = null
+	match key:
+		"hp":
+			node = _hp_label
+		"sneak":
+			node = _sneak_label
+		"hunger":
+			node = _hunger_label
+		"ap":
+			node = _action_label
+		"monster_zone":
+			node = _monster_button
+	if node == null or not is_instance_valid(node):
+		return Rect2()
+	return node.get_global_rect()
+
+
 ## 返回怪物区按钮的全局中心位置（供怪物抓取动画计算飞行终点）。
 ## 按钮不存在或已释放时返回 Vector2.ZERO（调用方据此让动画原地淡出）。
 func get_monster_zone_button_global_position() -> Vector2:

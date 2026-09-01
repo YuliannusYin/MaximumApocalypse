@@ -97,7 +97,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		_dragging = true
 		_drag_start = event.position
 		_did_drag = false
-	elif event is InputEventMouseButton and _map_container != null and event.pressed and event.ctrl_pressed:
+	elif event is InputEventMouseButton and _map_container != null and event.pressed:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
 			_zoom_map(event.position, 1.0 + ZOOM_STEP)
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
@@ -185,6 +185,47 @@ func get_block_view(block: Variant) -> Variant:
 	if block == null or not is_instance_valid(block):
 		return null
 	return _block_views.get(block.get_instance_id())
+
+
+## 教程挖洞：当前玩家在地图上的头像（或所在地块）。
+func get_current_player_avatar_rect() -> Rect2:
+	var current: Variant = Game.get_current_player()
+	if current == null or not is_instance_valid(current):
+		return Rect2()
+	var block: Variant = current.get("current_block")
+	var view: Variant = get_block_view(block)
+	if view == null or not is_instance_valid(view):
+		return Rect2()
+	return view.get_player_avatar_rect(current)
+
+
+## 教程挖洞：带怪物标记的地块包围盒。
+func get_marked_blocks_rect() -> Rect2:
+	var merged := Rect2()
+	for block in Game.map_area:
+		if block == null or not is_instance_valid(block):
+			continue
+		if int(block.get("monster_marks")) <= 0:
+			continue
+		var view: Variant = get_block_view(block)
+		if view == null or not is_instance_valid(view):
+			continue
+		var r: Rect2 = view.get_monster_marks_rect()
+		if r.size.x <= 0.0 or r.size.y <= 0.0:
+			continue
+		if merged.size == Vector2.ZERO:
+			merged = r
+		else:
+			merged = merged.merge(r)
+	return merged
+
+
+## 教程挖洞：指定地块整体。
+func get_block_global_rect(block: Variant) -> Rect2:
+	var view: Variant = get_block_view(block)
+	if view == null or not is_instance_valid(view):
+		return Rect2()
+	return view.get_global_rect()
 
 
 ## 头像移动动画：以浮动头像从源地块中心滑至目标地块中心（约 0.35 秒）。
