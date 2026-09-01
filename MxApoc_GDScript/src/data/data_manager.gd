@@ -5,6 +5,10 @@ extends Node
 ## 数据类为 RefCounted 子类（非 Resource），通过 _init(data: Dictionary) 解析 JSON。
 ## 字段规范见 GameDesignDocus/Engineering/DataFormat.md。
 
+## 拾荒牌堆颜色展示顺序。
+const SCAVENGE_COLOR_ORDER := ["blue", "green", "red", "gray"]
+## 怪物包类型展示顺序。
+const MONSTER_PACK_ORDER := ["zombie", "alien", "mutant", "robot"]
 
 var _survivors: Dictionary = {}        # english_name -> SurvivorData
 var _variants: Dictionary = {}         # id -> VariantData
@@ -236,14 +240,45 @@ func has_mission(mission_id: int) -> bool:
 	return _missions.has(mission_id)
 
 
+## 获取已加载的拾荒牌堆颜色（按展示顺序，未知颜色追加在末尾）。
+func get_scavenge_pile_colors() -> Array:
+	var result: Array = []
+	for color in SCAVENGE_COLOR_ORDER:
+		if _scavenge_piles.has(color):
+			result.append(color)
+	for color in _scavenge_piles.keys():
+		if not result.has(color):
+			result.append(color)
+	return result
+
+
 ## 获取拾荒牌堆（按颜色）。
 func get_scavenge_pile(color: String) -> Array:
 	return _scavenge_piles.get(color, [])
 
 
+## 获取已加载的怪物包类型（按展示顺序，未知类型追加在末尾）。
+func get_monster_pack_types() -> Array:
+	var result: Array = []
+	for pack_type in MONSTER_PACK_ORDER:
+		if _monster_packs.has(pack_type):
+			result.append(pack_type)
+	for pack_type in _monster_packs.keys():
+		if not result.has(pack_type):
+			result.append(pack_type)
+	return result
+
+
 ## 获取怪物包（按怪物类型）。
 func get_monster_pack(monster_type: String) -> Array:
 	return _monster_packs.get(monster_type, [])
+
+
+## 获取全部地图块定义（按中文名排序）。
+func get_all_map_blocks() -> Array:
+	var result: Array = _map_blocks.values()
+	result.sort_custom(func(a, b): return a.block_name < b.block_name)
+	return result
 
 
 ## 获取地图块定义。

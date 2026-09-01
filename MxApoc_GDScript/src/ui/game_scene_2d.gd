@@ -6,6 +6,7 @@ extends Control
 
 const SETTINGS_DIALOG_SCENE := preload("res://scenes/SettingsDialog.tscn")
 const TUTORIAL_DIALOG_SCENE := preload("res://scenes/TutorialDialog.tscn")
+const WIKI_OVERLAY_SCENE := preload("res://scenes/WikiOverlay.tscn")
 const TutorialManager = preload("res://src/ui/tutorial_manager.gd")
 
 # === 层节点（来自 .tscn）===
@@ -38,6 +39,7 @@ var _pending_target_source: Variant = null
 
 # === 设置弹出菜单 ===
 var _settings_popup: PopupMenu
+var _wiki_overlay: Control = null
 
 # === 玩家面板 ===
 var _player_panels: Array = []
@@ -108,6 +110,7 @@ func _wire_static_buttons() -> void:
 	_log_button.pressed.connect(_on_log_button_pressed)
 	_mission_button.pressed.connect(_on_mission_button_pressed)
 	_settings_button.pressed.connect(_on_settings_pressed)
+	_wiki_button.pressed.connect(_on_wiki_pressed)
 
 
 # === 游戏流程 ===
@@ -249,6 +252,8 @@ func _get_self_panel() -> PlayerPanel:
 
 
 func _input(event: InputEvent) -> void:
+	if _is_wiki_open():
+		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		_action_selection_controller.handle_shortcut(event.keycode, _popup_manager.is_popup_open())
 
@@ -440,12 +445,26 @@ func _on_popup_block_selected(block: Variant) -> void:
 # === Settings ===
 
 func _on_settings_pressed() -> void:
+	if _is_wiki_open():
+		return
 	if _settings_popup == null or not is_instance_valid(_settings_popup):
 		_build_settings_popup()
 	# 在设置按钮下方弹出菜单
 	var btn_rect: Rect2 = _settings_button.get_global_rect()
 	_settings_popup.position = Vector2i(int(btn_rect.position.x), int(btn_rect.end.y))
 	_settings_popup.popup()
+
+
+func _is_wiki_open() -> bool:
+	return _wiki_overlay != null and is_instance_valid(_wiki_overlay)
+
+
+func _on_wiki_pressed() -> void:
+	if _is_wiki_open():
+		return
+	_wiki_overlay = WIKI_OVERLAY_SCENE.instantiate()
+	_popup_layer.add_child(_wiki_overlay)
+	_wiki_overlay.closed.connect(func() -> void: _wiki_overlay = null)
 
 
 ## 构建设置弹出菜单（"设置" + "返回主菜单"）。
