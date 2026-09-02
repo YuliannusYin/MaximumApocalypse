@@ -15,6 +15,7 @@ const CLICKS_REQUIRED := 3
 @onready var achievement_button: Button = $AchievementButton
 @onready var github_button: Button = $GithubButton
 @onready var version_label: Label = $VersionLabel
+@onready var background: TextureRect = $Background
 
 ## 版本号点击计数器
 var _version_click_count: int = 0
@@ -23,6 +24,17 @@ var _last_click_time: float = 0.0
 var _wiki_overlay: Control = null
 
 func _ready() -> void:
+	# 保留现有主菜单背景图，以统一的暗色遮罩和金属按钮承接废土桌游风。
+	background.modulate = Color(0.78, 0.78, 0.78, 1.0)
+	HudTheme.add_wasteland_backdrop(self, background)
+	HudTheme.apply_slot_button(create_room_button, 18, HudTheme.GOLD_BORDER, HudTheme.GOLD_TEXT)
+	HudTheme.apply_slot_button(join_room_button, 18)
+	HudTheme.apply_slot_button(quit_button, 18)
+	HudTheme.apply_slot_button(settings_button, 10, HudTheme.SLOT_BORDER, HudTheme.GOLD_TEXT)
+	HudTheme.apply_slot_button(wiki_button, 10, HudTheme.SLOT_BORDER, HudTheme.GOLD_TEXT)
+	HudTheme.apply_slot_button(achievement_button, 10, HudTheme.SLOT_BORDER, HudTheme.GOLD_TEXT)
+	HudTheme.apply_slot_button(github_button, 10)
+	version_label.add_theme_color_override("font_color", HudTheme.TEXT_DIM)
 	create_room_button.pressed.connect(_on_create_room_pressed)
 	quit_button.pressed.connect(_on_quit_pressed)
 	settings_button.pressed.connect(_on_settings_pressed)

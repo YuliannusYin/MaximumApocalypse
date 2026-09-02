@@ -4,6 +4,7 @@ extends RefCounted
 ## 对局 HUD 共用皮肤：废土金属槽按钮与角色牌相框。
 ## 颜色与 PlayerPanel 资源槽一致，避免各处 StyleBox 各写一套。
 
+const BACKDROP_SCRIPT := preload("res://src/ui/wasteland_backdrop.gd")
 const SLOT_BG := Color(0.13, 0.12, 0.11, 1.0)
 const SLOT_BG_HOVER := Color(0.20, 0.18, 0.15, 1.0)
 const SLOT_BG_PRESSED := Color(0.10, 0.09, 0.08, 1.0)
@@ -15,6 +16,55 @@ const GOLD_TEXT_DIM := Color(0.70, 0.60, 0.35, 1.0)
 const TEXT_MAIN := Color(0.92, 0.90, 0.84, 1.0)
 const TEXT_DIM := Color(0.62, 0.60, 0.55, 1.0)
 const FRAME_WIDTH := 2
+
+
+static func add_wasteland_backdrop(root: Control, background: Control = null) -> Control:
+	if root == null:
+		return null
+	var backdrop: Control = BACKDROP_SCRIPT.new()
+	root.add_child(backdrop)
+	if background != null and is_instance_valid(background):
+		root.move_child(backdrop, background.get_index() + 1)
+	else:
+		root.move_child(backdrop, 0)
+	return backdrop
+
+
+static func apply_screen_background(background: ColorRect, color: Color = Color("#101110")) -> void:
+	if background == null:
+		return
+	background.color = color
+	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+
+static func apply_section_panel(panel: Control, bg: Color = Color("#211f1a"), border: Color = SLOT_BORDER) -> void:
+	if panel == null:
+		return
+	var style := StyleBoxFlat.new()
+	style.bg_color = bg
+	style.border_width_left = 2
+	style.border_width_top = 2
+	style.border_width_right = 2
+	style.border_width_bottom = 2
+	style.border_color = border
+	style.corner_radius_top_left = 6
+	style.corner_radius_top_right = 6
+	style.corner_radius_bottom_left = 6
+	style.corner_radius_bottom_right = 6
+	style.shadow_color = Color(0.0, 0.0, 0.0, 0.42)
+	style.shadow_size = 5
+	style.shadow_offset = Vector2(1, 2)
+	panel.add_theme_stylebox_override("panel", style)
+
+
+static func apply_title(label: Label, font_size: int = 28) -> void:
+	if label == null:
+		return
+	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override("font_color", GOLD_TEXT)
+	label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.70))
+	label.add_theme_constant_override("shadow_offset_x", 2)
+	label.add_theme_constant_override("shadow_offset_y", 2)
 
 
 static func apply_slot_button(btn: Button, font_size: int = 12, border: Color = SLOT_BORDER, text: Color = TEXT_MAIN) -> void:
