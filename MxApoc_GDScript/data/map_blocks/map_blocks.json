@@ -73,12 +73,12 @@
         {
           "skill_name": "电厂",
           "english_name": "power_plant",
-          "skill_description": "展示：弃掉所有的食物卡。进入：中毒层数加一。",
+          "skill_description": "进入：弃掉所有的食物卡、中毒层数加一",
           "skill_type": "block",
-          "trigger": "on_reveal_block、on_enter_block",
+          "trigger": "on_enter_block",
           "filter": "return true",
           "forced": true,
-          "content": "if event.trigger_name == \"on_reveal_block\":\n\tvar food_cards = []\n\tfor c in player.get_cards():\n\t\tif c.english_name.begins_with(\"food_\"):\n\t\t\tfood_cards.append(c)\n\tactions.discard(player, food_cards)\nelif event.trigger_name == \"on_enter_block\" && player.get_current_block().has_skill(\"power_plant\"):\n\tplayer.add_poison(1)"
+          "content": "var food_cards = []\nfor c in player.get_cards():\n\tif c.english_name.begins_with(\"food_\"):\n\t\tfood_cards.append(c)\nactions.discard(player, food_cards)\nplayer.add_poison(1)"
         }
       ]
     },
@@ -188,9 +188,9 @@
         {
           "skill_name": "旷野",
           "english_name": "wilderness",
-          "skill_description": "进入：抓一张怪物卡",
+          "skill_description": "展示：抓取一张怪物牌。结束：抓取一张怪物牌",
           "skill_type": "block",
-          "trigger": "on_enter_block",
+          "trigger": "on_reveal_block、on_turn_end",
           "filter": "return true",
           "forced": true,
           "content": "actions.draw_monster(player, 1)"
@@ -265,9 +265,9 @@
         {
           "skill_name": "绿洲",
           "english_name": "oasis",
-          "skill_description": "结束：减少一点饥饿值",
+          "skill_description": "进入、结束：减少 1 点饥饿值",
           "skill_type": "block",
-          "trigger": "on_turn_end",
+          "trigger": "on_enter_block、on_turn_end",
           "filter": "return true",
           "forced": true,
           "content": "actions.decrease_hunger(player, 1)"
@@ -302,12 +302,12 @@
         {
           "skill_name": "墓地",
           "english_name": "graveyard",
-          "skill_description": "展示：每名玩家抓一张怪物卡。进入：抓一张怪物卡",
+          "skill_description": "展示：每名玩家抓取一张怪物牌",
           "skill_type": "block",
-          "trigger": "on_reveal_block、on_enter_block",
+          "trigger": "on_reveal_block",
           "filter": "return true",
           "forced": true,
-          "content": "if event.trigger_name == \"on_reveal_block\":\n\tvar list = game.get_all_players()\n\tfor i in list:\n\t\tactions.draw_monster(i, 1)\nelif event.trigger_name == \"on_enter_block\":\n\tactions.draw_monster(player, 1)"
+          "content": "var list = game.get_all_players()\nfor i in list:\n\tactions.draw_monster(i, 1)"
         }
       ]
     },
@@ -411,12 +411,12 @@
         {
           "skill_name": "森林",
           "english_name": "forest",
-          "skill_description": "进入此地块后，并在同一个回合内移动出此地块后，抓一张怪物卡",
+          "skill_description": "进入：添加“森林”标记。离开：移除“森林”标记并抓取一张怪物牌。结束：移除“森林”标记",
           "skill_type": "block",
-          "trigger": "on_enter_block、on_leave_block",
+          "trigger": "on_enter_block、on_leave_block、on_turn_end",
           "filter": "return true",
           "forced": true,
-          "content": "if event.trigger_name == \"on_enter_block\":\n\tactions.add_mark_skill(player, \"forest_monster\", 1, \"turn_end\", \"森林\", \"本回合内移动出森林抓取一张怪物牌\", false)\nelif event.trigger_name == \"on_leave_block\" && player.has_mark_skill(\"forest_monster\"):\n\tactions.draw_monster(player, 1)"
+          "content": "if event.trigger_name == \"on_enter_block\":\n\tactions.add_mark_skill(player, \"森林\", 1, \"on_turn_end\", \"森林\", \"离开森林时抓取一张怪物牌\", false)\nelif event.trigger_name == \"on_leave_block\" && player.has_mark_skill(\"森林\"):\n\tactions.remove_mark(player, \"森林\")\n\tactions.draw_monster(player, 1)\nelif event.trigger_name == \"on_turn_end\":\n\tactions.remove_mark(player, \"森林\")"
         }
       ]
     },
