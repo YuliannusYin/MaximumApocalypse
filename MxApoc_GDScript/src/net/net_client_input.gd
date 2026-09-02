@@ -137,11 +137,46 @@ func net_anim(req_id: int, type_name: String, params: Dictionary) -> void:
 			"anim_card_destroy":
 				card_destroy_animation_requested.emit(_card_by_id(int(params.get("card", 0))))
 			"anim_monster_skill":
-				monster_skill_trigger_animation_requested.emit(_card_by_id(int(params.get("monster", 0))))
+				monster_skill_trigger_animation_requested.emit(_monster_by_net_id(int(params.get("monster", 0))))
 			"anim_monster_attack":
-				monster_attack_animation_requested.emit(_card_by_id(int(params.get("monster", 0))), [])
+				_net_anim_attack(params)
 	)
 	await _wait_for_request(req)
+
+
+## 客机播放自己怪物的攻击动画：解析怪物（视图怪物区）与目标玩家（按座位），
+## 使 _on_monster_attack_animation_requested 能取到面板终点并真正播放。
+func _net_anim_attack(params: Dictionary) -> void:
+	var monster: Variant = _monster_by_net_id(int(params.get("monster", 0)))
+	var targets: Array = []
+	for seat in params.get("targets", []):
+		var p: Variant = _player_by_seat(int(seat))
+		if p != null:
+			targets.append(p)
+	monster_attack_animation_requested.emit(monster, targets)
+
+
+## 按 net_id 从客机视图怪物区解析怪物。
+func _monster_by_net_id(nid: int) -> Variant:
+	if nid <= 0:
+		return null
+	for p in Game.players:
+		if p == null:
+			continue
+		for m in p.monster_zone:
+			if m != null and m.net_id == nid:
+				return m
+	return null
+
+
+## 按座位号从客机视图解析玩家。
+func _player_by_seat(seat: int) -> Variant:
+	if seat < 0:
+		return null
+	for p in Game.players:
+		if p != null and int(p.seat_number) == seat:
+			return p
+	return null
 
 
 # === 响应编码 ===

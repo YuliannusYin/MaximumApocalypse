@@ -22,6 +22,8 @@ signal monster_died(monster: Variant, source: Variant)
 signal monster_engaged_target_changed(monster: Variant, old_target: Variant, new_target: Variant)
 signal monster_attack_played(monster: Variant, targets: Array) ## 怪物攻击动画即将播放（供联机广播到各端）
 signal monster_skill_played(monster: Variant) ## 怪物技能触发动画即将播放（供联机广播到各端）
+signal dice_played(player: Variant, d1: int, d2: int, label: String, outcome: String) ## 骰子动画即将播放（供联机广播到各端）
+signal player_attack_played(player: Variant, targets: Array) ## 玩家选定攻击/效果目标（供联机广播到各端）
 
 # === 地图相关信号 ===
 signal block_revealed(block: Variant, player: Variant)

@@ -76,7 +76,9 @@ static func _serialize_block(block) -> Dictionary:
 		"monster_marks": block.monster_marks,
 		"block_state": block.block_state,
 		"van_fuel": block.van_fuel,
-		"objective_marks": _serialize_marks(block.objective_marks),
+		"objective_marks": _serialize_objective_marks(block.objective_marks),
+		"scavenge_colors": Array(block.scavenge_colors),
+		"monster_spawn_value": block.monster_spawn_value,
 	}
 
 
@@ -207,14 +209,43 @@ static func _serialize_marks(marks: Array) -> Array:
 	for mark in marks:
 		if mark == null:
 			continue
-		out.append({
-			"name": mark.name,
-			"mark_text": mark.mark_text,
-			"mark_content": mark.mark_content,
-			"visible": mark.visible,
-			"count": mark.count,
-			"items": mark.items,
-		})
+		if mark is Dictionary:
+			# 地块目标标记（objective_marks）以 Dictionary 存储，按键读取。
+			out.append({
+				"name": str(mark.get("name", "")),
+				"mark_text": str(mark.get("mark_text", "")),
+				"mark_content": str(mark.get("mark_content", "")),
+				"visible": bool(mark.get("visible", true)),
+				"count": int(mark.get("count", 1)),
+				"items": mark.get("items", []),
+			})
+		else:
+			out.append({
+				"name": str(mark.get("name")),
+				"mark_text": str(mark.get("mark_text")),
+				"mark_content": str(mark.get("mark_content")),
+				"visible": bool(mark.get("visible")),
+				"count": int(mark.get("count")),
+				"items": mark.get("items"),
+			})
+	return out
+
+
+## 地块目标标记以 Dictionary 存储（mark_id/mark_description/remove_condition 等纯数据字段），
+## 直接浅拷贝序列化，避免经 Mark 对象 schema 丢失目标标记专属字段。
+## 客机端仍以 Dictionary 还原，`has_objective_mark`/弹窗等 `mark.get("removed", false)` 调用不受影响。
+static func _serialize_objective_marks(marks: Array) -> Array:
+	var out: Array = []
+	for mark in marks:
+		if mark == null:
+			continue
+		if mark is Dictionary:
+			out.append(mark.duplicate())
+		else:
+			out.append({
+				"mark_id": mark.get("mark_id"),
+				"mark_description": mark.get("mark_description"),
+			})
 	return out
 
 
@@ -300,9 +331,15 @@ static func _apply_block(block: MapBlock, bd: Dictionary) -> void:
 	block.monster_marks = int(bd.get("monster_marks", block.monster_marks))
 	block.block_state = str(bd.get("block_state", block.block_state))
 	block.van_fuel = int(bd.get("van_fuel", block.van_fuel))
+	block.scavenge_colors = PackedStringArray(bd.get("scavenge_colors", []))
+	block.monster_spawn_value = int(bd.get("monster_spawn_value", block.monster_spawn_value))
 	block.objective_marks.clear()
 	for md in bd.get("objective_marks", []):
-		block.objective_marks.append(_mark_from_dict(md))
+		if md is Dictionary:
+			# 目标标记在主机侧为 Dictionary，客机视图保持 Dictionary 结构
+			block.objective_marks.append(md.duplicate())
+		else:
+			block.objective_marks.append(_mark_from_dict(md))
 
 
 static func _apply_player(game, player: Player, pd: Dictionary, ctx: Dictionary) -> void:

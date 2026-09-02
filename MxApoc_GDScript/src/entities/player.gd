@@ -636,6 +636,9 @@ func _wait_judge_confirm(prompt: String, allow_cancel: bool) -> bool:
 
 ## 骰子动画包装：播放两颗骰子投掷动画并等待结束（input 为空时跳过）。
 func _play_dice_animation(d1: int, d2: int, label: String, outcome: String) -> void:
+	# 联机动画同步：通知各端播放骰子动画
+	if EventBus != null and is_instance_valid(EventBus):
+		EventBus.dice_played.emit(self, d1, d2, label, outcome)
 	if input == null or not is_instance_valid(input):
 		return
 	await input.play_dice_animation(d1, d2, label, outcome)
@@ -1691,7 +1694,11 @@ func choose_card(n: int, param: Variant = "hand", filter: Variant = null, prompt
 ## 选择目标。n 为选择数量（-1 表示全部），skill 为当前技能（含 target_type/filter_target 等）。
 ## min_n 为最小选择数（-1 表示精确模式，必须选 n 个）；范围模式 min_n>=0 时允许 [min_n, n] 个。
 func choose_target(n: int, skill: Variant = null, prompt: String = "", min_n: int = -1) -> Array:
-	return await input.choose_target(n, skill, prompt, min_n)
+	var selected: Array = await input.choose_target(n, skill, prompt, min_n)
+	# 联机动画同步：玩家选定目标（攻击/效果）后广播到各端
+	if EventBus != null and is_instance_valid(EventBus):
+		EventBus.player_attack_played.emit(self, selected)
+	return selected
 
 
 ## 选择目标地块。

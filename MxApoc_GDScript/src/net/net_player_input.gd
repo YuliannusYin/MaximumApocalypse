@@ -99,7 +99,7 @@ func choose_card(n: int, param: Variant = "hand", filter: Variant = null, prompt
 	if filter is Callable and (filter as Callable).is_valid():
 		var fc: Callable = filter
 		candidates = candidates.filter(func(c: Variant) -> bool:
-			return fc.call(c)
+			return fc.call(player, c, {}, Game)
 		)
 	var ids: Array = []
 	for c in candidates:
@@ -211,8 +211,12 @@ func play_monster_skill_trigger_animation(monster: Variant) -> void:
 	await _send("anim_monster_skill", {"monster": monster.net_id if monster != null else 0})
 
 
-func play_monster_attack_animation(monster: Variant, _targets: Array) -> void:
-	await _send("anim_monster_attack", {"monster": monster.net_id if monster != null else 0})
+func play_monster_attack_animation(monster: Variant, targets: Array) -> void:
+	var seats: Array = []
+	for t in targets:
+		if t is Player:
+			seats.append(t.seat_number)
+	await _send("anim_monster_attack", {"monster": monster.net_id if monster != null else 0, "targets": seats})
 
 
 # === 主机侧候选计算 ===

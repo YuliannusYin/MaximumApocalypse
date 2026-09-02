@@ -257,6 +257,8 @@ func _connect_event_bus_handlers() -> void:
 	# 联机动画同步：主机据此把攻击/怪物技能动画广播到各客机（客机端模式自守卫为空操作）
 	EventBus.monster_attack_played.connect(_on_host_monster_attack_played)
 	EventBus.monster_skill_played.connect(_on_host_monster_skill_played)
+	EventBus.dice_played.connect(_on_host_dice_played)
+	EventBus.player_attack_played.connect(_on_host_player_attack_played)
 
 
 ## 按玩家座位归属分配输入：
@@ -328,6 +330,8 @@ func _on_net_peer_disconnected(pid: int) -> void:
 func _on_host_monster_attack_played(monster: Variant, targets: Array) -> void:
 	if NetSession.mode != NetSession.Mode.HOST:
 		return
+	if monster == null or not is_instance_valid(monster):
+		return
 	var owner_pid := _net_owner_peer_id(monster)
 	_broadcast_game_event_except(owner_pid, {
 		"type": "monster_attack", "monster": monster.net_id, "targets": _target_seats(targets),
@@ -340,12 +344,76 @@ func _on_host_monster_attack_played(monster: Variant, targets: Array) -> void:
 func _on_host_monster_skill_played(monster: Variant) -> void:
 	if NetSession.mode != NetSession.Mode.HOST:
 		return
+	if monster == null or not is_instance_valid(monster):
+		return
 	var owner_pid := _net_owner_peer_id(monster)
 	_broadcast_game_event_except(owner_pid, {
 		"type": "monster_skill", "monster": monster.net_id,
 	})
 	if owner_pid != NetSession.HOST_PEER_ID and owner_pid != 0:
 		_play_skill_locally(monster)
+
+
+## 主机：骰子动画 → 广播给除掷骰玩家外的客机；掷骰者为远端时主机本地也播。
+func _on_host_dice_played(player: Variant, d1: int, d2: int, label: String, outcome: String) -> void:
+	if NetSession.mode != NetSession.Mode.HOST:
+		return
+	var pid := _net_player_peer_id(player)
+	_broadcast_game_event_except(pid, {
+		"type": "dice", "d1": d1, "d2": d2, "label": label, "outcome": outcome,
+	})
+	if pid != NetSession.HOST_PEER_ID and pid != 0:
+		_play_dice_locally(d1, d2, label, outcome)
+
+
+## 主机：玩家选定攻击/效果目标 → 广播给除该玩家外的客机；为远端时主机本地也播。
+func _on_host_player_attack_played(player: Variant, targets: Array) -> void:
+	if NetSession.mode != NetSession.Mode.HOST:
+		return
+	if player == null or not is_instance_valid(player):
+		return
+	var pid := _net_player_peer_id(player)
+	var encoded: Array = []
+	for target in targets:
+		if target is Monster and is_instance_valid(target):
+			encoded.append({"type": "monster", "id": target.net_id})
+		elif target is Player and is_instance_valid(target):
+			encoded.append({"type": "player", "seat": target.seat_number})
+	_broadcast_game_event_except(pid, {
+		"type": "player_attack", "source": player.seat_number, "targets": encoded,
+	})
+	if pid != NetSession.HOST_PEER_ID and pid != 0:
+		_play_player_attack_locally(player, targets)
+
+
+## 玩家所属 peer id（按座位 peer_id 映射）。
+func _net_player_peer_id(player: Variant) -> int:
+	if player == null or not is_instance_valid(player):
+		return 0
+	var seat_idx := int(player.seat_number)
+	if seat_idx >= 0 and seat_idx < RoomState.seats.size():
+		return int(RoomState.seats[seat_idx].get("peer_id", 0))
+	return 0
+
+
+func _play_dice_locally(d1: int, d2: int, label: String, outcome: String) -> void:
+	await _animation_controller.play_dice(d1, d2, label, outcome)
+
+
+func _play_player_attack_locally(player: Variant, targets: Array) -> void:
+	var source_panel: PlayerPanel = _get_panel_for_player(player)
+	if source_panel == null:
+		return
+	var player_positions: Array[Vector2] = []
+	var monsters: Array = []
+	for target in targets:
+		if target is Player and is_instance_valid(target):
+			var target_panel: PlayerPanel = _get_panel_for_player(target)
+			if target_panel != null:
+				player_positions.append(target_panel.get_role_card_global_position())
+		elif target is Monster and is_instance_valid(target):
+			monsters.append(target)
+	await _animation_controller.play_target_links(source_panel.get_role_card_global_position(), player_positions, monsters)
 
 
 ## 向除指定 peer 外的所有客机发送 GAME_EVENT。
@@ -409,6 +477,31 @@ func _on_client_game_event(event: Dictionary) -> void:
 			var monster2: Variant = _monster_by_id(int(event.get("monster", 0)))
 			if monster2 != null:
 				await _animation_controller.play_monster_skill_trigger(monster2)
+		"dice":
+			await _animation_controller.play_dice(
+				int(event.get("d1", 0)), int(event.get("d2", 0)),
+				str(event.get("label", "")), str(event.get("outcome", "")))
+		"player_attack":
+			var source: Variant = _player_by_seat(int(event.get("source", -1)))
+			if source != null:
+				var source_panel: PlayerPanel = _get_panel_for_player(source)
+				if source_panel != null:
+					var player_positions: Array[Vector2] = []
+					var monsters: Array = []
+					for tdata in event.get("targets", []):
+						match str(tdata.get("type", "")):
+							"player":
+								var tp: Variant = _player_by_seat(int(tdata.get("seat", -1)))
+								if tp != null:
+									var tp_panel: PlayerPanel = _get_panel_for_player(tp)
+									if tp_panel != null:
+										player_positions.append(tp_panel.get_role_card_global_position())
+							"monster":
+								var tm: Variant = _monster_by_id(int(tdata.get("id", 0)))
+								if tm != null:
+									monsters.append(tm)
+					await _animation_controller.play_target_links(
+						source_panel.get_role_card_global_position(), player_positions, monsters)
 	_refresh_all_from_snapshot()
 
 
@@ -487,7 +580,7 @@ func _refresh_all_from_snapshot() -> void:
 	_refresh_hand_area()
 	_pile_manager.refresh_pile_counts()
 	_action_selection_controller.refresh_confirm_cancel_buttons()
-	_active_skill_bar.refresh(Game.get_current_player())
+	_active_skill_bar.refresh(_net_local_player())
 
 
 func _on_client_input_request(req_id: int, req_type: String, params: Dictionary) -> void:
@@ -789,17 +882,34 @@ func _refresh_hand_area() -> void:
 	_hand_area.set_player(target)
 
 
-## 返回"我"的玩家视图：客机为本地座位对应玩家；主机/单机为当前回合玩家。
+## 返回"我"的玩家视图：客机为本地座位对应玩家；主机有客户端连接时为主机自己的玩家，否则为当前回合玩家；单机为当前回合玩家。
 func _net_local_player() -> Variant:
-	if NetSession.mode != NetSession.Mode.CLIENT:
+	if NetSession.mode == NetSession.Mode.HOST:
+		if NetSession.get_peer_ids().is_empty():
+			return Game.get_current_player()
+		for i in range(RoomState.seats.size()):
+			if int(RoomState.seats[i].get("peer_id", 0)) == NetSession.HOST_PEER_ID:
+				for p in Game.players:
+					if p != null and int(p.seat_number) == i:
+						return p
+				return Game.get_current_player()
 		return Game.get_current_player()
-	for i in range(RoomState.seats.size()):
-		if int(RoomState.seats[i].get("peer_id", 0)) == NetSession.peer_id:
-			for p in Game.players:
-				if p != null and int(p.seat_number) == i:
-					return p
-			return null
+	if NetSession.mode == NetSession.Mode.CLIENT:
+		for i in range(RoomState.seats.size()):
+			if int(RoomState.seats[i].get("peer_id", 0)) == NetSession.peer_id:
+				for p in Game.players:
+					if p != null and int(p.seat_number) == i:
+						return p
+				return null
+		return Game.get_current_player()
 	return Game.get_current_player()
+
+
+## 当前是否轮到本地玩家行动：单机恒为 true；联网时仅当本地玩家 == 当前回合玩家。
+func _net_is_local_action() -> bool:
+	if NetSession.mode == NetSession.Mode.NONE:
+		return true
+	return _net_local_player() != null and Game.get_current_player() != null and _net_local_player() == Game.get_current_player()
 
 
 # === Block/Avatar 点击 ===
@@ -940,7 +1050,7 @@ func _on_settings_popup_id_pressed(id: int) -> void:
 # === GUIPlayerInput 信号处理 ===
 
 func _on_action_requested(_player: Variant) -> void:
-	_active_skill_bar.refresh(Game.get_current_player())
+	_active_skill_bar.refresh(_net_local_player())
 	_action_selection_controller.refresh_confirm_cancel_buttons()
 	_pile_manager.refresh_pile_highlights()
 
@@ -1287,7 +1397,7 @@ func _on_turn_started(player: Variant) -> void:
 func _on_phase_changed(_player: Variant, _old_phase: String, new_phase: String) -> void:
 	_action_selection_controller.refresh_confirm_cancel_buttons()
 	_pile_manager.refresh_pile_highlights()
-	if new_phase != "action":
+	if new_phase != "action" or not _net_is_local_action():
 		_active_skill_bar.clear()
 		_action_selection_controller.clear_for_non_action_phase()
 
@@ -1301,7 +1411,7 @@ func _on_player_moved(player: Variant, source_block: Variant, target_block: Vari
 	_refresh_all_panels()
 	_pile_manager.refresh_pile_highlights()
 	# 移动完成后地块技能/任务行动技能已挂载/卸载，刷新技能栏
-	_active_skill_bar.refresh(Game.get_current_player())
+	_active_skill_bar.refresh(_net_local_player())
 
 
 func _on_block_revealed(block: Variant, _player: Variant) -> void:
@@ -1394,7 +1504,7 @@ func _on_player_stat_changed(player: Variant, _arg1: Variant = null, _arg2: Vari
 		_refresh_hand_area()
 		_pile_manager.refresh_pile_counts()
 		_pile_manager.refresh_pile_highlights()
-		_active_skill_bar.refresh(current)
+		_active_skill_bar.refresh(_net_local_player())
 		_action_selection_controller.refresh_confirm_cancel_buttons()
 
 
