@@ -1447,8 +1447,7 @@ func _build_equipment_card(card: Variant, w: int, h: int) -> Panel:
 	p.custom_minimum_size = Vector2(w + 10, h + 10)
 	p.size = Vector2(w + 10, h + 10)
 
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color.BLACK
+	var style := HudTheme.make_card_frame_style()
 	p.add_theme_stylebox_override("panel", style)
 
 	var inner := Panel.new()

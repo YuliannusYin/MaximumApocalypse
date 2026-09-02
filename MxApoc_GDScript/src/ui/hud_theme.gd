@@ -75,3 +75,13 @@ static func make_picture_frame_style(bg: Color) -> StyleBoxFlat:
 	style.corner_radius_bottom_left = 0
 	style.corner_radius_bottom_right = 0
 	return style
+
+
+## 非角色牌卡面使用的 2px 废土金属相框。
+## 与角色面板相框保持同色系，但独立方法避免影响角色牌现有样式。
+static func make_card_frame_style(bg: Color = Color.BLACK) -> StyleBoxFlat:
+	var style := make_picture_frame_style(bg)
+	style.shadow_color = Color(0.0, 0.0, 0.0, 0.48)
+	style.shadow_size = 4
+	style.shadow_offset = Vector2(1, 2)
+	return style
