@@ -260,10 +260,12 @@ static func apply_to_view(game, state: Dictionary, ctx: Dictionary) -> void:
 		var mission: Variant = DataManager.get_mission(int(state["mission_id"]))
 		if mission != null:
 			game.current_mission = mission
-	if game.mission_config != null:
-		game.mission_config.van_fuel_required = int(state.get("mission_fuel", -1))
-		game.mission_config.initial_objective_mark_count = int(state.get("objective_mark_total", 0))
-		game.mission_config.mission_state = state.get("mission_state", {})
+	# 客机视图从不调用 initialize_game，mission_config 需在此补建，否则任务进度数据整体丢失
+	if game.mission_config == null:
+		game.mission_config = MissionConfig.new()
+	game.mission_config.van_fuel_required = int(state.get("mission_fuel", -1))
+	game.mission_config.initial_objective_mark_count = int(state.get("objective_mark_total", 0))
+	game.mission_config.mission_state = state.get("mission_state", {})
 
 	for bd in state.get("blocks", []):
 		var block: Variant = ctx.blocks.get(int(bd.get("net_id", 0)))

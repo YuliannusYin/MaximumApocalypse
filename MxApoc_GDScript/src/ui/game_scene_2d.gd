@@ -152,9 +152,12 @@ func _start_game_flow() -> void:
 			player.input = _assign_player_input(player)
 
 	_connect_event_bus_handlers()
-	# 主机：客机掉线 → 其角色改为 AI 托管，避免请求挂起卡死
+	# 主机：客机掉线 → 直接返回主菜单；客机超过 10 秒无数据 → 主动同步一次全量状态
 	if NetSession.mode == NetSession.Mode.HOST:
 		NetSession.peer_disconnected.connect(_on_net_peer_disconnected)
+		NetSession.host_peer_stale.connect(func(_pid: int) -> void:
+			_broadcast_snapshot()
+		)
 
 	# 教程系统：任务 0 默认开启；设置勾选后任意任务也播
 	if _should_start_tutorial():
@@ -312,16 +315,14 @@ func _process(delta: float) -> void:
 	_process_snapshot(delta)
 
 
-## 主机：客机掉线 → 结算其挂起请求并将角色改为 AI 托管（CliPlayerInput 自动行动）。
+## 主机：客机在游戏阶段掉线 → 目前直接返回主菜单（房间阶段由 game_room 释放座位，可重连）。
 func _on_net_peer_disconnected(pid: int) -> void:
 	NetSession.unregister_remote_input(pid)
-	for player in Game.players:
-		if player == null or not is_instance_valid(player):
-			continue
-		var input: Variant = player.input
-		if input is NetPlayerInput and (input as NetPlayerInput).peer_id == pid:
-			(input as NetPlayerInput).on_peer_disconnected()
-			player.input = CliPlayerInput.new()
+	NetSession.stop()
+	RoomState.clear()
+	Game.players.clear()
+	Game.map_area.clear()
+	get_tree().change_scene_to_file("res://scenes/MainMenu.tscn")
 
 
 # === 联机动画同步（攻击 / 怪物技能 → 广播到所有客机） ===
@@ -556,8 +557,9 @@ func _on_client_snapshot(state: Dictionary) -> void:
 		_build_client_ui()
 		_net_ui_built = true
 	_refresh_all_from_snapshot()
-	# 同步主机事件日志
+	# 同步主机事件日志：常驻面板 + "事件日志"按钮弹窗（_event_log）共用同一份同步数据
 	if state.has("log"):
+		_event_log.assign(state["log"])
 		_event_log_panel.set_messages(state["log"])
 	# 游戏结束：主机快照携带 game_state
 	if int(state.get("game_state", 0)) == GameStateMachine.GameState.GAME_OVER:
@@ -578,7 +580,7 @@ func _refresh_all_from_snapshot() -> void:
 	_table_map_controller.refresh_map()
 	_assign_player_panels()
 	_refresh_hand_area()
-	_pile_manager.refresh_pile_counts()
+	_pile_manager.refresh_pile_counts(_net_local_player())
 	_pile_manager.refresh_pile_highlights()
 	_action_selection_controller.refresh_confirm_cancel_buttons()
 	_active_skill_bar.refresh(_net_local_player())
@@ -967,7 +969,9 @@ func _on_discard_pile_clicked(pile_type: String) -> void:
 	if pile_type == "scavenge":
 		_popup_manager.show_scavenge_discard_popup()
 	elif pile_type == "game":
-		_popup_manager.show_game_discard_popup()
+		# 客机点击"角色弃牌"应显示本方弃牌堆，而非主机当前回合玩家的
+		var local: Variant = _net_local_player() if NetSession.mode == NetSession.Mode.CLIENT else null
+		_popup_manager.show_game_discard_popup(local)
 
 
 # === Skill pressed ===

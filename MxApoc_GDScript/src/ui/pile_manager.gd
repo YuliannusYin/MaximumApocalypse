@@ -81,18 +81,19 @@ func get_piles_union_rect(keys: Array) -> Rect2:
 	return merged
 
 
-func refresh_pile_counts() -> void:
+func refresh_pile_counts(local_player: Variant = null) -> void:
 	_set_pile_count("red_scavenge", _get_pile_count(Game.red_scavenge_pile))
 	_set_pile_count("green_scavenge", _get_pile_count(Game.green_scavenge_pile))
 	_set_pile_count("blue_scavenge", _get_pile_count(Game.blue_scavenge_pile))
-	_set_pile_count("game_deck", _get_current_player_deck_count())
+	_set_pile_count("game_deck", _get_current_player_deck_count(local_player))
 	_set_pile_count("monster_pile", _get_pile_count(Game.monster_pile))
 	_set_pile_count("scavenge_discard", _get_pile_count(Game.scavenge_discard_pile))
-	_set_pile_count("game_discard", _get_current_player_discard_count())
+	_set_pile_count("game_discard", _get_current_player_discard_count(local_player))
 
 
-func _get_current_player_discard_count() -> int:
-	var current: Variant = Game.get_current_player()
+## 弃牌堆计数。local_player 传入时（联机客机）用本地玩家，否则用当前回合玩家（热座/主机）。
+func _get_current_player_discard_count(local_player: Variant = null) -> int:
+	var current: Variant = local_player if local_player != null else Game.get_current_player()
 	if current == null or not is_instance_valid(current):
 		return 0
 	var pile: Variant = current.get("game_discard_pile")
@@ -121,8 +122,9 @@ func _get_pile_count(pile: Variant) -> int:
 	return pile.size() if pile.has_method("size") else pile.get("cards").size()
 
 
-func _get_current_player_deck_count() -> int:
-	var current: Variant = Game.get_current_player()
+## 游戏牌堆计数。local_player 传入时（联机客机）用本地玩家，否则用当前回合玩家（热座/主机）。
+func _get_current_player_deck_count(local_player: Variant = null) -> int:
+	var current: Variant = local_player if local_player != null else Game.get_current_player()
 	if current == null or not is_instance_valid(current):
 		return 0
 	var deck: Variant = current.get("game_deck")

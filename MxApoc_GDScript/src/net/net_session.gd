@@ -22,11 +22,14 @@ signal room_state_changed()
 signal input_request_received(req_id: int, req_type: String, params: Dictionary)
 signal snapshot_received(state: Dictionary)
 signal game_event_received(event: Dictionary)
+signal host_peer_stale(pid: int)
 
 ## 主机 peer id 恒为 1（ENet 服务器约定）。
 const HOST_PEER_ID := 1
 ## 心跳间隔（秒）
 const HEARTBEAT_INTERVAL := 5.0
+## 客机超过该时长未发送数据时，主机主动向全部客机同步一次状态（秒）
+const STALE_SYNC_SECONDS := 10.0
 ## 超过该时长未收到任何数据判定连接超时（秒）
 const TIMEOUT_SECONDS := 30.0
 
@@ -39,6 +42,7 @@ var host_port: int = 0
 
 var _peer_names: Dictionary = {}   # 主机侧：pid -> 昵称
 var _last_recv: Dictionary = {}    # 主机侧：pid -> 最近收到数据的时间戳（秒）
+var _stale_notified: Dictionary = {}  # 主机侧：pid -> 该"超过10秒无数据"阶段是否已触发过一次主动同步
 var _last_recv_self := 0.0         # 客机侧：最近收到主机数据的时间戳（秒）
 var _heartbeat_timer := 0.0
 var _remote_inputs: Dictionary = {}  # 主机侧：pid -> NetPlayerInput（阶段二输入转发）
@@ -86,6 +90,7 @@ func _on_peer_connected(pid: int) -> void:
 func _on_peer_disconnected(pid: int) -> void:
 	_peer_names.erase(pid)
 	_last_recv.erase(pid)
+	_stale_notified.erase(pid)
 	peer_disconnected.emit(pid)
 
 
@@ -96,6 +101,7 @@ func _recv_client_message(msg_type: int, data: Dictionary) -> void:
 		return
 	var sender := multiplayer.get_remote_sender_id()
 	_last_recv[sender] = Time.get_ticks_msec() / 1000.0
+	_stale_notified[sender] = false
 	match msg_type:
 		NetProtocol.Msg.HELLO:
 			var name := str(data.get("name", ""))
@@ -228,6 +234,10 @@ func _heartbeat_and_timeout() -> void:
 			if now - float(_last_recv.get(pid, now)) > TIMEOUT_SECONDS:
 				multiplayer.disconnect_peer(pid)
 				continue
+			# 客机超过 10 秒无数据：主动同步一次状态（每个"超时阶段"仅触发一次，收到数据后重置）
+			if now - float(_last_recv.get(pid, now)) > STALE_SYNC_SECONDS and not bool(_stale_notified.get(pid, false)):
+				_stale_notified[pid] = true
+				host_peer_stale.emit(pid)
 			rpc_id(pid, "_recv_host_message", NetProtocol.Msg.HEARTBEAT, {})
 	elif mode == Mode.CLIENT:
 		if now - _last_recv_self > TIMEOUT_SECONDS:
@@ -243,6 +253,7 @@ func stop() -> void:
 	_clear_peer()
 	_peer_names.clear()
 	_last_recv.clear()
+	_stale_notified.clear()
 	mode = Mode.NONE
 	peer_id = 0
 	host_port = 0
