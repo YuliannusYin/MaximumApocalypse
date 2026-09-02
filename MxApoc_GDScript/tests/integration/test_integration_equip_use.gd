@@ -109,7 +109,7 @@ func test_use_card_action_routes_to_discard() -> void:
 	assert_true(ok, "使用应成功")
 	assert_eq(p.hand.size(), 0, "手牌应清空")
 	assert_eq(p.game_discard_pile.get_all().size(), 1, "应进入弃牌堆")
-	assert_eq(p.action_count, 3, "应消耗 1 行动次数")
+	assert_eq(p.action_count, 4, "无行动技能的卡牌不应消耗行动次数")
 
 
 func test_equip_same_name_discards_existing() -> void:

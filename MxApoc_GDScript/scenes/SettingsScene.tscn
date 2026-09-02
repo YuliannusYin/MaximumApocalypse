@@ -66,7 +66,7 @@ text = "跳过目标选择"
 [node name="TutorialModeCheckBox" type="CheckBox" parent="Panel"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
-text = "游戏教程模式"
+text = "在所有任务中显示教程"
 
 [node name="BackButton" type="Button" parent="Panel"]
 layout_mode = 2

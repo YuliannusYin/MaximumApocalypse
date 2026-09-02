@@ -7,7 +7,16 @@ extends SurvivorGameCard
 ## 设计文档：GameDesignDocus/GameSystem/Entities/Card.md#EquipmentCard
 
 ## 填充物类型："ammo"（弹药）/ "fuel"（燃料）/ "hollow_point"（空尖弹）等
-var charge_type: String = ""
+## 运行时可能被改写（如空尖弹）；卡面印刷类型见 charge_type_printed。
+var charge_type_printed: String = ""
+var _charge_type: String = ""
+var charge_type: String:
+	get:
+		return _charge_type
+	set(value):
+		if charge_type_printed.is_empty() and not value.is_empty():
+			charge_type_printed = value
+		_charge_type = value
 
 ## 填充物上限
 var charge_max: int = 0
@@ -67,9 +76,10 @@ func is_weapon_card() -> bool:
 	return range != "none" and card_subtype == "equipment"
 
 
-## 实体化：复制卡面数据到 Equipment 实例。
+## 实体化：复制卡面数据到 Equipment 实例，并把来源卡重置为全新填充物状态。
 ## 由 Player.equip 调用。装备区持有实体，来源卡通过 equipment_card 回引。
 func instantiate(player: Player = null) -> Equipment:
+	_reset_fresh_charge_state()
 	var eq: Equipment = Equipment.new()
 	eq.equipment_name = card_name
 	eq.card_name = card_name
@@ -86,3 +96,10 @@ func instantiate(player: Player = null) -> Equipment:
 	for s in skills:
 		eq.add_skill(s)
 	return eq
+
+
+## 进入装备区时恢复卡面状态：填充物类型还原为印刷类型，数量补满到上限。
+func _reset_fresh_charge_state() -> void:
+	if not charge_type_printed.is_empty():
+		_charge_type = charge_type_printed
+	charge_current = charge_max

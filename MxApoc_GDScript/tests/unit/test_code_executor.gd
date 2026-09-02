@@ -89,6 +89,13 @@ func test_compile_content_modify_event() -> void:
 	assert_eq(event["num"], 4, "content 应能修改 event 字典")
 
 
+func test_compile_content_exposes_actions_context() -> void:
+	var cb: Callable = CodeExecutor.compile_content("event.has_actions = actions != null")
+	var event: Dictionary = {"actions": GameActions.new(null, null)}
+	cb.call(null, null, event, null)
+	assert_true(event["has_actions"], "content 应可使用 actions 操作门面")
+
+
 func test_compile_content_with_for_loop() -> void:
 	# 测试多语句 for 循环（Expression 无法处理，CodeExecutor 可以）
 	var cb: Callable = CodeExecutor.compile_content("var sum = 0\nfor i in range(5):\n\tsum += i\nevent.sum = sum")
@@ -178,3 +185,37 @@ func test_mechanic_full_deck_compiles_without_error() -> void:
 	assert_engine_error_count(0, "机械师整副牌堆 content 编译应无 Parser Error")
 	for r in results:
 		assert_true(r["callable"].is_valid(), "%s 的 content 应编译为有效 Callable" % r["card"])
+
+
+func test_all_json_content_compiles_after_actions_migration() -> void:
+	var files: Array[String] = []
+	_collect_json_files("res://data", files)
+	for path in files:
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+		assert_not_null(parsed, "%s 应为有效 JSON" % path)
+		_compile_all_content_values(parsed, path)
+
+
+func _collect_json_files(path: String, output: Array[String]) -> void:
+	var dir := DirAccess.open(path)
+	if dir == null:
+		return
+	for entry in dir.get_files():
+		if entry.ends_with(".json"):
+			output.append(path.path_join(entry))
+	for entry in dir.get_directories():
+		_collect_json_files(path.path_join(entry), output)
+
+
+func _compile_all_content_values(value: Variant, path: String) -> void:
+	if value is Dictionary:
+		if value.get("content", null) is String:
+			var code: String = value["content"]
+			if not code.strip_edges().is_empty():
+				var cb: Callable = CodeExecutor.compile_content(code)
+				assert_true(cb.is_valid(), "%s 的 content 应编译成功" % path)
+		for child in value.values():
+			_compile_all_content_values(child, path)
+	elif value is Array:
+		for child in value:
+			_compile_all_content_values(child, path)

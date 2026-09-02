@@ -20,7 +20,7 @@
           "trigger": "on_monster_attack",
           "forced": true,
           "filter": "return true",
-          "content": "var list = event.target_players\nfor p in list:\n\tp.add_mark_skill(\"poison\", 1, \"\", \"中毒\", \"中毒结算时受到 1 点伤害\", true)"
+          "content": "var list = event.target_players\nfor p in list:\n\tactions.add_mark_skill(p, \"poison\", 1, \"\", \"中毒\", \"中毒结算时受到 1 点伤害\", true)"
         }
       ]
     },
@@ -42,7 +42,7 @@
           "trigger": "after_monster_enter_zone",
           "forced": true,
           "filter": "return true",
-          "content": "var list = game.get_all_players()\nfor p in list:\n\tvar equip_cards = p.get_cards(\"equipment\")\n\tif equip_cards.is_empty():\n\t\tawait p.damage(4, event[\"card\"])\n\telif await p.confirm(\"\\\"达克斯顿·贾格\\\": 是否弃置一张装备，否则受到 4 点伤害\"):\n\t\tvar chosen = await p.choose_card(1, equip_cards)\n\t\tif chosen.is_empty():\n\t\t\tawait p.damage(4, event[\"card\"])\n\t\telse:\n\t\t\tawait p.discard(chosen)\n\telse:\n\t\tawait p.damage(4, event[\"card\"])"
+          "content": "var list = game.get_all_players()\nfor p in list:\n\tvar equip_cards = p.get_cards(\"equipment\")\n\tif equip_cards.is_empty():\n\t\tactions.damage(p, 4, event[\"card\"])\n\telif await p.confirm(\"\\\"达克斯顿·贾格\\\": 是否弃置一张装备，否则受到 4 点伤害\"):\n\t\tvar chosen = await p.choose_card(1, equip_cards)\n\t\tif chosen.is_empty():\n\t\t\tactions.damage(p, 4, event[\"card\"])\n\t\telse:\n\t\t\tactions.discard(p, chosen)\n\telse:\n\t\tactions.damage(p, 4, event[\"card\"])"
         }
       ]
     },
@@ -64,7 +64,7 @@
           "trigger": "after_monster_enter_zone",
           "forced": true,
           "filter": "return true",
-          "content": "var drawer = event.player\nvar equip_cards = drawer.get_cards(\"equipment\")\nif equip_cards.is_empty():\n\tawait drawer.damage(4, event[\"card\"])\nelif await drawer.confirm(\"\\\"军部残余武装\\\": 是否弃置一张装备，否则受到 4 点伤害\"):\n\tvar chosen = await drawer.choose_card(1, equip_cards)\n\tif chosen.is_empty():\n\t\tawait drawer.damage(4, event[\"card\"])\n\telse:\n\t\tawait drawer.discard(chosen)\nelse:\n\tawait drawer.damage(4, event[\"card\"])"
+          "content": "var drawer = event.player\nvar equip_cards = drawer.get_cards(\"equipment\")\nif equip_cards.is_empty():\n\tactions.damage(drawer, 4, event[\"card\"])\nelif await drawer.confirm(\"\\\"军部残余武装\\\": 是否弃置一张装备，否则受到 4 点伤害\"):\n\tvar chosen = await drawer.choose_card(1, equip_cards)\n\tif chosen.is_empty():\n\t\tactions.damage(drawer, 4, event[\"card\"])\n\telse:\n\t\tactions.discard(drawer, chosen)\nelse:\n\tactions.damage(drawer, 4, event[\"card\"])"
         }
       ]
     },
@@ -86,7 +86,7 @@
           "trigger": "after_monster_enter_zone",
           "forced": true,
           "filter": "return true",
-          "content": "var drawer = event.player\nvar scavenge_cards = drawer.get_cards(\"\", \"\", 0, \"scavenge\")\nif scavenge_cards.is_empty():\n\tawait drawer.damage(3, event[\"card\"])\nelif await drawer.confirm(\"\\\"强盗\\\": 是否弃置一张拾荒牌，否则受到 3 点伤害\"):\n\tvar chosen = await drawer.choose_card(1, scavenge_cards)\n\tif chosen.is_empty():\n\t\tawait drawer.damage(3, event[\"card\"])\n\telse:\n\t\tawait drawer.discard(chosen)\nelse:\n\tawait drawer.damage(3, event[\"card\"])"
+          "content": "var drawer = event.player\nvar scavenge_cards = drawer.get_cards(\"\", \"\", 0, \"scavenge\")\nif scavenge_cards.is_empty():\n\tactions.damage(drawer, 3, event[\"card\"])\nelif await drawer.confirm(\"\\\"强盗\\\": 是否弃置一张拾荒牌，否则受到 3 点伤害\"):\n\tvar chosen = await drawer.choose_card(1, scavenge_cards)\n\tif chosen.is_empty():\n\t\tactions.damage(drawer, 3, event[\"card\"])\n\telse:\n\t\tactions.discard(drawer, chosen)\nelse:\n\tactions.damage(drawer, 3, event[\"card\"])"
         }
       ]
     },
@@ -108,7 +108,7 @@
           "trigger": "on_monster_attack",
           "forced": true,
           "filter": "return true",
-          "content": "var list = event.target_players\nfor p in list:\n\tp.add_mark_skill(\"poison\", 1, \"\", \"中毒\", \"中毒结算时受到 1 点伤害\", true)"
+          "content": "var list = event.target_players\nfor p in list:\n\tactions.add_mark_skill(p, \"poison\", 1, \"\", \"中毒\", \"中毒结算时受到 1 点伤害\", true)"
         }
       ]
     },

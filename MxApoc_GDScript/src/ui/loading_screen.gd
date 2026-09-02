@@ -19,9 +19,16 @@ func _ready() -> void:
 
 func _build_ui() -> void:
 	var bg := ColorRect.new()
-	bg.color = Color(0.12, 0.13, 0.16, 1.0)
 	bg.set_anchors_preset(PRESET_FULL_RECT)
+	HudTheme.apply_screen_background(bg, Color("#101110"))
 	add_child(bg)
+	HudTheme.add_wasteland_backdrop(self, bg)
+
+	var frame := Panel.new()
+	frame.position = Vector2(555.0, 285.0)
+	frame.size = Vector2(320.0, 235.0)
+	HudTheme.apply_section_panel(frame, Color("#1d1c18"), HudTheme.GOLD_TEXT_DIM)
+	add_child(frame)
 
 	_dot_container = Node2D.new()
 	_dot_container.position = Vector2(715.0, 360.0)
@@ -32,7 +39,7 @@ func _build_ui() -> void:
 		var angle: float = TAU * i / DOT_COUNT
 		dot.position = Vector2(cos(angle), sin(angle)) * ORBIT_RADIUS - Vector2(DOT_RADIUS, DOT_RADIUS)
 		dot.size = Vector2(DOT_RADIUS * 2.0, DOT_RADIUS * 2.0)
-		dot.color = Color(1.0, 1.0, 1.0, 1.0)
+		dot.color = HudTheme.GOLD_TEXT if i % 2 == 0 else HudTheme.TEXT_DIM
 		_dot_container.add_child(dot)
 
 	var label := Label.new()
@@ -41,7 +48,7 @@ func _build_ui() -> void:
 	label.position = Vector2(615.0, 430.0)
 	label.size = Vector2(200.0, 30.0)
 	label.add_theme_font_size_override("font_size", 18)
-	label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8, 1.0))
+	label.add_theme_color_override("font_color", HudTheme.GOLD_TEXT)
 	add_child(label)
 
 

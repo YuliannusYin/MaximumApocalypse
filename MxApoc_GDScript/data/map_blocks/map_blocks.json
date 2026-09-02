@@ -15,7 +15,7 @@
           "trigger": "on_reveal_block",
           "filter": "return true",
           "forced": true,
-          "content": "player.draw_scavenge(1, game.get_scavenge_pile(player.get_current_block().scavenge_colors[0]))"
+          "content": "actions.draw_scavenge(player, 1, game.get_scavenge_pile(player.get_current_block().scavenge_colors[0]))"
         }
       ]
     },
@@ -37,7 +37,7 @@
           "trigger": "on_turn_start、on_take_damage",
           "filter": "return !player.has_mark_skill(\"shelter_disabled\")",
           "forced": true,
-          "content": "if event.trigger_name == \"on_turn_start\" && player.get_current_block().has_skill(\"shelter\"):\n\tplayer.add_mark_skill(\"shelter_disabled\", 1, \"turn_end\", \"避难所\", \"本回合内无触发避难所的庇护\", true)\nelif event.trigger_name == \"on_take_damage\" && player.get_current_block().has_skill(\"shelter\"):\n\tevent[\"cancel\"].call()"
+          "content": "if event.trigger_name == \"on_turn_start\" && player.get_current_block().has_skill(\"shelter\"):\n\tactions.add_mark_skill(player, \"shelter_disabled\", 1, \"turn_end\", \"避难所\", \"本回合内无触发避难所的庇护\", true)\nelif event.trigger_name == \"on_take_damage\" && player.get_current_block().has_skill(\"shelter\"):\n\tevent[\"cancel\"].call()"
         }
       ]
     },
@@ -60,7 +60,7 @@
           "trigger": "on_reveal_block",
           "filter": "return true",
           "forced": true,
-          "content": "player.draw_monster(1)"
+          "content": "actions.draw_monster(player, 1)"
         }
       ]
     },
@@ -78,7 +78,7 @@
           "trigger": "on_reveal_block、on_enter_block",
           "filter": "return true",
           "forced": true,
-          "content": "if event.trigger_name == \"on_reveal_block\":\n\tvar food_cards = []\n\tfor c in player.get_cards():\n\t\tif c.english_name.begins_with(\"food_\"):\n\t\t\tfood_cards.append(c)\n\tplayer.discard(food_cards)\nelif event.trigger_name == \"on_enter_block\" && player.get_current_block().has_skill(\"power_plant\"):\n\tplayer.add_poison(1)"
+          "content": "if event.trigger_name == \"on_reveal_block\":\n\tvar food_cards = []\n\tfor c in player.get_cards():\n\t\tif c.english_name.begins_with(\"food_\"):\n\t\t\tfood_cards.append(c)\n\tactions.discard(player, food_cards)\nelif event.trigger_name == \"on_enter_block\" && player.get_current_block().has_skill(\"power_plant\"):\n\tplayer.add_poison(1)"
         }
       ]
     },
@@ -100,7 +100,7 @@
           "trigger": "on_enter_block",
           "filter": "return event.has(\"target_block\") && event[\"target_block\"] != null && event[\"target_block\"].has_skill(\"river\")",
           "forced": true,
-          "content": "var block = player.get_current_block()\nif block != null and not block.is_revealed():\n\tawait block.reveal(true, player)\nif not await player.sneak_judge():\n\tawait player.move_to(event[\"source_block\"])"
+          "content": "var block = player.get_current_block()\nif block != null and not block.is_revealed():\n\tactions.reveal(block, true, player)\nif not await player.sneak_judge():\n\tawait player.move_to(event[\"source_block\"])"
         }
       ]
     },
@@ -117,7 +117,7 @@
           "skill_type": "block",
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_current_block().has_skill(\"airport\") && !player.get_current_block().has_monster()",
-          "content": "var candidates = []\nfor b in game.map_area:\n\tif b.is_revealed() and not b.has_monster_mark() and b != player.get_current_block():\n\t\tcandidates.append(b)\nif candidates.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar chosen = await player.choose_block_inline(candidates, \"\\\"机场\\\": 选择目标地图块\", 1)\nif chosen.is_empty():\n\tEventSystem.cancel(event)\n\treturn\ntarget = chosen[0]\nplayer.consume_action(1)\nawait player.move_to(target)"
+          "content": "var candidates = []\nfor b in game.map_area:\n\tif b.is_revealed() and not b.has_monster_mark() and b != player.get_current_block():\n\t\tcandidates.append(b)\nif candidates.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar chosen = await player.choose_block_inline(candidates, \"\\\"机场\\\": 选择目标地图块\", 1)\nif chosen.is_empty():\n\tEventSystem.cancel(event)\n\treturn\ntarget = chosen[0]\nactions.consume_action(player, 1)\nawait player.move_to(target)"
         }
       ]
     },
@@ -135,7 +135,7 @@
           "trigger": "on_reveal_block",
           "filter": "return true",
           "forced": true,
-          "content": "player.draw_scavenge(1, game.get_scavenge_pile(player.get_current_block().scavenge_colors[0]))"
+          "content": "actions.draw_scavenge(player, 1, game.get_scavenge_pile(player.get_current_block().scavenge_colors[0]))"
         }
       ]
     },
@@ -153,7 +153,7 @@
           "trigger": "on_enter_block",
           "filter": "return true",
           "forced": true,
-          "content": "var list = game.get_engaged_monsters(player)\nfor i in list:\n\tawait i.damage(2, player)"
+          "content": "var list = game.get_engaged_monsters(player)\nfor i in list:\n\tactions.damage(i, 2, player)"
         }
       ]
     },
@@ -171,7 +171,7 @@
           "trigger": "on_reveal_block、on_enter_block",
           "filter": "return true",
           "forced": true,
-          "content": "if event.trigger_name == \"on_reveal_block\" && player.in_phase == \"action\":\n\tplayer.end_phase(\"action\")\nelif event.trigger_name == \"on_enter_block\" && player.get_current_block().has_skill(\"prison\"):\n\tplayer.consume_action(1)"
+          "content": "if event.trigger_name == \"on_reveal_block\" && player.in_phase == \"action\":\n\tactions.end_phase(player, \"action\")\nelif event.trigger_name == \"on_enter_block\" && player.get_current_block().has_skill(\"prison\"):\n\tactions.consume_action(player, 1)"
         }
       ]
     },
@@ -193,7 +193,7 @@
           "trigger": "on_enter_block",
           "filter": "return true",
           "forced": true,
-          "content": "player.draw_monster(1)"
+          "content": "actions.draw_monster(player, 1)"
         }
       ]
     },
@@ -211,7 +211,7 @@
           "trigger": "on_reveal_block",
           "filter": "return true",
           "forced": true,
-          "content": "var list = player.get_current_block().get_adjacent_blocks()\nfor i in list:\n\ti.add_monster_mark(1)"
+          "content": "var list = player.get_current_block().get_adjacent_blocks()\nfor i in list:\n\tactions.add_monster_mark(i, 1)"
         }
       ]
     },
@@ -229,7 +229,7 @@
           "trigger": "on_reveal_block",
           "filter": "return true",
           "forced": true,
-          "content": "player.draw_scavenge(1, game.get_scavenge_pile(player.get_current_block().scavenge_colors[0]))"
+          "content": "actions.draw_scavenge(player, 1, game.get_scavenge_pile(player.get_current_block().scavenge_colors[0]))"
         }
       ]
     },
@@ -252,7 +252,7 @@
           "trigger": "on_reveal_block",
           "filter": "return true",
           "forced": true,
-          "content": "player.draw_scavenge(1, game.get_scavenge_pile(player.get_current_block().scavenge_colors[0]))"
+          "content": "actions.draw_scavenge(player, 1, game.get_scavenge_pile(player.get_current_block().scavenge_colors[0]))"
         }
       ]
     },
@@ -270,7 +270,7 @@
           "trigger": "on_turn_end",
           "filter": "return true",
           "forced": true,
-          "content": "player.decrease_hunger(1)"
+          "content": "actions.decrease_hunger(player, 1)"
         }
       ]
     },
@@ -289,7 +289,7 @@
           "usable": -1,
           "filter": "if player.in_phase != \"action\" or player.get_number(\"action_count\") <= 0:\n\treturn false\nvar block = player.get_current_block()\nif block == null or not block.has_skill(\"van\"):\n\treturn false\nif game.mission_config == null or game.mission_config.van_fuel_required <= 0:\n\treturn false\nif block.get_van_fuel() < block.get_van_fuel_max():\n\treturn player.get_equipment(\"fuel\") != null\nif block.has_monster() or block.has_monster_mark():\n\treturn false\nfor p in game.get_all_players():\n\tif p.is_alive() and p.get_current_block() != block:\n\t\treturn false\nreturn true",
           "confirm_prompt": "var block = player.get_current_block()\nif block.get_van_fuel() < block.get_van_fuel_max():\n\treturn '行动：是否给 \"面包车\" 添加一桶燃料'\nelse:\n\treturn '行动：是否启动 \"面包车\" 离开'",
-          "content": "player.consume_action(1)\nvar block = player.get_current_block()\nif block.get_van_fuel() < block.get_van_fuel_max():\n\tblock.add_van_fuel(1)\n\tvar fuel_equip = player.get_equipment(\"fuel\")\n\tif fuel_equip != null:\n\t\tawait player.discard(fuel_equip)\nelse:\n\tgame.game_over(\"win\")"
+          "content": "actions.consume_action(player, 1)\nvar block = player.get_current_block()\nif block.get_van_fuel() < block.get_van_fuel_max():\n\tblock.add_van_fuel(1)\n\tvar fuel_equip = player.get_equipment(\"fuel\")\n\tif fuel_equip != null:\n\t\tactions.discard(player, fuel_equip)\nelse:\n\tgame.game_over(\"win\")"
         }
       ]
     },
@@ -307,7 +307,7 @@
           "trigger": "on_reveal_block、on_enter_block",
           "filter": "return true",
           "forced": true,
-          "content": "if event.trigger_name == \"on_reveal_block\":\n\tvar list = game.get_all_players()\n\tfor i in list:\n\t\ti.draw_monster(1)\nelif event.trigger_name == \"on_enter_block\":\n\tplayer.draw_monster(1)"
+          "content": "if event.trigger_name == \"on_reveal_block\":\n\tvar list = game.get_all_players()\n\tfor i in list:\n\t\tactions.draw_monster(i, 1)\nelif event.trigger_name == \"on_enter_block\":\n\tactions.draw_monster(player, 1)"
         }
       ]
     },
@@ -329,7 +329,7 @@
           "trigger": "on_reveal_block",
           "filter": "return true",
           "forced": true,
-          "content": "player.draw_scavenge(1, game.get_scavenge_pile(player.get_current_block().scavenge_colors[0]))"
+          "content": "actions.draw_scavenge(player, 1, game.get_scavenge_pile(player.get_current_block().scavenge_colors[0]))"
         }
       ]
     },
@@ -351,7 +351,7 @@
           "trigger": "on_enter_block",
           "filter": "return true",
           "forced": true,
-          "content": "var equip_cards = []\nfor c in player.get_cards():\n\tif c.card_type == \"equipment\":\n\t\tequip_cards.append(c)\nif equip_cards.is_empty():\n\tplayer.damage(5, null)\nelif await player.confirm(\"\\\"强盗营地\\\": 是否弃置一张装备牌，否则受到 5 点伤害\"):\n\tvar chosen = await player.choose_card(1, equip_cards)\n\tif chosen.is_empty():\n\t\tplayer.damage(5, null)\n\telse:\n\t\tplayer.discard(chosen)\nelse:\n\tplayer.damage(5, null)"
+          "content": "var equip_cards = []\nfor c in player.get_cards():\n\tif c.card_type == \"equipment\":\n\t\tequip_cards.append(c)\nif equip_cards.is_empty():\n\tactions.damage(player, 5, null)\nelif await player.confirm(\"\\\"强盗营地\\\": 是否弃置一张装备牌，否则受到 5 点伤害\"):\n\tvar chosen = await player.choose_card(1, equip_cards)\n\tif chosen.is_empty():\n\t\tactions.damage(player, 5, null)\n\telse:\n\t\tactions.discard(player, chosen)\nelse:\n\tactions.damage(player, 5, null)"
         }
       ]
     },
@@ -373,7 +373,7 @@
           "trigger": "on_enter_block",
           "filter": "return true",
           "forced": true,
-          "content": "player.draw(1)"
+          "content": "actions.draw(player, 1)"
         }
       ]
     },
@@ -394,7 +394,7 @@
           "skill_type": "block",
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_current_block().has_skill(\"tunnel\")",
-          "content": "var candidates = []\nfor b in game.map_area:\n\tif b.has_skill(\"tunnel\") and b != player.get_current_block():\n\t\tcandidates.append(b)\nif candidates.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar chosen = await player.choose_block_inline(candidates, \"\\\"隧道\\\": 选择目标地图块\", 1)\nif chosen.is_empty():\n\tEventSystem.cancel(event)\n\treturn\ntarget = chosen[0]\nplayer.consume_action(1)\nawait player.move_to(target)"
+          "content": "var candidates = []\nfor b in game.map_area:\n\tif b.has_skill(\"tunnel\") and b != player.get_current_block():\n\t\tcandidates.append(b)\nif candidates.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar chosen = await player.choose_block_inline(candidates, \"\\\"隧道\\\": 选择目标地图块\", 1)\nif chosen.is_empty():\n\tEventSystem.cancel(event)\n\treturn\ntarget = chosen[0]\nactions.consume_action(player, 1)\nawait player.move_to(target)"
         }
       ]
     },
@@ -416,7 +416,7 @@
           "trigger": "on_enter_block、on_leave_block",
           "filter": "return true",
           "forced": true,
-          "content": "if event.trigger_name == \"on_enter_block\":\n\tplayer.add_mark_skill(\"forest_monster\", 1, \"turn_end\", \"森林\", \"本回合内移动出森林抓取一张怪物牌\", false)\nelif event.trigger_name == \"on_leave_block\" && player.has_mark_skill(\"forest_monster\"):\n\tplayer.draw_monster(1)"
+          "content": "if event.trigger_name == \"on_enter_block\":\n\tactions.add_mark_skill(player, \"forest_monster\", 1, \"turn_end\", \"森林\", \"本回合内移动出森林抓取一张怪物牌\", false)\nelif event.trigger_name == \"on_leave_block\" && player.has_mark_skill(\"forest_monster\"):\n\tactions.draw_monster(player, 1)"
         }
       ]
     },
@@ -438,7 +438,7 @@
           "trigger": "on_enter_block",
           "filter": "return true",
           "forced": true,
-          "content": "player.increase_hunger(1)"
+          "content": "actions.increase_hunger(player, 1)"
         }
       ]
     },
@@ -474,7 +474,7 @@
           "trigger": "on_enter_block、on_turn_end",
           "filter": "return true",
           "forced": true,
-          "content": "if event.trigger_name == \"on_enter_block\":\n\tplayer.recover(1)\nelif event.trigger_name == \"on_turn_end\":\n\tplayer.recover(2)"
+          "content": "if event.trigger_name == \"on_enter_block\":\n\tactions.recover(player, 1)\nelif event.trigger_name == \"on_turn_end\":\n\tactions.recover(player, 2)"
         }
       ]
     },
@@ -492,7 +492,7 @@
           "trigger": "on_reveal_block、on_enter_block",
           "filter": "return true",
           "forced": true,
-          "content": "if event.trigger_name == \"on_reveal_block\":\n\tvar list = game.get_all_players()\n\tfor i in list:\n\t\tif i.has_card(\"equipment\"):\n\t\t\tvar card = game.get_random_card(i, [\"equipment\"])\n\t\t\tif card != null:\n\t\t\t\ti.remove_card(card)\nelif event.trigger_name == \"on_enter_block\" && player.has_card():\n\tvar card = game.get_random_card(player, [\"hand\", \"equipment\"])\n\tif card != null:\n\t\tplayer.remove_card(card)"
+          "content": "if event.trigger_name == \"on_reveal_block\":\n\tvar list = game.get_all_players()\n\tfor i in list:\n\t\tif i.has_card(\"equipment\"):\n\t\t\tvar card = game.get_random_card(i, [\"equipment\"])\n\t\t\tif card != null:\n\t\t\t\tactions.remove_card(i, card)\nelif event.trigger_name == \"on_enter_block\" && player.has_card():\n\tvar card = game.get_random_card(player, [\"hand\", \"equipment\"])\n\tif card != null:\n\t\tactions.remove_card(player, card)"
         }
       ]
     }

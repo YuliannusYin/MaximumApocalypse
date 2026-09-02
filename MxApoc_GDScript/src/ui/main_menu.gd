@@ -1,6 +1,7 @@
 extends Control
 
 const GITHUB_URL := "https://github.com/YuliannusYin/MaximumApocalypse"
+const WIKI_OVERLAY_SCENE := preload("res://scenes/WikiOverlay.tscn")
 ## 连续点击时间窗口（秒）
 const CLICK_WINDOW := 1.5
 ## 触发切换所需点击次数
@@ -14,26 +15,48 @@ const CLICKS_REQUIRED := 3
 @onready var achievement_button: Button = $AchievementButton
 @onready var github_button: Button = $GithubButton
 @onready var version_label: Label = $VersionLabel
+@onready var background: TextureRect = $Background
 
 ## 版本号点击计数器
 var _version_click_count: int = 0
 ## 上次点击时间戳
 var _last_click_time: float = 0.0
+var _wiki_overlay: Control = null
 
 func _ready() -> void:
+	# 保留现有主菜单背景图，以统一的暗色遮罩和金属按钮承接废土桌游风。
+	background.modulate = Color(0.78, 0.78, 0.78, 1.0)
+	HudTheme.add_wasteland_backdrop(self, background)
+	HudTheme.apply_slot_button(create_room_button, 18, HudTheme.GOLD_BORDER, HudTheme.GOLD_TEXT)
+	HudTheme.apply_slot_button(join_room_button, 18)
+	HudTheme.apply_slot_button(quit_button, 18)
+	HudTheme.apply_slot_button(settings_button, 10, HudTheme.SLOT_BORDER, HudTheme.GOLD_TEXT)
+	HudTheme.apply_slot_button(wiki_button, 10, HudTheme.SLOT_BORDER, HudTheme.GOLD_TEXT)
+	HudTheme.apply_slot_button(achievement_button, 10, HudTheme.SLOT_BORDER, HudTheme.GOLD_TEXT)
+	HudTheme.apply_slot_button(github_button, 10)
+	version_label.add_theme_color_override("font_color", HudTheme.TEXT_DIM)
 	create_room_button.pressed.connect(_on_create_room_pressed)
 	quit_button.pressed.connect(_on_quit_pressed)
 	settings_button.pressed.connect(_on_settings_pressed)
+	wiki_button.pressed.connect(_on_wiki_pressed)
 	achievement_button.pressed.connect(_on_achievement_pressed)
 	github_button.pressed.connect(_on_github_pressed)
 	version_label.gui_input.connect(_on_version_label_gui_input)
-	# JoinRoomButton / WikiButton 保持禁用占位，不连接信号
+	# JoinRoomButton 保持禁用占位，不连接信号
 
 func _on_create_room_pressed() -> void:
 	get_tree().change_scene_to_file("res://scenes/GameRoom.tscn")
 
 func _on_settings_pressed() -> void:
 	get_tree().change_scene_to_file("res://scenes/SettingsScene.tscn")
+
+func _on_wiki_pressed() -> void:
+	if _wiki_overlay != null and is_instance_valid(_wiki_overlay):
+		return
+	_wiki_overlay = WIKI_OVERLAY_SCENE.instantiate()
+	add_child(_wiki_overlay)
+	_wiki_overlay.closed.connect(func() -> void: _wiki_overlay = null)
+
 
 func _on_achievement_pressed() -> void:
 	get_tree().change_scene_to_file("res://scenes/AchievementScene.tscn")

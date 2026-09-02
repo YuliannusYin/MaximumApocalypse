@@ -1,14 +1,24 @@
 extends Control
 
-## 游戏设置场景。从主菜单跳转进入，提供全屏、音量、跳过目标选择、教程模式四项设置。
+## 游戏设置场景。从主菜单跳转进入，提供全屏、音量、跳过目标选择、教程显示范围四项设置。
 
 @onready var fullscreen_checkbox: CheckBox = $Panel/FullscreenCheckBox
 @onready var volume_slider: HSlider = $Panel/VolumeSlider
 @onready var skip_target_checkbox: CheckBox = $Panel/SkipTargetCheckBox
 @onready var tutorial_mode_checkbox: CheckBox = $Panel/TutorialModeCheckBox
 @onready var back_button: Button = $Panel/BackButton
+@onready var background: ColorRect = $Background
+@onready var title_label: Label = $Panel/TitleLabel
 
 func _ready() -> void:
+	HudTheme.apply_screen_background(background, Color("#101110"))
+	HudTheme.add_wasteland_backdrop(self, background)
+	HudTheme.apply_title(title_label, 28)
+	HudTheme.apply_slot_button(fullscreen_checkbox, 16)
+	HudTheme.apply_slot_button(skip_target_checkbox, 16)
+	HudTheme.apply_slot_button(tutorial_mode_checkbox, 16)
+	HudTheme.apply_mission_slot_button(back_button, 16)
+	$Panel/VolumeLabel.add_theme_color_override("font_color", HudTheme.GOLD_TEXT_DIM)
 	# 初始化 UI 状态
 	fullscreen_checkbox.button_pressed = Settings.fullscreen
 	volume_slider.value = Settings.volume * 100.0

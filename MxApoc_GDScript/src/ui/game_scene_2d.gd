@@ -6,6 +6,7 @@ extends Control
 
 const SETTINGS_DIALOG_SCENE := preload("res://scenes/SettingsDialog.tscn")
 const TUTORIAL_DIALOG_SCENE := preload("res://scenes/TutorialDialog.tscn")
+const WIKI_OVERLAY_SCENE := preload("res://scenes/WikiOverlay.tscn")
 const TutorialManager = preload("res://src/ui/tutorial_manager.gd")
 
 # === 层节点（来自 .tscn）===
@@ -14,9 +15,6 @@ const TutorialManager = preload("res://src/ui/tutorial_manager.gd")
 @onready var _popup_layer: CanvasLayer = $PopupLayer
 
 # === UI 元素（来自 .tscn）===
-@onready var _top_bar: HBoxContainer = $UILayer/TopBar
-@onready var _phase_label: Label = $UILayer/TopBar/PhaseLabel
-@onready var _current_player_label: Label = $UILayer/TopBar/CurrentPlayerLabel
 @onready var _log_button: Button = $UILayer/LogButton
 @onready var _mission_button: Button = $UILayer/MissionButton
 @onready var _settings_button: Button = $UILayer/SettingsButton
@@ -38,6 +36,7 @@ var _pending_target_source: Variant = null
 
 # === 设置弹出菜单 ===
 var _settings_popup: PopupMenu
+var _wiki_overlay: Control = null
 
 # === 玩家面板 ===
 var _player_panels: Array = []
@@ -45,6 +44,9 @@ var _player_to_panel_idx: Dictionary = {}
 
 # === 手牌区 ===
 var _hand_area: HandDisplayArea
+
+# === 任务进度 ===
+var _progress_panel: MissionProgressPanel
 
 # === 事件日志 ===
 var _event_log: Array = []
@@ -90,6 +92,7 @@ func _create_modules() -> void:
 	_ui_layer.add_child(_event_log_panel)
 
 	_table_map_controller.block_clicked.connect(_on_block_clicked)
+	_table_map_controller.block_inspected.connect(_on_block_inspected)
 	_table_map_controller.avatar_clicked.connect(_on_avatar_clicked)
 	_pile_manager.pile_clicked.connect(_on_pile_clicked)
 	_pile_manager.discard_pile_clicked.connect(_on_discard_pile_clicked)
@@ -101,9 +104,15 @@ func _create_modules() -> void:
 
 
 func _wire_static_buttons() -> void:
+	# 右上角固定操作入口与牌堆采用同一套废土金属槽视觉。
+	HudTheme.apply_slot_button(_log_button, 11)
+	HudTheme.apply_mission_slot_button(_mission_button, 11)
+	HudTheme.apply_slot_button(_settings_button, 10, HudTheme.SLOT_BORDER, HudTheme.GOLD_TEXT)
+	HudTheme.apply_slot_button(_wiki_button, 10, HudTheme.SLOT_BORDER, HudTheme.GOLD_TEXT)
 	_log_button.pressed.connect(_on_log_button_pressed)
 	_mission_button.pressed.connect(_on_mission_button_pressed)
 	_settings_button.pressed.connect(_on_settings_pressed)
+	_wiki_button.pressed.connect(_on_wiki_pressed)
 
 
 # === 游戏流程 ===
@@ -118,8 +127,8 @@ func _start_game_flow() -> void:
 	Game.initialize_game(mission, variants, seats)
 	_table_map_controller.build_table_and_map()
 	# 任务进度面板：常驻 UI 层右侧固定位置，_process 自刷新任务条件进度
-	var progress_panel: MissionProgressPanel = MissionProgressPanel.new()
-	_ui_layer.add_child(progress_panel)
+	_progress_panel = MissionProgressPanel.new()
+	_ui_layer.add_child(_progress_panel)
 	_build_player_panels()
 	_build_hand_area()
 	_assign_player_panels()
@@ -180,21 +189,73 @@ func _start_game_flow() -> void:
 		EventBus.card_drawn.connect(_on_player_stat_changed)
 		EventBus.card_discarded.connect(_on_player_stat_changed)
 		EventBus.card_used.connect(_on_player_stat_changed)
+		EventBus.card_settlement_started.connect(_on_player_stat_changed)
+		EventBus.card_settlement_finished.connect(_on_player_stat_changed)
 		EventBus.scavenge_drawn.connect(_on_pile_drawn)
 		EventBus.monster_card_drawn.connect(_on_pile_drawn)
 
-	# 教程系统
-	if Settings.tutorial_mode:
+	# 教程系统：任务 0 默认开启；设置勾选后任意任务也播
+	if _should_start_tutorial():
 		var tutorial_dialog: CanvasLayer = TUTORIAL_DIALOG_SCENE.instantiate()
 		add_child(tutorial_dialog)
 		var tutorial_manager: Node = TutorialManager.new()
 		add_child(tutorial_manager)
-		tutorial_manager.start(tutorial_dialog)
+		tutorial_manager.start(tutorial_dialog, get_tutorial_hole)
 
 	Game.start_game()
 
 
+func _should_start_tutorial() -> bool:
+	if Settings.tutorial_mode:
+		return true
+	var mission: Variant = Game.current_mission
+	if mission == null:
+		return false
+	return int(mission.get("mission_id")) == 0
+
+
+## 教程挖洞：按锚点名返回全局矩形；缺失时返回空矩形。
+func get_tutorial_hole(anchor_id: String) -> Rect2:
+	match anchor_id:
+		"mission":
+			if _progress_panel != null and is_instance_valid(_progress_panel):
+				return _progress_panel.get_global_rect()
+		"hp", "ap", "hunger", "monster_zone", "sneak":
+			var self_panel: PlayerPanel = _get_self_panel()
+			if self_panel != null:
+				return self_panel.get_element_rect(anchor_id)
+		"hand":
+			if _hand_area != null and is_instance_valid(_hand_area):
+				return _hand_area.get_global_rect()
+		"game_deck":
+			return _pile_manager.get_pile_rect("game_deck")
+		"scavenge":
+			return _pile_manager.get_piles_union_rect(["red_scavenge", "green_scavenge", "blue_scavenge"])
+		"action_rest":
+			return _pile_manager.get_piles_union_rect([
+				"game_deck", "red_scavenge", "green_scavenge", "blue_scavenge",
+			])
+		"avatar":
+			return _table_map_controller.get_current_player_avatar_rect()
+		"spawn_mark":
+			return _table_map_controller.get_marked_blocks_rect()
+		"skills":
+			return _active_skill_bar.get_bar_rect()
+	return Rect2()
+
+
+func _get_self_panel() -> PlayerPanel:
+	if _player_panels.is_empty():
+		return null
+	var panel: PlayerPanel = _player_panels[0]
+	if panel != null and is_instance_valid(panel):
+		return panel
+	return null
+
+
 func _input(event: InputEvent) -> void:
+	if _is_wiki_open():
+		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		_action_selection_controller.handle_shortcut(event.keycode, _popup_manager.is_popup_open())
 
@@ -204,8 +265,8 @@ func _input(event: InputEvent) -> void:
 func _build_player_panels() -> void:
 	_player_panels.clear()
 	_player_to_panel_idx.clear()
-	# 面板 0 = self（底部大面板），面板 1-3 = teammates
-	for i in range(4):
+	# 面板 0 = self（底部大面板），面板 1-5 = teammates（最多 6 人）
+	for i in range(6):
 		var panel := PlayerPanel.new()
 		panel.set_anchors_preset(PRESET_FULL_RECT)
 		panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -237,14 +298,14 @@ func _assign_player_panels() -> void:
 			_player_to_panel_idx[current.get_instance_id()] = 0
 		else:
 			self_panel.set_player(null, true)
-	# teammate 面板（最多 3 个）
-	for i in range(mini(others.size(), 3)):
+	# teammate 面板（最多 5 个）
+	for i in range(mini(others.size(), 5)):
 		var teammate_panel: PlayerPanel = _player_panels[i + 1]
 		teammate_panel.set_player(others[i], false)
 		teammate_panel.set_current_turn(false)
 		_player_to_panel_idx[others[i].get_instance_id()] = i + 1
 	# 隐藏多余的面板
-	for i in range(others.size() + 1, 4):
+	for i in range(others.size() + 1, 6):
 		if i < _player_panels.size():
 			var empty_panel: PlayerPanel = _player_panels[i]
 			empty_panel.set_player(null, i == 0)
@@ -304,8 +365,10 @@ func _refresh_hand_area() -> void:
 func _on_block_clicked(block: Variant) -> void:
 	if _action_selection_controller.is_in_move_mode():
 		_action_selection_controller.on_move_block_selected(block)
-	else:
-		_popup_manager.show_block_detail_popup(block)
+
+
+func _on_block_inspected(block: Variant) -> void:
+	_popup_manager.show_block_detail_popup(block)
 
 
 func _on_avatar_clicked(_block: Variant) -> void:
@@ -384,12 +447,26 @@ func _on_popup_block_selected(block: Variant) -> void:
 # === Settings ===
 
 func _on_settings_pressed() -> void:
+	if _is_wiki_open():
+		return
 	if _settings_popup == null or not is_instance_valid(_settings_popup):
 		_build_settings_popup()
 	# 在设置按钮下方弹出菜单
 	var btn_rect: Rect2 = _settings_button.get_global_rect()
 	_settings_popup.position = Vector2i(int(btn_rect.position.x), int(btn_rect.end.y))
 	_settings_popup.popup()
+
+
+func _is_wiki_open() -> bool:
+	return _wiki_overlay != null and is_instance_valid(_wiki_overlay)
+
+
+func _on_wiki_pressed() -> void:
+	if _is_wiki_open():
+		return
+	_wiki_overlay = WIKI_OVERLAY_SCENE.instantiate()
+	_popup_layer.add_child(_wiki_overlay)
+	_wiki_overlay.closed.connect(func() -> void: _wiki_overlay = null)
 
 
 ## 构建设置弹出菜单（"设置" + "返回主菜单"）。
@@ -421,7 +498,6 @@ func _on_settings_popup_id_pressed(id: int) -> void:
 # === GUIPlayerInput 信号处理 ===
 
 func _on_action_requested(_player: Variant) -> void:
-	_update_phase_indicator()
 	_active_skill_bar.refresh(Game.get_current_player())
 	_action_selection_controller.refresh_confirm_cancel_buttons()
 	_pile_manager.refresh_pile_highlights()
@@ -753,14 +829,12 @@ func _on_monster_attack_animation_requested(monster: Variant, targets: Array) ->
 func _on_turn_started(player: Variant) -> void:
 	if player == null or not is_instance_valid(player):
 		return
-	_current_player_label.text = "座位%d %s的回合" % [player.get("seat_number") + 1, player.player_name]
-	_update_phase_indicator()
 	_assign_player_panels()
 	_table_map_controller.refresh_map()
 	_refresh_hand_area()
 	_pile_manager.refresh_pile_counts()
 	_action_selection_controller.refresh_confirm_cancel_buttons()
-	# 回合切换横幅（fire-and-forget，文案与顶栏当前玩家标签一致）
+	# 回合切换横幅
 	_animation_controller.play_turn_banner("座位%d %s的回合" % [player.get("seat_number") + 1, player.player_name])
 	# 当前回合玩家面板呼吸高亮，其余面板恢复普通边框（死亡面板由 set_turn_highlight 内部处理）
 	for panel in _player_panels:
@@ -769,7 +843,6 @@ func _on_turn_started(player: Variant) -> void:
 
 
 func _on_phase_changed(_player: Variant, _old_phase: String, new_phase: String) -> void:
-	_update_phase_indicator()
 	_action_selection_controller.refresh_confirm_cancel_buttons()
 	_pile_manager.refresh_pile_highlights()
 	if new_phase != "action":
@@ -881,7 +954,6 @@ func _on_player_stat_changed(player: Variant, _arg1: Variant = null, _arg2: Vari
 		_pile_manager.refresh_pile_highlights()
 		_active_skill_bar.refresh(current)
 		_action_selection_controller.refresh_confirm_cancel_buttons()
-	_update_phase_indicator()
 
 
 ## 玩家受伤反馈：目标面板红闪 +「-N」飘字；来源为怪物时面板再震动（均 fire-and-forget）。
@@ -962,45 +1034,6 @@ func _on_log_message(message: String) -> void:
 	_event_log.append(message)
 	if _event_log.size() > 500:
 		_event_log.pop_front()
-
-
-# === 回合指示器 ===
-
-func _update_phase_indicator() -> void:
-	var current: Variant = Game.get_current_player()
-	var phase: String = "等待中"
-	var action_info: String = ""
-	if current != null and is_instance_valid(current):
-		phase = _phase_display(current.get("in_phase"))
-		if current.get("in_phase") == "action":
-			action_info = "（剩余 %d/%d 行动）" % [current.get("action_count"), current.get("max_action_count")]
-	_phase_label.text = "第 %d 轮 | %s%s" % [Game.state_machine.turn_number, phase, action_info]
-
-
-func _phase_display(phase: String) -> String:
-	match phase:
-		"round_zero":
-			return "重调阶段"
-		"idle":
-			return "等待中"
-		"turn_start":
-			return "回合开始"
-		"monster_spawn":
-			return "怪物生成"
-		"draw":
-			return "抽牌阶段"
-		"action":
-			return "行动阶段"
-		"hunger":
-			return "饥饿阶段"
-		"poison":
-			return "中毒阶段"
-		"monster_action":
-			return "怪物行动"
-		"turn_end":
-			return "回合结束"
-		_:
-			return phase
 
 
 # === Game over ===

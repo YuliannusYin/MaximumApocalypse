@@ -118,6 +118,20 @@ func change_engaged_target(target: Player) -> void:
 		EventBus.monster_engaged_target_changed.emit(self, old_target, target)
 
 
+## 事件化的纠缠对象变更；保留旧方法兼容既有数据。
+func change_engaged_target_evented(target: Player) -> bool:
+	var event: Dictionary = EventSystem.create_engaged_target_event(self, target)
+	await trigger("before_change_engaged_target", event)
+	if EventSystem.is_cancelled(event):
+		return false
+	await trigger("on_change_engaged_target", event)
+	if EventSystem.is_cancelled(event):
+		return false
+	change_engaged_target(event["target"])
+	await trigger("after_change_engaged_target", event)
+	return true
+
+
 # === 行动流程（6 节点） ===
 
 ## 击晕怪物（灭火器使用）。设置 stunned=true，怪物下回合行动时清除并跳过行动。
@@ -125,6 +139,20 @@ func change_engaged_target(target: Player) -> void:
 ## 实际清除由 act() 开头已有的 stunned 检查负责，故此处仅置标志。
 func stun(source: Variant, expire_trigger: String) -> void:
 	stunned = true
+
+
+## 事件化的击晕；保留旧方法兼容既有数据。
+func stun_evented(source: Variant, expire_trigger: String) -> bool:
+	var event: Dictionary = EventSystem.create_stun_event(self, source, expire_trigger)
+	await trigger("before_stun", event)
+	if EventSystem.is_cancelled(event):
+		return false
+	await trigger("on_stun", event)
+	if EventSystem.is_cancelled(event):
+		return false
+	stun(source, expire_trigger)
+	await trigger("after_stun", event)
+	return true
 
 
 ## 怪物行动流程。
@@ -154,7 +182,7 @@ func act() -> void:
 	if not event["target_players"].is_empty():
 		await _play_attack_animation(event["target_players"])
 	await trigger("on_monster_attack", event)
-	_attack()
+	await _attack()
 
 	# 5. after_monster_attack
 	await trigger("after_monster_attack", event)
@@ -192,7 +220,7 @@ func _attack() -> void:
 		if target != null and is_instance_valid(target) and target.is_alive():
 			if Game != null and is_instance_valid(Game):
 				Game.log_message(LogColors.monster(monster_name) + " 攻击了 " + LogColors.player(target.player_name))
-			target.damage(damage_value, self, "monster_attack")
+			await target.damage(damage_value, self, "monster_attack")
 
 
 ## 播放"怪物攻击"动画：经所属玩家 input 请求，阻塞至播完；无所属玩家或 input 时跳过。

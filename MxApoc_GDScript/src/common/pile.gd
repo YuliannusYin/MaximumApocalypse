@@ -27,6 +27,11 @@ func add(card: Card) -> void:
 	cards.append(card)
 
 
+## 从牌堆中移除指定卡牌（按实例，不在堆中则无操作）。
+func remove(card: Card) -> void:
+	cards.erase(card)
+
+
 ## 查看牌堆顶 n 张牌（不移除）。不足时返回全部。
 func peek_top(n: int) -> Array:
 	if n <= 0:

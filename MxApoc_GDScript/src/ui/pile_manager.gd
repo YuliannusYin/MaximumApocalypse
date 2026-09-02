@@ -56,6 +56,31 @@ func apply_pile_styles() -> void:
 	refresh_pile_highlights()
 
 
+## 教程挖洞：单个牌堆的全局矩形。
+func get_pile_rect(key: String) -> Rect2:
+	var entry: Variant = _pile_views.get(key)
+	if entry == null:
+		return Rect2()
+	var panel: Panel = entry["panel"]
+	if panel == null or not is_instance_valid(panel):
+		return Rect2()
+	return panel.get_global_rect()
+
+
+## 教程挖洞：多个牌堆的包围盒。
+func get_piles_union_rect(keys: Array) -> Rect2:
+	var merged := Rect2()
+	for key in keys:
+		var r: Rect2 = get_pile_rect(str(key))
+		if r.size.x <= 0.0 or r.size.y <= 0.0:
+			continue
+		if merged.size == Vector2.ZERO:
+			merged = r
+		else:
+			merged = merged.merge(r)
+	return merged
+
+
 func refresh_pile_counts() -> void:
 	_set_pile_count("red_scavenge", _get_pile_count(Game.red_scavenge_pile))
 	_set_pile_count("green_scavenge", _get_pile_count(Game.green_scavenge_pile))
@@ -108,23 +133,33 @@ func _get_current_player_deck_count() -> int:
 
 func _make_pile_style(color: Color, highlight: bool = false) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = color
+	style.bg_color = color.darkened(0.24)
 	if highlight:
-		style.border_width_left = 4
-		style.border_width_top = 4
-		style.border_width_right = 4
-		style.border_width_bottom = 4
-		style.border_color = Color("#FFD700")
+		style.border_width_left = 3
+		style.border_width_top = 3
+		style.border_width_right = 3
+		style.border_width_bottom = 3
+		style.border_color = Color("#F3C45B")
+		style.shadow_color = Color(1.0, 0.62, 0.18, 0.34)
+		style.shadow_size = 6
+		style.shadow_offset = Vector2.ZERO
 	else:
 		style.border_width_left = 2
 		style.border_width_top = 2
 		style.border_width_right = 2
 		style.border_width_bottom = 2
-		style.border_color = Color(0.15, 0.15, 0.15, 1.0)
-	style.corner_radius_top_left = 4
-	style.corner_radius_top_right = 4
-	style.corner_radius_bottom_left = 4
-	style.corner_radius_bottom_right = 4
+		style.border_color = Color(0.40, 0.34, 0.25, 1.0)
+		style.shadow_color = Color(0.0, 0.0, 0.0, 0.50)
+		style.shadow_size = 4
+		style.shadow_offset = Vector2(1, 2)
+	style.corner_radius_top_left = 7
+	style.corner_radius_top_right = 7
+	style.corner_radius_bottom_left = 7
+	style.corner_radius_bottom_right = 7
+	style.content_margin_left = 4
+	style.content_margin_right = 4
+	style.content_margin_top = 3
+	style.content_margin_bottom = 3
 	return style
 
 
