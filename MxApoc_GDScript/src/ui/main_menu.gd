@@ -24,9 +24,11 @@ var _last_click_time: float = 0.0
 var _wiki_overlay: Control = null
 
 func _ready() -> void:
-	# 保留现有主菜单背景图，以统一的暗色遮罩和金属按钮承接废土桌游风。
-	background.modulate = Color(0.78, 0.78, 0.78, 1.0)
-	HudTheme.add_wasteland_backdrop(self, background)
+	# 保留现有主菜单背景图的原始亮度，仅叠加很轻的废土纹理。
+	background.modulate = Color.WHITE
+	var backdrop := HudTheme.add_wasteland_backdrop(self, background)
+	if backdrop != null:
+		backdrop.modulate.a = 0.35
 	HudTheme.apply_slot_button(create_room_button, 18, HudTheme.GOLD_BORDER, HudTheme.GOLD_TEXT)
 	HudTheme.apply_slot_button(join_room_button, 18)
 	HudTheme.apply_slot_button(quit_button, 18)
