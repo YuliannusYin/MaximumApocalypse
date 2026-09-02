@@ -579,6 +579,7 @@ func _refresh_all_from_snapshot() -> void:
 	_assign_player_panels()
 	_refresh_hand_area()
 	_pile_manager.refresh_pile_counts()
+	_pile_manager.refresh_pile_highlights()
 	_action_selection_controller.refresh_confirm_cancel_buttons()
 	_active_skill_bar.refresh(_net_local_player())
 

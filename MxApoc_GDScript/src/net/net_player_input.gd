@@ -101,14 +101,27 @@ func choose_card(n: int, param: Variant = "hand", filter: Variant = null, prompt
 		candidates = candidates.filter(func(c: Variant) -> bool:
 			return fc.call(player, c, {}, Game)
 		)
+	# 序列化候选：Equipment 实体以其来源卡 net_id 传输（实体本身无 net_id），
+	# 回传时按 id_to_cand 还原为原始候选对象（Equipment 实体 / Card），与单机行为一致。
+	var id_to_cand: Dictionary = {}
 	var ids: Array = []
 	for c in candidates:
-		ids.append(c.net_id)
+		var cid: int = 0
+		if c is Equipment:
+			if c.equipment_card == null:
+				continue
+			cid = c.equipment_card.net_id
+		elif c is Card:
+			cid = c.net_id
+		else:
+			continue
+		id_to_cand[cid] = c
+		ids.append(cid)
 	var resp: Variant = await _send("choose_card", {"n": n, "cards": ids, "prompt": prompt, "min_n": min_n})
 	var out: Array = []
 	if resp is Array:
 		for rid in resp:
-			var card: Variant = NetRegistry.get_obj(int(rid))
+			var card: Variant = id_to_cand.get(int(rid), NetRegistry.get_obj(int(rid)))
 			if card != null:
 				out.append(card)
 	return out
@@ -229,11 +242,8 @@ func _cards_in_position(player: Player, position: String) -> Array:
 		"hand":
 			return player.hand
 		"equipment":
-			var out: Array = []
-			for eq in player.equipment_zone:
-				if eq != null and eq.equipment_card != null:
-					out.append(eq.equipment_card)
-			return out
+			# 与单机 get_cards("equipment") 一致：返回 Equipment 实体（choose_card 内统一按来源卡 net_id 序列化）。
+			return player.equipment_zone
 		"discard":
 			return player.game_discard_pile.cards if player.game_discard_pile != null else []
 		"settlement":

@@ -25,6 +25,7 @@ var _move_highlight_panel: Panel  # 移动选取高亮覆盖层（绿色/金黄�
 var _frame_panel: Panel  # 地块实体边框，覆盖在图片上方
 var _objective_mark_icon: TextureRect  # 任务标记图标（固定位置）
 var _block_texture: Texture2D  # 缓存已选中的地块变体纹理（revealed 后锁定，destroyed 复用）
+var _last_texture_variant_key: String = ""  # 上次生成纹理的变体键（scavenge_colors/monster_spawn_value 变化时重建纹理）
 var _anim_tween: Tween = null  # 当前动画 Tween（翻入/标记/摧毁共用，新动画 kill 旧动画重启）
 var _hidden_players: Dictionary = {}  # 隐藏头像的玩家 instance_id -> true（头像移动动画期间）
 var _last_mark_count: int = -1  # 上次刷新记录的怪物标记数（供外部对比增减，未变则不播动画）
@@ -54,9 +55,26 @@ func setup(block: MapBlock, is_current_player_block: bool = false) -> void:
 	refresh(is_current_player_block)
 
 
+## 生成纹理变体输入的键：scavenge_colors / monster_spawn_value 变化时需重新生成纹理。
+## 与 ImageCache.get_block_texture 的变体键一致（颜色排序后拼接）。
+func _texture_variant_key() -> String:
+	if _block == null:
+		return ""
+	var colors: Array = []
+	for c in _block.scavenge_colors:
+		colors.append(str(c))
+	colors.sort()
+	return ",".join(colors) + "|" + str(_block.monster_spawn_value)
+
+
 func refresh(is_current_player_block: bool = false, current_player: Variant = null) -> void:
 	if _block == null or not is_instance_valid(_block):
 		return
+	# 地块可拾荒颜色/怪物刷新值变化时清除纹理缓存，避免刷新后仍显示旧变体（联机快照更新场景）。
+	var vk := _texture_variant_key()
+	if vk != _last_texture_variant_key:
+		_block_texture = null
+		_last_texture_variant_key = vk
 	if _block.is_destroyed():
 		_apply_destroyed_style()
 	elif _block.is_revealed():
@@ -291,10 +309,13 @@ func play_mark_pulse(added: bool) -> void:
 			_anim_tween.tween_property(self, "scale", Vector2(1.06, 1.06), 0.15)
 			_anim_tween.tween_property(self, "scale", Vector2.ONE, 0.15)
 	else:
-		# 标记减少：对剩余标记（无则地块整体）快速淡出闪烁后复位
-		var nodes: Array = mark_cells.duplicate()
-		if nodes.is_empty():
-			nodes.append(self)
+		# 标记减少：对剩余标记（无则地块整体）快速淡出闪烁后复位。
+		# mark_cells 是 Array[TextureRect]，不能 append 非 TextureRect 的地块自身，空时改用普通 Array。
+		var nodes: Array = []
+		if mark_cells.is_empty():
+			nodes = [self]
+		else:
+			nodes = mark_cells.duplicate()
 		_anim_tween = create_tween().set_parallel(true)
 		for node in nodes:
 			var fade_tweener: PropertyTweener = _anim_tween.tween_property(node, "modulate:a", 1.0, 0.2)

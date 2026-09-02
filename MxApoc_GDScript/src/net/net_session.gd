@@ -251,4 +251,9 @@ func stop() -> void:
 
 
 func _clear_peer() -> void:
+	# 先显式关闭 ENet peer（发送 DISCONNECT），再清空 multiplayer_peer，
+	# 否则对端（主机）无法及时收到 peer_disconnected，座位不会释放、客机也无法重连。
+	var peer := multiplayer.multiplayer_peer
+	if peer != null:
+		peer.close()
 	multiplayer.multiplayer_peer = null
