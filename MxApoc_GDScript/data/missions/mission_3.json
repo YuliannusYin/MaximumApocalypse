@@ -83,11 +83,11 @@
     { "component": "submit_items", "params": { "block_name": "医院", "items": { "医疗用品": 2, "解毒剂": 3 } } }
   ],
   "lose_conditions": [
-    { "component": "card_discard_watch", "params": { "card_name": "科学家", "on_discard": "lose" } }
+    { "component": "card_discard_watch", "params": { "card_name": "科学家", "on_discard": "ignore", "on_death": "lose" } }
   ],
   "triggers": [
     { "component": "setup_equip_card", "params": { "card_name": "科学家" } },
-    { "component": "card_discard_watch", "params": { "card_name": "科学家", "on_discard": "lose" } }
+    { "component": "card_discard_watch", "params": { "card_name": "科学家", "on_discard": "ignore", "on_death": "lose" } }
   ],
   "progress_conditions": [
     { "text": "提交医疗用品", "type": "submitted_count", "params": { "card_name": "医疗用品", "count": 2 } },

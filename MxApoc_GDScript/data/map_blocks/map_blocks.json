@@ -351,7 +351,7 @@
           "trigger": "on_enter_block",
           "filter": "return true",
           "forced": true,
-          "content": "var equip_cards = []\nfor c in player.get_cards():\n\tif c.card_type == \"equipment\":\n\t\tequip_cards.append(c)\nif equip_cards.is_empty():\n\tactions.damage(player, 5, null)\nelif await player.confirm(\"\\\"强盗营地\\\": 是否弃置一张装备牌，否则受到 5 点伤害\"):\n\tvar chosen = await player.choose_card(1, equip_cards)\n\tif chosen.is_empty():\n\t\tactions.damage(player, 5, null)\n\telse:\n\t\tactions.discard(player, chosen)\nelse:\n\tactions.damage(player, 5, null)"
+          "content": "var equip_cards = []\nfor c in player.get_cards():\n\tif c.card_type == \"equipment\" and not player.is_card_protected_from_discard(c):\n\t\tequip_cards.append(c)\nif equip_cards.is_empty():\n\tactions.damage(player, 5, null)\nelif await player.confirm(\"\\\"强盗营地\\\": 是否弃置一张装备牌，否则受到 5 点伤害\"):\n\tvar chosen = await player.choose_card(1, equip_cards)\n\tif chosen.is_empty():\n\t\tactions.damage(player, 5, null)\n\telse:\n\t\tactions.discard(player, chosen)\nelse:\n\tactions.damage(player, 5, null)"
         }
       ]
     },
