@@ -1,6 +1,43 @@
 class_name TableMapController
 extends Node2D
 
+## 程序化绘制的废土桌面，避免地图区域退化成单一色块。
+class TableSurface extends Control:
+	var surface_size: Vector2 = Vector2.ZERO
+
+	func _draw() -> void:
+		if surface_size.x <= 0.0 or surface_size.y <= 0.0:
+			return
+		var rect := Rect2(Vector2.ZERO, surface_size)
+		draw_rect(rect, Color("#171817"))
+		# 多层内缩色带模拟旧金属/木板桌面的边缘压暗。
+		for i in range(7):
+			var inset := float(i * 18)
+			var alpha := 0.16 - float(i) * 0.018
+			draw_rect(
+				Rect2(Vector2(inset, inset), surface_size - Vector2(inset * 2.0, inset * 2.0)),
+				Color(0.30, 0.25, 0.18, alpha),
+				false,
+				2.0
+			)
+		# 固定种子的斑驳颗粒，保持每次刷新一致且不抢地图图片的注意力。
+		for i in range(150):
+			var px := fmod(float(i * 97 + 31), maxf(surface_size.x - 20.0, 1.0)) + 10.0
+			var py := fmod(float(i * 53 + 17), maxf(surface_size.y - 20.0, 1.0)) + 10.0
+			var radius := 1.0 + float(i % 3)
+			var tone := 0.20 + float(i % 5) * 0.012
+			draw_circle(Vector2(px, py), radius, Color(tone, tone * 0.88, tone * 0.68, 0.12))
+		# 极低对比的横向桌面纹理，提供方向感但不形成额外网格。
+		for y in range(24, int(surface_size.y), 32):
+			draw_line(
+				Vector2(12.0, y),
+				Vector2(surface_size.x - 12.0, y + sin(float(y)) * 1.5),
+				Color(0.52, 0.43, 0.29, 0.035),
+				1.0
+			)
+		draw_rect(rect.grow(-8.0), Color(0.62, 0.46, 0.25, 0.30), false, 2.0)
+		draw_rect(rect.grow(-16.0), Color(0.02, 0.02, 0.02, 0.55), false, 3.0)
+
 ## 地图与相机控制器。
 ## 管理桌子背景、地图块视图、相机拖拽/缩放/边界限制、移动高亮。
 
@@ -11,15 +48,15 @@ signal avatar_clicked(block: Variant)
 const WINDOW_W := 1430
 const WINDOW_H := 780
 const BLOCK_SIZE := 144
-const BLOCK_GAP := 4
-const TABLE_MARGIN := 200
+const BLOCK_GAP := 8
+const TABLE_MARGIN := 220
 const ZOOM_MIN := 0.5
 const ZOOM_MAX := 2.0
 const ZOOM_STEP := 0.1
 const DRAG_THRESHOLD := 6.0
 
 # === 桌子/摄像头 ===
-var _table_bg: ColorRect
+var _table_bg: Control
 var _map_container: Node2D
 var _table_size: Vector2 = Vector2.ZERO
 var _dragging: bool = false
@@ -50,12 +87,13 @@ func build_table_and_map() -> void:
 	_map_container.position = Vector2(WINDOW_W / 2.0, WINDOW_H / 2.0)
 	_table_layer.add_child(_map_container)
 
-	_table_bg = ColorRect.new()
+	_table_bg = TableSurface.new()
 	_table_bg.position = -_table_size / 2.0
 	_table_bg.size = _table_size
-	_table_bg.color = Color(0.30, 0.32, 0.34, 1.0)
+	_table_bg.set("surface_size", _table_size)
 	_table_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_map_container.add_child(_table_bg)
+	_table_bg.queue_redraw()
 
 	for block in Game.map_area:
 		if block == null or not is_instance_valid(block):

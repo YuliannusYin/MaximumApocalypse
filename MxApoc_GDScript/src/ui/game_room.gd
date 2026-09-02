@@ -1,7 +1,7 @@
 extends Control
 
 const SEAT_ITEM_SCENE := preload("res://scenes/SeatItem.tscn")
-const MAX_SEATS := 4
+const MAX_SEATS := 6
 const MIN_SEATS := 1
 const RANDOM_MISSION_IDX := 0
 
