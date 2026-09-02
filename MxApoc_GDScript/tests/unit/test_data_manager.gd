@@ -74,3 +74,22 @@ func test_get_all_missions_sorted_by_id() -> void:
 	var result: Array = DataManager.get_all_missions()
 	for i in range(1, result.size()):
 		assert_true(result[i - 1].mission_id < result[i].mission_id, "任务应按 mission_id 排序")
+
+
+func test_get_all_map_blocks_not_empty() -> void:
+	var result: Array = DataManager.get_all_map_blocks()
+	assert_true(result.size() > 0, "应有地图块数据")
+	assert_not_null(DataManager.get_map_block_def(result[0].english_name))
+
+
+func test_get_scavenge_pile_colors_ordered() -> void:
+	var colors: Array = DataManager.get_scavenge_pile_colors()
+	assert_true(colors.has("red"), "应包含红色拾荒堆")
+	assert_true(colors.has("green"), "应包含绿色拾荒堆")
+	assert_eq(colors[0], "blue", "拾荒颜色应按蓝绿红灰顺序")
+
+
+func test_get_monster_pack_types_ordered() -> void:
+	var types: Array = DataManager.get_monster_pack_types()
+	assert_true(types.has("zombie"), "应包含僵尸包")
+	assert_eq(types[0], "zombie", "怪物包应按僵尸/外星/突变/机器人顺序")

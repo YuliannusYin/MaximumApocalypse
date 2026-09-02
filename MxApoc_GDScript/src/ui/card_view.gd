@@ -432,9 +432,8 @@ func _apply_charge_display() -> void:
 
 
 func _apply_style() -> void:
-	# 外层面板：黑色背景 + 选中时金色边框
-	var outer_style := StyleBoxFlat.new()
-	outer_style.bg_color = Color.BLACK
+	# 外层面板：2px 废土金属相框 + 选中时金色边框
+	var outer_style := HudTheme.make_card_frame_style()
 	if _is_selected:
 		outer_style.border_width_left = SELECTED_BORDER_WIDTH
 		outer_style.border_width_top = SELECTED_BORDER_WIDTH

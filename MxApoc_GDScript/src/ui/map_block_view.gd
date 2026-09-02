@@ -11,14 +11,18 @@ const SEAT_COLORS: Array[Color] = [
 	Color(0.25, 0.45, 0.85, 1.0),
 	Color(0.25, 0.75, 0.35, 1.0),
 	Color(0.9, 0.8, 0.25, 1.0),
+	Color(0.25, 0.78, 0.78, 1.0),
+	Color(0.75, 0.35, 0.85, 1.0),
 ]
 
 var _block: MapBlock
+var _shadow_panel: Panel
 var _texture_rect: TextureRect
 var _name_label: Label
 var _grid_cells: Array[TextureRect] = []  # 3×3 九宫格，索引 = row*3+col
 var _highlight_panel: Panel  # 高亮覆盖层，渲染在最顶层
 var _move_highlight_panel: Panel  # 移动选取高亮覆盖层（绿色/金黄色）
+var _frame_panel: Panel  # 地块实体边框，覆盖在图片上方
 var _objective_mark_icon: TextureRect  # 任务标记图标（固定位置）
 var _block_texture: Texture2D  # 缓存已选中的地块变体纹理（revealed 后锁定，destroyed 复用）
 var _anim_tween: Tween = null  # 当前动画 Tween（翻入/标记/摧毁共用，新动画 kill 旧动画重启）
@@ -28,12 +32,19 @@ var _cell_player_ids: Dictionary = {}  # 头像格索引 -> 玩家 instance_id�
 var _avatar_cell_count: int = 0  # 头像占用的格数（其后连续段为怪物标记格）
 
 signal block_clicked(block: Variant)
+signal block_inspected(block: Variant)
 signal avatar_clicked(block: Variant)
+
+const CLICK_THRESHOLD := 6.0
+
+var _left_pressing: bool = false
+var _left_press_pos: Vector2 = Vector2.ZERO
 
 
 func _init() -> void:
 	custom_minimum_size = Vector2(BLOCK_SIZE, BLOCK_SIZE)
 	size = Vector2(BLOCK_SIZE, BLOCK_SIZE)
+	mouse_filter = Control.MOUSE_FILTER_PASS
 
 
 func setup(block: MapBlock, is_current_player_block: bool = false) -> void:
@@ -62,12 +73,57 @@ func refresh(is_current_player_block: bool = false, current_player: Variant = nu
 
 
 func _build_content() -> void:
+	# 独立阴影层，让地图块与废土桌面分离。
+	_shadow_panel = Panel.new()
+	_shadow_panel.position = Vector2(3, 5)
+	_shadow_panel.size = Vector2(BLOCK_SIZE, BLOCK_SIZE)
+	_shadow_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var shadow_style := StyleBoxFlat.new()
+	shadow_style.bg_color = Color(0.01, 0.01, 0.01, 0.72)
+	shadow_style.corner_radius_top_left = 7
+	shadow_style.corner_radius_top_right = 7
+	shadow_style.corner_radius_bottom_left = 7
+	shadow_style.corner_radius_bottom_right = 7
+	_shadow_panel.add_theme_stylebox_override("panel", shadow_style)
+	add_child(_shadow_panel)
+
 	_texture_rect = TextureRect.new()
 	_texture_rect.set_anchors_preset(PRESET_FULL_RECT)
 	_texture_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_texture_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	_texture_rect.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	_texture_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# TextureRect 默认只按矩形绘制；用轻量 shader 将图片裁成与边框一致的圆角。
+	var corner_shader := Shader.new()
+	corner_shader.code = """
+shader_type canvas_item;
+
+varying vec4 vertex_color;
+
+void vertex() {
+	vertex_color = COLOR;
+}
+
+void fragment() {
+	vec4 tex_color = texture(TEXTURE, UV);
+	COLOR = tex_color * vertex_color;
+	float radius = 0.055;
+	float edge = 0.008;
+	vec2 corner = vec2(radius);
+	if (UV.x < radius && UV.y < radius) {
+		COLOR.a *= 1.0 - smoothstep(radius - edge, radius, distance(UV, corner));
+	} else if (UV.x > 1.0 - radius && UV.y < radius) {
+		COLOR.a *= 1.0 - smoothstep(radius - edge, radius, distance(UV, vec2(1.0 - radius, radius)));
+	} else if (UV.x < radius && UV.y > 1.0 - radius) {
+		COLOR.a *= 1.0 - smoothstep(radius - edge, radius, distance(UV, vec2(radius, 1.0 - radius)));
+	} else if (UV.x > 1.0 - radius && UV.y > 1.0 - radius) {
+		COLOR.a *= 1.0 - smoothstep(radius - edge, radius, distance(UV, vec2(1.0 - radius, 1.0 - radius)));
+	}
+}
+"""
+	var corner_material := ShaderMaterial.new()
+	corner_material.shader = corner_shader
+	_texture_rect.material = corner_material
 	add_child(_texture_rect)
 
 	_name_label = Label.new()
@@ -111,6 +167,9 @@ func _build_content() -> void:
 	hl_style.corner_radius_top_right = 4
 	hl_style.corner_radius_bottom_left = 4
 	hl_style.corner_radius_bottom_right = 4
+	hl_style.shadow_color = Color(1.0, 0.72, 0.18, 0.42)
+	hl_style.shadow_size = 7
+	hl_style.shadow_offset = Vector2.ZERO
 	_highlight_panel.add_theme_stylebox_override("panel", hl_style)
 	add_child(_highlight_panel)
 
@@ -132,6 +191,13 @@ func _build_content() -> void:
 	_objective_mark_icon.visible = false
 	add_child(_objective_mark_icon)
 
+	# 图片上方的边框只负责轮廓，不遮挡图片内容。
+	_frame_panel = Panel.new()
+	_frame_panel.set_anchors_preset(PRESET_FULL_RECT)
+	_frame_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_frame_panel)
+	_set_frame_style(Color(0.52, 0.45, 0.32, 0.95))
+
 
 func _apply_unrevealed_style() -> void:
 	var back: Texture2D = ImageCache.get_block_back_texture()
@@ -144,6 +210,7 @@ func _apply_unrevealed_style() -> void:
 		_name_label.text = "?"
 	_name_label.visible = true
 	add_theme_stylebox_override("panel", _make_fill_style(Color(0.22, 0.22, 0.26, 1.0)))
+	_set_frame_style(Color(0.32, 0.34, 0.35, 0.95))
 
 
 func _apply_revealed_style() -> void:
@@ -157,6 +224,7 @@ func _apply_revealed_style() -> void:
 	_name_label.text = _block.block_name
 	_name_label.visible = true
 	add_theme_stylebox_override("panel", _make_fill_style(Color(0.38, 0.40, 0.44, 1.0)))
+	_set_frame_style(Color(0.58, 0.48, 0.30, 0.95))
 
 
 func _apply_destroyed_style() -> void:
@@ -169,6 +237,7 @@ func _apply_destroyed_style() -> void:
 		_name_label.text = "已摧毁"
 	_name_label.visible = true
 	add_theme_stylebox_override("panel", _make_fill_style(Color(0.5, 0.15, 0.15, 0.7)))
+	_set_frame_style(Color(0.48, 0.20, 0.18, 0.95))
 
 
 ## ================= 动画与头像隐藏（纯表现层，fire-and-forget） =================
@@ -256,6 +325,29 @@ func set_avatar_hidden(player: Variant, hidden: bool) -> void:
 ## 返回上次刷新记录的怪物标记数（供外部对比增减；标记数未变则不播动画）。
 func get_last_mark_count() -> int:
 	return _last_mark_count
+
+
+## 教程挖洞：指定玩家头像格；找不到则用地块整体。
+func get_player_avatar_rect(player: Variant) -> Rect2:
+	if player != null and is_instance_valid(player):
+		var pid: int = player.get_instance_id()
+		for cell_idx in _cell_player_ids:
+			if _cell_player_ids[cell_idx] == pid:
+				var idx: int = int(cell_idx)
+				if idx >= 0 and idx < _grid_cells.size():
+					return _grid_cells[idx].get_global_rect()
+	return get_global_rect()
+
+
+## 教程挖洞：怪物标记格的包围盒；没有标记则用地块整体。
+func get_monster_marks_rect() -> Rect2:
+	var cells: Array[TextureRect] = _get_mark_cells()
+	if cells.is_empty():
+		return get_global_rect()
+	var merged: Rect2 = cells[0].get_global_rect()
+	for i in range(1, cells.size()):
+		merged = merged.merge(cells[i].get_global_rect())
+	return merged
 
 
 ## 遍历头像格，将处于隐藏名单中的玩家头像设为不可见（隐藏者仍占格，避免其他头像位置跳动）。
@@ -354,21 +446,54 @@ func _clear_children() -> void:
 func _make_fill_style(color: Color) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = color
-	style.border_width_left = 1
-	style.border_width_top = 1
-	style.border_width_right = 1
-	style.border_width_bottom = 1
-	style.border_color = Color(0.15, 0.15, 0.15, 1.0)
-	style.corner_radius_top_left = 2
-	style.corner_radius_top_right = 2
-	style.corner_radius_bottom_left = 2
-	style.corner_radius_bottom_right = 2
+	style.border_width_left = 2
+	style.border_width_top = 2
+	style.border_width_right = 2
+	style.border_width_bottom = 2
+	style.border_color = Color(0.12, 0.11, 0.10, 1.0)
+	style.corner_radius_top_left = 7
+	style.corner_radius_top_right = 7
+	style.corner_radius_bottom_left = 7
+	style.corner_radius_bottom_right = 7
+	style.shadow_color = Color(0.01, 0.01, 0.01, 0.45)
+	style.shadow_size = 4
+	style.shadow_offset = Vector2(1, 2)
 	return style
 
 
+func _set_frame_style(border_color: Color) -> void:
+	if _frame_panel == null or not is_instance_valid(_frame_panel):
+		return
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0, 0, 0, 0)
+	style.border_width_left = 2
+	style.border_width_top = 2
+	style.border_width_right = 2
+	style.border_width_bottom = 2
+	style.border_color = border_color
+	style.corner_radius_top_left = 7
+	style.corner_radius_top_right = 7
+	style.corner_radius_bottom_left = 7
+	style.corner_radius_bottom_right = 7
+	_frame_panel.add_theme_stylebox_override("panel", style)
+
+
 func _gui_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		block_clicked.emit(_block)
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+		block_inspected.emit(_block)
+		accept_event()
+		return
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			_left_pressing = true
+			_left_press_pos = event.position
+		else:
+			if _left_pressing and event.position.distance_to(_left_press_pos) < CLICK_THRESHOLD:
+				block_clicked.emit(_block)
+			_left_pressing = false
+	elif event is InputEventMouseMotion and _left_pressing:
+		if event.position.distance_to(_left_press_pos) >= CLICK_THRESHOLD:
+			_left_pressing = false
 
 
 ## 设置移动选取高亮状态：none/green/golden。
@@ -389,6 +514,9 @@ func set_move_highlight(state: String) -> void:
 			style.corner_radius_top_right = 4
 			style.corner_radius_bottom_left = 4
 			style.corner_radius_bottom_right = 4
+			style.shadow_color = Color(0.25, 0.90, 0.35, 0.35)
+			style.shadow_size = 6
+			style.shadow_offset = Vector2.ZERO
 			_move_highlight_panel.add_theme_stylebox_override("panel", style)
 		"golden":
 			_move_highlight_panel.visible = true
@@ -403,11 +531,18 @@ func set_move_highlight(state: String) -> void:
 			style.corner_radius_top_right = 4
 			style.corner_radius_bottom_left = 4
 			style.corner_radius_bottom_right = 4
+			style.shadow_color = Color(1.0, 0.72, 0.18, 0.42)
+			style.shadow_size = 7
+			style.shadow_offset = Vector2.ZERO
 			_move_highlight_panel.add_theme_stylebox_override("panel", style)
 		_:
 			_move_highlight_panel.visible = false
 
 
 func _on_avatar_cell_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+		block_inspected.emit(_block)
+		accept_event()
+		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		avatar_clicked.emit(_block)

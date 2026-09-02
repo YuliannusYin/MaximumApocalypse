@@ -27,6 +27,7 @@ const _ROW_HEIGHT: float = 30.0
 @onready var _back_button: Button = $BottomBar/BackButton
 @onready var _log_button: Button = $BottomBar/LogButton
 @onready var _restart_button: Button = $BottomBar/RestartButton
+@onready var _background: ColorRect = $Background
 
 var _log_panel: Node = null
 
@@ -38,6 +39,14 @@ var _new_achievements: Array = []
 
 
 func _ready() -> void:
+	HudTheme.apply_screen_background(_background, Color("#101110"))
+	HudTheme.add_wasteland_backdrop(self, _background)
+	HudTheme.apply_title(_title_label, 40)
+	HudTheme.apply_slot_button(_back_button, 13)
+	HudTheme.apply_slot_button(_log_button, 13)
+	HudTheme.apply_mission_slot_button(_restart_button, 13)
+	for seat_idx in range(1, 5):
+		HudTheme.apply_section_panel(get_node("Seat%d" % seat_idx), Color("#171713"))
 	# 读取本局数据
 	var result: int = -1
 	var duration_msec: int = 0
@@ -210,6 +219,15 @@ func _fill_new_achievements() -> void:
 func _make_stylebox(bg_color: Color) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = bg_color
+	sb.border_width_left = 1
+	sb.border_width_top = 1
+	sb.border_width_right = 1
+	sb.border_width_bottom = 1
+	sb.border_color = Color(0.38, 0.32, 0.24, 0.75)
+	sb.corner_radius_top_left = 4
+	sb.corner_radius_top_right = 4
+	sb.corner_radius_bottom_left = 4
+	sb.corner_radius_bottom_right = 4
 	sb.content_margin_left = 4.0
 	sb.content_margin_right = 4.0
 	sb.content_margin_top = 2.0

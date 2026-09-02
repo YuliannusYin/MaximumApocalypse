@@ -78,9 +78,18 @@ func execute_filter(player: Variant, event: Dictionary) -> bool:
 ## 执行 content。
 ## player 为触发技能的实体，event 中可能包含 target 字段。
 ## content 代码可通过 EventSystem.cancel(event) 取消事件，调用方用 EventSystem.is_cancelled(event) 检查。
+## 新内容可使用局部变量 actions 执行嵌套操作；CodeExecutor 会自动等待其完成。
 func execute_content(player: Variant, event: Dictionary) -> void:
 	if content.is_valid():
+		var actions: GameActions = event.get("actions", null)
+		var owns_actions: bool = actions == null
+		if owns_actions:
+			actions = GameActions.new(player, Game)
+			event["actions"] = actions
 		await content.call(player, event.get("target", null), event, Game)
+		if owns_actions:
+			await actions.flush()
+			event.erase("actions")
 
 
 ## 执行 confirm_prompt，返回动态确认提示文本。无有效 Callable 时返回空字符串。

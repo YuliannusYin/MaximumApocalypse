@@ -105,6 +105,27 @@ func test_use_active_skill_filter_fails_returns() -> void:
 	assert_eq(called.size(), 0, "filter 失败时 content 不应执行")
 
 
+func test_use_active_skill_runs_event_lifecycle() -> void:
+	var p: Player = _make_player()
+	var phases: Array[String] = []
+	for trigger_name in ["before_use_active_skill", "on_use_active_skill", "after_use_active_skill"]:
+		var hook := Skill.new()
+		hook.trigger = trigger_name
+		hook.forced = true
+		var phase: String = trigger_name
+		hook.content = func(_pl, _target, _event, _g) -> void:
+			phases.append(phase)
+		p.add_skill(hook)
+	var s := Skill.new()
+	s.active = "action"
+	s.content = func(_pl, _target, _event, _g) -> void:
+		phases.append("content")
+
+	await p.use_active_skill(s)
+
+	assert_eq(phases, ["before_use_active_skill", "on_use_active_skill", "content", "after_use_active_skill"])
+
+
 # === C. use_active_skill 目标路由 ===
 
 func test_use_active_skill_block_target() -> void:

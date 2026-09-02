@@ -29,12 +29,11 @@ func _init(w: float = BASE_W, h: float = BASE_H) -> void:
 	var total: Vector2 = Vector2(BASE_W + BORDER * 2.0, BASE_H + BORDER * 2.0) * factor
 	custom_minimum_size = total
 	size = total
-	# 外层黑框
+	# 外层 2px 废土金属相框
 	_outer = Panel.new()
 	_outer.size = total
 	_outer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var outer_style := StyleBoxFlat.new()
-	outer_style.bg_color = Color.BLACK
+	var outer_style := HudTheme.make_card_frame_style()
 	_outer.add_theme_stylebox_override("panel", outer_style)
 	add_child(_outer)
 	# 基准尺寸内卡（含全部子节点），整体缩放到目标尺寸

@@ -1,27 +1,67 @@
 class_name TableMapController
 extends Node2D
 
+## 程序化绘制的废土桌面，避免地图区域退化成单一色块。
+class TableSurface extends Control:
+	var surface_size: Vector2 = Vector2.ZERO
+
+	func _draw() -> void:
+		if surface_size.x <= 0.0 or surface_size.y <= 0.0:
+			return
+		var rect := Rect2(Vector2.ZERO, surface_size)
+		draw_rect(rect, Color("#171817"))
+		# 多层内缩色带模拟旧金属/木板桌面的边缘压暗。
+		for i in range(7):
+			var inset := float(i * 18)
+			var alpha := 0.16 - float(i) * 0.018
+			draw_rect(
+				Rect2(Vector2(inset, inset), surface_size - Vector2(inset * 2.0, inset * 2.0)),
+				Color(0.30, 0.25, 0.18, alpha),
+				false,
+				2.0
+			)
+		# 固定种子的斑驳颗粒，保持每次刷新一致且不抢地图图片的注意力。
+		for i in range(150):
+			var px := fmod(float(i * 97 + 31), maxf(surface_size.x - 20.0, 1.0)) + 10.0
+			var py := fmod(float(i * 53 + 17), maxf(surface_size.y - 20.0, 1.0)) + 10.0
+			var radius := 1.0 + float(i % 3)
+			var tone := 0.20 + float(i % 5) * 0.012
+			draw_circle(Vector2(px, py), radius, Color(tone, tone * 0.88, tone * 0.68, 0.12))
+		# 极低对比的横向桌面纹理，提供方向感但不形成额外网格。
+		for y in range(24, int(surface_size.y), 32):
+			draw_line(
+				Vector2(12.0, y),
+				Vector2(surface_size.x - 12.0, y + sin(float(y)) * 1.5),
+				Color(0.52, 0.43, 0.29, 0.035),
+				1.0
+			)
+		draw_rect(rect.grow(-8.0), Color(0.62, 0.46, 0.25, 0.30), false, 2.0)
+		draw_rect(rect.grow(-16.0), Color(0.02, 0.02, 0.02, 0.55), false, 3.0)
+
 ## 地图与相机控制器。
 ## 管理桌子背景、地图块视图、相机拖拽/缩放/边界限制、移动高亮。
 
 signal block_clicked(block: Variant)
+signal block_inspected(block: Variant)
 signal avatar_clicked(block: Variant)
 
 const WINDOW_W := 1430
 const WINDOW_H := 780
 const BLOCK_SIZE := 144
-const BLOCK_GAP := 4
-const TABLE_MARGIN := 200
+const BLOCK_GAP := 8
+const TABLE_MARGIN := 220
 const ZOOM_MIN := 0.5
 const ZOOM_MAX := 2.0
 const ZOOM_STEP := 0.1
+const DRAG_THRESHOLD := 6.0
 
 # === 桌子/摄像头 ===
-var _table_bg: ColorRect
+var _table_bg: Control
 var _map_container: Node2D
 var _table_size: Vector2 = Vector2.ZERO
 var _dragging: bool = false
 var _drag_start: Vector2 = Vector2.ZERO
+var _did_drag: bool = false
 
 # === 地图块视图缓存 ===
 var _block_views: Dictionary = {}
@@ -47,11 +87,13 @@ func build_table_and_map() -> void:
 	_map_container.position = Vector2(WINDOW_W / 2.0, WINDOW_H / 2.0)
 	_table_layer.add_child(_map_container)
 
-	_table_bg = ColorRect.new()
+	_table_bg = TableSurface.new()
 	_table_bg.position = -_table_size / 2.0
 	_table_bg.size = _table_size
-	_table_bg.color = Color(0.30, 0.32, 0.34, 1.0)
+	_table_bg.set("surface_size", _table_size)
+	_table_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_map_container.add_child(_table_bg)
+	_table_bg.queue_redraw()
 
 	for block in Game.map_area:
 		if block == null or not is_instance_valid(block):
@@ -65,6 +107,7 @@ func build_table_and_map() -> void:
 		view.setup(block)
 		_block_views[block.get_instance_id()] = view
 		view.block_clicked.connect(_on_block_clicked_signal)
+		view.block_inspected.connect(_on_block_inspected_signal)
 		view.avatar_clicked.connect(_on_avatar_clicked_signal)
 
 	refresh_map()
@@ -86,19 +129,30 @@ func refresh_map() -> void:
 		view.refresh(is_current, current)
 
 
-func _input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
-		_dragging = event.pressed
-		if _dragging:
-			_drag_start = event.position
-	elif event is InputEventMouseMotion and _dragging and _map_container != null:
-		_map_container.position += event.relative
-		_clamp_camera()
-	elif event is InputEventMouseButton and _map_container != null and event.pressed and _dragging:
+## 仅在 GUI 未消费的事件上开始拖拽 / 缩放，避免手牌、按钮、弹窗被左键拖走。
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		_dragging = true
+		_drag_start = event.position
+		_did_drag = false
+	elif event is InputEventMouseButton and _map_container != null and event.pressed:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
 			_zoom_map(event.position, 1.0 + ZOOM_STEP)
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			_zoom_map(event.position, 1.0 - ZOOM_STEP)
+
+
+## 拖拽一旦开始，在 `_input` 中跟踪移动与松开，以免鼠标滑到 UI 上时卡住。
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
+		_dragging = false
+		_did_drag = false
+	elif event is InputEventMouseMotion and _dragging and _map_container != null:
+		if not _did_drag and event.position.distance_to(_drag_start) >= DRAG_THRESHOLD:
+			_did_drag = true
+		if _did_drag:
+			_map_container.position += event.relative
+			_clamp_camera()
 
 
 func _clamp_camera() -> void:
@@ -171,6 +225,47 @@ func get_block_view(block: Variant) -> Variant:
 	return _block_views.get(block.get_instance_id())
 
 
+## 教程挖洞：当前玩家在地图上的头像（或所在地块）。
+func get_current_player_avatar_rect() -> Rect2:
+	var current: Variant = Game.get_current_player()
+	if current == null or not is_instance_valid(current):
+		return Rect2()
+	var block: Variant = current.get("current_block")
+	var view: Variant = get_block_view(block)
+	if view == null or not is_instance_valid(view):
+		return Rect2()
+	return view.get_player_avatar_rect(current)
+
+
+## 教程挖洞：带怪物标记的地块包围盒。
+func get_marked_blocks_rect() -> Rect2:
+	var merged := Rect2()
+	for block in Game.map_area:
+		if block == null or not is_instance_valid(block):
+			continue
+		if int(block.get("monster_marks")) <= 0:
+			continue
+		var view: Variant = get_block_view(block)
+		if view == null or not is_instance_valid(view):
+			continue
+		var r: Rect2 = view.get_monster_marks_rect()
+		if r.size.x <= 0.0 or r.size.y <= 0.0:
+			continue
+		if merged.size == Vector2.ZERO:
+			merged = r
+		else:
+			merged = merged.merge(r)
+	return merged
+
+
+## 教程挖洞：指定地块整体。
+func get_block_global_rect(block: Variant) -> Rect2:
+	var view: Variant = get_block_view(block)
+	if view == null or not is_instance_valid(view):
+		return Rect2()
+	return view.get_global_rect()
+
+
 ## 头像移动动画：以浮动头像从源地块中心滑至目标地块中心（约 0.35 秒）。
 ## 动画期间隐藏源/目标地块视图中该玩家的头像，结束后移除浮动头像并恢复显示。
 ## 本方法为 async 协程，调用方可 await；源/目标视图缺失或动画播放中时直接返回（调用方降级直接刷新）。
@@ -241,6 +336,10 @@ func play_avatar_move(player: Variant, source_block: Variant, target_block: Vari
 
 func _on_block_clicked_signal(block: Variant) -> void:
 	block_clicked.emit(block)
+
+
+func _on_block_inspected_signal(block: Variant) -> void:
+	block_inspected.emit(block)
 
 
 func _on_avatar_clicked_signal(block: Variant) -> void:

@@ -94,9 +94,8 @@ func after_each() -> void:
 
 # === 测试用例 ===
 
-# 测试 1: consume_action 扣除行动次数
-# use_card 系统结算时统一扣 1 点行动次数（action_count -= 1），
-# content 中 consume_action(1) 再扣 1 点，共扣 2 点。
+# 测试 1: 行动牌总计只扣除一次行动次数
+# use_card 在效果开始前统一扣 1 点；旧 content 中的扣点调用不应重复扣除。
 func test_use_card_consume_action() -> void:
 	var p: Player = _make_test_player()
 	_setup_game_for_player(p)
@@ -110,11 +109,127 @@ func test_use_card_consume_action() -> void:
 	p.hand.append(card)
 	var result: bool = await p.use_card(card)
 	assert_true(result, "使用行动牌应成功")
-	# use_card 扣 1 + content consume_action(1) 扣 1 = 2，初始 2 → 0
-	assert_eq(p.action_count, 0, "应共扣除 2 点行动次数（use_card 系统扣 1 + consume_action 扣 1）")
+	# 初始 2，行动牌总计扣 1 点
+	assert_eq(p.action_count, 1, "行动牌总计应只扣除 1 点行动次数")
 
 
-# 测试 2: game.get_target 获取地块上的所有目标（玩家 + 怪物）
+# 测试 2：行动牌效果执行期间应位于结算区，完成后进入弃牌堆。
+func test_action_card_moves_to_settlement_during_content() -> void:
+	var p: Player = _make_test_player()
+	_setup_game_for_player(p)
+	var card: Card = _make_card("settlement_card", "action")
+	var observed: Array = []
+	var s: Skill = Skill.new()
+	s.active = "action"
+	s.content = func(player: Player, _t, _ev: Dictionary, _g) -> void:
+		observed.append({
+			"in_hand": player.hand.has(card),
+			"in_settlement": player.card_settlement_zone.has(card),
+			"action_count": player.action_count,
+		})
+	card.add_skill(s)
+	p.hand.append(card)
+
+	var result: bool = await p.use_card(card)
+
+	assert_true(result, "使用行动牌应成功")
+	assert_eq(observed.size(), 1, "卡牌 content 应执行一次")
+	assert_false(observed[0]["in_hand"], "效果执行期间卡牌不应留在手牌")
+	assert_true(observed[0]["in_settlement"], "效果执行期间卡牌应位于结算区")
+	assert_eq(observed[0]["action_count"], 1, "效果开始前应已扣除行动点")
+	assert_false(p.card_settlement_zone.has(card), "效果完成后结算区不应残留卡牌")
+	assert_true(p.game_discard_pile.cards.has(card), "效果完成后卡牌应进入弃牌堆")
+
+
+# 测试 3：行动点扣除失败时，卡牌应从结算区回滚到手牌。
+func test_action_card_settlement_rolls_back_when_cost_cancelled() -> void:
+	var p: Player = _make_test_player()
+	_setup_game_for_player(p)
+	var hook: Skill = Skill.new()
+	hook.trigger = "before_consume_action"
+	hook.forced = true
+	hook.content = func(_player: Player, _target, event: Dictionary, _game) -> void:
+		EventSystem.cancel(event)
+	p.add_skill(hook)
+	var card: Card = _make_card("rollback_card", "action")
+	var content_called: Array = []
+	var s: Skill = Skill.new()
+	s.active = "action"
+	s.content = func(_player: Player, _target, _event: Dictionary, _game) -> void:
+		content_called.append(true)
+	card.add_skill(s)
+	p.hand.append(card)
+
+	var result: bool = await p.use_card(card)
+
+	assert_false(result, "行动点扣除被取消时卡牌使用应失败")
+	assert_eq(p.action_count, 2, "行动点扣除失败时不应消耗行动点")
+	assert_true(p.hand.has(card), "行动点扣除失败时卡牌应回到手牌")
+	assert_false(p.card_settlement_zone.has(card), "行动点扣除失败时结算区不应残留卡牌")
+	assert_eq(content_called.size(), 0, "行动点扣除失败时不应执行卡牌效果")
+
+
+# 测试 4：延迟扣点卡牌应在 content 首次完成选择并扣点时进入结算区。
+func test_deferred_card_enters_settlement_at_content_cost() -> void:
+	var p: Player = _make_test_player()
+	_setup_game_for_player(p)
+	var card: Card = _make_card("deferred_card", "action")
+	var observed: Array = []
+	var s: Skill = Skill.new()
+	s.active = "action"
+	s.defer_action_cost = true
+	s.content = func(player: Player, _target, _event: Dictionary, _game) -> void:
+		observed.append({
+			"before_cost_in_hand": player.hand.has(card),
+			"before_cost_in_settlement": player.card_settlement_zone.has(card),
+		})
+		player.consume_action(1)
+		observed.append({
+			"after_cost_in_hand": player.hand.has(card),
+			"after_cost_in_settlement": player.card_settlement_zone.has(card),
+			"action_count": player.action_count,
+		})
+	card.add_skill(s)
+	p.hand.append(card)
+
+	var result: bool = await p.use_card(card)
+
+	assert_true(result, "延迟扣点行动牌应使用成功")
+	assert_true(observed[0]["before_cost_in_hand"], "content 首次选择完成前卡牌应仍在手牌")
+	assert_false(observed[0]["before_cost_in_settlement"], "content 首次选择完成前卡牌不应在结算区")
+	assert_false(observed[1]["after_cost_in_hand"], "扣点后卡牌不应仍在手牌")
+	assert_true(observed[1]["after_cost_in_settlement"], "扣点时卡牌应进入结算区")
+	assert_eq(observed[1]["action_count"], 1, "扣点时应消耗 1 点行动")
+	assert_true(p.game_discard_pile.cards.has(card), "效果完成后卡牌应进入弃牌堆")
+
+
+# 测试 5：延迟扣点行动牌取消首次目标选择时应保留在手牌。
+func test_deferred_card_target_cancel_keeps_card_in_hand() -> void:
+	var p: Player = _make_test_player()
+	_setup_game_for_player(p)
+	var cli: CliPlayerInput = CliPlayerInput.new()
+	cli.queue_choose_target([])
+	p.input = cli
+	var card: Card = _make_card("cancel_target_card", "action")
+	var s: Skill = Skill.new()
+	s.active = "action"
+	s.defer_action_cost = true
+	s.select_target = 1
+	s.content = func(_player: Player, _target, _event: Dictionary, _game) -> void:
+		assert_true(false, "取消首次目标选择后不应执行 content")
+	card.add_skill(s)
+	p.hand.append(card)
+
+	var result: bool = await p.use_card(card)
+
+	assert_false(result, "取消首次目标选择时行动牌使用应失败")
+	assert_eq(p.action_count, 2, "取消首次目标选择时不应消耗行动点")
+	assert_true(p.hand.has(card), "取消首次目标选择时卡牌应保留在手牌")
+	assert_false(p.card_settlement_zone.has(card), "取消首次目标选择时结算区不应有卡牌")
+	assert_false(p.game_discard_pile.cards.has(card), "取消首次目标选择时卡牌不应进入弃牌堆")
+
+
+# 测试 6: game.get_target 获取地块上的所有目标（玩家 + 怪物）
 func test_game_get_target() -> void:
 	var p: Player = _make_test_player()
 	_setup_game_for_player(p)

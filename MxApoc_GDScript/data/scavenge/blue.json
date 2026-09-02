@@ -20,7 +20,7 @@
           "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\" && target.charge_current < target.charge_max",
           "window_prompt": "\"弹药（少量）\": 选择要填装的武器",
           "defer_action_cost": true,
-          "content": "player.consume_action(1)\nplayer.add_charge_to(target, 2, \"ammo\")"
+          "content": "actions.consume_action(player, 1)\nactions.add_charge_to(player, target, 2, \"ammo\")"
         }
       ]
     },
@@ -42,7 +42,7 @@
           "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\" && target.charge_current < target.charge_max",
           "window_prompt": "\"弹药（半盒）\": 选择要填装的武器",
           "defer_action_cost": true,
-          "content": "player.consume_action(1)\nplayer.add_charge_to(target, 3, \"ammo\")"
+          "content": "actions.consume_action(player, 1)\nactions.add_charge_to(player, target, 3, \"ammo\")"
         }
       ]
     },
@@ -64,7 +64,7 @@
           "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\" && target.charge_current < target.charge_max",
           "window_prompt": "\"弹药（足量）\": 选择要填装的武器",
           "defer_action_cost": true,
-          "content": "player.consume_action(1)\nplayer.add_charge_to(target, 4, \"ammo\")"
+          "content": "actions.consume_action(player, 1)\nactions.add_charge_to(player, target, 4, \"ammo\")"
         }
       ]
     },
@@ -86,7 +86,7 @@
           "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\" && target.charge_current < target.charge_max",
           "window_prompt": "\"弹药（大量）\": 选择要填装的武器",
           "defer_action_cost": true,
-          "content": "player.consume_action(1)\nplayer.add_charge_to(target, 5, \"ammo\")"
+          "content": "actions.consume_action(player, 1)\nactions.add_charge_to(player, target, 5, \"ammo\")"
         }
       ]
     },
@@ -107,7 +107,7 @@
           "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\" && target.charge_current < target.charge_max",
           "window_prompt": "\"弹药（整盒）\": 选择要填装的武器",
           "defer_action_cost": true,
-          "content": "player.consume_action(1)\nplayer.fill_charge_to(target)"
+          "content": "actions.consume_action(player, 1)\nactions.fill_charge_to(player, target)"
         }
       ]
     },
@@ -125,7 +125,7 @@
           "trigger": "on_take_damage",
           "filter": "return true",
           "forced": true,
-          "content": "event.num -= 2\nplayer.add_mark(\"bulletproof_vest_uses\", 1, \"\", \"\", false)\nif player.count_mark(\"bulletproof_vest_uses\") >= 3:\n\tplayer.remove_card(\"bulletproof_vest\", \"equipment\")"
+          "content": "event.num -= 2\nactions.add_mark(player, \"bulletproof_vest_uses\", 1, \"\", \"\", false)\nif player.count_mark(\"bulletproof_vest_uses\") >= 3:\n\tactions.remove_card(player, \"bulletproof_vest\", \"equipment\")"
         }
       ]
     },
@@ -145,7 +145,7 @@
           "select_target": 1,
           "filter_target": "return target.is_player() && target != player",
           "filter_target_range": "infinity",
-          "content": "player.consume_action(1)\ntarget.execute_action_immediately(1)",
+          "content": "actions.consume_action(player, 1)\nactions.execute_action_immediately(target, 1)",
           "defer_action_cost": true
         }
       ]
@@ -172,7 +172,7 @@
           "filter_target": "return target != player",
           "window_prompt": "\"手枪\": 选择攻击目标",
           "filter_target_range": "medium",
-          "content": "player.consume_action(1)\nplayer.consume_charge(player.get_equipment(\"pistol\"), 1)\ntarget.damage(2, player)"
+          "content": "actions.consume_action(player, 1)\nactions.consume_charge(player, player.get_equipment(\"pistol\"), 1)\nactions.damage(target, 2, player)"
         }
       ]
     },
@@ -209,7 +209,7 @@
           "filter": "return true",
           "window_prompt": "\"手电筒\": 选择保留的牌",
           "forced": true,
-          "content": "EventSystem.cancel(event)\nvar pile = event[\"pile\"]\nvar top_two = []\nwhile top_two.size() < 2 and not pile.is_empty():\n\ttop_two.append(pile.draw())\nif top_two.size() == 0:\n\treturn\nif top_two.size() == 1:\n\tgame.log_message(LogColors.player(player.player_name) + \" 从拾荒牌堆获得了 \" + LogColors.card(top_two[0].card_name) + \"（牌堆不足 2 张）\")\n\tawait player.draw_scavenge_card(top_two[0], pile, event)\n\treturn\nvar names = []\nfor c in top_two:\n\tnames.append(c.card_name)\ngame.log_message(LogColors.player(player.player_name) + \" 展示了拾荒牌堆顶 2 张牌: \" + \", \".join(names))\nvar chosen = await player.choose_card(1, top_two)\nvar keep = top_two[0]\nif chosen.size() > 0:\n\tkeep = chosen[0]\ngame.log_message(LogColors.player(player.player_name) + \" 保留了 \" + LogColors.card(keep.card_name))\nawait player.draw_scavenge_card(keep, pile, event)\nfor card in top_two:\n\tif card != keep:\n\t\tpile.put_bottom(card)\n\t\tgame.log_message(LogColors.player(player.player_name) + \" 将 \" + LogColors.card(card.card_name) + \" 置于拾荒牌堆底\")"
+          "content": "EventSystem.cancel(event)\nvar pile = event[\"pile\"]\nvar top_two = []\nwhile top_two.size() < 2 and not pile.is_empty():\n\ttop_two.append(pile.draw())\nif top_two.size() == 0:\n\treturn\nif top_two.size() == 1:\n\tgame.log_message(LogColors.player(player.player_name) + \" 从拾荒牌堆获得了 \" + LogColors.card(top_two[0].card_name) + \"（牌堆不足 2 张）\")\n\tactions.draw_scavenge_card(player, top_two[0], pile, event)\n\treturn\nvar names = []\nfor c in top_two:\n\tnames.append(c.card_name)\ngame.log_message(LogColors.player(player.player_name) + \" 展示了拾荒牌堆顶 2 张牌: \" + \", \".join(names))\nvar chosen = await player.choose_card(1, top_two)\nvar keep = top_two[0]\nif chosen.size() > 0:\n\tkeep = chosen[0]\ngame.log_message(LogColors.player(player.player_name) + \" 保留了 \" + LogColors.card(keep.card_name))\nactions.draw_scavenge_card(player, keep, pile, event)\nfor card in top_two:\n\tif card != keep:\n\t\tpile.put_bottom(card)\n\t\tgame.log_message(LogColors.player(player.player_name) + \" 将 \" + LogColors.card(card.card_name) + \" 置于拾荒牌堆底\")"
         }
       ]
     },
@@ -228,7 +228,7 @@
           "skill_type": "equipment",
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "content": "var blocks = player.get_current_block().get_blocks_in_range(\"long\")\nvar candidates = []\nfor b in blocks:\n\tif not b.is_revealed():\n\t\tcandidates.append(b)\nif candidates.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar chosen = await player.choose_block_inline(candidates, \"\\\"双筒望远镜\\\": 选择目标地图块\", 1)\nif chosen.is_empty():\n\tEventSystem.cancel(event)\n\treturn\ntarget = chosen[0]\nplayer.consume_action(1)\ntarget.reveal(false, player)"
+          "content": "var blocks = player.get_current_block().get_blocks_in_range(\"long\")\nvar candidates = []\nfor b in blocks:\n\tif not b.is_revealed():\n\t\tcandidates.append(b)\nif candidates.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar chosen = await player.choose_block_inline(candidates, \"\\\"双筒望远镜\\\": 选择目标地图块\", 1)\nif chosen.is_empty():\n\tEventSystem.cancel(event)\n\treturn\ntarget = chosen[0]\nactions.consume_action(player, 1)\nactions.reveal(target, false, player)"
         }
       ]
     }

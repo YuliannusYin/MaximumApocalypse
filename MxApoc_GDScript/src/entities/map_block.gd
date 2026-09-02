@@ -117,14 +117,12 @@ func has_monster() -> bool:
 	return count_monster() > 0
 
 
-## 返回地块上当前纠缠玩家的怪物总数。
+## 返回此地块上当前纠缠玩家的怪物总数（仅统计所在地块为本块的存活玩家）。
 func count_monster() -> int:
 	var count: int = 0
-	if Game == null or not is_instance_valid(Game):
-		return count
-	for player in Game.players:
-		if player != null and is_instance_valid(player) and player.is_alive():
-			count += player.monster_zone.size() if "monster_zone" in player else 0
+	for player in get_players():
+		if "monster_zone" in player:
+			count += player.monster_zone.size()
 	return count
 
 
@@ -336,7 +334,7 @@ func trigger_objective_marks(player: Variant) -> void:
 		if mark.get("triggered", false) or mark.get("removed", false):
 			continue
 		# 1. 执行标记效果
-		var effect: Callable = mark.get("effect", Callable())
+		var effect: Callable = _callable_from_mark(mark, "effect")
 		if effect.is_valid():
 			effect.call(player)
 		mark["triggered"] = true
@@ -355,6 +353,17 @@ func _check_objective_mark_remove_conditions() -> void:
 	for mark in to_check:
 		if mark.get("removed", false):
 			continue
-		var cond: Callable = mark.get("remove_condition", Callable())
+		var cond: Callable = _callable_from_mark(mark, "remove_condition")
 		if cond.is_valid() and cond.call(self):
 			remove_objective_mark(mark)
+
+
+## JSON 任务标记的 effect / remove_condition 可能为 null（键存在值为 Nil）。
+## Dictionary.get 在键存在时返回该 null，而不是 default，不能直接赋给 typed Callable。
+func _callable_from_mark(mark: Variant, key: String) -> Callable:
+	if mark == null or not (mark is Dictionary):
+		return Callable()
+	var value: Variant = mark.get(key)
+	if value is Callable:
+		return value
+	return Callable()

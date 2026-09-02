@@ -8,7 +8,7 @@ extends RefCounted
 ## 参考模式：addons/gut/dynamic_gdscript.gd
 
 const _FILTER_PREFIX := "extends RefCounted\nfunc _fn(player, target, event, game) -> bool:\n"
-const _CONTENT_PREFIX := "extends RefCounted\nfunc _fn(player, target, event, game) -> void:\n"
+const _CONTENT_PREFIX := "extends RefCounted\nfunc _fn(player, target, event, game) -> void:\n\tvar actions = event.get(\"actions\", null)\n"
 const _CONFIRM_PROMPT_PREFIX := "extends RefCounted\nfunc _fn(player, target, event, game) -> String:\n"
 
 
@@ -33,6 +33,7 @@ static func compile_filter(code: String) -> Callable:
 static func compile_content(code: String) -> Callable:
 	if code.strip_edges().is_empty():
 		return Callable()
+	code = _add_implicit_action_awaits(code)
 	var indented: String = code.indent("\t")
 	var full_code: String = _CONTENT_PREFIX + indented
 	var instance: Object = _compile(full_code)
@@ -40,6 +41,15 @@ static func compile_content(code: String) -> Callable:
 		push_warning("CodeExecutor: content 编译失败，降级为 no-op: " + code)
 		return _create_noop_content()
 	return Callable(instance, "_fn")
+
+
+## JSON content 中的 actions.* 是可等待的嵌套操作。
+## 为保留“数据不写 await”的语法，在编译阶段自动补齐等待。
+static func _add_implicit_action_awaits(code: String) -> String:
+	var result := code.replace("actions.", "await actions.")
+	while result.contains("await await actions."):
+		result = result.replace("await await actions.", "await actions.")
+	return result
 
 
 ## 编译 filter_target 代码字符串为 Callable。

@@ -1,7 +1,7 @@
 extends Control
 
 const SEAT_ITEM_SCENE := preload("res://scenes/SeatItem.tscn")
-const MAX_SEATS := 4
+const MAX_SEATS := 6
 const MIN_SEATS := 1
 const RANDOM_MISSION_IDX := 0
 
@@ -16,10 +16,26 @@ const RANDOM_MISSION_IDX := 0
 @onready var _add_seat_button: Button = $PlayerSettingArea/VBoxContainer/SeatsHeader/AddSeatButton
 @onready var _remove_seat_button: Button = $PlayerSettingArea/VBoxContainer/SeatsHeader/RemoveSeatButton
 @onready var _seat_list: VBoxContainer = $PlayerSettingArea/VBoxContainer/SeatList
+@onready var _background: ColorRect = $Background
+@onready var _title_label: Label = $TopBar/TitleLabel
 
 var _variant_checkboxes: Dictionary = {}
 
 func _ready() -> void:
+	HudTheme.apply_screen_background(_background, Color("#111311"))
+	HudTheme.add_wasteland_backdrop(self, _background)
+	HudTheme.apply_title(_title_label, 26)
+	HudTheme.apply_section_panel($MissionSelectArea, Color("#211f1a"))
+	HudTheme.apply_section_panel($MissionDetailArea, Color("#1d1c19"))
+	HudTheme.apply_section_panel($PlayerSettingArea, Color("#211f1a"))
+	HudTheme.apply_slot_button(_mission_option, 14, HudTheme.GOLD_BORDER, HudTheme.GOLD_TEXT)
+	HudTheme.apply_slot_button(_add_seat_button, 14, HudTheme.SLOT_BORDER, HudTheme.TEXT_MAIN)
+	HudTheme.apply_slot_button(_remove_seat_button, 14, HudTheme.SLOT_BORDER, HudTheme.TEXT_MAIN)
+	HudTheme.apply_slot_button(_back_button, 13)
+	HudTheme.apply_slot_button(_reset_button, 13)
+	HudTheme.apply_mission_slot_button(_start_game_button, 13)
+	_mission_name_label.add_theme_color_override("font_color", HudTheme.GOLD_TEXT)
+	_difficulty_label.add_theme_color_override("font_color", HudTheme.GOLD_TEXT_DIM)
 	_populate_missions()
 	_populate_variants()
 	_restore_state()
@@ -60,6 +76,7 @@ func _populate_variants() -> void:
 	for variant in variants:
 		var cb := CheckBox.new()
 		cb.text = variant.display_name
+		HudTheme.apply_slot_button(cb, 13)
 		if variants_locked:
 			cb.disabled = true
 			cb.tooltip_text = "%s\n\n（通关全部任务后解锁）" % variant.desc

@@ -504,6 +504,33 @@ func test_remove_equipment_plays_source_card_animation() -> void:
 	assert_eq(Game.removed_cards, [e])
 
 
+func test_remove_equipment_unmounts_skills() -> void:
+	var p: Player = _make_player()
+	_setup_game_for_player(p)
+	var e: EquipmentCard = _make_equipment("装备牌")
+	var s: Skill = Skill.new()
+	s.skill_name = "weapon_skill"
+	e.add_skill(s)
+	p.hand.append(e)
+	await p.equip(e)
+	assert_eq(p.get_all_skills().size(), 1, "装备技能应挂载到玩家")
+	await p.remove_card(e)
+	assert_eq(p.equipment_zone.size(), 0)
+	assert_eq(p.get_all_skills().size(), 0, "销毁装备区装备应卸载技能")
+
+
+func test_remove_equipment_fires_on_unequip() -> void:
+	var p: Player = _make_player()
+	_setup_game_for_player(p)
+	var e: EquipmentCard = _make_equipment("装备牌")
+	var called: Array = []
+	e.add_skill(_make_skill_with_trigger("on_unequip", called))
+	p.hand.append(e)
+	await p.equip(e)
+	await p.remove_card(e)
+	assert_eq(called, ["on_unequip"], "销毁装备区装备应触发 on_unequip")
+
+
 func test_cancelled_remove_card_skips_animation() -> void:
 	var p: Player = _make_player()
 	_setup_game_for_player(p)
@@ -822,6 +849,39 @@ func test_death_triggers_3_hooks() -> void:
 	assert_eq(called.size(), 3)
 
 
+func test_death_unequips_equipment_and_fires_on_unequip() -> void:
+	var p: Player = _make_player(10, 10)
+	_setup_game_for_player(p)
+	var e: EquipmentCard = _make_equipment("weapon")
+	var called: Array = []
+	e.add_skill(_make_skill_with_trigger("on_unequip", called))
+	p.hand.append(e)
+	await p.equip(e)
+	assert_eq(p.equipment_zone.size(), 1)
+	await p.death(null)
+	assert_eq(called, ["on_unequip"], "死亡离开装备区应触发 on_unequip")
+	assert_eq(p.equipment_zone.size(), 0, "死亡后装备区应清空")
+	assert_eq(p.get_all_skills().size(), 0, "死亡卸装应移除装备技能")
+	assert_true(Game.removed_cards.has(e), "游戏装备应移出游戏")
+
+
+func test_death_returns_scavenge_equipment_to_color_pile() -> void:
+	var p: Player = _make_player(10, 10)
+	_setup_game_for_player(p)
+	var sc: ScavengeCard = _make_scavenge_card("背包", "blue")
+	sc.card_type = "equipment"
+	sc.card_subtype = "equipment"
+	var called: Array = []
+	sc.add_skill(_make_skill_with_trigger("on_unequip", called))
+	p.hand.append(sc)
+	await p.equip(sc)
+	await p.death(null)
+	assert_eq(called, ["on_unequip"])
+	assert_eq(p.equipment_zone.size(), 0)
+	assert_eq(Game.blue_scavenge_pile.size(), 1, "拾荒装备应洗回对应颜色牌堆")
+	assert_eq(Game.blue_scavenge_pile.get_all()[0], sc)
+
+
 func test_death_coop_mode_triggers_lose() -> void:
 	var p: Player = _make_player(10, 10)
 	_setup_game_for_player(p)
@@ -893,6 +953,39 @@ func test_equip_mounts_skills() -> void:
 	assert_eq(p.get_all_skills().size(), 1, "装备技能应挂载到玩家")
 
 
+func test_equip_from_deck_removes_card_from_deck() -> void:
+	var p: Player = _make_player()
+	_setup_game_for_player(p)
+	var e: EquipmentCard = _make_equipment("colt_pistol")
+	e.english_name = "colt_pistol"
+	e.charge_current = 4
+	p.game_deck.add(e)
+	await p.equip(e)
+	assert_eq(p.game_deck.size(), 0, "从牌堆装备后该牌不应仍留在牌堆")
+	assert_eq(p.equipment_zone.size(), 1)
+	assert_eq(p.equipment_zone[0].equipment_card, e)
+
+
+func test_consume_charge_on_equipped_does_not_drain_hand_copy() -> void:
+	var p: Player = _make_player()
+	_setup_game_for_player(p)
+	var equipped_card: EquipmentCard = _make_equipment("colt_pistol")
+	equipped_card.english_name = "colt_pistol"
+	equipped_card.charge_max = 4
+	equipped_card.charge_current = 4
+	p.game_deck.add(equipped_card)
+	await p.equip(equipped_card)
+	var hand_card: EquipmentCard = _make_equipment("colt_pistol")
+	hand_card.english_name = "colt_pistol"
+	hand_card.charge_current = 4
+	p.hand.append(hand_card)
+	var weapon: Equipment = p.get_equipment("colt_pistol")
+	var ok: bool = await p.consume_charge(weapon, 1)
+	assert_true(ok)
+	assert_eq(equipped_card.charge_current, 3, "应只扣装备区来源卡的填充物")
+	assert_eq(hand_card.charge_current, 4, "手牌中另一张同名装备不应被扣填充物")
+
+
 func test_equip_same_name_discards_existing() -> void:
 	var p: Player = _make_player()
 	_setup_game_for_player(p)
@@ -925,6 +1018,21 @@ func test_unequip_removes_skills() -> void:
 	assert_eq(p.get_all_skills().size(), 1)
 	await p.unequip(e)
 	assert_eq(p.get_all_skills().size(), 0, "卸下应移除技能")
+
+
+func test_discard_equipment_fires_on_unequip() -> void:
+	var p: Player = _make_player()
+	_setup_game_for_player(p)
+	var e: EquipmentCard = _make_equipment("weapon")
+	var called: Array = []
+	e.add_skill(_make_skill_with_trigger("on_unequip", called))
+	p.hand.append(e)
+	await p.equip(e)
+	await p.discard(e)
+	assert_eq(called, ["on_unequip"], "弃置装备区装备应触发 on_unequip")
+	assert_eq(p.equipment_zone.size(), 0)
+	assert_eq(p.get_all_skills().size(), 0, "弃置应卸载装备技能")
+	assert_eq(p.game_discard_pile.size(), 1)
 
 
 ## 合并族：equip / unequip / consume_charge 事件钩子（原 4 个独立测试，断言逐段保留）。

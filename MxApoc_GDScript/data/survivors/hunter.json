@@ -16,7 +16,7 @@
       "active": "action",
       "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_current_block().has_adjacent_unrevealed_block()",
       "defer_action_cost": true,
-      "content": "var max_reveal = 2\nvar count = 0\nwhile count < max_reveal:\n\tvar prompt = \"\\\"侦察\\\": （\" + str(count + 1) + \"/\" + str(max_reveal) + \") 选择相邻地图块\"\n\tvar _candidates = player.get_current_block().get_blocks_in_range(\"medium\")\n\tvar _valid = []\n\tfor _b in _candidates:\n\t\ttarget = _b\n\t\tif target.is_revealed() == false:\n\t\t\t_valid.append(_b)\n\t\ttarget = _b\n\tvar _blocks = await player.choose_block_inline(_valid, prompt, 1)\n\ttarget = _blocks[0] if _blocks.size() > 0 else null\n\tif target == null:\n\t\tif count == 0:\n\t\t\tEventSystem.cancel(event)\n\t\t\treturn\n\t\tbreak\n\tif count == 0:\n\t\tplayer.consume_action(1)\n\ttarget.reveal(false, player)\n\tcount += 1"
+      "content": "var max_reveal = 2\nvar count = 0\nwhile count < max_reveal:\n\tvar prompt = \"\\\"侦察\\\": （\" + str(count + 1) + \"/\" + str(max_reveal) + \") 选择相邻地图块\"\n\tvar _candidates = player.get_current_block().get_blocks_in_range(\"medium\")\n\tvar _valid = []\n\tfor _b in _candidates:\n\t\ttarget = _b\n\t\tif target.is_revealed() == false:\n\t\t\t_valid.append(_b)\n\t\ttarget = _b\n\tvar _blocks = await player.choose_block_inline(_valid, prompt, 1)\n\ttarget = _blocks[0] if _blocks.size() > 0 else null\n\tif target == null:\n\t\tif count == 0:\n\t\t\tEventSystem.cancel(event)\n\t\t\treturn\n\t\tbreak\n\tif count == 0:\n\t\tactions.consume_action(player, 1)\n\tactions.reveal(target, false, player)\n\tcount += 1"
     }
   ],
   "deck": [
@@ -58,7 +58,7 @@
           "filter_target": "return target != player",
           "window_prompt": "\"爆头\": 选择目标",
           "filter_target_range": "long",
-          "content": "target.damage(5, player)"
+          "content": "actions.damage(target, 5, player)"
         }
       ]
     },
@@ -82,7 +82,7 @@
           "filter_target": "return target != player",
           "window_prompt": "\"捕熊陷阱\": 选择目标",
           "filter_target_range": "short",
-          "content": "var weapon = player.get_equipment(\"bear_trap\")\nplayer.discard(\"bear_trap\", \"equipment\")\ntarget.damage(4, player, \"weapon_attack\", weapon.equipment_card)"
+          "content": "var weapon = player.get_equipment(\"bear_trap\")\nactions.discard(player, \"bear_trap\", \"equipment\")\nactions.damage(target, 4, player, \"weapon_attack\", weapon.equipment_card)"
         }
       ]
     },
@@ -106,7 +106,7 @@
           "filter_target": "return target != player",
           "window_prompt": "\"弓\": 选择目标",
           "filter_target_range": "medium",
-          "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"bow\")\ntarget.damage(2, player, \"weapon_attack\", weapon.equipment_card)"
+          "content": "actions.consume_action(player, 1)\nvar weapon = player.get_equipment(\"bow\")\nactions.damage(target, 2, player, \"weapon_attack\", weapon.equipment_card)"
         }
       ]
     },
@@ -133,7 +133,7 @@
           "filter_target": "return target != player",
           "window_prompt": "\"火焰箭\": 选择目标",
           "filter_target_range": "medium",
-          "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"fire_arrow\")\nplayer.consume_charge(weapon, 1)\ntarget.damage(4, player, \"weapon_attack\", weapon.equipment_card)"
+          "content": "actions.consume_action(player, 1)\nvar weapon = player.get_equipment(\"fire_arrow\")\nactions.consume_charge(player, weapon, 1)\nactions.damage(target, 4, player, \"weapon_attack\", weapon.equipment_card)"
         }
       ]
     },
@@ -157,7 +157,7 @@
           "filter_target": "return target != player",
           "window_prompt": "\"砍刀\": 选择目标",
           "filter_target_range": "short",
-          "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"machete\")\ntarget.damage(3, player, \"weapon_attack\", weapon.equipment_card)"
+          "content": "actions.consume_action(player, 1)\nvar weapon = player.get_equipment(\"machete\")\nactions.damage(target, 3, player, \"weapon_attack\", weapon.equipment_card)"
         }
       ]
     },
@@ -179,7 +179,7 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"motorcycle\") > 0",
           "defer_action_cost": true,
-          "content": "var max_steps = 3\nvar steps = 0\nwhile steps < max_steps:\n\tvar prompt = \"\\\"摩托车\\\": （\" + str(steps + 1) + \"/3）选择目标地图块\"\n\tvar _candidates = player.get_current_block().get_blocks_in_range(\"medium\")\n\tvar _valid = []\n\tfor _b in _candidates:\n\t\ttarget = _b\n\t\tif target != player.get_current_block():\n\t\t\t_valid.append(_b)\n\t\ttarget = _b\n\tvar _blocks = await player.choose_block_inline(_valid, prompt, 1)\n\ttarget = _blocks[0] if _blocks.size() > 0 else null\n\tif target == null:\n\t\tif steps == 0:\n\t\t\tEventSystem.cancel(event)\n\t\t\treturn\n\t\tbreak\n\tif steps == 0:\n\t\tplayer.consume_action(1)\n\t\tawait player.consume_charge(player.get_equipment(\"motorcycle\"), 1)\n\tvar success = await player.move_to(target)\n\tif not success:\n\t\tbreak\n\tsteps += 1"
+          "content": "var max_steps = 3\nvar steps = 0\nwhile steps < max_steps:\n\tvar prompt = \"\\\"摩托车\\\": （\" + str(steps + 1) + \"/3）选择目标地图块\"\n\tvar _candidates = player.get_current_block().get_blocks_in_range(\"medium\")\n\tvar _valid = []\n\tfor _b in _candidates:\n\t\ttarget = _b\n\t\tif target != player.get_current_block():\n\t\t\t_valid.append(_b)\n\t\ttarget = _b\n\tvar _blocks = await player.choose_block_inline(_valid, prompt, 1)\n\ttarget = _blocks[0] if _blocks.size() > 0 else null\n\tif target == null:\n\t\tif steps == 0:\n\t\t\tEventSystem.cancel(event)\n\t\t\treturn\n\t\tbreak\n\tif steps == 0:\n\t\tactions.consume_action(player, 1)\n\t\tactions.consume_charge(player, player.get_equipment(\"motorcycle\"), 1)\n\tvar success = await player.move_to(target)\n\tif not success:\n\t\tbreak\n\tsteps += 1"
         }
       ]
     },
@@ -206,7 +206,7 @@
           "filter_target": "return target != player",
           "window_prompt": "\"弩\": 选择目标",
           "filter_target_range": "medium",
-          "content": "player.consume_action(1)\nvar weapon = player.get_equipment(\"crossbow\")\nplayer.consume_charge(weapon, 1)\ntarget.damage(3, player, \"weapon_attack\", weapon.equipment_card)"
+          "content": "actions.consume_action(player, 1)\nvar weapon = player.get_equipment(\"crossbow\")\nactions.consume_charge(player, weapon, 1)\nactions.damage(target, 3, player, \"weapon_attack\", weapon.equipment_card)"
         }
       ]
     },
@@ -229,7 +229,7 @@
           "filter_target": "return target.is_monster()",
           "window_prompt": "\"圈套\": 选择目标",
           "filter_target_range": "medium",
-          "content": "target.damage(1, player)\ntarget.stun(player, \"before_next_turn_start\")"
+          "content": "actions.damage(target, 1, player)\nactions.stun(target, player, \"before_next_turn_start\")"
         }
       ]
     },
@@ -246,7 +246,7 @@
           "skill_type": "action",
           "active": "action",
           "filter": "return player.in_phase == \"action\"",
-          "content": "var list = game.get_all_players()\nfor i in list:\n\ti.decrease_hunger(1)"
+          "content": "var list = game.get_all_players()\nfor i in list:\n\tactions.decrease_hunger(i, 1)"
         }
       ]
     },
@@ -264,7 +264,7 @@
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && game.has_equipment_in_discard_piles()",
           "defer_action_cost": true,
-          "content": "var list = game.get_all_discard_pile_equipments()\nvar _selected = await player.choose_card(1, list, null, \"\\\"神通广大\\\": 选取一张装备牌\")\nif _selected.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar card = _selected[0]\nvar _targets = await player.choose_target(1, {\"filter_target\": \"return target.is_player()\", \"filter_target_range\": \"infinity\"}, \"\\\"神通广大\\\": 选取置入装备牌的玩家\")\nif _targets.is_empty():\n\tEventSystem.cancel(event)\n\treturn\ntarget = _targets[0]\nplayer.consume_action(1)\nvar original_pile = game.take_card_from_discard_piles(card)\nvar success = await target.equip(card)\nif not success and original_pile != null:\n\toriginal_pile.add(card)"
+          "content": "var list = game.get_all_discard_pile_equipments()\nvar _selected = await player.choose_card(1, list, null, \"\\\"神通广大\\\": 选取一张装备牌\")\nif _selected.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar card = _selected[0]\nvar _targets = await player.choose_target(1, {\"filter_target\": \"return target.is_player()\", \"filter_target_range\": \"infinity\"}, \"\\\"神通广大\\\": 选取置入装备牌的玩家\")\nif _targets.is_empty():\n\tEventSystem.cancel(event)\n\treturn\ntarget = _targets[0]\nactions.consume_action(player, 1)\nvar original_pile = game.take_card_from_discard_piles(card)\nvar success = await target.equip(card)\nif not success and original_pile != null:\n\toriginal_pile.add(card)"
         }
       ]
     },
@@ -296,7 +296,7 @@
           "filter_target": "return target.is_monster() && target.monster_level != \"boss\" && player.monster_zone.has(target)",
           "filter_target_range": "short",
           "window_prompt": "\"伪装\": 选择目标",
-          "content": "player.discard(\"camouflage\", \"equipment\")\nplayer.damage(3, player)\nplayer.monster_zone.erase(target)\nif game.monster_discard_pile != null:\n\tgame.monster_discard_pile.add(target.monster_card)\nif player.current_block != null:\n\tplayer.current_block.add_monster_mark(1)"
+          "content": "actions.discard(player, \"camouflage\", \"equipment\")\nactions.damage(player, 3, player)\nplayer.monster_zone.erase(target)\nif game.monster_discard_pile != null:\n\tgame.monster_discard_pile.add(target.monster_card)\nif player.current_block != null:\n\tactions.add_monster_mark(player.current_block, 1)"
         }
       ]
     },
@@ -313,7 +313,7 @@
           "skill_type": "action",
           "active": "action",
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && game.has_scavenge_cards()",
-          "content": "var piles = [game.get_scavenge_pile(\"red\"), game.get_scavenge_pile(\"green\"), game.get_scavenge_pile(\"blue\")]\nvar valid_piles = []\nfor p in piles:\n\tif p != null and not p.is_empty():\n\t\tvalid_piles.append(p)\nif valid_piles.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar drawn_cards = []\nvar drawn_piles = []\nwhile drawn_cards.size() < 3 and not valid_piles.is_empty():\n\tvalid_piles.shuffle()\n\tvar pile = valid_piles[0]\n\tvar card = pile.draw()\n\tif card != null:\n\t\tdrawn_cards.append(card)\n\t\tdrawn_piles.append(pile)\n\tif pile.is_empty():\n\t\tvalid_piles.erase(pile)\nif drawn_cards.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar names = []\nfor c in drawn_cards:\n\tnames.append(c.card_name)\ngame.log_message(LogColors.player(player.player_name) + \" 展示了拾荒牌: \" + \", \".join(names))\nvar selected = await player.choose_card(2, drawn_cards, null, \"\\\"夜色掩护\\\": 选择要保留的牌\", 0)\nvar event_scavenge = EventSystem.create_draw_scavenge_event(player, null, 0)\nfor i in range(drawn_cards.size()):\n\tvar card = drawn_cards[i]\n\tvar pile = drawn_piles[i]\n\tif selected.has(card):\n\t\tawait player.draw_scavenge_card(card, pile, event_scavenge)\n\telse:\n\t\tplayer.discard(card)"
+          "content": "var piles = [game.get_scavenge_pile(\"red\"), game.get_scavenge_pile(\"green\"), game.get_scavenge_pile(\"blue\")]\nvar valid_piles = []\nfor p in piles:\n\tif p != null and not p.is_empty():\n\t\tvalid_piles.append(p)\nif valid_piles.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar drawn_cards = []\nvar drawn_piles = []\nwhile drawn_cards.size() < 3 and not valid_piles.is_empty():\n\tvalid_piles.shuffle()\n\tvar pile = valid_piles[0]\n\tvar card = pile.draw()\n\tif card != null:\n\t\tdrawn_cards.append(card)\n\t\tdrawn_piles.append(pile)\n\tif pile.is_empty():\n\t\tvalid_piles.erase(pile)\nif drawn_cards.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar names = []\nfor c in drawn_cards:\n\tnames.append(c.card_name)\ngame.log_message(LogColors.player(player.player_name) + \" 展示了拾荒牌: \" + \", \".join(names))\nvar selected = await player.choose_card(2, drawn_cards, null, \"\\\"夜色掩护\\\": 选择要保留的牌\", 0)\nvar event_scavenge = EventSystem.create_draw_scavenge_event(player, null, 0)\nfor i in range(drawn_cards.size()):\n\tvar card = drawn_cards[i]\n\tvar pile = drawn_piles[i]\n\tif selected.has(card):\n\t\tactions.draw_scavenge_card(player, card, pile, event_scavenge)\n\telse:\n\t\tactions.discard(player, card)"
         }
       ]
     }
