@@ -11,8 +11,15 @@ const TYPE_AI := 1
 const TYPE_EMPTY := 2
 
 @onready var _seat_index_label: Label = $MarginContainer/VBoxContainer/SeatHeader/SeatIndexLabel
+@onready var _name_label: Label = $MarginContainer/VBoxContainer/SeatHeader/NameLabel
 @onready var _type_option: OptionButton = $MarginContainer/VBoxContainer/SeatHeader/TypeOption
 @onready var _survivor_option: OptionButton = $MarginContainer/VBoxContainer/SurvivorOption
+
+## 座位归属的玩家名与网络 peer id（来自 RoomState.seats）。
+var _player_name: String = ""
+var _peer_id: int = 0
+## 被客机占用时锁定为只读。
+var _locked: bool = false
 
 func _ready() -> void:
 	_seat_index_label.text = "座位 %d" % (seat_index + 1)
@@ -44,7 +51,8 @@ func _on_selection_changed(_idx: int) -> void:
 	changed.emit(seat_index)
 
 func _update_survivor_enabled() -> void:
-	_survivor_option.disabled = (_type_option.selected == TYPE_EMPTY)
+	_survivor_option.disabled = (_type_option.selected == TYPE_EMPTY) or _locked
+	_refresh_name_label()
 
 ## 根据已占用 id 禁用 OptionButton 中对应的求生者项。
 ## 当前选择已被其他座位占用时（初始状态或类型切换导致），重置为"未选择"。
@@ -72,8 +80,10 @@ func _get_current_survivor_id() -> String:
 		return ""
 	return meta.english_name
 
-## 用 RoomState.seats 项的 {type, survivor} 数据初始化座位 UI。
+## 用 RoomState.seats 项的 {type, survivor, player_name, peer_id} 数据初始化座位 UI。
 func setup(data: Dictionary) -> void:
+	_player_name = str(data.get("player_name", ""))
+	_peer_id = int(data.get("peer_id", 0))
 	_type_option.set_block_signals(true)
 	_survivor_option.set_block_signals(true)
 	if data.has("type"):
@@ -91,11 +101,28 @@ func setup(data: Dictionary) -> void:
 	if seat_index == 0:
 		_type_option.select(TYPE_HUMAN)
 		_type_option.disabled = true
+	else:
+		# 非 0 座位允许主机设为"真人"（本地热座）；客机占用后由 set_locked 锁定
+		_type_option.set_item_disabled(TYPE_HUMAN, false)
 	_type_option.set_block_signals(false)
 	_survivor_option.set_block_signals(false)
 	_update_survivor_enabled()
 
-## 收集当前座位选择，返回 {type: String, survivor: SurvivorData} 字典。
+## 锁定座位（客机占用后只读）。
+func set_locked(locked: bool) -> void:
+	_locked = locked
+	if _locked:
+		_type_option.disabled = true
+		_survivor_option.disabled = true
+	else:
+		_type_option.disabled = (seat_index == 0)
+		_update_survivor_enabled()
+
+## 是否处于锁定只读状态。
+func is_locked() -> bool:
+	return _locked
+
+## 收集当前座位选择，返回 {type, survivor, player_name, peer_id} 字典。
 func collect() -> Dictionary:
 	var type_text := "human"
 	match _type_option.selected:
@@ -107,4 +134,16 @@ func collect() -> Dictionary:
 		var idx := _survivor_option.selected
 		if idx > 0:
 			survivor = _survivor_option.get_item_metadata(idx)
-	return {"type": type_text, "survivor": survivor}
+	return {"type": type_text, "survivor": survivor, "player_name": _player_name, "peer_id": _peer_id}
+
+func _refresh_name_label() -> void:
+	if _name_label == null:
+		return
+	if _locked or _peer_id != 0:
+		var name_text := _player_name if _player_name != "" else "玩家"
+		if _peer_id != 0:
+			name_text = "◎ " + name_text
+		_name_label.text = name_text
+		_name_label.visible = true
+	else:
+		_name_label.visible = false

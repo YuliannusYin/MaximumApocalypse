@@ -32,6 +32,14 @@ horizontal_alignment = 1
 vertical_alignment = 1
 text = "游戏房间"
 
+[node name="NetStatusLabel" type="Label" parent="TopBar"]
+layout_mode = 1
+offset_left = 10.0
+offset_top = 10.0
+offset_right = 720.0
+offset_bottom = 30.0
+text = ""
+
 [node name="MissionSelectArea" type="PanelContainer" parent="."]
 layout_mode = 1
 offset_left = 10.0

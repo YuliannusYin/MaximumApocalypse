@@ -320,6 +320,8 @@ func _config_get(config: Variant, field: String, default: Variant = null) -> Var
 ## 内部方法：根据地块名创建 MapBlock 实例。从 DataManager 加载完整地块数据。
 func _create_map_block(block_name: String, variant_index: int = -1) -> MapBlock:
 	var block: MapBlock = MapBlock.new()
+	block.net_id = NetId.next()
+	NetRegistry.register(block)
 	block.block_name = block_name
 	var block_def: MapBlockData = DataManager.get_map_block_def_by_name(block_name)
 	if block_def != null:
@@ -565,6 +567,8 @@ func initialize_game(mission: MissionData, variants: Dictionary, seats: Array) -
 		if survivor == null:
 			continue
 		var player: Player = Player.new()
+		player.net_id = NetId.next()
+		NetRegistry.register(player)
 		player.seat_number = i
 		player.player_name = survivor.character_name
 		player.max_hp = survivor.max_hp
@@ -860,6 +864,8 @@ func _create_game_card_from_dict(card_dict: Dictionary) -> Card:
 		if raw is Dictionary:
 			var skill_data: SkillData = SkillData.new(raw)
 			card.add_skill(_create_skill_from_data(skill_data))
+	card.net_id = NetId.next()
+	NetRegistry.register(card)
 	return card
 
 
@@ -886,6 +892,8 @@ func _create_scavenge_card_from_data(card_data: ScavengeCardData, color: String)
 	card.charge_current = card_data.charge_initial
 	for skill_data in card_data.skills:
 		card.add_skill(_create_skill_from_data(skill_data))
+	card.net_id = NetId.next()
+	NetRegistry.register(card)
 	return card
 
 
@@ -903,6 +911,8 @@ func _create_monster_card_from_data(card_data: MonsterCardData, monster_type: St
 	card.range = card_data.range
 	for skill_data in card_data.skills:
 		card.add_skill(_create_skill_from_data(skill_data))
+	card.net_id = NetId.next()
+	NetRegistry.register(card)
 	return card
 
 

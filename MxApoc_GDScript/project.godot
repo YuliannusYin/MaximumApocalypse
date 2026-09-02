@@ -27,6 +27,7 @@ Game="*res://src/game/game.gd"
 ArchiveManager="*res://src/core/archive_manager.gd"
 RoomState="*res://src/ui/room_state.gd"
 Settings="*res://src/ui/settings.gd"
+NetSession="*res://src/net/net_session.gd"
 
 [display]
 

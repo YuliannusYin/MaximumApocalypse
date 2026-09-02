@@ -9,6 +9,9 @@ extends Entity
 ## 怪物名（来自 MonsterCard.card_name）
 var monster_name: String = ""
 
+## 网络实例 id（主机分配，供快照与输入 RPC 跨端引用）
+var net_id: int = 0
+
 ## 怪物类型："alien"（外星人）/ "mutant"（突变体）/ "zombie"（僵尸）/ "robot"（机器人）
 var monster_type: String = ""
 
@@ -92,6 +95,9 @@ func _notify_monster_skill_triggered() -> void:
 	var owner: Player = get_owner_player()
 	if owner == null or not is_instance_valid(owner):
 		return
+	# 通知各端播放怪物技能触发动画（联机：广播给其他客机；单机：本地处理）
+	if EventBus != null and is_instance_valid(EventBus):
+		EventBus.monster_skill_played.emit(self)
 	if owner.input == null or not is_instance_valid(owner.input):
 		return
 	await owner.input.play_monster_skill_trigger_animation(self)
@@ -228,6 +234,9 @@ func _play_attack_animation(targets: Array) -> void:
 	var owner: Player = get_owner_player()
 	if owner == null or not is_instance_valid(owner):
 		return
+	# 通知各端播放怪物攻击动画（联机：广播给其他客机；单机：本地处理）
+	if EventBus != null and is_instance_valid(EventBus):
+		EventBus.monster_attack_played.emit(self, targets)
 	if owner.input == null or not is_instance_valid(owner.input):
 		return
 	await owner.input.play_monster_attack_animation(self, targets)

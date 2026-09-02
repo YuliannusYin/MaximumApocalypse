@@ -9,6 +9,9 @@ extends Entity
 ## 地图块名称（如"避难所"、"面包车"、"军事基地"）
 var block_name: String = ""
 
+## 网络实例 id（主机分配，供快照跨端引用）
+var net_id: int = 0
+
 ## 坐标 {x: int, y: int}。x=列，y=行。对应 map[y][x]
 var coordinate: Dictionary = {"x": 0, "y": 0}
 

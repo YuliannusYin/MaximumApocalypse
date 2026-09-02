@@ -8,6 +8,9 @@ extends Entity
 ## 卡牌名称（中文）
 var card_name: String = ""
 
+## 网络实例 id（主机分配，供快照与输入 RPC 跨端引用）
+var net_id: int = 0
+
 ## 卡牌英文名（用于 content 代码字符串中按名查找装备/卡牌）
 var english_name: String = ""
 

@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://csqiq7xmy145n"]
+
+[ext_resource type="Script" path="res://src/net/network_test.gd" id="1_ngs3i"]
+
+[node name="NetworkTest" type="Node2D" unique_id=1344111969]
+script = ExtResource("1_ngs3i")

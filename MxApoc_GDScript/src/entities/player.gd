@@ -33,6 +33,9 @@ var current_block = null  # MapBlock
 var seat_number: int = 0
 var player_name: String = ""
 
+## 网络实例 id（主机分配，供快照与输入 RPC 跨端引用）
+var net_id: int = 0
+
 # === 输入接口 ===
 var input: IPlayerInput = null
 

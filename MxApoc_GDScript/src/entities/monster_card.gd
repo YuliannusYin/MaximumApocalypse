@@ -28,6 +28,8 @@ var is_boss: bool = false
 ## 由 Player.draw_monster 节点 2d 调用。
 func instantiate(player: Player = null) -> Monster:
 	var monster: Monster = Monster.new()
+	monster.net_id = NetId.next()
+	NetRegistry.register(monster)
 	monster.monster_name = card_name
 	monster.monster_type = monster_type
 	monster.english_name = english_name
