@@ -53,9 +53,16 @@ const _MISSION_ROW_HEIGHT := 48.0
 @onready var _missions_list: VBoxContainer = $Margin/Panel/TabContainer/MissionsTab/MissionsList
 @onready var _monsters_list: VBoxContainer = $Margin/Panel/TabContainer/MonstersTab/MonstersList
 @onready var _back_button: Button = $Margin/Panel/BackButton
+@onready var _background: ColorRect = $Background
+@onready var _title_label: Label = $Margin/Panel/TitleLabel
 
 
 func _ready() -> void:
+	HudTheme.apply_screen_background(_background, Color("#101110"))
+	HudTheme.add_wasteland_backdrop(self, _background)
+	HudTheme.apply_title(_title_label, 28)
+	HudTheme.apply_mission_slot_button(_back_button, 16)
+	HudTheme.apply_section_panel(_tab_container, Color("#1d1c19"))
 	_tab_container.set_tab_title(0, "成就")
 	_tab_container.set_tab_title(1, "求生者")
 	_tab_container.set_tab_title(2, "任务")
@@ -273,6 +280,15 @@ func _make_label(text: String, font_size: int, color: Color) -> Label:
 func _make_stylebox(bg_color: Color) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = bg_color
+	sb.border_width_left = 1
+	sb.border_width_top = 1
+	sb.border_width_right = 1
+	sb.border_width_bottom = 1
+	sb.border_color = Color(0.38, 0.32, 0.24, 0.72)
+	sb.corner_radius_top_left = 4
+	sb.corner_radius_top_right = 4
+	sb.corner_radius_bottom_left = 4
+	sb.corner_radius_bottom_right = 4
 	sb.content_margin_left = 8.0
 	sb.content_margin_right = 8.0
 	sb.content_margin_top = 6.0

@@ -48,6 +48,8 @@ var _index = null
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	HudTheme.apply_section_panel($Margin/Panel, Color("#1b1b17"), HudTheme.SLOT_BORDER)
+	HudTheme.apply_slot_button(_close_button, 13, HudTheme.GOLD_BORDER, HudTheme.GOLD_TEXT)
 	_close_button.pressed.connect(_on_close)
 	_tree.item_selected.connect(_on_tree_item_selected)
 	_index = WikiIndex.new()
