@@ -89,7 +89,7 @@ func build_buttons() -> void:
 	_confirm_button.position = Vector2(575, 550)
 	_confirm_button.size = Vector2(120, 30)
 	_confirm_button.text = "确定 (S)"
-	_confirm_button.add_theme_font_size_override("font_size", 14)
+	HudTheme.apply_slot_button(_confirm_button, 14, HudTheme.GOLD_BORDER, HudTheme.GOLD_TEXT)
 	_confirm_button.disabled = true
 	_confirm_button.pressed.connect(_on_confirm_pressed)
 	_ui_layer.add_child(_confirm_button)
@@ -98,7 +98,7 @@ func build_buttons() -> void:
 	_cancel_end_button.position = Vector2(735, 550)
 	_cancel_end_button.size = Vector2(120, 30)
 	_cancel_end_button.text = "结束回合 (E)"
-	_cancel_end_button.add_theme_font_size_override("font_size", 14)
+	HudTheme.apply_slot_button(_cancel_end_button, 14)
 	_cancel_end_button.disabled = true
 	_cancel_end_button.pressed.connect(_on_cancel_end_pressed)
 	_ui_layer.add_child(_cancel_end_button)

@@ -15,9 +15,6 @@ const TutorialManager = preload("res://src/ui/tutorial_manager.gd")
 @onready var _popup_layer: CanvasLayer = $PopupLayer
 
 # === UI 元素（来自 .tscn）===
-@onready var _top_bar: HBoxContainer = $UILayer/TopBar
-@onready var _phase_label: Label = $UILayer/TopBar/PhaseLabel
-@onready var _current_player_label: Label = $UILayer/TopBar/CurrentPlayerLabel
 @onready var _log_button: Button = $UILayer/LogButton
 @onready var _mission_button: Button = $UILayer/MissionButton
 @onready var _settings_button: Button = $UILayer/SettingsButton
@@ -107,6 +104,11 @@ func _create_modules() -> void:
 
 
 func _wire_static_buttons() -> void:
+	# 右上角固定操作入口与牌堆采用同一套废土金属槽视觉。
+	HudTheme.apply_slot_button(_log_button, 11)
+	HudTheme.apply_mission_slot_button(_mission_button, 11)
+	HudTheme.apply_slot_button(_settings_button, 10, HudTheme.SLOT_BORDER, HudTheme.GOLD_TEXT)
+	HudTheme.apply_slot_button(_wiki_button, 10, HudTheme.SLOT_BORDER, HudTheme.GOLD_TEXT)
 	_log_button.pressed.connect(_on_log_button_pressed)
 	_mission_button.pressed.connect(_on_mission_button_pressed)
 	_settings_button.pressed.connect(_on_settings_pressed)
@@ -263,8 +265,8 @@ func _input(event: InputEvent) -> void:
 func _build_player_panels() -> void:
 	_player_panels.clear()
 	_player_to_panel_idx.clear()
-	# 面板 0 = self（底部大面板），面板 1-3 = teammates
-	for i in range(4):
+	# 面板 0 = self（底部大面板），面板 1-5 = teammates（最多 6 人）
+	for i in range(6):
 		var panel := PlayerPanel.new()
 		panel.set_anchors_preset(PRESET_FULL_RECT)
 		panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -296,14 +298,14 @@ func _assign_player_panels() -> void:
 			_player_to_panel_idx[current.get_instance_id()] = 0
 		else:
 			self_panel.set_player(null, true)
-	# teammate 面板（最多 3 个）
-	for i in range(mini(others.size(), 3)):
+	# teammate 面板（最多 5 个）
+	for i in range(mini(others.size(), 5)):
 		var teammate_panel: PlayerPanel = _player_panels[i + 1]
 		teammate_panel.set_player(others[i], false)
 		teammate_panel.set_current_turn(false)
 		_player_to_panel_idx[others[i].get_instance_id()] = i + 1
 	# 隐藏多余的面板
-	for i in range(others.size() + 1, 4):
+	for i in range(others.size() + 1, 6):
 		if i < _player_panels.size():
 			var empty_panel: PlayerPanel = _player_panels[i]
 			empty_panel.set_player(null, i == 0)
@@ -496,7 +498,6 @@ func _on_settings_popup_id_pressed(id: int) -> void:
 # === GUIPlayerInput 信号处理 ===
 
 func _on_action_requested(_player: Variant) -> void:
-	_update_phase_indicator()
 	_active_skill_bar.refresh(Game.get_current_player())
 	_action_selection_controller.refresh_confirm_cancel_buttons()
 	_pile_manager.refresh_pile_highlights()
@@ -828,14 +829,12 @@ func _on_monster_attack_animation_requested(monster: Variant, targets: Array) ->
 func _on_turn_started(player: Variant) -> void:
 	if player == null or not is_instance_valid(player):
 		return
-	_current_player_label.text = "座位%d %s的回合" % [player.get("seat_number") + 1, player.player_name]
-	_update_phase_indicator()
 	_assign_player_panels()
 	_table_map_controller.refresh_map()
 	_refresh_hand_area()
 	_pile_manager.refresh_pile_counts()
 	_action_selection_controller.refresh_confirm_cancel_buttons()
-	# 回合切换横幅（fire-and-forget，文案与顶栏当前玩家标签一致）
+	# 回合切换横幅
 	_animation_controller.play_turn_banner("座位%d %s的回合" % [player.get("seat_number") + 1, player.player_name])
 	# 当前回合玩家面板呼吸高亮，其余面板恢复普通边框（死亡面板由 set_turn_highlight 内部处理）
 	for panel in _player_panels:
@@ -844,7 +843,6 @@ func _on_turn_started(player: Variant) -> void:
 
 
 func _on_phase_changed(_player: Variant, _old_phase: String, new_phase: String) -> void:
-	_update_phase_indicator()
 	_action_selection_controller.refresh_confirm_cancel_buttons()
 	_pile_manager.refresh_pile_highlights()
 	if new_phase != "action":
@@ -956,7 +954,6 @@ func _on_player_stat_changed(player: Variant, _arg1: Variant = null, _arg2: Vari
 		_pile_manager.refresh_pile_highlights()
 		_active_skill_bar.refresh(current)
 		_action_selection_controller.refresh_confirm_cancel_buttons()
-	_update_phase_indicator()
 
 
 ## 玩家受伤反馈：目标面板红闪 +「-N」飘字；来源为怪物时面板再震动（均 fire-and-forget）。
@@ -1037,45 +1034,6 @@ func _on_log_message(message: String) -> void:
 	_event_log.append(message)
 	if _event_log.size() > 500:
 		_event_log.pop_front()
-
-
-# === 回合指示器 ===
-
-func _update_phase_indicator() -> void:
-	var current: Variant = Game.get_current_player()
-	var phase: String = "等待中"
-	var action_info: String = ""
-	if current != null and is_instance_valid(current):
-		phase = _phase_display(current.get("in_phase"))
-		if current.get("in_phase") == "action":
-			action_info = "（剩余 %d/%d 行动）" % [current.get("action_count"), current.get("max_action_count")]
-	_phase_label.text = "第 %d 轮 | %s%s" % [Game.state_machine.turn_number, phase, action_info]
-
-
-func _phase_display(phase: String) -> String:
-	match phase:
-		"round_zero":
-			return "重调阶段"
-		"idle":
-			return "等待中"
-		"turn_start":
-			return "回合开始"
-		"monster_spawn":
-			return "怪物生成"
-		"draw":
-			return "抽牌阶段"
-		"action":
-			return "行动阶段"
-		"hunger":
-			return "饥饿阶段"
-		"poison":
-			return "中毒阶段"
-		"monster_action":
-			return "怪物行动"
-		"turn_end":
-			return "回合结束"
-		_:
-			return phase
 
 
 # === Game over ===

@@ -5,9 +5,9 @@
   "english_name": "human_counterattack",
   "difficulty": "very_hard",
   "van_fuel_required": null,
-  "intro_text": "根据你找到的情报，我们绘制出了控制他们的机械和无人机的外星神经网络图。我们团队的科学家们写了一个让他们瘫痪的病毒。我们击毁了一艘外星飞船，现在需要到那里上传病毒。",
+  "intro_text": "根据你找到的情报，我们绘制出了控制他们的机械和无人机的外星神经网络图。我们团队的科学家们写了一个让他们瘫痪的病毒。我们击毁了一艘外星飞船，现在需要到那里上传病毒。摧毁 2 个外星发射器，然后把科学家带到“坠毁点”去上传病毒。",
   "objective_text": "移除场上的“任务标记”(0/2)；摧毁 2 个外星发射器后，把“科学家”带到“坠毁点”上传病毒，获得游戏胜利。",
-  "special_setup": "将怪物牌堆中的首领级怪物牌随机分布到怪物牌堆中的下半部分。\n游戏开始时，将“科学家”装备进座位1上的玩家的“装备区”。\n当“科学家”被弃置时，任务失败。",
+  "special_setup": "游戏开始时，将“科学家”装备进座位1上的玩家的“装备区”。\n当“科学家”被弃置时，任务失败。\n给带“任务标记”的地图块添加主动技能“摧毁发射器”：消耗 1 点行动，摧毁“发射器”。\n地图块“坠毁点”添加主动技能“上传病毒”：消耗 1 点行动，上传“病毒”。",
   "monster_pack_type": "alien",
   "map_blocks_config": {
     "面包车": 1,
@@ -46,15 +46,15 @@
   "objective_marks": [
     {
       "mark_id": "mark_1",
-      "mark_description": "被守卫的外星发射器1：需用炸药摧毁（先清除2个怪物标记）",
-      "initial_monster_marks": 2,
+      "mark_description": "外星发射器 1：摧毁此发射器后移除",
+      "initial_monster_marks": 0,
       "remove_condition": null,
       "effect_code": ""
     },
     {
       "mark_id": "mark_2",
-      "mark_description": "被守卫的外星发射器2：需用炸药摧毁（先清除2个怪物标记）",
-      "initial_monster_marks": 2,
+      "mark_description": "外星发射器 2：摧毁此发射器后移除",
+      "initial_monster_marks": 0,
       "remove_condition": null,
       "effect_code": ""
     }
@@ -109,6 +109,7 @@
     { "component": "card_discard_watch", "params": { "card_name": "科学家", "on_discard": "lose" } }
   ],
   "progress_conditions": [
-    { "text": "移除场上的\"任务标记\"", "type": "marks_cleared", "params": { "count": 2 } }
+    { "text": "移除场上的\"任务标记\"", "type": "marks_cleared", "params": { "count": 2 } },
+    { "text": "携带\"科学家\"的玩家在地图块\"坠毁点\"上执行\"上传病毒\"", "type": "escort_at_block", "params": { "card_name": "科学家", "block_name": "坠毁点" } }
   ]
 }
