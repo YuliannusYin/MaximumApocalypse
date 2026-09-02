@@ -310,6 +310,48 @@ func test_has_player() -> void:
 	assert_true(b.has_player())
 
 
+func test_count_monster_only_this_block() -> void:
+	var a: MapBlock = _make_block("A", 0, 0)
+	var b: MapBlock = _make_block("B", 1, 0)
+	var p1: MockPlayer = MockPlayer.new()
+	p1.current_block = a
+	p1.monster_zone = [1, 2, 3]
+	var p2: MockPlayer = MockPlayer.new()
+	p2.current_block = b
+	p2.monster_zone = [1, 2, 3, 4, 5, 6]
+	_setup_game_map([a, b])
+	Game.players = [p1, p2]
+	assert_eq(a.count_monster(), 3, "只应统计本块玩家的怪物")
+	assert_eq(b.count_monster(), 6, "另一块不应计入本块怪物")
+	assert_true(a.has_monster())
+	assert_true(b.has_monster())
+
+
+func test_count_monster_sums_players_on_same_block() -> void:
+	var a: MapBlock = _make_block("A", 0, 0)
+	var p1: MockPlayer = MockPlayer.new()
+	p1.current_block = a
+	p1.monster_zone = [1, 2]
+	var p2: MockPlayer = MockPlayer.new()
+	p2.current_block = a
+	p2.monster_zone = [1]
+	_setup_game_map([a])
+	Game.players = [p1, p2]
+	assert_eq(a.count_monster(), 3, "同块多名玩家的怪物应累加")
+
+
+func test_count_monster_excludes_dead() -> void:
+	var a: MapBlock = _make_block("A", 0, 0)
+	var p: MockPlayer = MockPlayer.new()
+	p.current_block = a
+	p.hp = 0
+	p.monster_zone = [1, 2, 3]
+	_setup_game_map([a])
+	Game.players = [p]
+	assert_eq(a.count_monster(), 0, "死亡玩家的怪物不应计入")
+	assert_false(a.has_monster())
+
+
 # === 9. 目标标记管理 ===
 
 func _make_mark(id: String, effect_called: Array = []) -> Dictionary:

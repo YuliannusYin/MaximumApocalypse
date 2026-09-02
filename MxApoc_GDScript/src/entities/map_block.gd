@@ -117,14 +117,12 @@ func has_monster() -> bool:
 	return count_monster() > 0
 
 
-## 返回地块上当前纠缠玩家的怪物总数。
+## 返回此地块上当前纠缠玩家的怪物总数（仅统计所在地块为本块的存活玩家）。
 func count_monster() -> int:
 	var count: int = 0
-	if Game == null or not is_instance_valid(Game):
-		return count
-	for player in Game.players:
-		if player != null and is_instance_valid(player) and player.is_alive():
-			count += player.monster_zone.size() if "monster_zone" in player else 0
+	for player in get_players():
+		if "monster_zone" in player:
+			count += player.monster_zone.size()
 	return count
 
 
