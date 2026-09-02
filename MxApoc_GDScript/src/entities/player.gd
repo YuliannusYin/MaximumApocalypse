@@ -274,7 +274,10 @@ func resolve_hand_overflow(new_cards: Array) -> void:
 	if k <= 0:
 		return
 	# 单次弹窗：精确模式弃置恰好 K 张手牌
-	var selected: Array = await choose_card(k, "hand", null, "\"手牌超限\": 请弃置 %d 张手牌" % k)
+	var discard_filter := Callable(self, "_discardable_card_filter")
+	var selected: Array = await choose_card(k, "hand", discard_filter, "\"手牌超限\": 请弃置 %d 张手牌" % k)
+	# 输入层之外仍做一次校验，防止 CLI/脚本注入受保护卡牌。
+	selected = _filter_discardable_cards(selected)
 	if selected.is_empty():
 		# 玩家取消：自动弃置 new_cards 中后入手的 K 张（从数组末尾往前取仍在手牌中的牌）
 		var auto_names: Array = []
@@ -282,7 +285,7 @@ func resolve_hand_overflow(new_cards: Array) -> void:
 			if auto_names.size() >= k:
 				break
 			var nc: Card = new_cards[i]
-			if nc != null and is_instance_valid(nc) and hand.has(nc):
+			if nc != null and is_instance_valid(nc) and hand.has(nc) and not is_card_protected_from_discard(nc):
 				await discard(nc, "", 1, "", true)
 				auto_names.append(LogColors.card(nc.card_name))
 		if auto_names.size() > 0 and Game != null and is_instance_valid(Game):
@@ -420,6 +423,8 @@ func discard(target: Variant, position: String = "", quantity: int = 1, type: St
 	else:
 		# 按名字+位置+数量弃置
 		cards_to_discard = get_cards(position, target, quantity)
+	# 特殊卡牌不可作为弃置目标（例如“科学家”，包括手牌中的科学家）。
+	cards_to_discard = _filter_discardable_cards(cards_to_discard)
 	if cards_to_discard.is_empty():
 		return
 	var event: Dictionary = EventSystem.create_discard_event(self, cards_to_discard, cards_to_discard.size())
@@ -479,6 +484,8 @@ func remove_card(target: Variant, position: String = "", quantity: int = 1) -> v
 		cards_to_remove.append(target)
 	else:
 		cards_to_remove = get_cards(position, target, quantity)
+	# 特殊卡牌不可作为移出游戏目标（例如“科学家”，包括手牌中的科学家）。
+	cards_to_remove = _filter_discardable_cards(cards_to_remove)
 	if cards_to_remove.is_empty():
 		return
 	var event: Dictionary = EventSystem.create_event({
@@ -982,7 +989,11 @@ func equip(card: Card) -> bool:
 			if e != null and is_instance_valid(e):
 				total_size += int(e.get("size"))
 		while total_size + new_size > role_card.equipment_capacity and not equipment_zone.is_empty():
-			var selected: Array = await choose_card(1, equipment_zone, null, "\"装备栏超限\": 请弃置装备区中的装备以容纳新装备")
+			var overflow_candidates: Array = []
+			for e in get_discardable_equipment_cards():
+				if int(e.get("size")) > 0:
+					overflow_candidates.append(e)
+			var selected: Array = await choose_card(1, overflow_candidates, null, "\"装备栏超限\": 请弃置装备区中的装备以容纳新装备")
 			if selected.is_empty():
 				# 玩家取消：中止装备流程，这张打算装备的牌（仍在手牌）因装备栏超限被弃置
 				EventSystem.cancel(event)
@@ -1603,6 +1614,39 @@ func has_equipment(name: String) -> bool:
 	return false
 
 
+## 判断卡牌是否为不能被普通弃置/移除的特殊卡牌。
+## 按卡牌名称判断，因此手牌与装备区内的“科学家”均受保护。
+func is_card_protected_from_discard(target: Variant) -> bool:
+	if target == null or typeof(target) != TYPE_OBJECT or not is_instance_valid(target):
+		return false
+	var card_name: Variant = target.get("card_name")
+	var english_name: Variant = target.get("english_name")
+	return card_name == "科学家" or english_name == "scientist"
+
+
+## 返回当前装备区内可被普通弃置/移除的装备实体。
+func get_discardable_equipment_cards() -> Array:
+	var result: Array = []
+	for e in equipment_zone:
+		if e != null and is_instance_valid(e) and not is_card_protected_from_discard(e):
+			result.append(e)
+	return result
+
+
+## 从弃置/移除候选中排除特殊卡牌。
+func _filter_discardable_cards(cards: Array) -> Array:
+	var result: Array = []
+	for card in cards:
+		if not is_card_protected_from_discard(card):
+			result.append(card)
+	return result
+
+
+## 供 choose_card 过滤器使用：返回卡牌是否可被弃置。
+func _discardable_card_filter(_player: Variant, card: Variant, _event: Variant, _game: Variant) -> bool:
+	return not is_card_protected_from_discard(card)
+
+
 ## 装备区是否存在 charge_type == "ammo" 的装备（空尖弹 filter 用）。
 func has_ammo_weapon() -> bool:
 	for e in equipment_zone:
@@ -1838,6 +1882,7 @@ func choose_to_discard(n: int, type: String = "") -> void:
 		for c in hand:
 			if c.card_type == type:
 				candidates.append(c)
+	candidates = _filter_discardable_cards(candidates)
 	if candidates.is_empty():
 		return
 	var chosen: Variant = await choose_card(n, candidates)

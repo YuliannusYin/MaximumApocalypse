@@ -111,6 +111,7 @@ func _wire_mission_event_forwarding() -> void:
 	EventBus.objective_mark_triggered.connect(_on_event_objective_mark_triggered)
 	EventBus.equipment_equipped.connect(_on_event_equipment_equipped)
 	EventBus.card_discarded.connect(_on_mission_card_discarded)
+	EventBus.player_died.connect(_on_mission_player_died)
 	EventBus.monster_spawn_judged.connect(_on_mission_monster_spawn_judged)
 
 
@@ -155,6 +156,10 @@ func _on_event_equipment_equipped(player: Variant, card: Variant) -> void:
 
 func _on_mission_card_discarded(player: Variant, card: Variant) -> void:
 	_forward_mission_event("card_discarded", {"player": player, "card": card})
+
+
+func _on_mission_player_died(player: Variant, source: Variant) -> void:
+	_forward_mission_event("player_died", {"player": player, "source": source})
 
 
 func _on_mission_monster_spawn_judged(player: Variant, value: int) -> void:
@@ -463,9 +468,13 @@ func get_random_card(player: Variant, areas: Array) -> Variant:
 	var all_cards: Array = []
 	for area in areas:
 		if area == "hand" and "hand" in player:
-			all_cards.append_array(player.hand)
+			for card in player.hand:
+				if player.has_method("is_card_protected_from_discard") and player.is_card_protected_from_discard(card):
+					continue
+				all_cards.append(card)
 		elif area == "equipment" and "equipment_zone" in player:
-			for e in player.equipment_zone:
+			var equipment_cards: Array = player.get_discardable_equipment_cards() if player.has_method("get_discardable_equipment_cards") else player.equipment_zone
+			for e in equipment_cards:
 				if e != null and is_instance_valid(e) and e.get("equipment_card") != null:
 					all_cards.append(e.equipment_card)
 	if all_cards.is_empty():
@@ -481,9 +490,13 @@ func get_random_cards(player: Variant, areas: Array, n: int) -> Array:
 	var all_cards: Array = []
 	for area in areas:
 		if area == "hand" and "hand" in player:
-			all_cards.append_array(player.hand)
+			for card in player.hand:
+				if player.has_method("is_card_protected_from_discard") and player.is_card_protected_from_discard(card):
+					continue
+				all_cards.append(card)
 		elif area == "equipment" and "equipment_zone" in player:
-			for e in player.equipment_zone:
+			var equipment_cards: Array = player.get_discardable_equipment_cards() if player.has_method("get_discardable_equipment_cards") else player.equipment_zone
+			for e in equipment_cards:
 				if e != null and is_instance_valid(e) and e.get("equipment_card") != null:
 					all_cards.append(e.equipment_card)
 	all_cards.shuffle()

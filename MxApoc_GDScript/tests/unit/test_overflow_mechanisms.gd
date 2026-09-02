@@ -369,7 +369,8 @@ func test_equip_overflow_select_discards_equipment_then_equips() -> void:
 	assert_false(p.hand.has(e2), "e2 应离开手牌进入装备区")
 	# 弹窗参数：候选为装备区列表，prompt 注明装备栏超限
 	assert_eq(spy.calls.size(), 1, "应弹窗一次")
-	assert_eq(spy.calls[0]["param"], p.equipment_zone, "弹窗候选应为装备区列表")
+	assert_eq(spy.calls[0]["param"].size(), 1, "弹窗候选应为装备区内可弃置装备列表")
+	assert_true(spy.calls[0]["param"].has(entity1), "弹窗候选应包含待弃置的旧装备")
 	assert_true(str(spy.calls[0]["prompt"]).contains("装备栏超限"), "prompt 应注明装备栏超限")
 
 
@@ -419,3 +420,76 @@ func test_use_card_equipment_overflow_cancel_consumes_action() -> void:
 	assert_false(p.has_equipment("e2"), "e2 不应进入装备区")
 	assert_true(p.has_equipment("e1"), "原装备 e1 应保留")
 	assert_true(p.game_discard_pile.get_all().has(e2), "待装备的 e2 应被弃置")
+
+
+## === 十一、装备超限候选过滤：排除 size=0 与科学家 ===
+
+func test_equip_overflow_filters_zero_size_and_scientist() -> void:
+	var p: Player = _make_player()
+	_setup_game_for_player(p)
+	p.role_card = _make_role(10, 3)
+	var scientist: EquipmentCard = _make_equipment("科学家", 1)
+	scientist.english_name = "scientist"
+	var zero_size: EquipmentCard = _make_equipment("zero_size", 0)
+	var normal: EquipmentCard = _make_equipment("normal", 1)
+	await p.equip(scientist)
+	await p.equip(zero_size)
+	await p.equip(normal)
+	p.role_card.equipment_capacity = 2
+	var replacement: EquipmentCard = _make_equipment("replacement", 1)
+	p.hand.append(replacement)
+	var spy: _ChooseCardSpyInput = _ChooseCardSpyInput.new()
+	p.input = spy
+	spy.queue_choose_card([p.get_equipment("normal")])
+	assert_true(await p.equip(replacement), "选取普通装备腾位后应成功装备")
+	assert_eq(spy.calls.size(), 1, "应触发一次装备超限选择")
+	var candidates: Array = spy.calls[0]["param"]
+	assert_false(candidates.has(p.get_equipment("科学家")), "科学家不应出现在装备超限候选中")
+	assert_false(candidates.any(func(e): return e.card_name == "zero_size"), "size=0 装备不应出现在候选中")
+	assert_true(p.has_equipment("科学家"), "科学家应继续留在装备区")
+	assert_true(p.has_equipment("zero_size"), "size=0 装备应继续留在装备区")
+
+
+## === 十二、科学家不可被 discard/remove_card ===
+
+func test_scientist_is_not_discardable_or_removable() -> void:
+	var p: Player = _make_player()
+	_setup_game_for_player(p)
+	p.role_card = _make_role(10, 5)
+	var scientist: EquipmentCard = _make_equipment("科学家", 1)
+	scientist.english_name = "scientist"
+	await p.equip(scientist)
+	var entity: Equipment = p.get_equipment("科学家")
+	await p.discard(entity)
+	assert_true(p.has_equipment("科学家"), "装备区内科学家不能被 discard")
+	assert_false(p.game_discard_pile.get_all().has(scientist), "科学家不能进入弃牌堆")
+	await p.remove_card(entity)
+	assert_true(p.has_equipment("科学家"), "装备区内科学家不能被 remove_card")
+	assert_false(Game.removed_cards.has(scientist), "科学家不能被移出游戏")
+	var hand_scientist: EquipmentCard = _make_equipment("科学家", 1)
+	hand_scientist.english_name = "scientist"
+	p.hand.append(hand_scientist)
+	await p.discard(hand_scientist)
+	assert_true(p.hand.has(hand_scientist), "手牌区内科学家不能被 discard")
+	await p.remove_card(hand_scientist)
+	assert_true(p.hand.has(hand_scientist), "手牌区内科学家不能被 remove_card")
+	assert_false(Game.removed_cards.has(hand_scientist), "手牌区内科学家不能被移出游戏")
+
+
+func test_choose_to_discard_filters_hand_scientist() -> void:
+	var p: Player = _make_player()
+	_setup_game_for_player(p)
+	p.role_card = _make_role(10, 5)
+	var scientist: EquipmentCard = _make_equipment("科学家", 1)
+	scientist.english_name = "scientist"
+	var normal: Card = _make_card("normal")
+	p.hand.append(scientist)
+	p.hand.append(normal)
+	var spy: _ChooseCardSpyInput = _ChooseCardSpyInput.new()
+	p.input = spy
+	spy.queue_choose_card([normal])
+	await p.choose_to_discard(1)
+	assert_eq(spy.calls.size(), 1, "选择弃牌应弹窗一次")
+	assert_false(spy.calls[0]["param"].has(scientist), "手牌中的科学家不应出现在弃牌候选中")
+	assert_true(p.game_discard_pile.get_all().has(normal), "普通牌应正常被弃置")
+	assert_true(p.hand.has(scientist), "科学家应继续留在手牌")

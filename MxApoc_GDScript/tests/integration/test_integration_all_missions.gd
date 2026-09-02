@@ -220,7 +220,7 @@ func test_mission_1_rescue_via_input_then_van_win() -> void:
 	assert_eq(Game.game_result, "win", "Game.game_result 应为 win")
 
 
-func test_mission_1_scientist_discard_loses() -> void:
+func test_mission_1_scientist_holder_death_loses() -> void:
 	_mount_mission(1)
 	var p: Player = _make_player("P")
 	_setup_game_env([p])
@@ -230,14 +230,11 @@ func test_mission_1_scientist_discard_loses() -> void:
 	p.hand.append(card)
 	await p.equip(card)
 	assert_true(p.has_equipment("科学家"), "科学家应已装备")
-	# 弃置装备区科学家 → card_discarded → card_discard_watch lose 分支（触发器+失败组件双声明链路）
-	await p.discard(p.equipment_zone[0])
-	assert_eq(p.equipment_zone.size(), 0, "弃置后装备区应无科学家")
-	assert_eq(Game.scavenge_discard_pile.size(), 1, "科学家应留在拾荒弃牌堆（不再销毁）")
-	assert_eq(Game.removed_cards.size(), 0, "科学家不应被移出游戏")
-	assert_eq(Game.mission_config.mission_state.get("card_discard_failed"), true,
-		"科学家弃置应置 card_discard_failed")
-	assert_true(Game.state_machine.check_win_condition(), "失败条件满足应终止游戏")
+	# 携带科学家的玩家死亡 → player_died → card_discard_watch on_death 分支
+	await p.death(null)
+	assert_eq(p.equipment_zone.size(), 0, "死亡后装备区应清空")
+	assert_eq(Game.mission_config.mission_state.get("card_death_failed"), true,
+		"携带科学家的玩家死亡应置 card_death_failed")
 	assert_eq(Game.state_machine.get_game_result(), GameStateMachine.GameResult.LOSE, "结果应为 LOSE")
 	assert_eq(Game.game_result, "lose", "Game.game_result 应为 lose")
 
@@ -322,16 +319,14 @@ func test_mission_3_progress_panel_submitted_count_lines() -> void:
 	assert_eq(lines[1], "2. 提交解毒剂(0/3)", "未提交的解毒剂行应显示 (0/3)")
 
 
-func test_mission_3_lose_when_scientist_discarded() -> void:
+func test_mission_3_lose_when_scientist_holder_dies() -> void:
 	_init_real_mission(3)
 	var p: Player = Game.players[0]
 	assert_true(await _wait_for_equipment(p, "科学家"), "开局应装备科学家")
-	# 弃置装备区科学家 → card_discarded → card_discard_watch lose 分支
-	await p.discard(p.equipment_zone[0])
-	assert_eq(Game.mission_config.mission_state.get("card_discard_failed"), true,
-		"科学家弃置应置 card_discard_failed")
-	Game.state_machine.transition_to(GameStateMachine.GameState.PLAYING)
-	assert_true(Game.state_machine.check_win_condition(), "失败条件满足应终止游戏")
+	# 携带科学家的玩家死亡 → player_died → card_discard_watch on_death 分支
+	await p.death(null)
+	assert_eq(Game.mission_config.mission_state.get("card_death_failed"), true,
+		"携带科学家的玩家死亡应置 card_death_failed")
 	assert_eq(Game.state_machine.get_game_result(), GameStateMachine.GameResult.LOSE, "结果应为 LOSE")
 	assert_eq(Game.game_result, "lose", "Game.game_result 应为 lose")
 
@@ -679,15 +674,13 @@ func test_mission_9_destroy_marks_and_upload_virus_win() -> void:
 	assert_eq(Game.game_result, "win", "上传病毒应判定胜利")
 
 
-func test_mission_9_lose_when_scientist_discarded() -> void:
+func test_mission_9_lose_when_scientist_holder_dies() -> void:
 	_init_real_mission(9)
 	var p: Player = Game.players[0]
 	assert_true(await _wait_for_equipment(p, "科学家"), "开局应装备科学家")
-	await p.discard(p.equipment_zone[0])
-	assert_eq(Game.mission_config.mission_state.get("card_discard_failed"), true,
-		"科学家弃置应置 card_discard_failed")
-	Game.state_machine.transition_to(GameStateMachine.GameState.PLAYING)
-	assert_true(Game.state_machine.check_win_condition(), "失败条件满足应终止游戏")
+	await p.death(null)
+	assert_eq(Game.mission_config.mission_state.get("card_death_failed"), true,
+		"携带科学家的玩家死亡应置 card_death_failed")
 	assert_eq(Game.state_machine.get_game_result(), GameStateMachine.GameResult.LOSE, "结果应为 LOSE")
 	assert_eq(Game.game_result, "lose", "Game.game_result 应为 lose")
 
