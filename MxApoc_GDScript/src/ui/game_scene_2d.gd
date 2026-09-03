@@ -29,6 +29,7 @@ var _action_selection_controller: ActionSelectionController
 var _active_skill_bar: ActiveSkillBar
 var _event_log_panel: EventLogPanel
 var _animation_controller: AnimationController
+var _cheat_menu: CheatMenu = null
 
 # === 游戏状态 ===
 var _gui_input: GUIPlayerInput
@@ -91,6 +92,8 @@ func _create_modules() -> void:
 	_event_log_panel = EventLogPanel.new()
 	_ui_layer.add_child(_event_log_panel)
 
+	_build_cheat_menu()
+
 	_table_map_controller.block_clicked.connect(_on_block_clicked)
 	_table_map_controller.block_inspected.connect(_on_block_inspected)
 	_table_map_controller.avatar_clicked.connect(_on_avatar_clicked)
@@ -113,6 +116,32 @@ func _wire_static_buttons() -> void:
 	_mission_button.pressed.connect(_on_mission_button_pressed)
 	_settings_button.pressed.connect(_on_settings_pressed)
 	_wiki_button.pressed.connect(_on_wiki_pressed)
+
+
+## 作弊菜单：仅开发者模式下创建，挂在独立高层 CanvasLayer（layer=20），不受弹窗遮罩影响。
+## 反引号键（`，KEY_QUOTELEFT）呼出/关闭，见 _input()。
+func _build_cheat_menu() -> void:
+	if not Settings.dev_mode:
+		return
+	var cheat_layer := CanvasLayer.new()
+	cheat_layer.layer = 20
+	add_child(cheat_layer)
+	_cheat_menu = CheatMenu.new()
+	cheat_layer.add_child(_cheat_menu)
+	_cheat_menu.setup(Callable(self, "_cheat_refresh_ui"))
+
+
+## 供 CheatMenu 调用的 UI 刷新回调（仅用于 Player.gain() 等不发信号的操作）。
+## player 非空：刷新其面板，若为当前回合玩家则同时刷新手牌区；player 为 null：刷新全部面板/地图/牌堆数。
+func _cheat_refresh_ui(player: Variant = null) -> void:
+	if player != null and is_instance_valid(player):
+		_refresh_panel_for_player(player)
+		var current: Variant = Game.get_current_player()
+		if current != null and is_instance_valid(current) and player == current:
+			_refresh_hand_area()
+	else:
+		_refresh_all_panels()
+	_pile_manager.refresh_pile_counts()
 
 
 # === 游戏流程 ===
@@ -254,6 +283,11 @@ func _get_self_panel() -> PlayerPanel:
 
 
 func _input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo:
+		if Settings.dev_mode and event.keycode == KEY_QUOTELEFT and _cheat_menu != null and is_instance_valid(_cheat_menu):
+			_cheat_menu.toggle()
+			get_viewport().set_input_as_handled()
+			return
 	if _is_wiki_open():
 		return
 	if event is InputEventKey and event.pressed and not event.echo:

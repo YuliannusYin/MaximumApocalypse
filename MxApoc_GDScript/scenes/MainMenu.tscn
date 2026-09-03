@@ -25,26 +25,35 @@ stretch_mode = 6
 
 [node name="CreateRoomButton" type="Button" parent="."]
 offset_left = 615.0
-offset_top = 500.0
+offset_top = 480.0
 offset_right = 815.0
-offset_bottom = 550.0
+offset_bottom = 530.0
 theme_override_font_sizes/font_size = 20
 text = "创建房间"
 
 [node name="JoinRoomButton" type="Button" parent="."]
 offset_left = 615.0
-offset_top = 580.0
+offset_top = 550.0
 offset_right = 815.0
-offset_bottom = 630.0
+offset_bottom = 600.0
 theme_override_font_sizes/font_size = 20
 disabled = true
 text = "加入房间"
 
+[node name="EditorButton" type="Button" parent="."]
+offset_left = 615.0
+offset_top = 620.0
+offset_right = 815.0
+offset_bottom = 670.0
+theme_override_font_sizes/font_size = 20
+disabled = true
+text = "编辑器"
+
 [node name="QuitButton" type="Button" parent="."]
 offset_left = 615.0
-offset_top = 650.0
+offset_top = 690.0
 offset_right = 815.0
-offset_bottom = 700.0
+offset_bottom = 740.0
 theme_override_font_sizes/font_size = 20
 text = "退出游戏"
 
