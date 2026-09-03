@@ -41,12 +41,28 @@ horizontal_alignment = 1
 vertical_alignment = 1
 text = "游戏结果"
 
+[node name="MissionNamePanel" type="PanelContainer" parent="."]
+layout_mode = 1
+offset_left = 10.0
+offset_top = 10.0
+offset_right = 310.0
+offset_bottom = 60.0
+
+[node name="MissionNameLabel" type="Label" parent="MissionNamePanel"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.90, 0.84, 1)
+theme_override_font_sizes/font_size = 20
+horizontal_alignment = 1
+vertical_alignment = 1
+clip_text = true
+text = "任务"
+
 [node name="DurationLabel" type="Label" parent="."]
 layout_mode = 1
-offset_left = 1260.0
-offset_top = 10.0
-offset_right = 1420.0
-offset_bottom = 50.0
+offset_left = 10.0
+offset_top = 70.0
+offset_right = 210.0
+offset_bottom = 120.0
 theme_override_colors/font_color = Color(0.85, 0.85, 0.85, 1)
 theme_override_font_sizes/font_size = 20
 horizontal_alignment = 1

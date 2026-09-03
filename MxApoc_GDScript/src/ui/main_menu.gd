@@ -9,6 +9,7 @@ const CLICKS_REQUIRED := 3
 
 @onready var create_room_button: Button = $CreateRoomButton
 @onready var join_room_button: Button = $JoinRoomButton
+@onready var editor_button: Button = $EditorButton
 @onready var quit_button: Button = $QuitButton
 @onready var settings_button: Button = $SettingsButton
 @onready var wiki_button: Button = $WikiButton
@@ -31,6 +32,7 @@ func _ready() -> void:
 		backdrop.modulate.a = 0.35
 	HudTheme.apply_slot_button(create_room_button, 18, HudTheme.GOLD_BORDER, HudTheme.GOLD_TEXT)
 	HudTheme.apply_slot_button(join_room_button, 18)
+	HudTheme.apply_slot_button(editor_button, 18)
 	HudTheme.apply_slot_button(quit_button, 18)
 	HudTheme.apply_slot_button(settings_button, 10, HudTheme.SLOT_BORDER, HudTheme.GOLD_TEXT)
 	HudTheme.apply_slot_button(wiki_button, 10, HudTheme.SLOT_BORDER, HudTheme.GOLD_TEXT)
@@ -44,7 +46,7 @@ func _ready() -> void:
 	achievement_button.pressed.connect(_on_achievement_pressed)
 	github_button.pressed.connect(_on_github_pressed)
 	version_label.gui_input.connect(_on_version_label_gui_input)
-	# JoinRoomButton 保持禁用占位，不连接信号
+	# JoinRoomButton / EditorButton 保持禁用占位，不连接信号
 
 func _on_create_room_pressed() -> void:
 	get_tree().change_scene_to_file("res://scenes/GameRoom.tscn")

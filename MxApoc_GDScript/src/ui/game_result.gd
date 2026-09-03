@@ -16,6 +16,8 @@ const _STAT_COL_WIDTH: float = 62.0
 const _ROW_HEIGHT: float = 30.0
 
 @onready var _title_label: Label = $TitleLabel
+@onready var _mission_name_panel: PanelContainer = $MissionNamePanel
+@onready var _mission_name_label: Label = $MissionNamePanel/MissionNameLabel
 @onready var _duration_label: Label = $DurationLabel
 @onready var _role_cards: Array[TextureRect] = [
 	$Seat1/RoleCard,
@@ -42,6 +44,8 @@ func _ready() -> void:
 	HudTheme.apply_screen_background(_background, Color("#101110"))
 	HudTheme.add_wasteland_backdrop(self, _background)
 	HudTheme.apply_title(_title_label, 40)
+	HudTheme.apply_section_panel(_mission_name_panel, Color("#171713"))
+	_mission_name_label.add_theme_color_override("font_color", HudTheme.GOLD_TEXT)
 	HudTheme.apply_slot_button(_back_button, 13)
 	HudTheme.apply_slot_button(_log_button, 13)
 	HudTheme.apply_mission_slot_button(_restart_button, 13)
@@ -62,6 +66,7 @@ func _ready() -> void:
 			duration_msec = Game.stats_tracker.game_duration_msec
 		players = Game.players
 		_fill_title(result, players)
+		_fill_mission_name()
 		_fill_duration(duration_msec)
 		_fill_role_cards(players)
 		_fill_stats(all_stats, current_player, players)
@@ -91,6 +96,19 @@ func _fill_title(result: int, players: Array) -> void:
 	else:
 		_title_label.text = "无人生还"
 		_title_label.add_theme_color_override("font_color", Color(0.8, 0.2, 0.2))
+
+
+func _fill_mission_name() -> void:
+	var mission_name := ""
+	if Game != null and is_instance_valid(Game):
+		var mission: Variant = Game.current_mission
+		if mission is Dictionary:
+			mission_name = str(mission.get("mission_name", ""))
+		elif mission != null and typeof(mission) == TYPE_OBJECT and is_instance_valid(mission):
+			mission_name = str(mission.get("mission_name"))
+	if mission_name == "":
+		mission_name = "未知任务"
+	_mission_name_label.text = mission_name
 
 
 func _fill_duration(duration_msec: int) -> void:
