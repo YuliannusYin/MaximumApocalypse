@@ -1073,6 +1073,10 @@ func _on_choose_requested(options: Array, prompt: String) -> void:
 
 
 func _on_confirm_requested(message: String) -> void:
+	# 等待互斥模式（检定/第零轮/移动/技能确认）结束后再进入确认模式，
+	# 否则 set_confirm_mode 会静默丢弃本请求，挂起的 confirm 被其他响应污染导致崩溃
+	while _action_selection_controller.is_busy():
+		await Engine.get_main_loop().process_frame
 	_action_selection_controller.set_confirm_mode(message)
 
 
@@ -1334,6 +1338,9 @@ func _on_redraw_decision_requested() -> void:
 
 # 检定确认门：进入确认模式，5 秒超时默认确定
 func _on_judge_confirm_requested(prompt: String, allow_cancel: bool) -> void:
+	# 同 _on_confirm_requested：等待互斥模式空闲，避免 enter_judge_confirm_mode 静默丢弃本请求
+	while _action_selection_controller.is_busy():
+		await Engine.get_main_loop().process_frame
 	_action_selection_controller.enter_judge_confirm_mode(prompt, 5.0, allow_cancel)
 
 

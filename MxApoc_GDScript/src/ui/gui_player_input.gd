@@ -81,6 +81,12 @@ func _respond_active(value: Variant) -> void:
 	_active_request["received"] = true
 
 
+## 安全 bool 转换：被污染的非 bool 响应（Array/Dictionary 等）一律按 false 结算，
+## 避免 bool() 构造异常导致脚本中止、联机断连。
+func _to_bool(value: Variant) -> bool:
+	return value if value is bool else false
+
+
 # === IPlayerInput 实现 ===
 
 func wait_action(player: Variant) -> Variant:
@@ -132,7 +138,7 @@ func confirm(message: String) -> bool:
 	var req: Dictionary = _enqueue_request(func() -> void:
 		confirm_requested.emit(message))
 	var result: Variant = await _wait_for_request(req)
-	return bool(result)
+	return _to_bool(result)
 
 
 func show_card(card: Card, target: Variant) -> void:
@@ -149,7 +155,7 @@ func wait_redraw_decision(player: Variant) -> bool:
 	var req: Dictionary = _enqueue_request(func() -> void:
 		redraw_decision_requested.emit())
 	var result: Variant = await _wait_for_request(req)
-	return bool(result)
+	return _to_bool(result)
 
 
 ## 检定确认门。发射信号请求 UI 显示确认门，await 响应后返回（true=执行 / false=放弃）。
@@ -157,7 +163,7 @@ func wait_judge_confirm(player: Variant, prompt: String, allow_cancel: bool) -> 
 	var req: Dictionary = _enqueue_request(func() -> void:
 		judge_confirm_requested.emit(prompt, allow_cancel))
 	var result: Variant = await _wait_for_request(req)
-	return bool(result)
+	return _to_bool(result)
 
 
 ## 播放两颗骰子投掷动画并等待结束。动画播完后由 UI 调用 respond_dice_animation 结算，期间阻塞后续请求派发。

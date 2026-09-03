@@ -83,18 +83,28 @@ func _on_join_room_pressed() -> void:
 		return
 	_open_net_dialog("加入房间", [
 		{"key": "name", "label": "昵称", "default": _last_name(), "placeholder": "输入昵称"},
-		{"key": "ip", "label": "主机 IP", "default": _last_ip(), "placeholder": "例：192.168.1.10"},
-		{"key": "port", "label": "端口", "default": _last_port(), "placeholder": "主机端口"},
+		{"key": "host", "label": "主机地址", "default": _last_host(), "placeholder": "例：192.168.1.10:7000"},
 	], _confirm_join)
 
 func _confirm_join(entries: Dictionary, error_label: Label) -> void:
 	var name := str(entries["name"].text).strip_edges()
 	if name == "":
 		name = "玩家"
-	var ip := str(entries["ip"].text).strip_edges()
-	var port := int(entries["port"].text)
+	var host := str(entries["host"].text).strip_edges()
+	# 解析主机地址：按最后一个 ":" 分割 IP 与端口；无 ":" 时端口取默认 7000
+	var ip := host
+	var port := DEFAULT_PORT
+	var colon := host.rfind(":")
+	if colon >= 0:
+		ip = host.substr(0, colon).strip_edges()
+		var port_str := host.substr(colon + 1).strip_edges()
+		if port_str != "":
+			if not port_str.is_valid_int():
+				error_label.text = "端口无效（1-65535）"
+				return
+			port = int(port_str)
 	if ip == "":
-		error_label.text = "请输入主机 IP"
+		error_label.text = "请输入主机地址（例：192.168.1.10:7000）"
 		return
 	if port <= 0 or port > 65535:
 		error_label.text = "端口无效（1-65535）"
@@ -146,6 +156,11 @@ func _last_port() -> String:
 	if NetSession.host_port > 0:
 		return str(NetSession.host_port)
 	return str(DEFAULT_PORT)
+
+
+## 上次连接的主机地址（ip:port 一体，供加入对话框默认值）。
+func _last_host() -> String:
+	return "%s:%s" % [_last_ip(), _last_port()]
 
 # === 通用对话框 ===
 
