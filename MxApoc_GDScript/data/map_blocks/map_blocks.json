@@ -456,7 +456,7 @@
           "trigger": "on_reveal_block、on_turn_end",
           "filter": "return true",
           "forced": true,
-          "content": "if event.trigger_name == \"on_reveal_block\":\n\tplayer.choose_to_discard(3)\nelif event.trigger_name == \"on_turn_end\":\n\tplayer.choose_to_discard(1)"
+          "content": "if event.trigger_name == \"on_reveal_block\":\n\tactions.choose_to_discard(player, 3)\nelif event.trigger_name == \"on_turn_end\":\n\tactions.choose_to_discard(player, 1)"
         }
       ]
     },

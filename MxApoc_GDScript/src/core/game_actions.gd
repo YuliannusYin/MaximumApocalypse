@@ -55,6 +55,11 @@ func discard(target: Variant, card_or_cards: Variant, position: String = "", qua
 		})
 
 
+func choose_to_discard(target: Variant, n: int, type: String = "") -> Variant:
+	return await runtime.dispatch("choose_to_discard", func() -> void:
+		await target.choose_to_discard(n, type), {"target": target, "n": n, "type": type})
+
+
 func remove_card(target: Variant, card_or_cards: Variant, position: String = "", quantity: int = 1) -> Variant:
 	return await runtime.dispatch("remove_card", func() -> void:
 		await target.remove_card(card_or_cards, position, quantity), {

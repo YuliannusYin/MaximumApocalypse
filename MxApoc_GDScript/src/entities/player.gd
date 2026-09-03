@@ -1889,7 +1889,7 @@ func choose_to_discard(n: int, type: String = "") -> void:
 	if chosen == null:
 		return
 	var cards_to_discard: Array = chosen if chosen is Array else [chosen]
-	discard(cards_to_discard)
+	await discard(cards_to_discard)
 
 
 ## 使用主动技能。处理目标选择和卡牌选择，然后执行技能 content。
