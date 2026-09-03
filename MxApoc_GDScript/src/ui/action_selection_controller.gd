@@ -8,6 +8,7 @@ signal action_requested(action: Dictionary)
 signal confirm_responded(result: bool)
 signal move_mode_changed(active: bool)
 signal selection_cleared()
+signal pile_selection_changed(pile_key: String)
 signal card_move_select_completed(block: Variant)
 signal redraw_decision_responded(result: bool)
 signal judge_confirm_responded(result: bool)
@@ -60,6 +61,17 @@ func is_in_confirm_mode() -> bool:
 
 func is_busy() -> bool:
 	return _move_select_mode or _confirm_mode or _skill_confirm_mode or _round_zero_mode or _judge_confirm_mode
+
+
+func get_selected_pile_key() -> String:
+	return _selected_pile_key
+
+
+func _set_selected_pile_key(key: String) -> void:
+	if _selected_pile_key == key:
+		return
+	_selected_pile_key = key
+	pile_selection_changed.emit(_selected_pile_key)
 
 
 func get_move_selected_block() -> Variant:
@@ -172,7 +184,7 @@ func on_card_selected(card: Variant) -> void:
 		return
 	if _skill_confirm_mode:
 		return
-	_selected_pile_key = ""  # 互斥：清除牌堆选中
+	_set_selected_pile_key("")  # 互斥：清除牌堆选中
 	_selected_card = card
 	_update_prompt(card)
 	refresh_confirm_cancel_buttons()
@@ -242,7 +254,7 @@ func _on_confirm_pressed() -> void:
 		return
 	if _selected_pile_key != "":
 		var pile_key: String = _selected_pile_key
-		_selected_pile_key = ""
+		_set_selected_pile_key("")
 		if _prompt_label != null and is_instance_valid(_prompt_label):
 			_prompt_label.text = ""
 		refresh_confirm_cancel_buttons()
@@ -288,7 +300,7 @@ func _on_cancel_end_pressed() -> void:
 		confirm_responded.emit(false)
 		return
 	if _selected_pile_key != "":
-		_selected_pile_key = ""
+		_set_selected_pile_key("")
 		if _prompt_label != null and is_instance_valid(_prompt_label):
 			_prompt_label.text = ""
 		refresh_confirm_cancel_buttons()
@@ -384,7 +396,7 @@ func on_pile_selected(pile_key: String, display_name: String = "") -> void:
 	if _selected_card != null:
 		if _hand_area != null and is_instance_valid(_hand_area):
 			_hand_area.clear_selection()
-	_selected_pile_key = pile_key
+	_set_selected_pile_key(pile_key)
 	if _prompt_label != null and is_instance_valid(_prompt_label):
 		_prompt_label.text = "是否从" + display_name + "中抓取一张牌？"
 	refresh_confirm_cancel_buttons()
@@ -415,7 +427,7 @@ func enter_block_select_mode(prompt: String, valid_blocks: Array, count: int, so
 	if _hand_area != null and is_instance_valid(_hand_area):
 		_hand_area.clear_selection()
 	_selected_card = null
-	_selected_pile_key = ""
+	_set_selected_pile_key("")
 	if _prompt_label != null and is_instance_valid(_prompt_label):
 		_prompt_label.text = prompt
 	move_mode_changed.emit(true)
@@ -555,7 +567,7 @@ func enter_skill_confirm_mode(skill: Variant) -> void:
 	_pending_skill = skill
 	# 互斥：清空手牌/牌堆选中
 	_selected_card = null
-	_selected_pile_key = ""
+	_set_selected_pile_key("")
 	if _hand_area != null and is_instance_valid(_hand_area):
 		_hand_area.clear_selection()
 	# prompt 显示：优先使用技能的 confirm_prompt 动态文本，无则用默认格式
@@ -593,7 +605,7 @@ func enter_round_zero_mode(prompt: String, duration: float) -> void:
 	_round_zero_mode = true
 	# 互斥：清空手牌/牌堆选中
 	_selected_card = null
-	_selected_pile_key = ""
+	_set_selected_pile_key("")
 	if _hand_area != null and is_instance_valid(_hand_area):
 		_hand_area.clear_selection()
 	if _prompt_label != null and is_instance_valid(_prompt_label):
@@ -639,7 +651,7 @@ func enter_judge_confirm_mode(prompt: String, duration: float, allow_cancel: boo
 	_judge_allow_cancel = allow_cancel
 	# 互斥：清空手牌/牌堆选中
 	_selected_card = null
-	_selected_pile_key = ""
+	_set_selected_pile_key("")
 	if _hand_area != null and is_instance_valid(_hand_area):
 		_hand_area.clear_selection()
 	if _prompt_label != null and is_instance_valid(_prompt_label):
@@ -673,7 +685,7 @@ func set_confirm_mode(message: String) -> void:
 		return
 	_confirm_mode = true
 	_selected_card = null
-	_selected_pile_key = ""
+	_set_selected_pile_key("")
 	if _prompt_label != null and is_instance_valid(_prompt_label):
 		_prompt_label.text = message
 	refresh_confirm_cancel_buttons()
@@ -691,7 +703,7 @@ func clear_selection() -> void:
 	_skill_confirm_mode = false
 	_pending_skill = null
 	_selected_card = null
-	_selected_pile_key = ""
+	_set_selected_pile_key("")
 	if _prompt_label != null and is_instance_valid(_prompt_label):
 		_prompt_label.text = ""
 	if _hand_area != null and is_instance_valid(_hand_area):
@@ -702,7 +714,7 @@ func clear_selection() -> void:
 
 ## 非行动阶段清空选中（手牌 + 牌堆）。
 func clear_for_non_action_phase() -> void:
-	_selected_pile_key = ""
+	_set_selected_pile_key("")
 	if _prompt_label != null and is_instance_valid(_prompt_label):
 		_prompt_label.text = ""
 	if _hand_area != null and is_instance_valid(_hand_area):

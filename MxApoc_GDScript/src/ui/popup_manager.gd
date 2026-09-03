@@ -286,10 +286,10 @@ func show_card_select_popup(cards: Array, n: int, position: String, zone_labels:
 		var card = cards[i]
 		var view := CardView.new()
 		view.set_card(card)
-		if show_zone and i < zone_labels.size():
-			view.set_zone_label(zone_labels[i])
 		view.gui_input.connect(_on_card_select_clicked.bind(card, view))
 		grid.add_child(view)
+		if show_zone and i < zone_labels.size():
+			view.set_zone_label(zone_labels[i])
 		view.mouse_filter = Control.MOUSE_FILTER_STOP
 		_popup_item_views.append(view)
 
@@ -400,10 +400,10 @@ func show_target_select_area(targets: Array, n: int, zone_labels: Array = [], pr
 			var target = targets[i]
 			var view := CardView.new()
 			view.set_card(target)
-			if show_zone and i < zone_labels.size():
-				view.set_zone_label(zone_labels[i])
 			view.gui_input.connect(_on_target_card_clicked.bind(target, view))
 			grid.add_child(view)
+			if show_zone and i < zone_labels.size():
+				view.set_zone_label(zone_labels[i])
 			view.mouse_filter = Control.MOUSE_FILTER_STOP
 			_popup_item_views.append(view)
 

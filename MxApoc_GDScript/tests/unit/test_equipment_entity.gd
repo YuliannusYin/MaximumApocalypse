@@ -254,3 +254,37 @@ func test_ammo_skills_target_type_equipment() -> void:
 				break
 		assert_not_null(found, "应在蓝色拾荒包中找到技能: " + ename)
 		assert_eq(found.target_type, "equipment", ename + " 的 target_type 应为 equipment")
+
+
+# === 7. 自制子弹 filter_target：空 charge_type 不应入选 ===
+
+func test_homemade_bullets_filter_excludes_empty_charge_type() -> void:
+	var survivor: SurvivorData = DataManager.get_survivor("mechanic")
+	assert_not_null(survivor, "应能加载机械师数据")
+	var filter_code: String = ""
+	for card_dict in survivor.deck:
+		if str(card_dict.get("english_name", "")) == "homemade_bullets":
+			var skills: Array = card_dict.get("skills", [])
+			if skills.size() > 0:
+				filter_code = str(skills[0].get("filter_target", ""))
+			break
+	assert_false(filter_code.is_empty(), "自制子弹 filter_target 不应为空")
+	var filter_callable: Callable = CodeExecutor.compile_filter_target(filter_code)
+	assert_true(filter_callable.is_valid(), "filter_target 应编译为有效 Callable")
+	var p: Player = _make_player()
+	var event: Dictionary = {"player": p, "target": null, "card": null}
+
+	var helmet_card: EquipmentCard = EquipmentCard.new()
+	helmet_card.card_name = "welding_helmet"
+	helmet_card.english_name = "welding_helmet"
+	helmet_card.card_type = "equipment"
+	helmet_card.card_subtype = "equipment"
+	helmet_card.source = "game"
+	var helmet: Equipment = helmet_card.instantiate(null)
+	assert_eq(helmet.charge_type, "", "焊接头盔 charge_type 应为空字符串")
+	assert_false(filter_callable.call(p, helmet, event, Game), "无填充物的焊接头盔不应被自制子弹选中")
+
+	var torch_card: EquipmentCard = _make_equipment("blowtorch")
+	torch_card.charge_type = "fuel"
+	var torch: Equipment = torch_card.instantiate(null)
+	assert_true(filter_callable.call(p, torch, event, Game), "有燃料的喷灯应被自制子弹选中")

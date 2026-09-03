@@ -3,6 +3,7 @@ extends Node
 
 ## 牌堆管理器。
 ## 管理右侧 7 个牌堆面板的配置、计数、高亮、点击。
+## 高亮：可操作=绿色，玩家单击选中=金黄色，确认/取消后若仍可操作则回绿色。
 
 signal pile_clicked(pile_key: String)
 signal discard_pile_clicked(pile_type: String)
@@ -19,6 +20,7 @@ const PILE_CONFIGS: Array = [
 
 var _pile_views: Dictionary = {}
 var _ui_layer: CanvasLayer
+var _selected_pile_key: String = ""
 
 
 func setup(ui_layer: CanvasLayer) -> void:
@@ -52,7 +54,7 @@ func apply_pile_styles() -> void:
 		var entry: Variant = _pile_views.get(config["key"])
 		if entry == null:
 			continue
-		entry["panel"].add_theme_stylebox_override("panel", _make_pile_style(config["color"], false))
+		entry["panel"].add_theme_stylebox_override("panel", _make_pile_style(config["color"], "none"))
 	refresh_pile_highlights()
 
 
@@ -131,27 +133,43 @@ func _get_current_player_deck_count() -> int:
 	return deck.size() if deck.has_method("size") else deck.get("cards").size()
 
 
-func _make_pile_style(color: Color, highlight: bool = false) -> StyleBoxFlat:
+## 同步当前选中牌堆并刷新高亮（可操作=绿，已选中=黄）。
+func set_selected_pile_key(pile_key: String) -> void:
+	_selected_pile_key = pile_key
+	refresh_pile_highlights()
+
+
+func _make_pile_style(color: Color, highlight: String = "none") -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = color.darkened(0.24)
-	if highlight:
-		style.border_width_left = 3
-		style.border_width_top = 3
-		style.border_width_right = 3
-		style.border_width_bottom = 3
-		style.border_color = Color("#F3C45B")
-		style.shadow_color = Color(1.0, 0.62, 0.18, 0.34)
-		style.shadow_size = 6
-		style.shadow_offset = Vector2.ZERO
-	else:
-		style.border_width_left = 2
-		style.border_width_top = 2
-		style.border_width_right = 2
-		style.border_width_bottom = 2
-		style.border_color = Color(0.40, 0.34, 0.25, 1.0)
-		style.shadow_color = Color(0.0, 0.0, 0.0, 0.50)
-		style.shadow_size = 4
-		style.shadow_offset = Vector2(1, 2)
+	match highlight:
+		"green":
+			style.border_width_left = 3
+			style.border_width_top = 3
+			style.border_width_right = 3
+			style.border_width_bottom = 3
+			style.border_color = Color(0.2, 0.8, 0.2, 1.0)
+			style.shadow_color = Color(0.25, 0.90, 0.35, 0.35)
+			style.shadow_size = 6
+			style.shadow_offset = Vector2.ZERO
+		"golden":
+			style.border_width_left = 3
+			style.border_width_top = 3
+			style.border_width_right = 3
+			style.border_width_bottom = 3
+			style.border_color = Color("#F3C45B")
+			style.shadow_color = Color(1.0, 0.62, 0.18, 0.34)
+			style.shadow_size = 6
+			style.shadow_offset = Vector2.ZERO
+		_:
+			style.border_width_left = 2
+			style.border_width_top = 2
+			style.border_width_right = 2
+			style.border_width_bottom = 2
+			style.border_color = Color(0.40, 0.34, 0.25, 1.0)
+			style.shadow_color = Color(0.0, 0.0, 0.0, 0.50)
+			style.shadow_size = 4
+			style.shadow_offset = Vector2(1, 2)
 	style.corner_radius_top_left = 7
 	style.corner_radius_top_right = 7
 	style.corner_radius_bottom_left = 7
@@ -163,28 +181,15 @@ func _make_pile_style(color: Color, highlight: bool = false) -> StyleBoxFlat:
 	return style
 
 
-## 根据当前玩家行动状态刷新可操作牌堆的金黄色高亮。
+## 根据当前玩家行动状态刷新牌堆高亮：可操作=绿色，已选中=金黄色。
 func refresh_pile_highlights() -> void:
-	var current: Variant = Game.get_current_player()
-	var can_act: bool = false
-	var block_colors: PackedStringArray = []
-	if current != null and is_instance_valid(current):
-		can_act = current.get("in_phase") == "action" and current.get("action_count") > 0
-		var block: Variant = current.get("current_block")
-		if block != null and is_instance_valid(block):
-			block_colors = block.get("scavenge_colors")
 	for config in PILE_CONFIGS:
-		var highlight: bool = false
-		if can_act:
-			match config["key"]:
-				"game_deck":
-					highlight = _get_current_player_deck_count() > 0
-				"red_scavenge":
-					highlight = "red" in block_colors and _get_pile_count(Game.red_scavenge_pile) > 0
-				"green_scavenge":
-					highlight = "green" in block_colors and _get_pile_count(Game.green_scavenge_pile) > 0
-				"blue_scavenge":
-					highlight = "blue" in block_colors and _get_pile_count(Game.blue_scavenge_pile) > 0
+		var highlight: String = "none"
+		if is_pile_clickable(config["key"]):
+			if config["key"] == _selected_pile_key:
+				highlight = "golden"
+			else:
+				highlight = "green"
 		var entry: Variant = _pile_views.get(config["key"])
 		if entry != null:
 			entry["panel"].add_theme_stylebox_override("panel", _make_pile_style(config["color"], highlight))
