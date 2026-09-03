@@ -1,157 +1,162 @@
-[gd_scene load_steps=2 format=3 uid="uid://b2g4m3r0om00bbb"]
+[gd_scene format=3 uid="uid://br5vfm5357flv"]
 
-[ext_resource type="Script" path="res://src/ui/game_room.gd" id="1_grm"]
+[ext_resource type="Script" uid="uid://c3qljldjlv2m3" path="res://src/ui/game_room.gd" id="1_grm"]
 
-[node name="GameRoom" type="Control"]
+[node name="GameRoom" type="Control" unique_id=1553142093]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 script = ExtResource("1_grm")
 
-[node name="Background" type="ColorRect" parent="."]
+[node name="Background" type="ColorRect" parent="." unique_id=1464343497]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 color = Color(0.12, 0.13, 0.16, 1)
 
-[node name="TopBar" type="Control" parent="."]
+[node name="TopBar" type="Control" parent="." unique_id=950892736]
 layout_mode = 1
-offset_left = 0.0
-offset_top = 0.0
+anchors_preset = 0
 offset_right = 1430.0
 offset_bottom = 40.0
 
-[node name="TitleLabel" type="Label" parent="TopBar"]
+[node name="TitleLabel" type="Label" parent="TopBar" unique_id=25416897]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "游戏房间"
 horizontal_alignment = 1
 vertical_alignment = 1
-text = "游戏房间"
 
-[node name="NetStatusLabel" type="Label" parent="TopBar"]
+[node name="NetStatusLabel" type="Label" parent="TopBar" unique_id=763141059]
 layout_mode = 1
 offset_left = 10.0
 offset_top = 10.0
 offset_right = 720.0
 offset_bottom = 30.0
-text = ""
 
-[node name="MissionSelectArea" type="PanelContainer" parent="."]
+[node name="MissionSelectArea" type="PanelContainer" parent="." unique_id=148375031]
 layout_mode = 1
 offset_left = 10.0
 offset_top = 50.0
 offset_right = 410.0
 offset_bottom = 710.0
 
-[node name="ScrollContainer" type="ScrollContainer" parent="MissionSelectArea"]
+[node name="ScrollContainer" type="ScrollContainer" parent="MissionSelectArea" unique_id=2055363453]
 layout_mode = 2
 
-[node name="VBoxContainer" type="VBoxContainer" parent="MissionSelectArea/ScrollContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="MissionSelectArea/ScrollContainer" unique_id=430669221]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 12
 
-[node name="MissionSection" type="VBoxContainer" parent="MissionSelectArea/ScrollContainer/VBoxContainer"]
+[node name="MissionSection" type="VBoxContainer" parent="MissionSelectArea/ScrollContainer/VBoxContainer" unique_id=1414881173]
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="MissionLabel" type="Label" parent="MissionSelectArea/ScrollContainer/VBoxContainer/MissionSection"]
+[node name="MissionLabel" type="Label" parent="MissionSelectArea/ScrollContainer/VBoxContainer/MissionSection" unique_id=614018313]
 layout_mode = 2
 text = "选择任务"
 
-[node name="MissionOption" type="OptionButton" parent="MissionSelectArea/ScrollContainer/VBoxContainer/MissionSection"]
+[node name="MissionOption" type="OptionButton" parent="MissionSelectArea/ScrollContainer/VBoxContainer/MissionSection" unique_id=1064035408]
 layout_mode = 2
 size_flags_horizontal = 3
 item_count = 1
 popup/item_0/text = "随机任务"
+popup/item_0/id = 0
 
-[node name="VariantSection" type="VBoxContainer" parent="MissionSelectArea/ScrollContainer/VBoxContainer"]
+[node name="VariantSection" type="VBoxContainer" parent="MissionSelectArea/ScrollContainer/VBoxContainer" unique_id=1541909348]
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="VariantLabel" type="Label" parent="MissionSelectArea/ScrollContainer/VBoxContainer/VariantSection"]
+[node name="VariantLabel" type="Label" parent="MissionSelectArea/ScrollContainer/VBoxContainer/VariantSection" unique_id=2068839031]
 layout_mode = 2
 text = "变体"
 
-[node name="VariantList" type="VBoxContainer" parent="MissionSelectArea/ScrollContainer/VBoxContainer/VariantSection"]
+[node name="VariantList" type="VBoxContainer" parent="MissionSelectArea/ScrollContainer/VBoxContainer/VariantSection" unique_id=726988061]
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="MissionDetailArea" type="PanelContainer" parent="."]
+[node name="MissionDetailArea" type="PanelContainer" parent="." unique_id=288530312]
 layout_mode = 1
 offset_left = 420.0
 offset_top = 50.0
 offset_right = 1010.0
 offset_bottom = 710.0
 
-[node name="VBoxContainer" type="VBoxContainer" parent="MissionDetailArea"]
+[node name="VBoxContainer" type="VBoxContainer" parent="MissionDetailArea" unique_id=530554387]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="MissionNameLabel" type="Label" parent="MissionDetailArea/VBoxContainer"]
+[node name="MissionNameLabel" type="Label" parent="MissionDetailArea/VBoxContainer" unique_id=2113735137]
 layout_mode = 2
 text = "任务名"
 
-[node name="DifficultyLabel" type="Label" parent="MissionDetailArea/VBoxContainer"]
+[node name="DifficultyLabel" type="Label" parent="MissionDetailArea/VBoxContainer" unique_id=1756449658]
 layout_mode = 2
 text = "难度"
 
-[node name="ScrollContainer" type="ScrollContainer" parent="MissionDetailArea/VBoxContainer"]
+[node name="ScrollContainer" type="ScrollContainer" parent="MissionDetailArea/VBoxContainer" unique_id=237584836]
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="DetailRich" type="RichTextLabel" parent="MissionDetailArea/VBoxContainer/ScrollContainer"]
+[node name="DetailRich" type="RichTextLabel" parent="MissionDetailArea/VBoxContainer/ScrollContainer" unique_id=1379560259]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 bbcode_enabled = true
 text = "任务详情"
 
-[node name="PlayerSettingArea" type="PanelContainer" parent="."]
+[node name="PlayerSettingArea" type="PanelContainer" parent="." unique_id=1425522385]
 layout_mode = 1
 offset_left = 1020.0
 offset_top = 50.0
 offset_right = 1420.0
 offset_bottom = 710.0
 
-[node name="VBoxContainer" type="VBoxContainer" parent="PlayerSettingArea"]
+[node name="VBoxContainer" type="VBoxContainer" parent="PlayerSettingArea" unique_id=1433857763]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="SeatsHeader" type="HBoxContainer" parent="PlayerSettingArea/VBoxContainer"]
+[node name="SeatsHeader" type="HBoxContainer" parent="PlayerSettingArea/VBoxContainer" unique_id=1173938604]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="SeatsLabel" type="Label" parent="PlayerSettingArea/VBoxContainer/SeatsHeader"]
+[node name="SeatsLabel" type="Label" parent="PlayerSettingArea/VBoxContainer/SeatsHeader" unique_id=1209941434]
 layout_mode = 2
 size_flags_horizontal = 3
 text = "玩家设置"
 
-[node name="AddSeatButton" type="Button" parent="PlayerSettingArea/VBoxContainer/SeatsHeader"]
+[node name="AddSeatButton" type="Button" parent="PlayerSettingArea/VBoxContainer/SeatsHeader" unique_id=1226280418]
 layout_mode = 2
 text = "+"
 
-[node name="RemoveSeatButton" type="Button" parent="PlayerSettingArea/VBoxContainer/SeatsHeader"]
+[node name="RemoveSeatButton" type="Button" parent="PlayerSettingArea/VBoxContainer/SeatsHeader" unique_id=7314804]
 layout_mode = 2
 text = "-"
 
-[node name="SeatList" type="VBoxContainer" parent="PlayerSettingArea/VBoxContainer"]
+[node name="SeatList" type="VBoxContainer" parent="PlayerSettingArea/VBoxContainer" unique_id=2088687219]
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_constants/separation = 6
 
-[node name="BottomBar" type="Control" parent="."]
+[node name="BottomBar" type="Control" parent="." unique_id=1468189762]
 layout_mode = 1
-offset_left = 0.0
+anchors_preset = 0
 offset_top = 720.0
 offset_right = 1430.0
 offset_bottom = 780.0
 
-[node name="BackButton" type="Button" parent="BottomBar"]
+[node name="BackButton" type="Button" parent="BottomBar" unique_id=2001460654]
 layout_mode = 1
 offset_left = 10.0
 offset_top = 10.0
@@ -159,7 +164,7 @@ offset_right = 100.0
 offset_bottom = 50.0
 text = "返回主菜单"
 
-[node name="ResetButton" type="Button" parent="BottomBar"]
+[node name="ResetButton" type="Button" parent="BottomBar" unique_id=1119793023]
 layout_mode = 1
 offset_left = 1240.0
 offset_top = 10.0
@@ -167,11 +172,11 @@ offset_right = 1330.0
 offset_bottom = 50.0
 text = "重置为默认"
 
-[node name="StartGameButton" type="Button" parent="BottomBar"]
+[node name="StartGameButton" type="Button" parent="BottomBar" unique_id=1198372285]
 layout_mode = 1
 offset_left = 1340.0
 offset_top = 10.0
 offset_right = 1420.0
 offset_bottom = 50.0
-text = "开始游戏"
 disabled = true
+text = "开始游戏"

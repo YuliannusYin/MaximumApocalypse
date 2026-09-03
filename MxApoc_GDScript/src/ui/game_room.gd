@@ -26,6 +26,8 @@ var _is_host := false
 var _is_client := false
 ## 客机模式下的座位列表容器（代码构建，替代 SeatItem 列表）。
 var _client_seat_list: VBoxContainer = null
+## 顶栏"玩家列表"按钮。
+var _player_list_button: Button = null
 
 
 func _ready() -> void:
@@ -45,6 +47,7 @@ func _ready() -> void:
 	_difficulty_label.add_theme_color_override("font_color", HudTheme.GOLD_TEXT_DIM)
 	_net_status_label.add_theme_color_override("font_color", HudTheme.TEXT_DIM)
 	_back_button.pressed.connect(_on_back)
+	_build_player_list_button()
 
 	_is_host = NetSession.mode == NetSession.Mode.HOST
 	_is_client = NetSession.mode == NetSession.Mode.CLIENT
@@ -53,6 +56,82 @@ func _ready() -> void:
 		_setup_client_mode()
 	else:
 		_setup_host_mode()
+
+
+## 顶栏"玩家列表"按钮（主机与客机均可见）：弹出当前房间玩家与座位分配。
+func _build_player_list_button() -> void:
+	_player_list_button = Button.new()
+	_player_list_button.text = "玩家列表"
+	_player_list_button.position = Vector2(330, 8)
+	_player_list_button.custom_minimum_size = Vector2(96, 24)
+	HudTheme.apply_slot_button(_player_list_button, 12)
+	$TopBar.add_child(_player_list_button)
+	_player_list_button.pressed.connect(_show_player_list_popup)
+
+
+## 弹出房间玩家列表：昵称 + 主机标记 + 各自占用座位（未分配显示"未分配"）。
+## 主机侧数据来自 NetSession 实时刷新的 RoomState.players；客机侧来自 ROOM_STATE 同步。
+func _show_player_list_popup() -> void:
+	var overlay := Control.new()
+	overlay.name = "PlayerListOverlay"
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(overlay)
+	var dim := ColorRect.new()
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.color = Color(0.0, 0.0, 0.0, 0.55)
+	dim.gui_input.connect(func(event: InputEvent) -> void:
+		if event is InputEventMouseButton and event.pressed:
+			overlay.queue_free()
+	)
+	overlay.add_child(dim)
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(center)
+	var panel := PanelContainer.new()
+	HudTheme.apply_section_panel(panel, Color("#211f1a"), HudTheme.GOLD_BORDER)
+	panel.custom_minimum_size = Vector2(320, 0)
+	center.add_child(panel)
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 6)
+	panel.add_child(vbox)
+	var title := Label.new()
+	title.text = "房间玩家"
+	HudTheme.apply_title(title, 18)
+	vbox.add_child(title)
+	# 主机侧实时刷新 players（客机侧直接用同步数据）
+	if _is_host:
+		_refresh_room_players()
+	for p in RoomState.players:
+		var pid := int(p.get("peer_id", 0))
+		var pname := str(p.get("name", "玩家"))
+		# 该玩家占用的座位号
+		var seat_nums: Array = []
+		for i in range(RoomState.seats.size()):
+			var seat: Dictionary = RoomState.seats[i]
+			if str(seat.get("type", "empty")) != "empty" and int(seat.get("peer_id", 0)) == pid:
+				seat_nums.append(i + 1)
+		var seats_text := "未分配"
+		if not seat_nums.is_empty():
+			var parts := PackedStringArray()
+			for n in seat_nums:
+				parts.append("座位%d" % n)
+			seats_text = "、".join(parts)
+		var row := Label.new()
+		row.text = "%s%s - %s" % [pname, "（主机）" if bool(p.get("is_host", false)) else "", seats_text]
+		row.add_theme_color_override("font_color", HudTheme.TEXT_MAIN)
+		row.add_theme_font_size_override("font_size", 14)
+		vbox.add_child(row)
+	if RoomState.players.is_empty():
+		var empty := Label.new()
+		empty.text = "（暂无玩家信息）"
+		empty.add_theme_color_override("font_color", HudTheme.TEXT_DIM)
+		vbox.add_child(empty)
+	var close_btn := Button.new()
+	close_btn.text = "关闭"
+	close_btn.custom_minimum_size = Vector2(96, 30)
+	HudTheme.apply_slot_button(close_btn, 13)
+	vbox.add_child(close_btn)
+	close_btn.pressed.connect(func() -> void: overlay.queue_free())
 
 
 # === 主机模式 ===
@@ -90,6 +169,9 @@ func _refresh_host_status() -> void:
 
 
 func _on_peer_connected(_pid: int) -> void:
+	# 座位归属下拉需包含新客机：重建座位列表并广播
+	_rebuild_seats()
+	_broadcast_room_state()
 	_refresh_host_status()
 
 
@@ -108,44 +190,50 @@ func _on_peer_disconnected(pid: int) -> void:
 	_refresh_host_status()
 
 
+## 当前在线客机列表：[{pid, name}]，供座位归属下拉。
+func _collect_clients() -> Array:
+	var out: Array = []
+	for pid in NetSession.get_peer_ids():
+		out.append({"pid": pid, "name": NetSession.get_peer_name(pid)})
+	return out
+
+
+## 主机侧刷新房间玩家列表（主机 + 各客机），随 ROOM_STATE 广播。
+func _refresh_room_players() -> void:
+	var players: Array = [{"peer_id": NetSession.HOST_PEER_ID, "name": NetSession.player_name, "is_host": true}]
+	for pid in NetSession.get_peer_ids():
+		var pname := NetSession.get_peer_name(pid)
+		if pname == "":
+			pname = "玩家%d" % pid
+		players.append({"peer_id": pid, "name": pname, "is_host": false})
+	RoomState.players = players
+
+
 func _on_host_message(pid: int, msg_type: int, data: Dictionary) -> void:
 	if msg_type == NetProtocol.Msg.SEAT_CLAIM:
 		_handle_seat_claim(pid, data)
 
 
-## 客机认领/放弃座位请求处理。
-## 空 survivor_id：座位若已被本客机占用 → 放弃；若为空座 → 认领（尚未选角）。
+## 客机角色选择请求处理（座位由房主指定，客机仅能改自己名下座位的角色）。
+## 仅当 seat.peer_id == 发送者 时应用 survivor_id；空 survivor_id 忽略。
 func _handle_seat_claim(pid: int, data: Dictionary) -> void:
 	var seat_index := int(data.get("seat_index", -1))
 	if seat_index < 0 or seat_index >= RoomState.seats.size():
 		return
 	var survivor_id := str(data.get("survivor_id", ""))
-	var seat: Dictionary = RoomState.seats[seat_index]
-	var owner := int(seat.get("peer_id", 0))
-	# 已被其他客机占用则拒绝
-	if owner != 0 and owner != pid:
-		return
-	# 热座"真人"座位（本地、peer_id==0）不可被客机认领；仅"空"座位可认领
-	if owner == 0 and str(seat.get("type", "empty")) != "empty":
-		return
 	if survivor_id == "":
-		if owner == pid:
-			# 自己占用中 → 放弃座位：释放为"空"
-			RoomState.seats[seat_index] = {"type": "empty", "survivor": null, "player_name": "", "peer_id": 0}
-		else:
-			# 空座认领（占座，未选角）
-			RoomState.seats[seat_index] = {
-				"type": "human", "survivor": null,
-				"player_name": NetSession.get_peer_name(pid), "peer_id": pid,
-			}
-	else:
-		var survivor: SurvivorData = DataManager.get_survivor(survivor_id)
-		if survivor == null:
-			return
-		RoomState.seats[seat_index] = {
-			"type": "human", "survivor": survivor,
-			"player_name": NetSession.get_peer_name(pid), "peer_id": pid,
-		}
+		return
+	var seat: Dictionary = RoomState.seats[seat_index]
+	# 仅允许客机修改分配给自己的座位
+	if int(seat.get("peer_id", 0)) != pid:
+		return
+	var survivor: SurvivorData = DataManager.get_survivor(survivor_id)
+	if survivor == null:
+		return
+	RoomState.seats[seat_index] = {
+		"type": str(seat.get("type", "human")), "survivor": survivor,
+		"player_name": str(seat.get("player_name", "")), "peer_id": pid,
+	}
 	_rebuild_seats()
 	_sync_seats_to_state()
 	_update_start_button()
@@ -154,6 +242,7 @@ func _handle_seat_claim(pid: int, data: Dictionary) -> void:
 
 func _broadcast_room_state() -> void:
 	if NetSession.mode == NetSession.Mode.HOST:
+		_refresh_room_players()
 		NetSession.host_broadcast(NetProtocol.Msg.ROOM_STATE, {"room_state": RoomState.to_dict()})
 
 
@@ -225,6 +314,18 @@ func _build_client_seat_list() -> void:
 	for child in _client_seat_list.get_children():
 		_client_seat_list.remove_child(child)
 		child.queue_free()
+	# 未被房主分配任何座位时显示等待提示
+	var has_own_seat := false
+	for seat in RoomState.seats:
+		if int(seat.get("peer_id", 0)) == NetSession.peer_id:
+			has_own_seat = true
+			break
+	if not has_own_seat:
+		var hint := Label.new()
+		hint.text = "等待房主分配座位..."
+		hint.add_theme_color_override("font_color", HudTheme.GOLD_TEXT_DIM)
+		hint.add_theme_font_size_override("font_size", 13)
+		_client_seat_list.add_child(hint)
 	# 其他座位已选求生者集合
 	var taken_ids: Array = []
 	for seat in RoomState.seats:
@@ -253,7 +354,7 @@ func _add_client_seat_row(i: int, seat: Dictionary, taken_ids: Array) -> void:
 	hbox.add_child(info_label)
 
 	if pid == NetSession.peer_id:
-		# 我的座位：可换角 / 放弃
+		# 房主分配给我的座位：可选择角色（无认领/放弃，座位归属由房主管理）
 		var sname := str(seat.get("player_name", ""))
 		info_label.text = "%s（我）" % sname
 		var survivor = seat.get("survivor", null)
@@ -275,26 +376,17 @@ func _add_client_seat_row(i: int, seat: Dictionary, taken_ids: Array) -> void:
 			survivor_opt.select(0)
 		hbox.add_child(survivor_opt)
 		survivor_opt.item_selected.connect(_on_client_survivor_selected.bind(i, survivor_opt))
-		var release_btn := Button.new()
-		release_btn.text = "放弃"
-		HudTheme.apply_slot_button(release_btn, 11)
-		hbox.add_child(release_btn)
-		release_btn.pressed.connect(_send_seat_claim.bind(i, ""))
-	elif pid == 0 and str(seat.get("type", "empty")) == "empty":
-		info_label.text = "空"
-		var claim_btn := Button.new()
-		claim_btn.text = "认领"
-		HudTheme.apply_slot_button(claim_btn, 11)
-		hbox.add_child(claim_btn)
-		claim_btn.pressed.connect(_send_seat_claim.bind(i, ""))
 	else:
 		var sname := str(seat.get("player_name", ""))
 		var survivor_name := "未选择"
 		if seat.get("survivor", null) != null:
 			survivor_name = seat.survivor.character_name
-		if pid == 0:
-			# 主机本地热座真人座位，客机不可认领
-			info_label.text = "主机（热座） - %s" % survivor_name
+		if str(seat.get("type", "empty")) == "empty":
+			info_label.text = "空"
+		elif pid == 0:
+			info_label.text = "热座玩家 - %s" % survivor_name
+		elif pid == NetSession.HOST_PEER_ID:
+			info_label.text = "主机 - %s" % survivor_name
 		else:
 			info_label.text = "%s - %s" % [sname, survivor_name]
 	_client_seat_list.add_child(panel)
@@ -302,12 +394,12 @@ func _add_client_seat_row(i: int, seat: Dictionary, taken_ids: Array) -> void:
 
 func _on_client_survivor_selected(_idx: int, seat_index: int, opt: OptionButton) -> void:
 	var meta = opt.get_item_metadata(opt.selected)
-	var sid := ""
-	if meta != null:
-		sid = meta.english_name
-	_send_seat_claim(seat_index, sid)
+	if meta == null:
+		return  # "未选择"不发消息（座位归属由房主管理，不允许客机清空角色）
+	_send_seat_claim(seat_index, meta.english_name)
 
 
+## 客机角色选择消息（仅 survivor 选择；座位归属由房主在主机端指定）。
 func _send_seat_claim(seat_index: int, survivor_id: String) -> void:
 	NetSession.client_send(NetProtocol.Msg.SEAT_CLAIM, {"seat_index": seat_index, "survivor_id": survivor_id})
 
@@ -399,13 +491,17 @@ func _rebuild_seats() -> void:
 	for child in _seat_list.get_children():
 		_seat_list.remove_child(child)
 		child.queue_free()
+	var clients := _collect_clients()
 	for i in range(RoomState.seats.size()):
 		var seat = RoomState.seats[i]
 		var item: SeatItem = SEAT_ITEM_SCENE.instantiate()
 		item.seat_index = i
+		item.owner_clients = clients
 		_seat_list.add_child(item)
 		item.setup(seat)
-		# 客机占用的座位主机端只读
+		item.set_move_bounds(i == 0, i == RoomState.seats.size() - 1)
+		item.move_requested.connect(_on_seat_move)
+		# 客机占用的座位主机端锁定类型/角色（归属下拉保留可改，供房主重新分配）
 		var pid := int(seat.get("peer_id", 0))
 		if pid != 0 and pid != NetSession.HOST_PEER_ID:
 			item.set_locked(true)
@@ -413,6 +509,20 @@ func _rebuild_seats() -> void:
 	_refresh_seats_disabled()
 	_sync_seats_to_state()
 	_update_seat_buttons()
+
+
+## 座位移动：交换相邻座位（座位顺序 = 回合顺序），重建并广播。
+func _on_seat_move(index: int, delta: int) -> void:
+	var target := index + delta
+	if index < 0 or index >= RoomState.seats.size() or target < 0 or target >= RoomState.seats.size():
+		return
+	var tmp: Dictionary = RoomState.seats[index]
+	RoomState.seats[index] = RoomState.seats[target]
+	RoomState.seats[target] = tmp
+	_rebuild_seats()
+	_update_start_button()
+	if _is_host:
+		_broadcast_room_state()
 
 func _update_seat_buttons() -> void:
 	if _is_host:

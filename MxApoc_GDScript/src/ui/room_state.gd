@@ -9,6 +9,9 @@ var variants: Dictionary = {"crisis": false, "famine": false, "shared_fate": fal
 ## 座位列表；每项为 {type, survivor, player_name, peer_id} 字典。
 ## type: "human" / "ai" / "empty"；peer_id: 座位归属的网络 peer（0 表示无网络归属）。
 var seats: Array = []
+## 房间玩家列表；每项为 {peer_id, name, is_host} 字典。
+## 主机侧由 GameRoom 从 NetSession 刷新，随 ROOM_STATE 广播同步给客机（供玩家列表弹窗）。
+var players: Array = []
 
 
 func _ready() -> void:
@@ -21,6 +24,7 @@ func clear() -> void:
 	selected_mission_is_random = true
 	variants = {"crisis": false, "famine": false, "shared_fate": false}
 	seats = [_make_seat("human", null, "", 0)]
+	players = []
 
 
 func _make_seat(type: String, survivor: SurvivorData, player_name: String, peer_id: int) -> Dictionary:
@@ -53,6 +57,7 @@ func to_dict() -> Dictionary:
 		"selected_mission_is_random": selected_mission_is_random,
 		"variants": variants.duplicate(true),
 		"seats": seats_to_dict(),
+		"players": players.duplicate(true),
 	}
 
 
@@ -78,6 +83,7 @@ func apply_dict(d: Dictionary) -> void:
 	variants = d.get("variants", {}).duplicate(true)
 	if variants.is_empty():
 		variants = {"crisis": false, "famine": false, "shared_fate": false}
+	players = d.get("players", []).duplicate(true)
 	apply_seats(d.get("seats", []))
 
 

@@ -178,10 +178,15 @@ func _open_net_dialog(title: String, fields: Array, on_confirm: Callable) -> voi
 	dim.color = Color(0.0, 0.0, 0.0, 0.55)
 	overlay.add_child(dim)
 
+	# CenterContainer 全屏包裹：面板无论尺寸都水平垂直居中
+	# （原 set_anchors_preset(PRESET_CENTER) 只设锚点不设偏移，面板从中心点向右下生长导致偏移）
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(center)
+
 	var panel := PanelContainer.new()
 	HudTheme.apply_section_panel(panel, Color("#211f1a"), HudTheme.GOLD_BORDER)
-	overlay.add_child(panel)
-	panel.set_anchors_preset(Control.PRESET_CENTER)
+	center.add_child(panel)
 	panel.custom_minimum_size = Vector2(380, 0)
 
 	var vbox := VBoxContainer.new()
