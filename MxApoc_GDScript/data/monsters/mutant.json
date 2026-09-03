@@ -37,12 +37,12 @@
         {
           "skill_name": "达克斯顿贾格",
           "english_name": "daxton_jag",
-          "skill_description": "当此怪物卡被玩家抓取时，所有玩家弃掉一张装备区内的装备，否则受到四点伤害。",
+          "skill_description": "当此怪物卡被抓取时，场上所有玩家都随机弃置装备区内的一张装备牌。",
           "skill_type": "monster",
           "trigger": "after_monster_enter_zone",
           "forced": true,
           "filter": "return true",
-          "content": "var list = game.get_all_players()\nfor p in list:\n\tvar equip_cards = p.get_cards(\"equipment\")\n\tif equip_cards.is_empty():\n\t\tactions.damage(p, 4, event[\"card\"])\n\telif await p.confirm(\"\\\"达克斯顿·贾格\\\": 是否弃置一张装备，否则受到 4 点伤害\"):\n\t\tvar chosen = await p.choose_card(1, equip_cards)\n\t\tif chosen.is_empty():\n\t\t\tactions.damage(p, 4, event[\"card\"])\n\t\telse:\n\t\t\tactions.discard(p, chosen)\n\telse:\n\t\tactions.damage(p, 4, event[\"card\"])"
+          "content": "var list = game.get_alive_players()\nfor p in list:\n\tvar card = game.get_random_card(p, [\"equipment\"])\n\tif card != null:\n\t\tactions.discard(p, card)"
         }
       ]
     },

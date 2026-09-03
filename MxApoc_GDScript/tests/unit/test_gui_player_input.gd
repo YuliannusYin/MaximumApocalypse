@@ -107,7 +107,7 @@ func test_action_requested_signal_emitted() -> void:
 	await get_tree().create_timer(0.01).timeout
 
 
-# === 请求队列机制测试 ===
+# === 请求栈机制测试 ===
 
 func test_single_request_dispatched_immediately() -> void:
 	var input: GUIPlayerInput = GUIPlayerInput.new()
@@ -119,36 +119,60 @@ func test_single_request_dispatched_immediately() -> void:
 	await get_tree().create_timer(0.02).timeout
 
 
-func test_queued_request_dispatched_after_active_resolved() -> void:
+func test_nested_request_preempts_wait_action_and_restores_it() -> void:
 	var input: GUIPlayerInput = GUIPlayerInput.new()
-	var confirm_emitted: Array = []
+	var action_emitted: Array = []
 	var choose_card_emitted: Array = []
-	input.confirm_requested.connect(func(_message): confirm_emitted.append(true))
+	input.action_requested.connect(func(_p): action_emitted.append(true))
 	input.choose_card_requested.connect(func(_n, _param, _filter, _prompt, _min_n): choose_card_emitted.append(true))
 
-	var holder_a: Dictionary = {"value": null}
-	var holder_b: Dictionary = {"value": null}
-	# A（confirm）派发为活动请求；B（choose_card）应入队而非立即派发
-	_run_confirm(input, holder_a, "外层结算")
-	_run_choose_card(input, holder_b, 1, "hand")
+	var action_holder: Dictionary = {"value": "sentinel"}
+	var card_holder: Dictionary = {"value": null}
+	_run_wait_action(input, action_holder)
+	_run_choose_card(input, card_holder, 1, "hand")
 
-	assert_eq(confirm_emitted.size(), 1, "A（confirm）应立即派发")
-	assert_eq(choose_card_emitted.size(), 0, "A 未结算时 B（choose_card）不应派发")
+	assert_eq(action_emitted.size(), 1, "wait_action 应先派发")
+	assert_eq(choose_card_emitted.size(), 1, "choose_card 应抢占 wait_action 并立即派发")
 
-	# 响应 A → A 恢复并释放活动槽 → B 自动派发
-	input.respond_confirm(true)
-	await get_tree().create_timer(0.05).timeout
-
-	assert_eq(holder_a["value"], true, "A 应返回 true")
-	assert_eq(choose_card_emitted.size(), 1, "A 结算后 B 应自动派发")
-
-	# 清理：响应 B，使其正常返回
 	input.respond_choose_card([])
 	await get_tree().create_timer(0.05).timeout
-	assert_eq(holder_b["value"], [], "B 应正常返回")
+	assert_eq(card_holder["value"], [], "后进的 choose_card 应先返回")
+	assert_eq(action_holder["value"], "sentinel", "wait_action 在选牌结算前不应结束")
+	assert_eq(action_emitted.size(), 2, "选牌结束后应重新派发 wait_action")
+
+	input.respond_action("move")
+	await get_tree().create_timer(0.05).timeout
+	assert_eq(action_holder["value"], "move", "wait_action 恢复后应返回真实行动")
 
 
-func test_response_not_misrouted_to_queued_request() -> void:
+func test_wait_action_does_not_preempt_choose_card() -> void:
+	var input: GUIPlayerInput = GUIPlayerInput.new()
+	var action_emitted: Array = []
+	var choose_card_emitted: Array = []
+	input.action_requested.connect(func(_p): action_emitted.append(true))
+	input.choose_card_requested.connect(func(_n, _param, _filter, _prompt, _min_n): choose_card_emitted.append(true))
+
+	var card_holder: Dictionary = {"value": null}
+	var action_holder: Dictionary = {"value": "sentinel"}
+	_run_choose_card(input, card_holder, 3, "hand")
+	_run_wait_action(input, action_holder)
+
+	assert_eq(choose_card_emitted.size(), 1, "choose_card 应保持活动")
+	assert_eq(action_emitted.size(), 0, "wait_action 不应抢走未完成的选牌窗口")
+
+	var cards: Array = [Card.new(), Card.new(), Card.new()]
+	input.respond_choose_card(cards)
+	await get_tree().create_timer(0.05).timeout
+	assert_eq(card_holder["value"], cards, "选牌应先完成")
+	assert_eq(choose_card_emitted.size(), 1, "选牌窗口不应被重新派发")
+	assert_eq(action_emitted.size(), 1, "选牌结束后才派发 wait_action")
+
+	input.respond_action("end_turn")
+	await get_tree().create_timer(0.05).timeout
+	assert_eq(action_holder["value"], "end_turn", "排队的 wait_action 应在选牌后返回")
+
+
+func test_response_goes_to_active_request_not_queued_one() -> void:
 	var input: GUIPlayerInput = GUIPlayerInput.new()
 	var holder_a: Dictionary = {"value": null}
 	var holder_b: Dictionary = {"value": null}
@@ -156,18 +180,16 @@ func test_response_not_misrouted_to_queued_request() -> void:
 	_run_confirm(input, holder_a, "外层结算")
 	_run_choose_card(input, holder_b, 1, "hand")
 
-	# 响应 A：A 返回 true；B 仍等待，不应错收 A 的响应
 	input.respond_confirm(true)
 	await get_tree().create_timer(0.05).timeout
 
-	assert_eq(holder_a["value"], true, "A 应返回自己的响应 true")
-	assert_null(holder_b["value"], "B 不应错收 A 的响应（仍在等待）")
+	assert_eq(holder_a["value"], true, "活动中的 confirm 应收到自己的响应")
+	assert_null(holder_b["value"], "排队的 choose_card 不应错收 confirm 的响应")
 
-	# 随后响应 B：B 正常返回自己的数组
 	var cards: Array = [Card.new()]
 	input.respond_choose_card(cards)
 	await get_tree().create_timer(0.05).timeout
-	assert_eq(holder_b["value"], cards, "B 应返回自己的响应数组")
+	assert_eq(holder_b["value"], cards, "confirm 结束后 choose_card 应返回自己的响应")
 
 
 func test_duplicate_response_ignored() -> void:
@@ -190,6 +212,34 @@ func test_single_request_flow_compatible() -> void:
 	input.respond_action("attack")
 	await get_tree().create_timer(0.02).timeout
 	assert_eq(holder["value"], "attack", "单请求流程 wait_action → respond_action 应正常返回")
+
+
+func test_wait_action_is_preempted_by_nested_confirm() -> void:
+	var input: GUIPlayerInput = GUIPlayerInput.new()
+	var action_emitted: Array = []
+	var confirm_emitted: Array = []
+	input.action_requested.connect(func(_p): action_emitted.append(true))
+	input.confirm_requested.connect(func(_m): confirm_emitted.append(true))
+
+	var action_holder: Dictionary = {"value": "sentinel"}
+	_run_wait_action(input, action_holder)
+	await get_tree().create_timer(0.02).timeout
+	assert_eq(action_emitted.size(), 1, "wait_action 应先派发")
+
+	var confirm_holder: Dictionary = {"value": null}
+	_run_confirm(input, confirm_holder, "插入确认")
+	assert_eq(confirm_emitted.size(), 1, "wait_action 活动时 confirm 应抢占并立即派发")
+	assert_eq(action_holder["value"], "sentinel", "wait_action 被抢占后不应结束")
+
+	input.respond_confirm(true)
+	await get_tree().create_timer(0.05).timeout
+	assert_eq(confirm_holder["value"], true, "confirm 应返回 true")
+	assert_eq(action_holder["value"], "sentinel", "confirm 结束后 wait_action 仍应等待")
+	assert_eq(action_emitted.size(), 2, "插入结算结束后应重新派发 wait_action")
+
+	input.respond_action("move")
+	await get_tree().create_timer(0.05).timeout
+	assert_eq(action_holder["value"], "move", "恢复后 wait_action 应返回真实行动")
 
 
 # === 协程辅助方法 ===

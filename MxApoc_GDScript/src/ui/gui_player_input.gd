@@ -3,10 +3,10 @@ extends IPlayerInput
 
 ## GUI 玩家输入实现。
 ## 通过信号与 GameScene2D 通信，使用 await 等待玩家操作。
-## 所有玩家输入请求经请求队列串行处理：空闲时立即派发（emit 请求信号），
-## 忙碌（已有活动请求未结算）时入队等待；活动请求结算恢复后自动派发
-## 下一个排队请求。这样外层结算 await 期间发生的插入结算（内层请求）
-## 不会被吞掉，各请求只消费自己的响应，不会错位。
+## 输入请求按后进先出栈处理：空闲时立即派发（emit 请求信号）。
+## 仅 wait_action 可被抢占：插入结算（确认/动画/选牌）会立刻盖住它，
+## 结算后弹出栈顶并重新派发 wait_action。其它活动请求（选牌/确认等）
+## 不会被后来的 wait_action 打断，避免弹窗被游戏循环抢走后反复重开。
 ## respond_* 方法写入当前活动请求的响应；已响应的请求忽略重复响应（防双击）。
 
 # === 请求信号（GameScene2D 订阅） ===
@@ -29,39 +29,44 @@ signal card_destroy_animation_requested(card: Card)
 signal monster_skill_trigger_animation_requested(monster: Variant)
 signal monster_attack_animation_requested(monster: Variant, targets: Array)
 
-# === 请求队列（插入结算机制核心） ===
-# 所有玩家输入请求串行处理：空闲时立即派发，忙碌时入队等待；
-# 活动请求结算恢复后自动派发下一个排队请求，外层结算不会被内层插入结算吞掉。
-var _request_queue: Array = []  # 等待派发的请求对象列表
+# === 请求栈（插入结算机制核心） ===
+# 后进先出：新请求入栈；仅当活动请求是可抢占的 wait_action 时才压栈暂停并立即派发。
+# 结算后弹出栈顶恢复外层。
+var _request_stack: Array = []  # 被暂停的外层请求，栈顶最先恢复
 var _active_request: Dictionary = {}  # 当前活动请求（空字典 = 无活动请求）
 var _request_counter: int = 0  # 请求 id 自增计数器
 
 
-# === 队列核心 ===
+# === 栈核心 ===
 
-## 创建请求并入队；若无活动请求则立即派发给 UI。
-func _enqueue_request(emit_fn: Callable) -> Dictionary:
+## 创建请求并入栈。仅当当前活动请求可抢占（wait_action）时才将其压栈暂停。
+func _enqueue_request(emit_fn: Callable, preemptible: bool = false) -> Dictionary:
 	_request_counter += 1
 	var req: Dictionary = {
 		"id": _request_counter,
 		"emit_fn": emit_fn,
 		"response": null,
 		"received": false,
+		"preemptible": preemptible,
 	}
-	_request_queue.append(req)
+	if not _active_request.is_empty() and not _active_request.get("received", false):
+		if _active_request.get("preemptible", false):
+			_request_stack.append(_active_request)
+			_active_request = {}
+	_request_stack.append(req)
 	_dispatch_next_if_idle()
 	return req
 
 
-## 空闲时弹出队首请求并向 UI 派发（emit 请求信号）。
+## 空闲时弹出栈顶请求并向 UI 派发（emit 请求信号）。
 func _dispatch_next_if_idle() -> void:
-	if _active_request.is_empty() and not _request_queue.is_empty():
-		_active_request = _request_queue.pop_front()
+	if _active_request.is_empty() and not _request_stack.is_empty():
+		_active_request = _request_stack.pop_back()
 		var fn: Callable = _active_request["emit_fn"]
 		fn.call()
 
 
-## 等待指定请求自身的响应；恢复后释放活动槽并派发下一个排队请求。
+## 等待指定请求自身的响应；恢复后释放活动槽并弹出栈顶外层请求。
 func _wait_for_request(req: Dictionary) -> Variant:
 	while not req["received"]:
 		await Engine.get_main_loop().process_frame
@@ -85,7 +90,7 @@ func _respond_active(value: Variant) -> void:
 
 func wait_action(player: Variant) -> Variant:
 	var req: Dictionary = _enqueue_request(func() -> void:
-		action_requested.emit(player))
+		action_requested.emit(player), true)
 	return await _wait_for_request(req)
 
 
