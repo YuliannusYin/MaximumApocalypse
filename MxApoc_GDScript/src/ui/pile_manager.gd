@@ -166,13 +166,18 @@ func _make_pile_style(color: Color, highlight: bool = false) -> StyleBoxFlat:
 
 
 ## 根据当前玩家行动状态刷新可操作牌堆的金黄色高亮。
-func refresh_pile_highlights() -> void:
+## local_player 传入时（联机）：仅当本地玩家 == 当前回合玩家才高亮，别人回合不高亮。
+func refresh_pile_highlights(local_player: Variant = null) -> void:
 	var current: Variant = Game.get_current_player()
+	# 非本方回合：全部不高亮（acted 为 null）
+	var acted: Variant = current
+	if local_player != null and current != null and is_instance_valid(current) and local_player != current:
+		acted = null
 	var can_act: bool = false
 	var block_colors: PackedStringArray = []
-	if current != null and is_instance_valid(current):
-		can_act = current.get("in_phase") == "action" and current.get("action_count") > 0
-		var block: Variant = current.get("current_block")
+	if acted != null and is_instance_valid(acted):
+		can_act = acted.get("in_phase") == "action" and acted.get("action_count") > 0
+		var block: Variant = acted.get("current_block")
 		if block != null and is_instance_valid(block):
 			block_colors = block.get("scavenge_colors")
 	for config in PILE_CONFIGS:
@@ -193,9 +198,12 @@ func refresh_pile_highlights() -> void:
 
 
 ## 判断牌堆当前是否可点击（可操作）。
-func is_pile_clickable(pile_key: String) -> bool:
+## local_player 传入时（联机）：仅当本地玩家 == 当前回合玩家才可点击。
+func is_pile_clickable(pile_key: String, local_player: Variant = null) -> bool:
 	var current: Variant = Game.get_current_player()
 	if current == null or not is_instance_valid(current):
+		return false
+	if local_player != null and local_player != current:
 		return false
 	if current.get("in_phase") != "action" or current.get("action_count") <= 0:
 		return false

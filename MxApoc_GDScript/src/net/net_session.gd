@@ -256,7 +256,7 @@ func stop() -> void:
 	_stale_notified.clear()
 	mode = Mode.NONE
 	peer_id = 0
-	host_port = 0
+	# host_port / host_ip / player_name 保留：供下次"加入房间"对话框记忆上次连接信息
 	_heartbeat_timer = 0.0
 	_last_recv_self = 0.0
 

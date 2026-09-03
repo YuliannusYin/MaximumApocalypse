@@ -90,6 +90,7 @@ static func _serialize_player(player) -> Dictionary:
 		"hp": player.hp,
 		"max_hp": player.max_hp,
 		"hunger": player.hunger,
+		"stealth": player.stealth,
 		"action_count": player.action_count,
 		"max_action_count": player.max_action_count,
 		"in_phase": player.in_phase,
@@ -113,6 +114,8 @@ static func _serialize_role(role) -> Dictionary:
 		"role_name": role.role_name,
 		"is_front_side": role.is_front_side,
 		"equipment_capacity": role.equipment_capacity,
+		"sneak": role.sneak,
+		"hunger_sneak": role.hunger_sneak,
 	}
 
 
@@ -350,6 +353,7 @@ static func _apply_player(game, player: Player, pd: Dictionary, ctx: Dictionary)
 	player.hp = int(pd.get("hp", player.hp))
 	player.max_hp = int(pd.get("max_hp", player.max_hp))
 	player.hunger = int(pd.get("hunger", player.hunger))
+	player.stealth = int(pd.get("stealth", player.stealth))
 	player.action_count = int(pd.get("action_count", player.action_count))
 	player.max_action_count = int(pd.get("max_action_count", player.max_action_count))
 	player.in_phase = str(pd.get("in_phase", player.in_phase))
@@ -383,6 +387,8 @@ static func _role_from_dict(rd: Dictionary, existing) -> RoleCard:
 	role.role_name = str(rd.get("role_name", role.role_name))
 	role.is_front_side = bool(rd.get("is_front_side", role.is_front_side))
 	role.equipment_capacity = int(rd.get("equipment_capacity", role.equipment_capacity))
+	role.sneak = int(rd.get("sneak", role.sneak))
+	role.hunger_sneak = int(rd.get("hunger_sneak", role.hunger_sneak))
 	return role
 
 

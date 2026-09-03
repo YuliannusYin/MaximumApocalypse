@@ -83,8 +83,8 @@ func _on_join_room_pressed() -> void:
 		return
 	_open_net_dialog("加入房间", [
 		{"key": "name", "label": "昵称", "default": _last_name(), "placeholder": "输入昵称"},
-		{"key": "ip", "label": "主机 IP", "default": DEFAULT_IP, "placeholder": "例：192.168.1.10"},
-		{"key": "port", "label": "端口", "default": str(DEFAULT_PORT), "placeholder": "主机端口"},
+		{"key": "ip", "label": "主机 IP", "default": _last_ip(), "placeholder": "例：192.168.1.10"},
+		{"key": "port", "label": "端口", "default": _last_port(), "placeholder": "主机端口"},
 	], _confirm_join)
 
 func _confirm_join(entries: Dictionary, error_label: Label) -> void:
@@ -132,6 +132,20 @@ func _last_name() -> String:
 	if NetSession.player_name != "":
 		return NetSession.player_name
 	return "玩家"
+
+
+## 上次连接的主机 IP（成功连接过则记忆，否则回退默认值）。
+func _last_ip() -> String:
+	if NetSession.host_ip != "":
+		return NetSession.host_ip
+	return DEFAULT_IP
+
+
+## 上次连接的主机端口（成功连接过则记忆，否则回退默认值）。
+func _last_port() -> String:
+	if NetSession.host_port > 0:
+		return str(NetSession.host_port)
+	return str(DEFAULT_PORT)
 
 # === 通用对话框 ===
 

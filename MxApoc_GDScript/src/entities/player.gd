@@ -1273,11 +1273,19 @@ func start_turn() -> void:
 func execute_action_immediately(num: int = 1) -> void:
 	var saved_phase: String = in_phase
 	var saved_action_count: int = action_count
+	# 清理残留的结束阶段标记，避免 wait_player_action 立即跳出导致目标玩家没执行任何行动
+	_phase_end_requested = ""
 	in_phase = "action"
 	action_count = num
+	# 通知 UI/联机：目标玩家进入临时行动阶段（触发快照广播，客机才能显示行动界面）
+	if EventBus != null and is_instance_valid(EventBus):
+		EventBus.phase_changed.emit(self, saved_phase, "action")
 	await wait_player_action()
 	in_phase = saved_phase
 	action_count = saved_action_count
+	# 恢复原阶段同样广播，保证快照同步恢复后的状态
+	if EventBus != null and is_instance_valid(EventBus):
+		EventBus.phase_changed.emit(self, "action", saved_phase)
 
 
 # === 十二、底层接口与工具方法 ===

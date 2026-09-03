@@ -581,7 +581,7 @@ func _refresh_all_from_snapshot() -> void:
 	_assign_player_panels()
 	_refresh_hand_area()
 	_pile_manager.refresh_pile_counts(_net_local_player())
-	_pile_manager.refresh_pile_highlights()
+	_pile_manager.refresh_pile_highlights(_net_local_player())
 	_action_selection_controller.refresh_confirm_cancel_buttons()
 	_active_skill_bar.refresh(_net_local_player())
 
@@ -886,26 +886,34 @@ func _refresh_hand_area() -> void:
 
 
 ## 返回"我"的玩家视图：客机为本地座位对应玩家；主机有客户端连接时为主机自己的玩家，否则为当前回合玩家；单机为当前回合玩家。
+## 同一 peer 拥有多个座位（房主可把玩家加到多个座位）时，优先返回当前回合玩家对应的座位，控制权随回合切换。
 func _net_local_player() -> Variant:
 	if NetSession.mode == NetSession.Mode.HOST:
 		if NetSession.get_peer_ids().is_empty():
 			return Game.get_current_player()
-		for i in range(RoomState.seats.size()):
-			if int(RoomState.seats[i].get("peer_id", 0)) == NetSession.HOST_PEER_ID:
-				for p in Game.players:
-					if p != null and int(p.seat_number) == i:
-						return p
-				return Game.get_current_player()
-		return Game.get_current_player()
+		return _local_player_from_seats(NetSession.HOST_PEER_ID, true)
 	if NetSession.mode == NetSession.Mode.CLIENT:
-		for i in range(RoomState.seats.size()):
-			if int(RoomState.seats[i].get("peer_id", 0)) == NetSession.peer_id:
-				for p in Game.players:
-					if p != null and int(p.seat_number) == i:
-						return p
-				return null
-		return Game.get_current_player()
+		return _local_player_from_seats(NetSession.peer_id, false)
 	return Game.get_current_player()
+
+
+## 按 peer_id 在座位表中定位本地玩家：收集该 peer 的所有座位对应玩家，
+## 若当前回合玩家在其中则返回它（跟随回合切换控制），否则返回第一个匹配（无匹配时回退 current）。
+func _local_player_from_seats(pid: int, fallback_current: bool) -> Variant:
+	var current: Variant = Game.get_current_player()
+	var matched: Array = []
+	for i in range(RoomState.seats.size()):
+		if int(RoomState.seats[i].get("peer_id", 0)) != pid:
+			continue
+		for p in Game.players:
+			if p != null and int(p.seat_number) == i:
+				matched.append(p)
+				break
+	if matched.is_empty():
+		return current if fallback_current else null
+	if current != null and is_instance_valid(current) and matched.has(current):
+		return current
+	return matched[0]
 
 
 ## 当前是否轮到本地玩家行动：单机恒为 true；联网时仅当本地玩家 == 当前回合玩家。
@@ -960,7 +968,7 @@ func _on_card_move_select_completed(blocks: Variant) -> void:
 func _on_pile_clicked(pile_key: String) -> void:
 	if _action_selection_controller.is_busy():
 		return
-	if not _pile_manager.is_pile_clickable(pile_key):
+	if not _pile_manager.is_pile_clickable(pile_key, _net_local_player()):
 		return
 	_action_selection_controller.on_pile_selected(pile_key, _pile_manager.pile_display_name(pile_key))
 
@@ -1057,7 +1065,7 @@ func _on_settings_popup_id_pressed(id: int) -> void:
 func _on_action_requested(_player: Variant) -> void:
 	_active_skill_bar.refresh(_net_local_player())
 	_action_selection_controller.refresh_confirm_cancel_buttons()
-	_pile_manager.refresh_pile_highlights()
+	_pile_manager.refresh_pile_highlights(_net_local_player())
 
 
 func _on_choose_requested(options: Array, prompt: String) -> void:
@@ -1401,7 +1409,7 @@ func _on_turn_started(player: Variant) -> void:
 
 func _on_phase_changed(_player: Variant, _old_phase: String, new_phase: String) -> void:
 	_action_selection_controller.refresh_confirm_cancel_buttons()
-	_pile_manager.refresh_pile_highlights()
+	_pile_manager.refresh_pile_highlights(_net_local_player())
 	if new_phase != "action" or not _net_is_local_action():
 		_active_skill_bar.clear()
 		_action_selection_controller.clear_for_non_action_phase()
@@ -1414,7 +1422,7 @@ func _on_player_moved(player: Variant, source_block: Variant, target_block: Vari
 		await _table_map_controller.play_avatar_move(player, source_block, target_block)
 	_table_map_controller.refresh_map()
 	_refresh_all_panels()
-	_pile_manager.refresh_pile_highlights()
+	_pile_manager.refresh_pile_highlights(_net_local_player())
 	# 移动完成后地块技能/任务行动技能已挂载/卸载，刷新技能栏
 	_active_skill_bar.refresh(_net_local_player())
 
@@ -1552,8 +1560,8 @@ func _on_action_consumed(player: Variant, num: int) -> void:
 
 
 func _on_pile_drawn(_player: Variant, _card: Variant) -> void:
-	_pile_manager.refresh_pile_counts()
-	_pile_manager.refresh_pile_highlights()
+	_pile_manager.refresh_pile_counts(_net_local_player())
+	_pile_manager.refresh_pile_highlights(_net_local_player())
 	_refresh_panel_for_player(_player)
 	# 若摸牌玩家为当前回合玩家，刷新手牌展示区
 	var current: Variant = Game.get_current_player()
