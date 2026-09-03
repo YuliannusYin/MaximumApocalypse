@@ -32,6 +32,7 @@ const _ROW_HEIGHT: float = 30.0
 @onready var _background: ColorRect = $Background
 
 var _log_panel: Node = null
+var _log_export_dialog: FileDialog = null
 
 ## 归档防重入标记：同一结算页实例只归档一次（_ready 重复触发或二次调用直接返回）。
 ## 重新开局后的结算页是新实例，标记随之重置，不受影响。
@@ -357,20 +358,88 @@ func _create_log_panel() -> Control:
 	else:
 		for msg in logs:
 			var line := Label.new()
-			line.text = str(msg)
+			line.text = LogColors.strip_bbcode(str(msg))
 			line.add_theme_font_size_override("font_size", 13)
 			line.add_theme_color_override("font_color", Color(0.88, 0.88, 0.88))
 			content.add_child(line)
 
-	# 关闭按钮
+	var btn_row := HBoxContainer.new()
+	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	btn_row.add_theme_constant_override("separation", 16)
+	vbox.add_child(btn_row)
+
+	var export_btn := Button.new()
+	export_btn.text = "导出日志"
+	export_btn.custom_minimum_size = Vector2(160, 40)
+	export_btn.add_theme_font_size_override("font_size", 16)
+	export_btn.disabled = logs.is_empty()
+	export_btn.pressed.connect(_on_export_log_pressed)
+	HudTheme.apply_slot_button(export_btn, 16)
+	btn_row.add_child(export_btn)
+
 	var close_btn := Button.new()
 	close_btn.text = "关闭 (Esc)"
 	close_btn.custom_minimum_size = Vector2(160, 40)
 	close_btn.add_theme_font_size_override("font_size", 16)
 	close_btn.pressed.connect(_on_close_log_pressed)
-	vbox.add_child(close_btn)
+	HudTheme.apply_slot_button(close_btn, 16)
+	btn_row.add_child(close_btn)
 
 	return panel
+
+
+func _on_export_log_pressed() -> void:
+	var logs: Array = []
+	if Game != null and is_instance_valid(Game):
+		logs = Game.log_list
+	if logs.is_empty():
+		_show_log_export_feedback("暂无日志可导出")
+		return
+	if _log_export_dialog == null or not is_instance_valid(_log_export_dialog):
+		_log_export_dialog = FileDialog.new()
+		_log_export_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+		_log_export_dialog.access = FileDialog.ACCESS_FILESYSTEM
+		_log_export_dialog.use_native_dialog = true
+		_log_export_dialog.title = "导出游戏日志"
+		_log_export_dialog.add_filter("*.txt", "文本文件")
+		_log_export_dialog.file_selected.connect(_on_log_export_file_selected)
+		add_child(_log_export_dialog)
+	_log_export_dialog.current_dir = OS.get_system_dir(OS.SYSTEM_DIR_DOCUMENTS)
+	_log_export_dialog.current_file = _default_log_filename()
+	_log_export_dialog.popup_centered()
+
+
+func _on_log_export_file_selected(path: String) -> void:
+	var export_path: String = path
+	if not export_path.to_lower().ends_with(".txt"):
+		export_path += ".txt"
+	var logs: Array = []
+	if Game != null and is_instance_valid(Game):
+		logs = Game.log_list
+	var file := FileAccess.open(export_path, FileAccess.WRITE)
+	if file == null:
+		_show_log_export_feedback("导出失败：" + error_string(FileAccess.get_open_error()))
+		return
+	file.store_string(LogColors.to_plain_log(logs))
+	file.close()
+	_show_log_export_feedback("已导出到：\n" + export_path)
+
+
+func _default_log_filename() -> String:
+	var dt: Dictionary = Time.get_datetime_dict_from_system()
+	return "MaximumApocalypse_log_%04d%02d%02d_%02d%02d%02d.txt" % [
+		dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second,
+	]
+
+
+func _show_log_export_feedback(message: String) -> void:
+	var dialog := AcceptDialog.new()
+	dialog.title = "导出游戏日志"
+	dialog.dialog_text = message
+	dialog.confirmed.connect(dialog.queue_free)
+	dialog.canceled.connect(dialog.queue_free)
+	add_child(dialog)
+	dialog.popup_centered()
 
 
 func _on_close_log_pressed() -> void:

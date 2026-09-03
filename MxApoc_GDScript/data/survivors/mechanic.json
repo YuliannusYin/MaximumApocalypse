@@ -350,7 +350,7 @@
           "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
           "target_type": "equipment",
           "select_target": 1,
-          "filter_target": "return target.in_equipment_area && target.charge_type != null",
+          "filter_target": "return target.in_equipment_area && target.charge_type != \"\"",
           "window_prompt": "\"自制子弹\": 选择装填的武器",
           "filter_target_range": "short",
           "defer_action_cost": true,

@@ -103,6 +103,7 @@ func _create_modules() -> void:
 	_action_selection_controller.confirm_responded.connect(_on_confirm_from_controller)
 	_action_selection_controller.move_mode_changed.connect(_on_move_mode_changed)
 	_action_selection_controller.card_move_select_completed.connect(_on_card_move_select_completed)
+	_action_selection_controller.pile_selection_changed.connect(_pile_manager.set_selected_pile_key)
 	_active_skill_bar.skill_pressed.connect(_on_skill_pressed)
 
 
