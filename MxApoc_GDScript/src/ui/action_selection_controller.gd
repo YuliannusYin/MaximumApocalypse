@@ -40,6 +40,7 @@ var _timer_remaining: float = 0.0
 var _timer_duration: float = 0.0
 var _timer_on_timeout: Callable = Callable()
 var _acting_player: Variant = null
+var _event_scheduler: Variant = null
 
 
 func setup(ui_layer: Node) -> void:
@@ -56,7 +57,17 @@ func set_acting_player(player: Variant) -> void:
 	refresh_confirm_cancel_buttons()
 
 
+## 注入 EventScheduler 观察器；控制器不再猜测当前输入玩家。
+func set_event_scheduler(scheduler: Variant) -> void:
+	_event_scheduler = scheduler
+	refresh_confirm_cancel_buttons()
+
+
 func _get_acting_player() -> Variant:
+	if _event_scheduler != null and is_instance_valid(_event_scheduler):
+		var request: Variant = _event_scheduler.get_current_input_request()
+		if request != null and request.owner != null and is_instance_valid(request.owner):
+			return request.owner
 	if _acting_player != null and is_instance_valid(_acting_player):
 		return _acting_player
 	return Game.get_current_player()

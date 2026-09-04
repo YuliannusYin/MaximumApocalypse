@@ -44,6 +44,22 @@ func test_scheduler_rejects_stale_identity() -> void:
 	assert_eq(await scheduler.wait_request(request), true)
 
 
+func test_scheduler_exposes_current_input_request_identity() -> void:
+	var scheduler: Variant = EventSchedulerScript.new()
+	var owner := Player.new()
+	var request: Variant = scheduler.enqueue_input(owner, func() -> void:
+		pass
+	)
+
+	assert_eq(scheduler.get_current_input_request(), request)
+	assert_eq(scheduler.get_current_input_request_id(), request.id)
+	assert_eq(scheduler.get_current_input_request_owner(), owner)
+
+	scheduler.respond(true, request.id, owner)
+	await scheduler.wait_request(request)
+	assert_null(scheduler.get_current_input_request())
+
+
 func test_scheduler_runs_game_event_and_restores_parent() -> void:
 	var scheduler: Variant = EventSchedulerScript.new()
 	var source := Player.new()

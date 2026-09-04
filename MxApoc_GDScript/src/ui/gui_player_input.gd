@@ -70,6 +70,15 @@ func get_active_request_owner() -> Variant:
 	return _scheduler.get_active_request_owner()
 
 
+## UI 观察接口：返回 EventScheduler 当前活动的 InputRequest。
+func get_active_request() -> Variant:
+	return _scheduler.get_current_input_request()
+
+
+func get_scheduler() -> Variant:
+	return _scheduler
+
+
 ## 等待指定请求自身的响应；恢复后释放活动槽并弹出栈顶外层请求。
 func _wait_for_request(req: Variant) -> Variant:
 	return await _scheduler.wait_request(req)

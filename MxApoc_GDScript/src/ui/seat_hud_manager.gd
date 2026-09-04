@@ -18,10 +18,20 @@ var _ui_parent: Node
 var _huds: Array = []
 var _hud_by_player_id: Dictionary = {}
 var _focused_player: Variant = null
+var _event_scheduler: Variant = null
 
 
 func setup(ui_parent: Node) -> void:
 	_ui_parent = ui_parent
+
+
+## 注入 EventScheduler，供座位 HUD 观察当前 InputRequest owner；
+## focused_player 仍表示 UI 焦点，不与请求 owner 混用。
+func set_event_scheduler(scheduler: Variant) -> void:
+	_event_scheduler = scheduler
+	for hud in _huds:
+		if hud != null and is_instance_valid(hud):
+			hud.set_event_scheduler(scheduler)
 
 
 func build(players: Array) -> void:
@@ -34,6 +44,7 @@ func build(players: Array) -> void:
 		if player == null or not is_instance_valid(player):
 			continue
 		var hud := SeatHud.new()
+		hud.set_event_scheduler(_event_scheduler)
 		hud.setup(player, _ui_parent)
 		hud.action_controller.action_requested.connect(_on_action_requested.bind(player))
 		hud.action_controller.confirm_responded.connect(_on_confirm_responded.bind(player))
@@ -60,6 +71,19 @@ func get_hud(player: Variant) -> SeatHud:
 func get_focused_player() -> Variant:
 	if _focused_player != null and is_instance_valid(_focused_player):
 		return _focused_player
+	return null
+
+
+func get_input_request() -> Variant:
+	if _event_scheduler == null or not is_instance_valid(_event_scheduler):
+		return null
+	return _event_scheduler.get_current_input_request()
+
+
+func get_input_request_owner() -> Variant:
+	var request: Variant = get_input_request()
+	if request != null and request.owner != null and is_instance_valid(request.owner):
+		return request.owner
 	return null
 
 

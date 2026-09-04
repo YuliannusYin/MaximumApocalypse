@@ -8,6 +8,7 @@ var player: Variant = null
 var hand_area: HandDisplayArea
 var active_skill_bar: ActiveSkillBar
 var action_controller: ActionSelectionController
+var _event_scheduler: Variant = null
 
 
 func setup(seat_player: Variant, ui_parent: Node) -> void:
@@ -18,6 +19,12 @@ func setup(seat_player: Variant, ui_parent: Node) -> void:
 
 	_build_private_controls()
 	_refresh()
+
+
+func set_event_scheduler(scheduler: Variant) -> void:
+	_event_scheduler = scheduler
+	if action_controller != null and is_instance_valid(action_controller):
+		action_controller.set_event_scheduler(scheduler)
 
 
 func _build_private_controls() -> void:
@@ -44,6 +51,7 @@ func _build_private_controls() -> void:
 
 	action_controller = ActionSelectionController.new()
 	action_controller.setup(self)
+	action_controller.set_event_scheduler(_event_scheduler)
 	add_child(action_controller)
 	action_controller.build_buttons()
 
