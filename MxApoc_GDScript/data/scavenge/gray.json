@@ -48,7 +48,7 @@
           "skill_type": "action",
           "active": "action",
           "defer_action_cost": true,
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_discard_pile().size() > 0",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0 && player.get_discard_pile().size() > 0",
           "content": "var list = player.get_discard_pile().get_all()\nif list.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar card = await player.choose_card(1, list)\nif card.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nplayer.get_discard_pile().cards.erase(card[0])\nactions.consume_action(player, 1)\nactions.gain(player, card[0])"
         }
       ]

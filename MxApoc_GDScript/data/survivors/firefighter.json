@@ -15,7 +15,7 @@
       "skill_description": "行动：对一个目标造成2点伤害。",
       "range": "short",
       "active": "action",
-      "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+      "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0",
       "filter_target": "return target != player",
       "window_prompt": "\"拳打\": 选择攻击目标",
       "filter_target_range": "short",
@@ -61,7 +61,7 @@
           "range": "short",
           "skill_type": "equipment",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"lighter\") > 0",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0 && player.get_charge_count(\"lighter\") > 0",
           "select_target": -1,
           "filter_target": "return target.is_monster()",
           "window_prompt": "\"打火机\": 选择攻击目标",
@@ -85,7 +85,7 @@
           "range": "short",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\"",
+          "filter": "return player.get_effective_phase() == \"action\"",
           "select_target": 1,
           "filter_target": "return target.is_player()",
           "window_prompt": "\"急救包\": 选择目标",
@@ -113,7 +113,7 @@
           "range": "medium",
           "skill_type": "equipment",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"shotgun\") > 0",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0 && player.get_charge_count(\"shotgun\") > 0",
           "select_target": 1,
           "filter_target": "return target != player",
           "window_prompt": "\"猎枪\": 选择攻击目标",
@@ -135,7 +135,7 @@
           "skill_description": "行动：击晕射程内的所有怪物，直到你的下个回合开始。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\"",
+          "filter": "return player.get_effective_phase() == \"action\"",
           "select_target": -1,
           "filter_target": "return target.is_monster()",
           "filter_target_range": "short",
@@ -156,7 +156,7 @@
           "skill_description": "行动：跳过下一次饥饿结算。你抓一张牌",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\"",
+          "filter": "return player.get_effective_phase() == \"action\"",
           "filter_target": "return target == player",
           "content": "actions.add_temp_skill(player, \"energy_drink_satiety\", \"before_next_turn_start\")\nactions.draw(player, 1)",
           "sub_skills": {
@@ -202,7 +202,7 @@
           "skill_description": "行动：将射程内的所有怪物纠缠的目标改成你。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\"",
+          "filter": "return player.get_effective_phase() == \"action\"",
           "select_target": -1,
           "filter_target": "return target.is_monster()",
           "filter_target_range": "long",
@@ -223,7 +223,7 @@
           "skill_description": "行动：将游戏牌堆中的【值得信赖的斧子】置入你的装备区。并随机抓取一张拾荒卡。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\"",
+          "filter": "return player.get_effective_phase() == \"action\"",
           "content": "var pile = player.get_pile(\"deck\")\nvar card = game.get_card(\"reliable_axe\", pile)\nif card == null:\n\tgame.log(\"玩家游戏牌堆中没有【值得信赖的斧子】牌\")\nelse:\n\tplayer.equip(card)\nvar non_empty = []\nif game.red_scavenge_pile != null and not game.red_scavenge_pile.is_empty():\n\tnon_empty.append(game.red_scavenge_pile)\nif game.green_scavenge_pile != null and not game.green_scavenge_pile.is_empty():\n\tnon_empty.append(game.green_scavenge_pile)\nif game.blue_scavenge_pile != null and not game.blue_scavenge_pile.is_empty():\n\tnon_empty.append(game.blue_scavenge_pile)\nif non_empty.is_empty():\n\tgame.log(\"所有拾荒牌堆均为空，跳过随机抓取\")\nelse:\n\tvar chosen = non_empty[randi() % non_empty.size()]\n\tactions.draw_scavenge(player, 1, chosen)"
         }
       ]
@@ -240,7 +240,7 @@
           "skill_description": "行动：移动最多三格，然后抓取一张牌。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\"",
+          "filter": "return player.get_effective_phase() == \"action\"",
           "defer_action_cost": true,
           "content": "var max_steps = 3\nvar steps = 0\nwhile steps < max_steps:\n\tvar prompt = \"\\\"消防员的耐力\\\": （\" + str(steps + 1) + \"/3）选择目标地图块\"\n\tvar blocks = await player.choose_block_inline(player.get_current_block().get_adjacent_blocks(), prompt, 1)\n\ttarget = blocks[0] if blocks.size() > 0 else null\n\tif target == null:\n\t\tif steps == 0:\n\t\t\tEventSystem.cancel(event)\n\t\t\treturn\n\t\tbreak\n\tif steps == 0:\n\t\tactions.consume_action(player, 1)\n\tvar success = await player.move_to(target)\n\tif not success:\n\t\tbreak\n\tsteps += 1\nactions.draw(player, 1)"
         }
@@ -260,7 +260,7 @@
           "skill_type": "equipment",
           "active": "action",
           "usable": -1,
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"hunger\") < 6",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_number(\"hunger\") < 6",
           "content": "actions.increase_hunger(player, 1)\nactions.add_action(player, 1)"
         }
       ]
@@ -279,7 +279,7 @@
           "range": "medium",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_charge_count(\"lighter\") > 0",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_charge_count(\"lighter\") > 0",
           "select_target": -1,
           "filter_target": "return target != player",
           "filter_target_range": "medium",
@@ -302,7 +302,7 @@
           "skill_description": "行动：对一个目标造成4点伤害。",
           "skill_type": "equipment",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0",
           "select_target": 1,
           "filter_target": "return target != player",
           "window_prompt": "\"值得信赖的斧子\": 选择攻击目标",

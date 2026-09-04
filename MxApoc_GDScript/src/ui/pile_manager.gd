@@ -21,10 +21,22 @@ const PILE_CONFIGS: Array = [
 var _pile_views: Dictionary = {}
 var _ui_layer: CanvasLayer
 var _selected_pile_key: String = ""
+var _acting_player: Variant = null
 
 
 func setup(ui_layer: CanvasLayer) -> void:
 	_ui_layer = ui_layer
+
+
+## 设置当前实际操作玩家；为空时回退到真实回合玩家。
+func set_acting_player(player: Variant) -> void:
+	_acting_player = player
+
+
+func _get_acting_player() -> Variant:
+	if _acting_player != null and is_instance_valid(_acting_player):
+		return _acting_player
+	return Game.get_current_player()
 
 
 func wire_pile_nodes() -> void:
@@ -94,7 +106,7 @@ func refresh_pile_counts() -> void:
 
 
 func _get_current_player_discard_count() -> int:
-	var current: Variant = Game.get_current_player()
+	var current: Variant = _get_acting_player()
 	if current == null or not is_instance_valid(current):
 		return 0
 	var pile: Variant = current.get("game_discard_pile")
@@ -124,7 +136,7 @@ func _get_pile_count(pile: Variant) -> int:
 
 
 func _get_current_player_deck_count() -> int:
-	var current: Variant = Game.get_current_player()
+	var current: Variant = _get_acting_player()
 	if current == null or not is_instance_valid(current):
 		return 0
 	var deck: Variant = current.get("game_deck")
@@ -197,10 +209,12 @@ func refresh_pile_highlights() -> void:
 
 ## 判断牌堆当前是否可点击（可操作）。
 func is_pile_clickable(pile_key: String) -> bool:
-	var current: Variant = Game.get_current_player()
+	var current: Variant = _get_acting_player()
 	if current == null or not is_instance_valid(current):
 		return false
-	if current.get("in_phase") != "action" or current.get("action_count") <= 0:
+	var in_action: bool = current.get_effective_phase() == "action" if current.has_method("get_effective_phase") else current.get("in_phase") == "action"
+	var action_count: int = current.get_effective_action_count() if current.has_method("get_effective_action_count") else current.get("action_count")
+	if not in_action or action_count <= 0:
 		return false
 	match pile_key:
 		"game_deck":

@@ -1,6 +1,9 @@
 class_name Player
 extends Entity
 
+const TurnContextScript = preload("res://src/core/turn_context.gd")
+const PhaseEventScript = preload("res://src/core/phase_event.gd")
+
 ## 玩家类。
 ## 继承 Entity。职责：玩家实体的状态、区域、行动与玩家专属流程方法。
 ## 设计文档：GameDesignDocus/GameSystem/Entities/Player.md
@@ -17,7 +20,12 @@ var in_phase: String = "idle"  # idle/turn_start/monster_spawn/draw/action/hunge
 var _phase_end_requested: String = ""  # 内部信号：end_phase 设置后 wait_player_action 循环跳出
 var _card_effect_in_progress: bool = false  # 行动牌已统一预扣行动点，兼容旧 content 扣点
 var _pending_card_settlement: Card = null  # defer_action_cost 卡牌等待 content 首次选择完成
+var _pending_card_cost_free: bool = false  # 当前待结算卡牌是否由有限操作免费使用
 var _card_cost_paid_by_content: bool = false
+var _operation_context_stack: Array[Dictionary] = []
+var _operation_runtime_stack: Array = []
+var _turn_context: RefCounted = null
+var _phase_sequence: int = 0
 
 # === 区域字段 ===
 var hand: Array = []  # List<Card>，上限 10
@@ -506,6 +514,7 @@ func remove_card(target: Variant, position: String = "", quantity: int = 1) -> v
 		event["cards"].append(src_card)
 		# 销毁演出在实际移出区域前完成，确保展示的卡面仍与当前状态一致。
 		if input != null and src_card is Card:
+			_prepare_input_request()
 			await input.play_card_destroy_animation(src_card)
 		await _remove_card_from_zone(card)
 		if Game != null:
@@ -635,6 +644,7 @@ func judge() -> int:
 func _wait_judge_confirm(prompt: String, allow_cancel: bool) -> bool:
 	if input == null or not is_instance_valid(input):
 		return true
+	_prepare_input_request()
 	return await input.wait_judge_confirm(self, prompt, allow_cancel)
 
 
@@ -642,6 +652,7 @@ func _wait_judge_confirm(prompt: String, allow_cancel: bool) -> bool:
 func _play_dice_animation(d1: int, d2: int, label: String, outcome: String) -> void:
 	if input == null or not is_instance_valid(input):
 		return
+	_prepare_input_request()
 	await input.play_dice_animation(d1, d2, label, outcome)
 
 
@@ -649,6 +660,7 @@ func _play_dice_animation(d1: int, d2: int, label: String, outcome: String) -> v
 func _play_monster_draw_animation(card: MonsterCard) -> void:
 	if input == null or not is_instance_valid(input):
 		return
+	_prepare_input_request()
 	await input.play_monster_draw_animation(self, card)
 
 
@@ -656,6 +668,7 @@ func _play_monster_draw_animation(card: MonsterCard) -> void:
 func _play_scavenge_draw_animation(card: Card) -> void:
 	if input == null or not is_instance_valid(input):
 		return
+	_prepare_input_request()
 	await input.play_scavenge_draw_animation(self, card)
 
 
@@ -810,8 +823,12 @@ func death(source: Entity) -> void:
 # === 七、使用卡牌流程 ===
 
 ## 从手牌中使用一张卡牌（4 节点）。
-func use_card(card: Card) -> bool:
-	if action_count < 1:
+## free_action=true 时仍走完整卡牌生命周期，但不消耗目标玩家正式行动点。
+## operation_runtime 用于让卡牌 content 的嵌套 actions 继续挂在同一操作事件栈。
+func use_card(card: Card, free_action: bool = false, operation_runtime: Variant = null) -> bool:
+	if card == null or not is_instance_valid(card) or not hand.has(card):
+		return false
+	if not free_action and get_effective_action_count() < 1:
 		return false
 	var event: Dictionary = EventSystem.create_event({
 		"player": self,
@@ -819,7 +836,10 @@ func use_card(card: Card) -> bool:
 		"target": null,
 		"targets": [],
 		"cards": [],
+		"free_action": free_action,
 	})
+	if operation_runtime != null:
+		event["actions"] = GameActions.new(self, Game, operation_runtime)
 	# 1. 使用卡牌前（取消点）
 	await trigger("before_use_card", event)
 	if EventSystem.is_cancelled(event):
@@ -830,11 +850,11 @@ func use_card(card: Card) -> bool:
 		return false
 	# 3. 按卡牌类型分流
 	if card.card_type == "equipment":
-		if not await consume_action_evented(1):
+		if not free_action and not await consume_action_evented(1):
 			return false
 		if Game != null and is_instance_valid(Game):
 			Game.log_message(LogColors.player(player_name) + " 使用了 " + LogColors.card(card.card_name))
-		equip(card)
+		await equip(card)
 	else:
 		# 行动牌：执行 card 上声明 active="action" 的 skill 的完整流程
 		var skill_executed: bool = false
@@ -892,12 +912,13 @@ func use_card(card: Card) -> bool:
 					# content 内通常会先完成一次选择，再调用 consume_action。
 					# 在该调用点完成“进入结算区 → 扣行动点”。
 					_pending_card_settlement = card
+					_pending_card_cost_free = free_action
 					_card_cost_paid_by_content = false
 					deferred_card = true
 				else:
 					if not begin_card_settlement(card):
 						return false
-					if not await consume_action_evented(1):
+					if not free_action and not await consume_action_evented(1):
 						cancel_card_settlement(card)
 						return false
 					settlement_started = true
@@ -907,6 +928,7 @@ func use_card(card: Card) -> bool:
 			_card_effect_in_progress = false
 			if deferred_card:
 				_pending_card_settlement = null
+				_pending_card_cost_free = false
 				if not _card_cost_paid_by_content:
 					_card_cost_paid_by_content = false
 					return false
@@ -1194,8 +1216,12 @@ func _format_target_name(target: Variant) -> String:
 func start_turn() -> void:
 	var event: Dictionary = EventSystem.create_event({"player": self})
 	# 节点 1：进入玩家回合（非钩子节点）
-	in_phase = "turn_start"
-	action_count = max_action_count
+	var turn_number: int = 0
+	if Game != null and is_instance_valid(Game) and Game.state_machine != null:
+		turn_number = Game.state_machine.turn_number
+	var phase_event: Variant = begin_turn_context("turn_start", turn_number, max_action_count)
+	event["turn_context"] = _turn_context
+	event["phase_event"] = phase_event
 	clear_turn_marks()
 	# 重置主动技能使用次数
 	for skill in skills:
@@ -1206,21 +1232,23 @@ func start_turn() -> void:
 	# 节点 3：回合开始时
 	await trigger("on_turn_start", event)
 	# 节点 4：怪物出生前
-	in_phase = "monster_spawn"
+	phase_event = _enter_turn_phase("monster_spawn")
+	event["phase_event"] = phase_event
 	await trigger("before_monster_spawn", event)
 	# 节点 5：怪物出生时
 	await trigger("on_monster_spawn", event)
 	await monster_spawn_judge()
 	# 节点 6：摸牌阶段前
-	in_phase = "draw"
+	phase_event = _enter_turn_phase("draw")
+	event["phase_event"] = phase_event
 	await trigger("before_draw_phase", event)
 	# 节点 7：摸牌阶段（牌堆空 → 死亡；手牌超限时由 draw 内的 resolve_hand_overflow 弹窗弃牌）
 	await draw(1)
 	if not is_alive():
 		return
 	# 节点 8：行动阶段前（含潜行检定）
-	in_phase = "action"
-	EventBus.phase_changed.emit(self, "", "action")
+	phase_event = _enter_turn_phase("action")
+	event["phase_event"] = phase_event
 	if current_block != null and current_block.has_method("has_monster_mark"):
 		if current_block.has_monster_mark():
 			if not await sneak_judge():
@@ -1235,7 +1263,8 @@ func start_turn() -> void:
 	# 节点 11：行动阶段结束时
 	await trigger("on_action_phase_end", event)
 	# 节点 12：求生者饥饿状态结算前
-	in_phase = "hunger"
+	phase_event = _enter_turn_phase("hunger")
+	event["phase_event"] = phase_event
 	await trigger("before_hunger_settlement", event)
 	var hunger_cancelled: bool = EventSystem.is_cancelled(event)
 	if not hunger_cancelled:
@@ -1245,7 +1274,8 @@ func start_turn() -> void:
 		if not is_alive():
 			return
 	# 节点 14：求生者中毒状态结算前
-	in_phase = "poison"
+	phase_event = _enter_turn_phase("poison")
+	event["phase_event"] = phase_event
 	await trigger("before_poison_settlement", event)
 	# 节点 15：求生者中毒状态结算时
 	await trigger("on_poison_settlement", event)
@@ -1253,7 +1283,8 @@ func start_turn() -> void:
 	if not is_alive():
 		return
 	# 节点 16：面前怪物行动前
-	in_phase = "monster_action"
+	phase_event = _enter_turn_phase("monster_action")
+	event["phase_event"] = phase_event
 	await trigger("before_zone_monster_act", event)
 	# 节点 17：面前怪物行动时
 	await trigger("on_zone_monster_act", event)
@@ -1264,25 +1295,41 @@ func start_turn() -> void:
 	if not is_alive():
 		return
 	# 节点 18：回合结束前
-	in_phase = "turn_end"
+	phase_event = _enter_turn_phase("turn_end")
+	event["phase_event"] = phase_event
 	await trigger("before_turn_end", event)
 	# 节点 19：回合结束时
 	await trigger("on_turn_end", event)
 	# 节点 20：退出玩家回合
-	in_phase = "idle"
+	phase_event = _enter_turn_phase("idle")
+	event["phase_event"] = phase_event
+	finish_turn_context()
 
 
 # === 十一、迷你回合流程 ===
 
 ## 立即执行一个行动（仅含行动阶段）。
-func execute_action_immediately(num: int = 1) -> void:
-	var saved_phase: String = in_phase
-	var saved_action_count: int = action_count
-	in_phase = "action"
-	action_count = num
-	await wait_player_action()
-	in_phase = saved_phase
-	action_count = saved_action_count
+func execute_action_immediately(num: int = 1, operation_runtime: Variant = null) -> Dictionary:
+	var runtime: OperationRuntime = operation_runtime if operation_runtime is OperationRuntime else OperationRuntime.new()
+	var context: Dictionary = runtime.get_current_context()
+	if context.is_empty():
+		context = runtime.create_limited_action_context(self, null, num)
+		context["kind"] = "limited_action"
+		context["owner"] = self
+		context["requested_actions"] = maxi(num, 0)
+		context["remaining_actions"] = maxi(num, 0)
+	if not context.has("requested_actions"):
+		context["requested_actions"] = maxi(num, 0)
+	if not context.has("remaining_actions"):
+		context["remaining_actions"] = maxi(num, 0)
+	_operation_context_stack.append(context)
+	_operation_runtime_stack.append(runtime)
+	var result: Dictionary = await wait_player_action(context)
+	_operation_runtime_stack.pop_back()
+	_operation_context_stack.pop_back()
+	context["completed"] = true
+	context["reason"] = result.get("reason", "")
+	return result
 
 
 # === 十二、底层接口与工具方法 ===
@@ -1320,16 +1367,116 @@ func reduce_sneak(n: int) -> void:
 	stealth = maxi(stealth - n, 0)
 
 
-## 行动次数管理
-func get_action_count() -> int:
+## 当前玩家的最内层有限操作上下文。正式回合没有该上下文。
+func get_operation_context() -> Dictionary:
+	if _operation_context_stack.is_empty():
+		return {}
+	var context: Variant = _operation_context_stack.back()
+	if context is Dictionary and not context.get("completed", false):
+		return context
+	return {}
+
+
+func get_operation_runtime() -> Variant:
+	if _operation_runtime_stack.is_empty():
+		return null
+	return _operation_runtime_stack.back()
+
+
+func get_turn_context() -> Variant:
+	return _turn_context
+
+
+## 创建正式回合上下文并进入初始阶段。第零轮也通过此入口建立独立上下文。
+func begin_turn_context(initial_phase: String, turn_number: int = 0, action_limit: int = -1) -> Variant:
+	var limit: int = max_action_count if action_limit < 0 else action_limit
+	_turn_context = TurnContextScript.new(self, turn_number, limit)
+	_phase_sequence = 0
+	return _enter_turn_phase(initial_phase, "context_started")
+
+
+func _enter_turn_phase(new_phase: String, reason: String = "") -> Variant:
+	if _turn_context == null:
+		_turn_context = TurnContextScript.new(self, 0, action_count)
+	var old_phase: String = _turn_context.enter_phase(new_phase)
+	_phase_sequence += 1
+	in_phase = new_phase
+	action_count = _turn_context.remaining_actions
+	var event: Variant = PhaseEventScript.new(
+		self,
+		_turn_context,
+		old_phase,
+		new_phase,
+		_phase_sequence,
+		reason
+	)
+	if EventBus != null and is_instance_valid(EventBus):
+		EventBus.phase_event.emit(event)
+		# 兼容旧 UI/教程：保持旧信号原有的 action 进入时机和参数。
+		if new_phase == "action":
+			EventBus.phase_changed.emit(self, "", "action")
+	return event
+
+
+func finish_turn_context() -> void:
+	if _turn_context != null:
+		_turn_context.finish()
+
+
+## 有限行动期间返回虚拟 action 阶段，否则返回正式阶段。
+func get_effective_phase() -> String:
+	var context: Dictionary = get_operation_context()
+	if context.get("kind", "") == "limited_action":
+		return "action"
+	if _turn_context != null:
+		return _turn_context.phase
+	return in_phase
+
+
+## 有限行动期间返回上下文预算，否则返回正式行动点。
+func get_effective_action_count() -> int:
+	var context: Dictionary = get_operation_context()
+	if context.get("kind", "") == "limited_action":
+		return maxi(int(context.get("remaining_actions", 0)), 0)
+	if _turn_context != null and _turn_context.active:
+		return maxi(_turn_context.remaining_actions, 0)
 	return action_count
 
 
+func is_action_available(cost: int = 1) -> bool:
+	return get_effective_phase() == "action" and get_effective_action_count() >= cost
+
+
+func get_action_count() -> int:
+	return get_effective_action_count()
+
+
 func set_action_count(n: int) -> void:
-	action_count = n
+	var context: Dictionary = get_operation_context()
+	if context.get("kind", "") == "limited_action":
+		context["remaining_actions"] = maxi(n, 0)
+	elif _turn_context != null and _turn_context.active:
+		_turn_context.set_action_count(n)
+		action_count = _turn_context.remaining_actions
+	else:
+		action_count = n
 
 
 func reduce_action_count(n: int) -> void:
+	var context: Dictionary = get_operation_context()
+	if context.get("kind", "") == "limited_action":
+		var actual: int = mini(maxi(n, 0), get_effective_action_count())
+		context["remaining_actions"] = get_effective_action_count() - actual
+		context["consumed_actions"] = int(context.get("consumed_actions", 0)) + actual
+		if actual > 0 and EventBus != null and is_instance_valid(EventBus):
+			EventBus.action_consumed.emit(self, actual)
+		return
+	if _turn_context != null and _turn_context.active:
+		var formal_actual: int = _turn_context.consume_action(n)
+		action_count = _turn_context.remaining_actions
+		if formal_actual > 0 and EventBus != null and is_instance_valid(EventBus):
+			EventBus.action_consumed.emit(self, formal_actual)
+		return
 	action_count = maxi(action_count - n, 0)
 	if EventBus != null and is_instance_valid(EventBus):
 		EventBus.action_consumed.emit(self, n)
@@ -1360,6 +1507,10 @@ func consume_action_evented(n: int) -> bool:
 		if not begin_card_settlement(card):
 			return false
 		_pending_card_settlement = null
+		if _pending_card_cost_free:
+			_pending_card_cost_free = false
+			_card_cost_paid_by_content = true
+			return true
 		var consumed: bool = await _consume_action_evented_internal(n)
 		if consumed:
 			_card_cost_paid_by_content = true
@@ -1372,24 +1523,36 @@ func consume_action_evented(n: int) -> bool:
 
 
 func _consume_action_evented_internal(n: int) -> bool:
-	if n <= 0 or action_count < n:
+	if n <= 0 or get_effective_action_count() < n:
 		return false
 	var event: Dictionary = EventSystem.create_consume_action_event(self, n)
+	event["operation_context"] = get_operation_context()
 	await trigger("before_consume_action", event)
 	if EventSystem.is_cancelled(event):
 		return false
 	await trigger("on_consume_action", event)
 	if EventSystem.is_cancelled(event):
 		return false
-	reduce_action_count(event["num"])
+	var actual_num: int = maxi(int(event.get("num", n)), 0)
+	if get_effective_action_count() < actual_num:
+		return false
+	reduce_action_count(actual_num)
 	if Game != null and is_instance_valid(Game):
-		Game.log_message(LogColors.player(player_name) + " 消耗了 " + str(event["num"]) + " 点行动点数")
+		Game.log_message(LogColors.player(player_name) + " 消耗了 " + str(actual_num) + " 点行动点数")
 	await trigger("after_consume_action", event)
 	return true
 
 
 ## 增加 n 点行动次数（野地夹克使用）。
 func add_action(n: int) -> void:
+	var context: Dictionary = get_operation_context()
+	if context.get("kind", "") == "limited_action":
+		context["remaining_actions"] = maxi(get_effective_action_count() + n, 0)
+		return
+	if _turn_context != null and _turn_context.active:
+		_turn_context.add_action(n)
+		action_count = _turn_context.remaining_actions
+		return
 	action_count += n
 	if action_count < 0:
 		action_count = 0
@@ -1708,13 +1871,21 @@ func get_discard_pile() -> Pile:
 	return game_discard_pile
 
 
+## 在共享输入实例上标记下一次请求的所属玩家。
+func _prepare_input_request() -> void:
+	if input != null and is_instance_valid(input) and input.has_method("set_request_owner"):
+		input.set_request_owner(self)
+
+
 ## 选择器（委托 input）
 func choose(options: Array, prompt: String = "") -> Variant:
+	_prepare_input_request()
 	return await input.choose(options, prompt)
 
 
 ## 确认对话框（委托 input）。
 func confirm(message: String) -> bool:
+	_prepare_input_request()
 	return await input.confirm(message)
 
 
@@ -1722,6 +1893,7 @@ func confirm(message: String) -> bool:
 ## param 为 String 时：按 position（如 "hand"/"equipment"/"discard"）查询玩家区域卡牌（原有行为）。
 ## param 为 Array 时：直接作为候选卡牌列表，绕过 position 查询。
 func choose_card(n: int, param: Variant = "hand", filter: Variant = null, prompt: String = "", min_n: int = -1) -> Array:
+	_prepare_input_request()
 	if typeof(param) == TYPE_ARRAY:
 		# Array 模式：直接作为候选卡牌列表，绕过 position 查询
 		return await input.choose_card(n, param, filter, prompt, min_n)
@@ -1732,6 +1904,7 @@ func choose_card(n: int, param: Variant = "hand", filter: Variant = null, prompt
 ## 选择目标。n 为选择数量（-1 表示全部），skill 为当前技能（含 target_type/filter_target 等）。
 ## min_n 为最小选择数（-1 表示精确模式，必须选 n 个）；范围模式 min_n>=0 时允许 [min_n, n] 个。
 func choose_target(n: int, skill: Variant = null, prompt: String = "", min_n: int = -1) -> Array:
+	_prepare_input_request()
 	return await input.choose_target(n, skill, prompt, min_n)
 
 
@@ -1761,9 +1934,11 @@ func choose_map_block(param: Variant, prompt: String = "") -> Variant:
 				filtered.append(block)
 		if filtered.is_empty():
 			return null
+		_prepare_input_request()
 		return await input.choose_map_block(filtered, prompt)
 	else:
 		# array 模式（原有行为）
+		_prepare_input_request()
 		return await input.choose_map_block(param, prompt)
 
 
@@ -1777,16 +1952,19 @@ func choose_block_inline(valid_blocks: Array, prompt: String = "", count: int = 
 		return valid_blocks.duplicate()
 	if input == null or not is_instance_valid(input):
 		return []
+	_prepare_input_request()
 	return await input.choose_block_inline(valid_blocks, prompt, count)
 
 
 func show_card(card: Card, target: Variant) -> void:
+	_prepare_input_request()
 	input.show_card(card, target)
 
 
 ## 设置 prompt 区文本（content 代码调用入口）。
 func set_prompt(text: String) -> void:
 	if input != null and is_instance_valid(input):
+		_prepare_input_request()
 		input.set_prompt(text)
 
 
@@ -1794,33 +1972,51 @@ func set_prompt(text: String) -> void:
 func wait_redraw_decision() -> bool:
 	if input == null or not is_instance_valid(input):
 		return false
+	_prepare_input_request()
 	return await input.wait_redraw_decision(self)
 
 
 ## 行动阶段循环：等待玩家操作（使用卡牌/使用主动技能/结束回合）。
-func wait_player_action() -> void:
+func wait_player_action(_operation_context: Dictionary = {}) -> Dictionary:
+	var result: Dictionary = {
+		"reason": "",
+		"requested_actions": int(_operation_context.get("requested_actions", 0)),
+		"consumed_actions": int(_operation_context.get("consumed_actions", 0)),
+		"remaining_actions": int(_operation_context.get("remaining_actions", 0)),
+	}
 	while is_alive():
 		if _phase_end_requested != "":
 			_phase_end_requested = ""
+			result["reason"] = "ended"
+			break
+		if not get_operation_context().is_empty() and get_effective_action_count() <= 0:
+			result["reason"] = "budget_exhausted"
 			break
 		var choice: Variant = await input.wait_action(self)
 		if choice == null:
+			result["reason"] = "cancelled"
 			break  # 结束回合
 		if typeof(choice) == TYPE_DICTIONARY:
 			await dispatch_player_action(choice)
+	if result["reason"] == "":
+		result["reason"] = "player_unavailable" if not is_alive() else "completed"
+	result["consumed_actions"] = int(get_operation_context().get("consumed_actions", result["consumed_actions"]))
+	result["remaining_actions"] = get_effective_action_count() if not get_operation_context().is_empty() else result["remaining_actions"]
+	return result
 
 
 ## 所有 UI/CLI 玩家意图的统一领域分发入口。
 func dispatch_player_action(choice: Dictionary) -> void:
 	var action_type: String = choice.get("type", "")
+	var operation_runtime: Variant = get_operation_runtime()
 	if action_type == "skill":
 		var skill: Skill = choice.get("skill", null)
 		if skill != null and is_instance_valid(skill):
-			await use_active_skill(skill)
+			await use_active_skill(skill, operation_runtime)
 	elif action_type == "card":
 		var card: Card = choice.get("card", null)
 		if card != null and is_instance_valid(card):
-			await use_card(card)
+			await use_card(card, false, operation_runtime)
 	elif action_type == "pile_draw":
 		await _execute_pile_draw(choice.get("pile_key", ""))
 	elif action_type == "mission_action":
@@ -1893,7 +2089,7 @@ func choose_to_discard(n: int, type: String = "") -> void:
 
 
 ## 使用主动技能。处理目标选择和卡牌选择，然后执行技能 content。
-func use_active_skill(skill: Skill) -> void:
+func use_active_skill(skill: Skill, operation_runtime: Variant = null) -> void:
 	if skill == null or not is_instance_valid(skill):
 		return
 	if skill.active.is_empty():
@@ -1904,6 +2100,8 @@ func use_active_skill(skill: Skill) -> void:
 	event["target"] = null
 	event["cards"] = []
 	event["skill"] = skill
+	if operation_runtime != null:
+		event["actions"] = GameActions.new(self, Game, operation_runtime)
 	# 1. 主动技能使用前（取消点）
 	await trigger("before_use_active_skill", event)
 	if EventSystem.is_cancelled(event):
@@ -2111,7 +2309,7 @@ func can_use_active_skill(skill: Variant) -> bool:
 func get_number(key: String) -> int:
 	match key:
 		"action_count":
-			return action_count
+			return get_effective_action_count()
 		"hp":
 			return hp
 		"hunger":
@@ -2130,6 +2328,7 @@ func discard_non_boss_monster_to_mark() -> void:
 			candidates.append(m)
 	if candidates.is_empty():
 		return
+	_prepare_input_request()
 	var monster: Monster = await input.choose(candidates)
 	if monster == null:
 		return
@@ -2162,24 +2361,39 @@ func heal_all_status() -> void:
 	remove_mark("hunger_damage_level")
 
 
-## 立即打出一张牌（不消耗行动次数）。
-func play_card_immediately() -> void:
-	if hand.is_empty():
-		return
-	var saved_phase: String = in_phase
-	in_phase = "action"
-	var cards: Array = await input.choose_card(1, "hand")
-	if cards.is_empty():
-		in_phase = saved_phase
-		return
-	var card: Card = cards[0]
-	if card.card_type == "equipment":
-		equip(card)
-	else:
-		if card.has_method("trigger"):
-			await card.trigger("on_use_card", EventSystem.create_event({}))
-		discard(card)
-	in_phase = saved_phase
+## 在有限操作事件中让玩家免费使用最多 max_cards 张手牌。
+## 每张牌都复用 use_card 的完整生命周期，不修改正式回合阶段或行动点。
+func play_card_immediately(max_cards: int = 1, operation_runtime: Variant = null) -> Dictionary:
+	var result: Dictionary = {
+		"used_count": 0,
+		"cancelled": false,
+	}
+	if max_cards <= 0 or hand.is_empty():
+		result["cancelled"] = true
+		return result
+
+	for _i in range(max_cards):
+		if hand.is_empty():
+			break
+		_prepare_input_request()
+		var cards: Array = await input.choose_card(
+			1,
+			"hand",
+			null,
+			"选择一张手牌使用（可取消）",
+			0
+		)
+		if cards.is_empty():
+			result["cancelled"] = true
+			break
+		var card: Variant = cards[0]
+		if not card is Card or not hand.has(card):
+			break
+		if not await use_card(card, true, operation_runtime):
+			break
+		result["used_count"] = int(result["used_count"]) + 1
+
+	return result
 
 
 # === 十四、任务系统方法 ===

@@ -40,7 +40,7 @@ func get_action_options(game: Game, player: Player) -> Array:
 		return []
 	if not player.current_block.has_objective_mark():
 		return []
-	if player.action_count < 1:
+	if player.get_effective_action_count() < 1:
 		return []
 	return [{
 		"id": "rescue_judge_win",
@@ -67,7 +67,7 @@ func get_action_skill_decl() -> Variant:
 			return false
 		if not player.current_block.has_objective_mark():
 			return false
-		return player.action_count >= 1
+		return player.get_effective_action_count() >= 1
 	decl["execute"] = func(player: Player) -> void:
 		await _do_rescue(_game, player)
 	decl["confirm"] = func(player: Player) -> String:
@@ -84,7 +84,8 @@ func _do_rescue(game: Game, player: Player) -> void:
 		return
 	if _mission_config == null:
 		return
-	player.reduce_action_count(1)
+	if not await player.consume_action_evented(1):
+		return
 	_mission_config.mission_state["rescue_judge_done"] = true
 	game.log_message(LogColors.player(player.player_name) + " 执行潜行检定……")
 	var success: bool = await player.sneak_judge(player.current_block)

@@ -35,7 +35,7 @@ func get_action_options(game: Game, player: Player) -> Array:
 		return []
 	if player.current_block.block_name != params.get("block_name", ""):
 		return []
-	if player.action_count < 1:
+	if player.get_effective_action_count() < 1:
 		return []
 	var items: Dictionary = params.get("items", {})
 	if items.is_empty():
@@ -62,7 +62,7 @@ func get_action_skill_decl() -> Variant:
 			return false
 		if _mission_config == null:
 			return false
-		if player.action_count < 1:
+		if player.get_effective_action_count() < 1:
 			return false
 		var items: Dictionary = params.get("items", {})
 		if items.is_empty():
@@ -118,7 +118,8 @@ func _do_submit(game: Game, player: Player) -> void:
 			batches[card_name] = to_discard
 	if batches.is_empty():
 		return
-	player.reduce_action_count(1)
+	if not await player.consume_action_evented(1):
+		return
 	var submitted: Dictionary = _mission_config.mission_state.get("submitted_items", {}).duplicate()
 	var parts: Array = []
 	for card_name in batches:

@@ -46,6 +46,7 @@ signal monster_card_drawn(player: Variant, card: Variant)
 
 # === 回合阶段信号 ===
 signal phase_changed(player: Variant, old_phase: String, new_phase: String)
+signal phase_event(event: Variant)
 signal action_consumed(player: Variant, num: int)
 signal sneak_judge_triggered(player: Variant, block: Variant) ## 玩家执行潜行检定时
 signal monster_spawn_judged(player: Variant, value: int) ## 怪物出生检定投骰结果出来时

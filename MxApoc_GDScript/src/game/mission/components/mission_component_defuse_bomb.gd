@@ -54,7 +54,7 @@ func get_action_options(game: Game, player: Player) -> Array:
 	if not player.has_item(params.get("card_name", "满是灰尘的日记本")):
 		return []
 	var cost: int = int(params.get("cost", 2))
-	if player.action_count < cost:
+	if player.get_effective_action_count() < cost:
 		return []
 	return [{
 		"id": "defuse_bomb",
@@ -79,7 +79,7 @@ func get_action_skill_decl() -> Variant:
 			return false
 		if not player.has_item(params.get("card_name", "满是灰尘的日记本")):
 			return false
-		return player.action_count >= int(params.get("cost", 2))
+		return player.get_effective_action_count() >= int(params.get("cost", 2))
 	decl["execute"] = func(player: Player) -> void:
 		await _do_defuse(_game, player)
 	decl["confirm"] = func(player: Player) -> String:
@@ -96,7 +96,8 @@ func _do_defuse(game: Game, player: Player) -> void:
 	if _mission_config == null:
 		return
 	var cost: int = int(params.get("cost", 2))
-	player.reduce_action_count(cost)
+	if not await player.consume_action_evented(cost):
+		return
 	_mission_config.mission_state["bomb_defused"] = true
 	_mission_config.mission_state["countdown_activate"] = true
 	game.log_message(LogColors.player(player.player_name) + " 炸弹已解除！倒计时开始！")

@@ -1188,9 +1188,9 @@ func show_scavenge_discard_popup() -> void:
 	_finish_popup_build(overlay)
 
 
-func show_game_discard_popup() -> void:
+func show_game_discard_popup(player: Variant = null) -> void:
 	var cards: Array = []
-	var current: Variant = Game.get_current_player()
+	var current: Variant = player if player != null else Game.get_current_player()
 	if current != null and is_instance_valid(current):
 		var pile: Variant = current.get("game_discard_pile")
 		if pile != null and is_instance_valid(pile):

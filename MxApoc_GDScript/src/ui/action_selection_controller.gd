@@ -28,7 +28,7 @@ var _block_select_count: int = 1  # 本次选取的目标数量
 var _valid_blocks: Array = []  # 当前合法地块列表
 var _card_move_mode: bool = false
 var _card_move_valid_blocks: Array = []
-var _ui_layer: CanvasLayer
+var _ui_layer: Node
 var _hand_area: Variant = null  # HandDisplayArea 引用，用于清空选中
 var _round_zero_mode: bool = false
 var _round_zero_buffering: bool = false
@@ -39,14 +39,27 @@ var _timer_active: bool = false
 var _timer_remaining: float = 0.0
 var _timer_duration: float = 0.0
 var _timer_on_timeout: Callable = Callable()
+var _acting_player: Variant = null
 
 
-func setup(ui_layer: CanvasLayer) -> void:
+func setup(ui_layer: Node) -> void:
 	_ui_layer = ui_layer
 
 
 func set_hand_area(hand_area: Variant) -> void:
 	_hand_area = hand_area
+
+
+## 设置当前实际操作玩家；为空时回退到真实回合玩家。
+func set_acting_player(player: Variant) -> void:
+	_acting_player = player
+	refresh_confirm_cancel_buttons()
+
+
+func _get_acting_player() -> Variant:
+	if _acting_player != null and is_instance_valid(_acting_player):
+		return _acting_player
+	return Game.get_current_player()
 
 
 # === 状态查询 ===
@@ -262,9 +275,11 @@ func _on_confirm_pressed() -> void:
 		return
 	if _selected_card == null or not is_instance_valid(_selected_card):
 		return
-	var current: Variant = Game.get_current_player()
-	if current != null and is_instance_valid(current) and current.get("action_count") <= 0:
-		return
+	var current: Variant = _get_acting_player()
+	if current != null and is_instance_valid(current):
+		var action_count: int = current.get_effective_action_count() if current.has_method("get_effective_action_count") else current.get("action_count")
+		if action_count <= 0:
+			return
 	var card = _selected_card
 	# 清空选中状态（会触发 on_card_deselected）
 	if _hand_area != null and is_instance_valid(_hand_area):
@@ -343,7 +358,7 @@ func refresh_confirm_cancel_buttons() -> void:
 	if _skill_confirm_mode:
 		if _confirm_button != null and is_instance_valid(_confirm_button):
 			_confirm_button.text = "确定 (S)"
-			var current: Variant = Game.get_current_player()
+			var current: Variant = _get_acting_player()
 			var usable: bool = false
 			if current != null and is_instance_valid(current) and _pending_skill != null and is_instance_valid(_pending_skill):
 				usable = current.can_use_active_skill(_pending_skill)
@@ -360,12 +375,12 @@ func refresh_confirm_cancel_buttons() -> void:
 			_cancel_end_button.text = "取消 (C)"
 			_cancel_end_button.disabled = false
 		return
-	var current: Variant = Game.get_current_player()
+	var current: Variant = _get_acting_player()
 	var in_action: bool = false
 	var action_count: int = 0
 	if current != null and is_instance_valid(current):
-		in_action = (current.get("in_phase") == "action")
-		action_count = current.get("action_count")
+		in_action = current.get_effective_phase() == "action" if current.has_method("get_effective_phase") else current.get("in_phase") == "action"
+		action_count = current.get_effective_action_count() if current.has_method("get_effective_action_count") else current.get("action_count")
 	# 确定按钮：有选中卡牌或牌堆 + 行动阶段 + 行动次数>0 + 选中卡牌 filter 通过
 	if _confirm_button != null and is_instance_valid(_confirm_button):
 		var card_ok: bool = true
@@ -412,10 +427,12 @@ func enter_block_select_mode(prompt: String, valid_blocks: Array, count: int, so
 		push_warning("enter_block_select_mode 被忽略：UI 模式冲突（confirm=%s move=%s skill_confirm=%s round_zero=%s judge_confirm=%s）" % [_confirm_mode, _move_select_mode, _skill_confirm_mode, _round_zero_mode, _judge_confirm_mode])
 		return
 	if source == "move":
-		var current: Variant = Game.get_current_player()
+		var current: Variant = _get_acting_player()
 		if current == null or not is_instance_valid(current):
 			return
-		if current.get("in_phase") != "action" or current.get("action_count") <= 0:
+		var in_action: bool = current.get_effective_phase() == "action" if current.has_method("get_effective_phase") else current.get("in_phase") == "action"
+		var action_count: int = current.get_effective_action_count() if current.has_method("get_effective_action_count") else current.get("action_count")
+		if not in_action or action_count <= 0:
 			return
 	_move_select_mode = true
 	_card_move_mode = (source == "card")
@@ -437,7 +454,7 @@ func enter_block_select_mode(prompt: String, valid_blocks: Array, count: int, so
 ## M 键移动的薄封装：以当前地块相邻地块、count=1 进入 move 选取模式。
 func enter_move_select_mode() -> void:
 	var adjacent: Array = []
-	var current: Variant = Game.get_current_player()
+	var current: Variant = _get_acting_player()
 	if current != null and is_instance_valid(current):
 		var current_block: Variant = current.get("current_block")
 		if current_block != null and is_instance_valid(current_block):
@@ -574,7 +591,7 @@ func enter_skill_confirm_mode(skill: Variant) -> void:
 	if _prompt_label != null and is_instance_valid(_prompt_label):
 		var prompt_text: String = ""
 		if skill != null and is_instance_valid(skill) and skill.confirm_prompt.is_valid():
-			var current_player: Variant = Game.get_current_player()
+			var current_player: Variant = _get_acting_player()
 			prompt_text = skill.execute_confirm_prompt(current_player)
 		if prompt_text.is_empty():
 			var sname: String = ""

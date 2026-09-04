@@ -32,7 +32,7 @@ func get_action_options(game: Game, player: Player) -> Array:
 		return []
 	if not player.has_equipment(params.get("equipment", "科学家")):
 		return []
-	if player.action_count < 1:
+	if player.get_effective_action_count() < 1:
 		return []
 	if _any_objective_mark_on_map(game):
 		return []
@@ -56,7 +56,7 @@ func get_action_skill_decl() -> Variant:
 			return false
 		if not player.has_equipment(params.get("equipment", "科学家")):
 			return false
-		if player.action_count < 1:
+		if player.get_effective_action_count() < 1:
 			return false
 		if _game == null or not is_instance_valid(_game):
 			return false
@@ -92,6 +92,7 @@ func _do_upload(game: Game, player: Player) -> void:
 		return
 	if player == null or not is_instance_valid(player):
 		return
-	player.reduce_action_count(1)
+	if not await player.consume_action_evented(1):
+		return
 	game.log_message(LogColors.player(player.player_name) + " 上传了病毒！")
 	game.game_over("win")
