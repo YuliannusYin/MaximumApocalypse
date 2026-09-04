@@ -5,9 +5,18 @@ extends RefCounted
 ## 提供 event Dictionary 的构建工厂与取消机制。
 ## event schema 见 GameDesignDocus/GameSystem/Core/EventSystem.md §2。
 ## 字段键名严格遵循 IdentifierMapping.md §六。
+##
+## 统一事件树：每个 event 额外携带 id/parent/root/children/game_event，
+## 与 OperationRuntime 的操作事件、Player 的正式回合事件共享同一套
+## GameEvent 生命周期字段（见 game_event.gd）。详见 .cursor/plan/plan.md “最终架构”。
+
+const GameEventScript = preload("res://src/core/game_event.gd")
+
+static var _next_event_id: int = 1
 
 
-## 创建通用 event：注入 cancelled 标记与 cancel 可调用对象。
+## 创建通用 event：注入 cancelled 标记与 cancel 可调用对象，
+## 并挂接统一事件树节点元数据（id/parent/root/children/game_event）。
 ## 各流程工厂方法在此基础上追加流程专属字段。
 ## cancel 用法：event["cancel"].call() 或 EventSystem.cancel(event)。
 static func create_event(initial: Dictionary = {}) -> Dictionary:
@@ -24,6 +33,32 @@ static func create_event(initial: Dictionary = {}) -> Dictionary:
 	# 合并调用方传入的初始字段
 	for key in initial:
 		event[key] = initial[key]
+	if not event.has("id"):
+		event["id"] = _next_event_id
+		_next_event_id += 1
+	var parent_event: Variant = event.get("parent", null)
+	var parent_node: Variant = null
+	if parent_event is Dictionary:
+		parent_node = parent_event.get("game_event", null)
+		event["root"] = parent_event.get("root", parent_event.get("id", event["id"]))
+		var siblings: Array = parent_event.get("children", [])
+		siblings.append(event["id"])
+		parent_event["children"] = siblings
+	else:
+		if not event.has("root"):
+			event["root"] = event["id"]
+		if not event.has("children"):
+			event["children"] = []
+	var node: Variant = GameEventScript.new(
+		str(event.get("type", "")), event.get("owner", null), event.get("source", null)
+	)
+	node.id = event["id"]
+	node.context = event.get("context", null)
+	if parent_node is GameEventScript:
+		parent_node.add_child(node)
+	else:
+		node.root = event["root"]
+	event["game_event"] = node
 	return event
 
 

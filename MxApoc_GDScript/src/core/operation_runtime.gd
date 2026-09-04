@@ -45,13 +45,20 @@ func dispatch(
 		"context": operation_context,
 	})
 	operation["executor"] = executor
+	var node: Variant = operation.get("game_event", null)
 	if EventSystem.is_cancelled(operation):
 		operation["status"] = "cancelled"
+		if node != null:
+			node.cancel()
 		return null
 	_stack.append(operation)
 	operation["status"] = "running"
+	if node != null:
+		node.mark_running()
 	operation["result"] = await executor.call()
 	operation["status"] = "completed"
+	if node != null:
+		node.complete(operation["result"])
 	_stack.pop_back()
 	return operation["result"]
 
@@ -129,17 +136,26 @@ func flush() -> void:
 	_is_flushing = true
 	while not _operations.is_empty():
 		var operation: Dictionary = _operations.pop_front()
+		var node: Variant = operation.get("game_event", null)
 		if EventSystem.is_cancelled(operation):
 			operation["status"] = "cancelled"
+			if node != null:
+				node.cancel()
 			continue
 		var executor: Callable = operation.get("executor", Callable())
 		if not executor.is_valid():
 			operation["status"] = "failed"
 			operation["error"] = "操作没有有效执行器"
+			if node != null:
+				node.fail(operation["error"])
 			continue
 		operation["status"] = "running"
+		if node != null:
+			node.mark_running()
 		operation["result"] = await executor.call()
 		operation["status"] = "completed"
+		if node != null:
+			node.complete(operation["result"])
 	_is_flushing = false
 
 

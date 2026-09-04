@@ -3,6 +3,7 @@ extends Entity
 
 const TurnContextScript = preload("res://src/core/turn_context.gd")
 const PhaseEventScript = preload("res://src/core/phase_event.gd")
+const TurnEventScript = preload("res://src/core/turn_event.gd")
 
 ## 玩家类。
 ## 继承 Entity。职责：玩家实体的状态、区域、行动与玩家专属流程方法。
@@ -25,6 +26,7 @@ var _card_cost_paid_by_content: bool = false
 var _operation_context_stack: Array[Dictionary] = []
 var _operation_runtime_stack: Array = []
 var _turn_context: RefCounted = null
+var _turn_event: Variant = null  # TurnEvent，统一事件树的正式回合节点
 var _phase_sequence: int = 0
 
 # === 区域字段 ===
@@ -1387,10 +1389,17 @@ func get_turn_context() -> Variant:
 	return _turn_context
 
 
+## 统一事件树的正式回合节点。仅正式回合/第零轮拥有，有限行动不创建。
+func get_turn_event() -> Variant:
+	return _turn_event
+
+
 ## 创建正式回合上下文并进入初始阶段。第零轮也通过此入口建立独立上下文。
 func begin_turn_context(initial_phase: String, turn_number: int = 0, action_limit: int = -1) -> Variant:
 	var limit: int = max_action_count if action_limit < 0 else action_limit
 	_turn_context = TurnContextScript.new(self, turn_number, limit)
+	_turn_event = TurnEventScript.new(self, turn_number)
+	_turn_event.mark_running()
 	_phase_sequence = 0
 	return _enter_turn_phase(initial_phase, "context_started")
 
@@ -1398,6 +1407,9 @@ func begin_turn_context(initial_phase: String, turn_number: int = 0, action_limi
 func _enter_turn_phase(new_phase: String, reason: String = "") -> Variant:
 	if _turn_context == null:
 		_turn_context = TurnContextScript.new(self, 0, action_count)
+	if _turn_event == null:
+		_turn_event = TurnEventScript.new(self, _turn_context.turn_number)
+		_turn_event.mark_running()
 	var old_phase: String = _turn_context.enter_phase(new_phase)
 	_phase_sequence += 1
 	in_phase = new_phase
@@ -1408,8 +1420,10 @@ func _enter_turn_phase(new_phase: String, reason: String = "") -> Variant:
 		old_phase,
 		new_phase,
 		_phase_sequence,
-		reason
+		reason,
+		_turn_event
 	)
+	_turn_event.children.append(event)
 	if EventBus != null and is_instance_valid(EventBus):
 		EventBus.phase_event.emit(event)
 		# 兼容旧 UI/教程：保持旧信号原有的 action 进入时机和参数。
@@ -1421,6 +1435,8 @@ func _enter_turn_phase(new_phase: String, reason: String = "") -> Variant:
 func finish_turn_context() -> void:
 	if _turn_context != null:
 		_turn_context.finish()
+	if _turn_event != null:
+		_turn_event.complete()
 
 
 ## 有限行动期间返回虚拟 action 阶段，否则返回正式阶段。

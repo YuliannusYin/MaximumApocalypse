@@ -8,6 +8,11 @@ extends IPlayerInput
 ## 结算后弹出栈顶并重新派发 wait_action。其它活动请求（选牌/确认等）
 ## 不会被后来的 wait_action 打断，避免弹窗被游戏循环抢走后反复重开。
 ## respond_* 方法写入当前活动请求的响应；已响应的请求忽略重复响应（防双击）。
+##
+## 请求栈的 LIFO 抢占/身份匹配逻辑已下沉到 EventScheduler/InputRequest（统一事件调度，
+## 见 .cursor/plan/plan.md 批次二）；本类只是保留旧 signal/respond_* API 的兼容外观。
+
+const EventSchedulerScript = preload("res://src/core/event_scheduler.gd")
 
 # === 请求信号（GameScene2D 订阅） ===
 
@@ -32,67 +37,42 @@ signal monster_attack_animation_requested(monster: Variant, targets: Array)
 
 # === 请求栈（插入结算机制核心） ===
 # 后进先出：新请求入栈；仅当活动请求是可抢占的 wait_action 时才压栈暂停并立即派发。
-# 结算后弹出栈顶恢复外层。
-var _request_stack: Array = []  # 被暂停的外层请求，栈顶最先恢复
-var _active_request: Dictionary = {}  # 当前活动请求（空字典 = 无活动请求）
-var _request_counter: int = 0  # 请求 id 自增计数器
+# 结算后弹出栈顶恢复外层。抢占/身份匹配/等待逻辑均委托给 EventScheduler/InputRequest。
+var _scheduler: Variant = EventSchedulerScript.new()
 var _request_owner: Variant = null  # 下一次输入请求的所属玩家
 
 
 # === 栈核心 ===
 
-## 创建请求并入栈。仅当当前活动请求可抢占（wait_action）时才将其压栈暂停。
 ## 设置下一次输入请求的所属玩家。
 func set_request_owner(player: Variant) -> void:
 	_request_owner = player
 
 
-func _enqueue_request(emit_fn: Callable, preemptible: bool = false) -> Dictionary:
-	_request_counter += 1
-	var req: Dictionary = {
-		"id": _request_counter,
-		"emit_fn": emit_fn,
-		"response": null,
-		"received": false,
-		"preemptible": preemptible,
-		"owner": _request_owner,
-	}
+## 创建请求并入栈。仅当当前活动请求可抢占（wait_action）时才将其压栈暂停。
+## request_owner_changed 在请求实际派发（emit）的那一刻发出，与旧实现时序一致，
+## 无论是新请求立即派发，还是外层请求在内层结算后被重新派发。
+func _enqueue_request(emit_fn: Callable, preemptible: bool = false) -> Variant:
+	var owner: Variant = _request_owner
 	_request_owner = null
-	if not _active_request.is_empty() and not _active_request.get("received", false):
-		if _active_request.get("preemptible", false):
-			_request_stack.append(_active_request)
-			_active_request = {}
-	_request_stack.append(req)
-	_dispatch_next_if_idle()
-	return req
-
-
-## 空闲时弹出栈顶请求并向 UI 派发（emit 请求信号）。
-func _dispatch_next_if_idle() -> void:
-	if _active_request.is_empty() and not _request_stack.is_empty():
-		_active_request = _request_stack.pop_back()
-		request_owner_changed.emit(_active_request.get("owner", null))
-		var fn: Callable = _active_request["emit_fn"]
-		fn.call()
+	var wrapped_emit: Callable = func() -> void:
+		request_owner_changed.emit(owner)
+		emit_fn.call()
+	return _scheduler.enqueue_input(owner, wrapped_emit, preemptible)
 
 
 ## 当前活动请求的身份。UI 回执应携带这两个值，避免旧弹窗/旧 HUD 误响应。
 func get_active_request_id() -> int:
-	return int(_active_request.get("id", -1))
+	return _scheduler.get_active_request_id()
 
 
 func get_active_request_owner() -> Variant:
-	return _active_request.get("owner", null)
+	return _scheduler.get_active_request_owner()
 
 
 ## 等待指定请求自身的响应；恢复后释放活动槽并弹出栈顶外层请求。
-func _wait_for_request(req: Dictionary) -> Variant:
-	while not req["received"]:
-		await Engine.get_main_loop().process_frame
-	if _active_request.get("id") == req.get("id"):
-		_active_request = {}
-		_dispatch_next_if_idle()
-	return req["response"]
+func _wait_for_request(req: Variant) -> Variant:
+	return await _scheduler.wait_request(req)
 
 
 ## 写入当前活动请求的响应；已响应的请求忽略重复响应（防双击）。
@@ -101,35 +81,26 @@ func _respond_active(value: Variant) -> void:
 
 
 func _respond_active_with_identity(value: Variant, request_id: int = -1, owner: Variant = null) -> void:
-	if _active_request.is_empty():
-		return
-	if request_id >= 0 and get_active_request_id() != request_id:
-		return
-	if owner != null and get_active_request_owner() != owner:
-		return
-	if _active_request["received"]:
-		return
-	_active_request["response"] = value
-	_active_request["received"] = true
+	_scheduler.respond(value, request_id, owner)
 
 
 # === IPlayerInput 实现 ===
 
 func wait_action(player: Variant) -> Variant:
 	set_request_owner(player)
-	var req: Dictionary = _enqueue_request(func() -> void:
+	var req: Variant = _enqueue_request(func() -> void:
 		action_requested.emit(player), true)
 	return await _wait_for_request(req)
 
 
 func choose(options: Array, prompt: String = "") -> Variant:
-	var req: Dictionary = _enqueue_request(func() -> void:
+	var req: Variant = _enqueue_request(func() -> void:
 		choose_requested.emit(options, prompt))
 	return await _wait_for_request(req)
 
 
 func choose_card(n: int, param: Variant = "hand", filter: Variant = null, prompt: String = "", min_n: int = -1) -> Array:
-	var req: Dictionary = _enqueue_request(func() -> void:
+	var req: Variant = _enqueue_request(func() -> void:
 		choose_card_requested.emit(n, param, filter, prompt, min_n))
 	var result: Variant = await _wait_for_request(req)
 	if result is Array:
@@ -138,7 +109,7 @@ func choose_card(n: int, param: Variant = "hand", filter: Variant = null, prompt
 
 
 func choose_target(n: int, skill: Variant = null, prompt: String = "", min_n: int = -1) -> Array:
-	var req: Dictionary = _enqueue_request(func() -> void:
+	var req: Variant = _enqueue_request(func() -> void:
 		choose_target_requested.emit(n, skill, prompt, min_n))
 	var result: Variant = await _wait_for_request(req)
 	if result is Array:
@@ -147,13 +118,13 @@ func choose_target(n: int, skill: Variant = null, prompt: String = "", min_n: in
 
 
 func choose_map_block(blocks: Array, prompt: String = "") -> Variant:
-	var req: Dictionary = _enqueue_request(func() -> void:
+	var req: Variant = _enqueue_request(func() -> void:
 		choose_block_requested.emit(blocks, prompt))
 	return await _wait_for_request(req)
 
 
 func choose_block_inline(valid_blocks: Array, prompt: String, count: int) -> Array:
-	var req: Dictionary = _enqueue_request(func() -> void:
+	var req: Variant = _enqueue_request(func() -> void:
 		choose_block_inline_requested.emit(valid_blocks, prompt, count))
 	var result: Variant = await _wait_for_request(req)
 	if result is Array:
@@ -162,7 +133,7 @@ func choose_block_inline(valid_blocks: Array, prompt: String, count: int) -> Arr
 
 
 func confirm(message: String) -> bool:
-	var req: Dictionary = _enqueue_request(func() -> void:
+	var req: Variant = _enqueue_request(func() -> void:
 		confirm_requested.emit(message))
 	var result: Variant = await _wait_for_request(req)
 	return bool(result)
@@ -187,7 +158,7 @@ func set_prompt(text: String) -> void:
 
 ## 等待玩家重调决策。发射信号请求 UI 显示重调界面，await 响应后返回。
 func wait_redraw_decision(player: Variant) -> bool:
-	var req: Dictionary = _enqueue_request(func() -> void:
+	var req: Variant = _enqueue_request(func() -> void:
 		redraw_decision_requested.emit())
 	var result: Variant = await _wait_for_request(req)
 	return bool(result)
@@ -195,7 +166,7 @@ func wait_redraw_decision(player: Variant) -> bool:
 
 ## 检定确认门。发射信号请求 UI 显示确认门，await 响应后返回（true=执行 / false=放弃）。
 func wait_judge_confirm(player: Variant, prompt: String, allow_cancel: bool) -> bool:
-	var req: Dictionary = _enqueue_request(func() -> void:
+	var req: Variant = _enqueue_request(func() -> void:
 		judge_confirm_requested.emit(prompt, allow_cancel))
 	var result: Variant = await _wait_for_request(req)
 	return bool(result)
@@ -203,42 +174,42 @@ func wait_judge_confirm(player: Variant, prompt: String, allow_cancel: bool) -> 
 
 ## 播放两颗骰子投掷动画并等待结束。动画播完后由 UI 调用 respond_dice_animation 结算，期间阻塞后续请求派发。
 func play_dice_animation(d1: int, d2: int, label: String, outcome: String) -> void:
-	var req: Dictionary = _enqueue_request(func() -> void:
+	var req: Variant = _enqueue_request(func() -> void:
 		dice_animation_requested.emit(d1, d2, label, outcome))
 	await _wait_for_request(req)
 
 
 ## 播放抓取怪物牌动画并等待结束。动画播完后由 UI 调用 respond_monster_draw_animation 结算，期间阻塞后续请求派发。
 func play_monster_draw_animation(player: Variant, card: Variant) -> void:
-	var req: Dictionary = _enqueue_request(func() -> void:
+	var req: Variant = _enqueue_request(func() -> void:
 		monster_draw_animation_requested.emit(player, card))
 	await _wait_for_request(req)
 
 
 ## 播放抓取拾荒牌"抓取时"技能触发动画并等待结束。动画播完后由 UI 调用 respond_scavenge_draw_animation 结算，期间阻塞后续请求派发。
 func play_scavenge_draw_animation(player: Variant, card: Variant) -> void:
-	var req: Dictionary = _enqueue_request(func() -> void:
+	var req: Variant = _enqueue_request(func() -> void:
 		scavenge_draw_animation_requested.emit(player, card))
 	await _wait_for_request(req)
 
 
 ## 播放卡牌移出游戏动画并等待结束。动画由 UI 完成后回执，期间阻塞后续请求派发。
 func play_card_destroy_animation(card: Card) -> void:
-	var req: Dictionary = _enqueue_request(func() -> void:
+	var req: Variant = _enqueue_request(func() -> void:
 		card_destroy_animation_requested.emit(card))
 	await _wait_for_request(req)
 
 
 ## 播放触发怪物技能动画并等待结束。动画播完后由 UI 调用 respond_monster_skill_trigger_animation 结算，期间阻塞后续请求派发。
 func play_monster_skill_trigger_animation(monster: Variant) -> void:
-	var req: Dictionary = _enqueue_request(func() -> void:
+	var req: Variant = _enqueue_request(func() -> void:
 		monster_skill_trigger_animation_requested.emit(monster))
 	await _wait_for_request(req)
 
 
 ## 播放怪物攻击动画并等待结束。动画播完后由 UI 调用 respond_monster_attack_animation 结算，期间阻塞后续请求派发。
 func play_monster_attack_animation(monster: Variant, targets: Array) -> void:
-	var req: Dictionary = _enqueue_request(func() -> void:
+	var req: Variant = _enqueue_request(func() -> void:
 		monster_attack_animation_requested.emit(monster, targets))
 	await _wait_for_request(req)
 
