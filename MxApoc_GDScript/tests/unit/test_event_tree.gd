@@ -1,12 +1,13 @@
 extends GutTest
 
 const GameEventScript = preload("res://src/core/game_event.gd")
+const EventSchedulerScript = preload("res://src/core/event_scheduler.gd")
 const TurnEventScript = preload("res://src/core/turn_event.gd")
 
 
 func test_operation_handle_and_game_event_share_lifecycle() -> void:
-	var runtime := OperationRuntime.new()
-	var handle: Dictionary = runtime.enqueue("queued", func() -> String:
+	var scheduler := EventSchedulerScript.new()
+	var handle: Dictionary = scheduler.enqueue("queued", func() -> String:
 		return "done"
 	)
 
@@ -14,7 +15,7 @@ func test_operation_handle_and_game_event_share_lifecycle() -> void:
 	assert_not_null(handle["game_event"])
 	assert_eq(handle["game_event"].status, GameEventScript.Status.PENDING)
 
-	await runtime.flush()
+	await scheduler.flush()
 
 	assert_eq(handle["status"], "completed")
 	assert_eq(handle["result"], "done")
@@ -23,13 +24,13 @@ func test_operation_handle_and_game_event_share_lifecycle() -> void:
 
 
 func test_cancelled_operation_cancels_game_event_too() -> void:
-	var runtime := OperationRuntime.new()
-	var handle: Dictionary = runtime.enqueue("cancelled", func() -> void:
+	var scheduler := EventSchedulerScript.new()
+	var handle: Dictionary = scheduler.enqueue("cancelled", func() -> void:
 		assert_true(false, "取消的操作不应执行")
 	)
 	EventSystem.cancel(handle)
 
-	await runtime.flush()
+	await scheduler.flush()
 
 	assert_eq(handle["status"], "cancelled")
 	assert_eq(handle["game_event"].status, GameEventScript.Status.CANCELLED)

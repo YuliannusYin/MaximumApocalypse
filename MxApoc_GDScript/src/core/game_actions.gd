@@ -2,18 +2,22 @@ class_name GameActions
 extends RefCounted
 
 ## 供数据驱动技能执行嵌套游戏操作的门面。
-## 每个方法立即进入 OperationRuntime 栈；调用方由 CodeExecutor 自动等待其完成。
-## 旧 JSON 仍可继续使用 await player.*，两套路径可并存以支持渐进迁移。
+## 每个方法立即进入 EventScheduler 操作栈；调用方由 CodeExecutor 自动等待其完成。
 
 var player: Variant
 var game: Variant
-var runtime: OperationRuntime
+var runtime: Variant
 
 
-func _init(owner: Variant, game_instance: Variant, operation_runtime: OperationRuntime = null) -> void:
+func _init(owner: Variant, game_instance: Variant, operation_runtime: Variant = null) -> void:
 	player = owner
 	game = game_instance
-	runtime = operation_runtime if operation_runtime != null else OperationRuntime.new()
+	if operation_runtime != null:
+		runtime = operation_runtime
+	elif game_instance != null:
+		runtime = game_instance.event_scheduler
+	elif Game != null and is_instance_valid(Game):
+		runtime = Game.event_scheduler
 
 
 func damage(target: Entity, num: int, source: Entity = null, type: Variant = "", card: Card = null) -> Variant:
@@ -231,9 +235,7 @@ func change_engaged_target(monster: Variant, target: Variant) -> Variant:
 
 
 func destroy_block(source: Variant, block: MapBlock) -> Variant:
-	## 注意：沿用既有调用顺序 (source, block) 传入 destroy_map_block(block, source)，
-	## 与迁移前行为保持一致，不在本次迁移中调整参数顺序。
-	return await game.destroy_map_block(source, block, runtime)
+	return await game.destroy_map_block(block, source, runtime)
 
 
 func flush() -> void:

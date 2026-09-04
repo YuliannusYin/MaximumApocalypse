@@ -170,8 +170,9 @@ func _start_game_flow() -> void:
 	_pile_manager.refresh_pile_counts()
 
 	_gui_input = GUIPlayerInput.new()
+	_gui_input.set_event_scheduler(Game.event_scheduler)
 	# UI 模块只观察 EventScheduler 的当前 InputRequest；不再各自猜测操作玩家。
-	var event_scheduler: Variant = _gui_input.get_scheduler()
+	var event_scheduler: Variant = Game.event_scheduler
 	_popup_manager.set_event_scheduler(event_scheduler)
 	_pile_manager.set_event_scheduler(event_scheduler)
 	_seat_hud_manager.set_event_scheduler(event_scheduler)

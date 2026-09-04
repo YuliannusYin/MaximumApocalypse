@@ -1,5 +1,7 @@
 extends Node
 
+const EventSchedulerScript = preload("res://src/core/event_scheduler.gd")
+
 ## Game 游戏全局类（autoload）。
 ## 全局区域 + build_map + destroy_map_block + 状态机委托。
 ## 设计文档：GameDesignDocus/GameSystem/Game/Game.md
@@ -25,6 +27,7 @@ var coop_death_mode: bool = false
 var current_mission: Variant = null  # 可能是 Dictionary 或 Resource，类型不确定
 var removed_cards: Array = []
 var log_list: Array = []
+var event_scheduler: Variant = null
 
 # === 子技能注册表 ===
 # 键为子技能 english_name（全局唯一），值为 SkillData。
@@ -37,6 +40,7 @@ var game_result: String = ""
 
 
 func _ready() -> void:
+	event_scheduler = EventSchedulerScript.new()
 	state_machine = GameStateMachine.new()
 	state_machine.init()
 	stats_tracker = StatsTracker.new()
@@ -60,8 +64,9 @@ func log(message: String) -> void:
 ## 游戏开局流程。委托给 state_machine.start_game()。
 ## runtime 为可选的统一事件调度 runtime，见 Entity.damage 说明。
 func start_game(runtime: Variant = null) -> void:
+	var scheduler: Variant = event_scheduler if runtime == null else runtime
 	if state_machine != null and is_instance_valid(state_machine):
-		await state_machine.start_game(runtime)
+		await state_machine.start_game(scheduler)
 
 
 ## 游戏结束流程。接受 String ("win"/"lose") 并委托给 state_machine.game_over(enum)。
@@ -71,7 +76,7 @@ func game_over(result: String, runtime: Variant = null) -> void:
 	if result == "win":
 		enum_result = GameStateMachine.GameResult.WIN
 	if state_machine != null and is_instance_valid(state_machine):
-		state_machine.game_over(enum_result, "", runtime) # Unawaited as per original behavior
+		state_machine.game_over(enum_result, "", event_scheduler if runtime == null else runtime) # Unawaited as per original behavior
 	else:
 		game_over_called = true
 		game_result = result
@@ -348,8 +353,8 @@ func _create_map_block(block_name: String, variant_index: int = -1) -> MapBlock:
 func destroy_map_block(block: MapBlock, source: Variant, runtime: Variant = null) -> bool:
 	if block == null or not is_instance_valid(block):
 		return false
-	var rt: OperationRuntime = OperationRuntime.resolve(runtime)
-	return await rt.dispatch("destroy_block", func() -> bool:
+	var scheduler: Variant = event_scheduler if runtime == null else runtime
+	return await scheduler.dispatch("destroy_block", func() -> bool:
 		var event: Dictionary = EventSystem.create_destroy_block_event(source, block)
 		# 1. 摧毁地块前（取消点）
 		for player in players:
@@ -363,7 +368,7 @@ func destroy_map_block(block: MapBlock, source: Variant, runtime: Variant = null
 			var adjacent: Array = block.get_adjacent_blocks()
 			if adjacent.is_empty():
 				log_message(LogColors.player(player.player_name) + " 无处可逃，受到 5 点伤害")
-				player.damage(5, null, "block_destroy", null, rt)
+				player.damage(5, null, "block_destroy", null, scheduler)
 			else:
 				var target: MapBlock = await player.choose_map_block(adjacent)
 				if target == null:
@@ -558,6 +563,10 @@ func get_card(card_english_name: String, pile: Variant) -> Card:
 ## 游戏初始化：从 RoomState 创建玩家、构建地图、初始化牌堆。
 ## 在 start_game() 前调用。mission 为 null 时随机抽取一个任务。
 func initialize_game(mission: MissionData, variants: Dictionary, seats: Array) -> void:
+	if event_scheduler == null:
+		event_scheduler = EventSchedulerScript.new()
+	else:
+		event_scheduler.reset()
 	# 1. 确定任务
 	if mission == null:
 		var all_missions: Array = DataManager.get_all_missions()

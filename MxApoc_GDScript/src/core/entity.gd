@@ -367,8 +367,8 @@ func damage(num: int, source: Entity, type: Variant = "", card: Card = null, run
 		return
 	if get_hp() <= 0:
 		return
-	var rt: OperationRuntime = OperationRuntime.resolve(runtime)
-	await rt.dispatch("damage", func() -> void:
+	var scheduler: Variant = runtime if runtime != null else Game.event_scheduler
+	await scheduler.dispatch("damage", func() -> void:
 		var event: Dictionary = EventSystem.create_damage_event(self, source, num, type, card)
 
 		# 1-2. before_deal_damage / before_take_damage
@@ -429,7 +429,7 @@ func damage(num: int, source: Entity, type: Variant = "", card: Card = null, run
 
 		# 8. 死亡判定（多态调用）
 		if get_hp() <= 0:
-			death(source, rt),
+			death(source, scheduler),
 		{"target": self, "source": source, "num": num, "type": type, "card": card})
 
 

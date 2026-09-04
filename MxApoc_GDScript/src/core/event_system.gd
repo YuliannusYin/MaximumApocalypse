@@ -7,13 +7,10 @@ extends RefCounted
 ## 字段键名严格遵循 IdentifierMapping.md §六。
 ##
 ## 统一事件树：每个 event 额外携带 id/parent/root/children/game_event，
-## 与 OperationRuntime 的操作事件、Player 的正式回合事件共享同一套
+## 与领域操作、Player 的正式回合事件共享同一套
 ## GameEvent 生命周期字段（见 game_event.gd）。详见 .cursor/plan/plan.md “最终架构”。
 
 const GameEventScript = preload("res://src/core/game_event.gd")
-
-static var _next_event_id: int = 1
-
 
 ## 创建通用 event：注入 cancelled 标记与 cancel 可调用对象，
 ## 并挂接统一事件树节点元数据（id/parent/root/children/game_event）。
@@ -33,9 +30,11 @@ static func create_event(initial: Dictionary = {}) -> Dictionary:
 	# 合并调用方传入的初始字段
 	for key in initial:
 		event[key] = initial[key]
-	if not event.has("id"):
-		event["id"] = _next_event_id
-		_next_event_id += 1
+	var node: Variant = GameEventScript.new(
+		str(event.get("type", "")), event.get("owner", null), event.get("source", null)
+	)
+	event["id"] = node.id
+	node.context = event.get("context", null)
 	var parent_event: Variant = event.get("parent", null)
 	var parent_node: Variant = null
 	if parent_event is Dictionary:
@@ -49,15 +48,16 @@ static func create_event(initial: Dictionary = {}) -> Dictionary:
 			event["root"] = event["id"]
 		if not event.has("children"):
 			event["children"] = []
-	var node: Variant = GameEventScript.new(
-		str(event.get("type", "")), event.get("owner", null), event.get("source", null)
-	)
-	node.id = event["id"]
-	node.context = event.get("context", null)
 	if parent_node is GameEventScript:
 		parent_node.add_child(node)
 	else:
-		node.root = event["root"]
+		var scheduler: Variant = Game.event_scheduler if Game != null and is_instance_valid(Game) else null
+		var current: Variant = scheduler.get_current_event() if scheduler != null else null
+		if current != null:
+			current.add_child(node)
+		event["root"] = node.root
+	if not event.has("children"):
+		event["children"] = []
 	event["game_event"] = node
 	return event
 
@@ -66,11 +66,17 @@ static func create_event(initial: Dictionary = {}) -> Dictionary:
 ## 技能 content 内可调用 EventSystem.cancel(event) 或直接 event["cancel"].call()。
 static func cancel(event: Dictionary) -> void:
 	event["cancelled"] = true
+	var node: Variant = event.get("game_event", null)
+	if node is GameEventScript:
+		node.cancel()
 
 
 ## 是否已取消。
 static func is_cancelled(event: Dictionary) -> bool:
-	return event.get("cancelled", false)
+	if event.get("cancelled", false):
+		return true
+	var node: Variant = event.get("game_event", null)
+	return node is GameEventScript and node.status == GameEventScript.Status.CANCELLED
 
 
 ## 设置当前触发名。
