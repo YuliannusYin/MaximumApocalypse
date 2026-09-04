@@ -84,7 +84,7 @@ func execute_content(player: Variant, event: Dictionary) -> void:
 		var actions: GameActions = event.get("actions", null)
 		var owns_actions: bool = actions == null
 		if owns_actions:
-			actions = GameActions.new(player, Game)
+			actions = GameActions.new(player, Game, Game.event_scheduler)
 			event["actions"] = actions
 		await content.call(player, event.get("target", null), event, Game)
 		if owns_actions:

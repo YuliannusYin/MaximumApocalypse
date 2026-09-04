@@ -12,8 +12,6 @@ extends IPlayerInput
 ## 请求栈的 LIFO 抢占/身份匹配逻辑已下沉到 EventScheduler/InputRequest（统一事件调度，
 ## 见 .cursor/plan/plan.md 批次二）；本类只是保留旧 signal/respond_* API 的兼容外观。
 
-const EventSchedulerScript = preload("res://src/core/event_scheduler.gd")
-
 # === 请求信号（GameScene2D 订阅） ===
 
 signal action_requested(player: Variant)
@@ -38,8 +36,10 @@ signal monster_attack_animation_requested(monster: Variant, targets: Array)
 # === 请求栈（插入结算机制核心） ===
 # 后进先出：新请求入栈；仅当活动请求是可抢占的 wait_action 时才压栈暂停并立即派发。
 # 结算后弹出栈顶恢复外层。抢占/身份匹配/等待逻辑均委托给 EventScheduler/InputRequest。
-var _scheduler: Variant = EventSchedulerScript.new()
+var _scheduler: Variant = null
 var _request_owner: Variant = null  # 下一次输入请求的所属玩家
+
+const SYSTEM_OWNER: String = "__system__"
 
 
 # === 栈核心 ===
@@ -49,48 +49,51 @@ func set_request_owner(player: Variant) -> void:
 	_request_owner = player
 
 
+func set_event_scheduler(scheduler: Variant) -> void:
+	_scheduler = scheduler
+
+
+func _get_event_scheduler() -> Variant:
+	return _scheduler if _scheduler != null else Game.event_scheduler
+
+
 ## 创建请求并入栈。仅当当前活动请求可抢占（wait_action）时才将其压栈暂停。
 ## request_owner_changed 在请求实际派发（emit）的那一刻发出，与旧实现时序一致，
 ## 无论是新请求立即派发，还是外层请求在内层结算后被重新派发。
 func _enqueue_request(emit_fn: Callable, preemptible: bool = false) -> Variant:
-	var owner: Variant = _request_owner
+	var owner: Variant = _request_owner if _request_owner != null else SYSTEM_OWNER
 	_request_owner = null
 	var wrapped_emit: Callable = func() -> void:
 		request_owner_changed.emit(owner)
 		emit_fn.call()
-	return _scheduler.enqueue_input(owner, wrapped_emit, preemptible)
+	return _get_event_scheduler().enqueue_input(owner, wrapped_emit, preemptible)
 
 
 ## 当前活动请求的身份。UI 回执应携带这两个值，避免旧弹窗/旧 HUD 误响应。
 func get_active_request_id() -> int:
-	return _scheduler.get_active_request_id()
+	return _get_event_scheduler().get_active_request_id()
 
 
 func get_active_request_owner() -> Variant:
-	return _scheduler.get_active_request_owner()
+	return _get_event_scheduler().get_active_request_owner()
 
 
 ## UI 观察接口：返回 EventScheduler 当前活动的 InputRequest。
 func get_active_request() -> Variant:
-	return _scheduler.get_current_input_request()
+	return _get_event_scheduler().get_current_input_request()
 
 
 func get_scheduler() -> Variant:
-	return _scheduler
+	return _get_event_scheduler()
 
 
 ## 等待指定请求自身的响应；恢复后释放活动槽并弹出栈顶外层请求。
 func _wait_for_request(req: Variant) -> Variant:
-	return await _scheduler.wait_request(req)
+	return await _get_event_scheduler().wait_request(req)
 
 
-## 写入当前活动请求的响应；已响应的请求忽略重复响应（防双击）。
-func _respond_active(value: Variant) -> void:
-	_respond_active_with_identity(value)
-
-
-func _respond_active_with_identity(value: Variant, request_id: int = -1, owner: Variant = null) -> void:
-	_scheduler.respond(value, request_id, owner)
+func _respond_active_with_identity(value: Variant, request_id: int, owner: Variant) -> void:
+	_get_event_scheduler().respond(value, request_id, owner)
 
 
 # === IPlayerInput 实现 ===
@@ -167,6 +170,7 @@ func set_prompt(text: String) -> void:
 
 ## 等待玩家重调决策。发射信号请求 UI 显示重调界面，await 响应后返回。
 func wait_redraw_decision(player: Variant) -> bool:
+	set_request_owner(player)
 	var req: Variant = _enqueue_request(func() -> void:
 		redraw_decision_requested.emit())
 	var result: Variant = await _wait_for_request(req)
@@ -175,6 +179,7 @@ func wait_redraw_decision(player: Variant) -> bool:
 
 ## 检定确认门。发射信号请求 UI 显示确认门，await 响应后返回（true=执行 / false=放弃）。
 func wait_judge_confirm(player: Variant, prompt: String, allow_cancel: bool) -> bool:
+	set_request_owner(player)
 	var req: Variant = _enqueue_request(func() -> void:
 		judge_confirm_requested.emit(prompt, allow_cancel))
 	var result: Variant = await _wait_for_request(req)
@@ -225,57 +230,57 @@ func play_monster_attack_animation(monster: Variant, targets: Array) -> void:
 
 # === 响应方法（GameScene2D 调用，写入当前活动请求） ===
 
-func respond_action(choice: Variant, request_id: int = -1, owner: Variant = null) -> void:
+func respond_action(choice: Variant, request_id: int, owner: Variant) -> void:
 	_respond_active_with_identity(choice, request_id, owner)
 
 
-func respond_choose(choice: Variant, request_id: int = -1, owner: Variant = null) -> void:
+func respond_choose(choice: Variant, request_id: int, owner: Variant) -> void:
 	_respond_active_with_identity(choice, request_id, owner)
 
 
-func respond_choose_card(cards: Array, request_id: int = -1, owner: Variant = null) -> void:
+func respond_choose_card(cards: Array, request_id: int, owner: Variant) -> void:
 	_respond_active_with_identity(cards, request_id, owner)
 
 
-func respond_choose_target(targets: Array, request_id: int = -1, owner: Variant = null) -> void:
+func respond_choose_target(targets: Array, request_id: int, owner: Variant) -> void:
 	_respond_active_with_identity(targets, request_id, owner)
 
 
-func respond_choose_block(blocks: Variant, request_id: int = -1, owner: Variant = null) -> void:
+func respond_choose_block(blocks: Variant, request_id: int, owner: Variant) -> void:
 	_respond_active_with_identity(blocks, request_id, owner)
 
 
-func respond_confirm(result: bool, request_id: int = -1, owner: Variant = null) -> void:
+func respond_confirm(result: bool, request_id: int, owner: Variant) -> void:
 	_respond_active_with_identity(result, request_id, owner)
 
 
-func respond_redraw_decision(result: bool, request_id: int = -1, owner: Variant = null) -> void:
+func respond_redraw_decision(result: bool, request_id: int, owner: Variant) -> void:
 	_respond_active_with_identity(result, request_id, owner)
 
 
-func respond_judge_confirm(result: bool, request_id: int = -1, owner: Variant = null) -> void:
+func respond_judge_confirm(result: bool, request_id: int, owner: Variant) -> void:
 	_respond_active_with_identity(result, request_id, owner)
 
 
-func respond_dice_animation(request_id: int = -1, owner: Variant = null) -> void:
+func respond_dice_animation(request_id: int, owner: Variant) -> void:
 	_respond_active_with_identity(null, request_id, owner)
 
 
-func respond_monster_draw_animation(request_id: int = -1, owner: Variant = null) -> void:
+func respond_monster_draw_animation(request_id: int, owner: Variant) -> void:
 	_respond_active_with_identity(null, request_id, owner)
 
 
-func respond_scavenge_draw_animation(request_id: int = -1, owner: Variant = null) -> void:
+func respond_scavenge_draw_animation(request_id: int, owner: Variant) -> void:
 	_respond_active_with_identity(null, request_id, owner)
 
 
-func respond_card_destroy_animation(request_id: int = -1, owner: Variant = null) -> void:
+func respond_card_destroy_animation(request_id: int, owner: Variant) -> void:
 	_respond_active_with_identity(null, request_id, owner)
 
 
-func respond_monster_skill_trigger_animation(request_id: int = -1, owner: Variant = null) -> void:
+func respond_monster_skill_trigger_animation(request_id: int, owner: Variant) -> void:
 	_respond_active_with_identity(null, request_id, owner)
 
 
-func respond_monster_attack_animation(request_id: int = -1, owner: Variant = null) -> void:
+func respond_monster_attack_animation(request_id: int, owner: Variant) -> void:
 	_respond_active_with_identity(null, request_id, owner)

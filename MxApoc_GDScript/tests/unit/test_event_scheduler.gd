@@ -80,3 +80,91 @@ func test_scheduler_runs_game_event_and_restores_parent() -> void:
 	assert_eq(observed[2][0], parent)
 	assert_eq(parent.status, GameEventScript.Status.COMPLETED)
 	assert_eq(child.status, GameEventScript.Status.COMPLETED)
+	assert_eq(child.parent, parent)
+	assert_eq(child.root, parent.root)
+	assert_eq(parent.children, [child])
+
+
+func test_game_event_ids_are_unique_and_nonzero() -> void:
+	var first: Variant = GameEventScript.new("first")
+	var second: Variant = GameEventScript.new("second")
+
+	assert_gt(first.id, 0)
+	assert_gt(second.id, 0)
+	assert_ne(first.id, second.id)
+	assert_eq(first.root, first.id)
+	assert_eq(second.root, second.id)
+
+
+func test_queued_operation_is_parent_of_nested_operation() -> void:
+	var scheduler: Variant = EventSchedulerScript.new()
+	var parent_handle: Dictionary = scheduler.enqueue("parent", func() -> void:
+		await scheduler.dispatch("child", func() -> String:
+			return "child_result"
+		)
+	)
+
+	await scheduler.flush()
+
+	var parent_event: Variant = parent_handle["game_event"]
+	assert_eq(parent_handle["status"], "completed")
+	assert_eq(parent_event.children.size(), 1)
+	assert_eq(parent_event.children[0].parent, parent_event)
+	assert_eq(parent_event.children[0].root, parent_event.root)
+
+
+func test_cancelled_event_is_not_completed() -> void:
+	var scheduler: Variant = EventSchedulerScript.new()
+	var event: Variant = scheduler.create_event("cancelled")
+	var called: bool = false
+	event.cancel()
+
+	await scheduler.run_event(event, func(_event: Variant) -> void:
+		called = true
+	)
+
+	assert_false(called)
+	assert_eq(event.status, GameEventScript.Status.CANCELLED)
+
+
+func test_failed_event_is_not_completed() -> void:
+	var scheduler: Variant = EventSchedulerScript.new()
+	var event: Variant = scheduler.create_event("failed")
+
+	await scheduler.run_event(event, func(current: Variant) -> void:
+		current.fail("expected failure")
+	)
+
+	assert_eq(event.status, GameEventScript.Status.FAILED)
+	assert_eq(event.error, "expected failure")
+
+
+func test_invalid_queued_executor_does_not_block_future_flushes() -> void:
+	var scheduler: Variant = EventSchedulerScript.new()
+	var invalid: Dictionary = scheduler.enqueue("invalid", Callable())
+	var called: Array = []
+	scheduler.enqueue("valid", func() -> void:
+		called.append(true)
+	)
+
+	await scheduler.flush()
+
+	assert_eq(invalid["status"], "failed")
+	assert_eq(called, [true])
+	assert_false(scheduler.has_pending_operations())
+
+
+func test_scheduler_rejects_wrong_owner() -> void:
+	var scheduler: Variant = EventSchedulerScript.new()
+	var owner := Player.new()
+	var wrong_owner := Player.new()
+	var request: Variant = scheduler.enqueue_input(owner, func() -> void:
+		pass
+	)
+
+	scheduler.respond(true, request.id, wrong_owner)
+	await Engine.get_main_loop().process_frame
+	assert_false(request.received)
+
+	scheduler.respond(true, request.id, owner)
+	assert_true(await scheduler.wait_request(request))

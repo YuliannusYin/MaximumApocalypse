@@ -1,11 +1,9 @@
 class_name InputRequest
-extends RefCounted
+extends "res://src/core/game_event.gd"
 
 ## 带 request_id/owner 的外部输入等待节点。
 ## 由 EventScheduler 统一创建与匹配；GUIPlayerInput 等兼容外观在此之上包装信号/await API。
 
-var id: int = 0
-var owner: Variant = null
 var emit_fn: Callable = Callable()
 var preemptible: bool = false
 var received: bool = false
@@ -13,12 +11,11 @@ var response: Variant = null
 
 
 func _init(
-	request_id: int = 0,
 	request_owner: Variant = null,
 	emit: Callable = Callable(),
 	can_preempt: bool = false
 ) -> void:
-	id = request_id
+	super._init("input_request", request_owner, null)
 	owner = request_owner
 	emit_fn = emit
 	preemptible = can_preempt
@@ -35,9 +32,19 @@ func respond(value: Variant) -> void:
 		return
 	response = value
 	received = true
+	complete(value)
+
+
+func cancel_request(reason: String = "") -> void:
+	if received:
+		return
+	received = true
+	response = null
+	error = reason
+	cancel()
 
 
 ## 派发：调用注册的 emit_fn（通常用于发射 UI 请求信号）。
 func emit() -> void:
-	if emit_fn.is_valid():
+	if not received and emit_fn.is_valid():
 		emit_fn.call()

@@ -1,8 +1,9 @@
 extends GutTest
 
+const EventSchedulerScript = preload("res://src/core/event_scheduler.gd")
 
 func test_flushes_operations_in_registration_order() -> void:
-	var runtime := OperationRuntime.new()
+	var runtime := EventSchedulerScript.new()
 	var order: Array[String] = []
 	var first: Dictionary = runtime.enqueue("first", func() -> String:
 		order.append("first")
@@ -20,7 +21,7 @@ func test_flushes_operations_in_registration_order() -> void:
 
 
 func test_cancelled_operation_is_not_executed() -> void:
-	var runtime := OperationRuntime.new()
+	var runtime := EventSchedulerScript.new()
 	var called := false
 	var operation: Dictionary = runtime.enqueue("cancelled", func() -> void:
 		called = true)
@@ -33,7 +34,7 @@ func test_cancelled_operation_is_not_executed() -> void:
 
 
 func test_nested_dispatch_uses_stack_order() -> void:
-	var runtime: OperationRuntime = OperationRuntime.new()
+	var runtime: Variant = EventSchedulerScript.new()
 	var order: Array[String] = []
 
 	var c_executor: Callable = func() -> void:
@@ -52,7 +53,7 @@ func test_nested_dispatch_uses_stack_order() -> void:
 
 
 func test_nested_operations_expose_owner_source_and_restore_parent() -> void:
-	var runtime: OperationRuntime = OperationRuntime.new()
+	var runtime: Variant = EventSchedulerScript.new()
 	var source := Player.new()
 	var target := Player.new()
 	var observed: Array = []
@@ -101,7 +102,7 @@ func test_nested_operations_expose_owner_source_and_restore_parent() -> void:
 
 
 func test_operation_context_is_inherited_by_nested_operations() -> void:
-	var runtime := OperationRuntime.new()
+	var runtime := EventSchedulerScript.new()
 	var source := Player.new()
 	var target := Player.new()
 	var context: Dictionary = runtime.create_limited_action_context(target, source, 2)

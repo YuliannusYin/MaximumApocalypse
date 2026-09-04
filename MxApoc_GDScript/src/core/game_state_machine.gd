@@ -67,8 +67,8 @@ func transition_to(new_state: int) -> void:
 ## 游戏开局流程：WAITING → PLAYING + 触发游戏开始时 + 抓初始手牌 + 抓初始怪物卡 + 进入第一玩家回合。
 ## runtime 为可选的统一事件调度 runtime，见 Entity.damage 说明。
 func start_game(runtime: Variant = null) -> void:
-	var rt: OperationRuntime = OperationRuntime.resolve(runtime)
-	await rt.dispatch("game_start", func() -> void:
+	var scheduler: Variant = runtime if runtime != null else Game.event_scheduler
+	await scheduler.dispatch("game_start", func() -> void:
 		transition_to(GameState.PLAYING)
 		if EventBus != null and is_instance_valid(EventBus):
 			EventBus.game_started.emit()
@@ -87,13 +87,13 @@ func start_game(runtime: Variant = null) -> void:
 		for player in Game.players:
 			if player == null or not is_instance_valid(player):
 				continue
-			player.draw(4, rt)
+			await player.draw(4, scheduler)
 		# 3. 每个玩家抓 1 张初始怪物卡（任务声明 no_initial_monster_draw 时跳过，如任务 11）
 		if Game.mission_config == null or not Game.mission_config.no_initial_monster_draw:
 			for player in Game.players:
 				if player == null or not is_instance_valid(player):
 					continue
-				await player.draw_monster(1, rt)
+				await player.draw_monster(1, scheduler)
 		# 4. 第零轮：重调阶段
 		await _round_zero()
 		# 5. 进入第一玩家回合
@@ -153,8 +153,8 @@ func _round_zero() -> void:
 func game_over(result: int, reason: String = "", runtime: Variant = null) -> void:
 	if current_state == GameState.GAME_OVER:
 		return
-	var rt: OperationRuntime = OperationRuntime.resolve(runtime)
-	await rt.dispatch("game_over", func() -> void:
+	var scheduler: Variant = runtime if runtime != null else Game.event_scheduler
+	await scheduler.dispatch("game_over", func() -> void:
 		current_state = GameState.GAME_OVER
 		game_result = result
 		if Game != null and is_instance_valid(Game) and Game.stats_tracker != null:

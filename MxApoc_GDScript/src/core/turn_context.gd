@@ -2,7 +2,7 @@ class_name TurnContext
 extends RefCounted
 
 ## 正式回合的阶段与行动点上下文。
-## 有限跨玩家操作由 OperationRuntime 单独承载，并在 Player 的 effective API 中优先。
+## 有限跨玩家操作由 EventScheduler 独立承载，并在 Player 的 effective API 中优先。
 
 var owner: Variant = null
 var turn_number: int = 0

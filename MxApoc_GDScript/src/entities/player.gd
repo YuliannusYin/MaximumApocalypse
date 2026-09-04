@@ -92,7 +92,7 @@ func is_alive() -> bool:
 func recover(num: int, source: Variant = null, runtime: Variant = null) -> void:
 	if num <= 0:
 		return
-	var rt: OperationRuntime = OperationRuntime.resolve(runtime)
+	var rt: Variant = runtime if runtime != null else Game.event_scheduler
 	await rt.dispatch("recover", func() -> void:
 		var event: Dictionary = EventSystem.create_recover_event(self, num)
 		await trigger("before_recover", event)
@@ -160,7 +160,7 @@ func increase_hunger(num: int, runtime: Variant = null) -> void:
 ## 事件化的饥饿增加；保留 increase_hunger 兼容既有 JSON。
 ## runtime 为可选的统一事件调度 runtime，见 Entity.damage 说明。
 func increase_hunger_evented(num: int, runtime: Variant = null) -> bool:
-	var rt: OperationRuntime = OperationRuntime.resolve(runtime)
+	var rt: Variant = runtime if runtime != null else Game.event_scheduler
 	return await rt.dispatch("increase_hunger", func() -> bool:
 		var event: Dictionary = EventSystem.create_hunger_event(self, num, "increase")
 		await trigger("before_increase_hunger", event)
@@ -199,7 +199,7 @@ func decrease_hunger(num: int) -> void:
 ## 事件化的饥饿减少；保留 decrease_hunger 兼容既有 JSON。
 ## runtime 为可选的统一事件调度 runtime，见 Entity.damage 说明。
 func decrease_hunger_evented(num: int, runtime: Variant = null) -> bool:
-	var rt: OperationRuntime = OperationRuntime.resolve(runtime)
+	var rt: Variant = runtime if runtime != null else Game.event_scheduler
 	return await rt.dispatch("decrease_hunger", func() -> bool:
 		var event: Dictionary = EventSystem.create_hunger_event(self, num, "decrease")
 		await trigger("before_decrease_hunger", event)
@@ -223,7 +223,7 @@ func poison() -> void:
 
 ## runtime 为可选的统一事件调度 runtime，见 Entity.damage 说明。
 func poison_evented(runtime: Variant = null) -> bool:
-	var rt: OperationRuntime = OperationRuntime.resolve(runtime)
+	var rt: Variant = runtime if runtime != null else Game.event_scheduler
 	return await rt.dispatch("poison", func() -> bool:
 		var event: Dictionary = EventSystem.create_poison_event(self, count_mark("poison"))
 		await trigger("before_poison", event)
@@ -245,7 +245,7 @@ func poison_evented(runtime: Variant = null) -> bool:
 func draw(n: int, runtime: Variant = null) -> void:
 	if n <= 0:
 		return
-	var rt: OperationRuntime = OperationRuntime.resolve(runtime)
+	var rt: Variant = runtime if runtime != null else Game.event_scheduler
 	await rt.dispatch("draw_game_card", func() -> void:
 		var event: Dictionary = EventSystem.create_draw_game_card_event(self, n)
 		# 1. 抓取游戏牌前（取消点）
@@ -285,7 +285,7 @@ func draw(n: int, runtime: Variant = null) -> void:
 ## 手牌满时先入手，超限由 try_add_card_to_hand 内的 resolve_hand_overflow 弹窗结算（含 await，为协程入口）。
 ## runtime 为可选的统一事件调度 runtime，见 Entity.damage 说明。
 func gain(card: Card, runtime: Variant = null) -> void:
-	var rt: OperationRuntime = OperationRuntime.resolve(runtime)
+	var rt: Variant = runtime if runtime != null else Game.event_scheduler
 	await rt.dispatch("gain", func() -> void:
 		await try_add_card_to_hand(card, rt),
 		{"target": self, "card": card})
@@ -335,7 +335,7 @@ func resolve_hand_overflow(new_cards: Array, runtime: Variant = null) -> void:
 func draw_scavenge(n: int, pile: Pile, runtime: Variant = null) -> void:
 	if n <= 0:
 		return
-	var rt: OperationRuntime = OperationRuntime.resolve(runtime)
+	var rt: Variant = runtime if runtime != null else Game.event_scheduler
 	await rt.dispatch("draw_scavenge_card", func() -> void:
 		var event: Dictionary = EventSystem.create_draw_scavenge_event(self, pile, n)
 		# 1. 抓取拾荒牌前（取消点）
@@ -358,7 +358,7 @@ func draw_scavenge(n: int, pile: Pile, runtime: Variant = null) -> void:
 ## card 为已从 pile 取出的牌；pile 用于判断牌堆名称；event 为 draw_scavenge 事件。
 ## runtime 为可选的统一事件调度 runtime，见 Entity.damage 说明。
 func draw_scavenge_card(card: Card, pile: Pile, event: Dictionary, runtime: Variant = null) -> void:
-	var rt: OperationRuntime = OperationRuntime.resolve(runtime)
+	var rt: Variant = runtime if runtime != null else Game.event_scheduler
 	await rt.dispatch("draw_scavenge_card_single", func() -> void:
 		hand.append(card)
 		if Game != null and is_instance_valid(Game):
@@ -393,7 +393,7 @@ func draw_scavenge_card(card: Card, pile: Pile, event: Dictionary, runtime: Vari
 func draw_monster(n: int, runtime: Variant = null) -> void:
 	if n <= 0:
 		return
-	var rt: OperationRuntime = OperationRuntime.resolve(runtime)
+	var rt: Variant = runtime if runtime != null else Game.event_scheduler
 	await rt.dispatch("draw_monster_card", func() -> void:
 		var event: Dictionary = EventSystem.create_draw_monster_event(self, n)
 		# 1. 抓取怪物卡前（取消点）
@@ -473,7 +473,7 @@ func discard(target: Variant, position: String = "", quantity: int = 1, type: St
 	cards_to_discard = _filter_discardable_cards(cards_to_discard)
 	if cards_to_discard.is_empty():
 		return
-	var rt: OperationRuntime = OperationRuntime.resolve(runtime)
+	var rt: Variant = runtime if runtime != null else Game.event_scheduler
 	await rt.dispatch("discard", func() -> void:
 		var event: Dictionary = EventSystem.create_discard_event(self, cards_to_discard, cards_to_discard.size())
 		# 1. 弃置牌前（取消点）
@@ -537,7 +537,7 @@ func remove_card(target: Variant, position: String = "", quantity: int = 1, runt
 	cards_to_remove = _filter_discardable_cards(cards_to_remove)
 	if cards_to_remove.is_empty():
 		return
-	var rt: OperationRuntime = OperationRuntime.resolve(runtime)
+	var rt: Variant = runtime if runtime != null else Game.event_scheduler
 	await rt.dispatch("remove_card", func() -> void:
 		var event: Dictionary = EventSystem.create_event({
 			"player": self,
@@ -574,7 +574,7 @@ func remove_card(target: Variant, position: String = "", quantity: int = 1, runt
 ## 底层移动函数（11 节点，不扣行动次数）。
 ## runtime 为可选的统一事件调度 runtime，见 Entity.damage 说明。
 func move_to(target: MapBlock, runtime: Variant = null) -> bool:
-	var rt: OperationRuntime = OperationRuntime.resolve(runtime)
+	var rt: Variant = runtime if runtime != null else Game.event_scheduler
 	return await rt.dispatch("move", func() -> bool:
 		var source: MapBlock = current_block
 		var event: Dictionary = EventSystem.create_move_event(self, source, target)
@@ -804,7 +804,7 @@ func monster_spawn_judge() -> void:
 
 ## 玩家死亡流程（3 节点）。runtime 为可选的统一事件调度 runtime，见 Entity.damage 说明。
 func death(source: Entity, runtime: Variant = null) -> void:
-	var rt: OperationRuntime = OperationRuntime.resolve(runtime)
+	var rt: Variant = runtime if runtime != null else Game.event_scheduler
 	await rt.dispatch("player_death", func() -> void:
 		hp = 0
 		if Game != null and is_instance_valid(Game):
@@ -883,7 +883,7 @@ func use_card(card: Card, free_action: bool = false, operation_runtime: Variant 
 		return false
 	if not free_action and get_effective_action_count() < 1:
 		return false
-	var rt: OperationRuntime = OperationRuntime.resolve(operation_runtime)
+	var rt: Variant = operation_runtime if operation_runtime != null else Game.event_scheduler
 	return await rt.dispatch("use_card", func() -> bool:
 		var event: Dictionary = EventSystem.create_event({
 			"player": self,
@@ -1041,7 +1041,7 @@ func is_card_usable(card: Card) -> bool:
 
 ## 装备进入装备区（3 节点 + 预校验）。runtime 为可选的统一事件调度 runtime，见 Entity.damage 说明。
 func equip(card: Card, runtime: Variant = null) -> bool:
-	var rt: OperationRuntime = OperationRuntime.resolve(runtime)
+	var rt: Variant = runtime if runtime != null else Game.event_scheduler
 	return await rt.dispatch("equip", func() -> bool:
 		var event: Dictionary = EventSystem.create_equip_event(self, card)
 		# 1. 卡牌进入装备区前（取消点）
@@ -1121,7 +1121,7 @@ func unequip(card: Variant, runtime: Variant = null) -> bool:
 	var entity: Equipment = _resolve_equipment_entity(card)
 	if entity == null:
 		return false
-	var rt: OperationRuntime = OperationRuntime.resolve(runtime)
+	var rt: Variant = runtime if runtime != null else Game.event_scheduler
 	return await rt.dispatch("unequip", func() -> bool:
 		var src_card: EquipmentCard = entity.equipment_card
 		var event: Dictionary = EventSystem.create_equip_event(self, src_card)
@@ -1165,7 +1165,7 @@ func consume_charge(equipment: Variant, num: int, runtime: Variant = null) -> bo
 		return false
 	if equipment.get_charge() < num:
 		return false
-	var rt: OperationRuntime = OperationRuntime.resolve(runtime)
+	var rt: Variant = runtime if runtime != null else Game.event_scheduler
 	return await rt.dispatch("consume_charge", func() -> bool:
 		# 解析来源卡：钩子/事件载荷用来源卡（保留 charge_type 等 live 字段访问）
 		var src_card: Variant = equipment
@@ -1200,7 +1200,7 @@ func consume_charge(equipment: Variant, num: int, runtime: Variant = null) -> bo
 func add_charge_to(equipment: Variant, amount: int, type: String, runtime: Variant = null) -> void:
 	if equipment == null or not equipment.has_method("add_charge"):
 		return
-	await OperationRuntime.resolve(runtime).dispatch("add_charge", func() -> void:
+	await (runtime if runtime != null else Game.event_scheduler).dispatch("add_charge", func() -> void:
 		var before: int = equipment.get_charge()
 		equipment.add_charge(amount, type)
 		var added: int = equipment.get_charge() - before
@@ -1228,7 +1228,7 @@ func get_total_charge_count(charge_type: String) -> int:
 ## 弃置装备导致 equipment_zone 变动。
 ## runtime 为可选的统一事件调度 runtime，见 Entity.damage 说明。
 func clear_charge(charge_type: String, runtime: Variant = null) -> void:
-	var rt: OperationRuntime = OperationRuntime.resolve(runtime)
+	var rt: Variant = runtime if runtime != null else Game.event_scheduler
 	await rt.dispatch("clear_charge", func() -> void:
 		var matched: Array = []
 		var total: int = 0
@@ -1261,7 +1261,7 @@ func clear_charge(charge_type: String, runtime: Variant = null) -> void:
 func fill_charge_to(equipment: Variant, runtime: Variant = null) -> void:
 	if equipment == null or not equipment.has_method("fill_charge"):
 		return
-	await OperationRuntime.resolve(runtime).dispatch("fill_charge", func() -> void:
+	await (runtime if runtime != null else Game.event_scheduler).dispatch("fill_charge", func() -> void:
 		var before: int = equipment.get_charge()
 		equipment.fill_charge()
 		var added: int = equipment.get_charge() - before
@@ -1384,7 +1384,7 @@ func start_turn() -> void:
 
 ## 立即执行一个行动（仅含行动阶段）。
 func execute_action_immediately(num: int = 1, operation_runtime: Variant = null) -> Dictionary:
-	var runtime: OperationRuntime = operation_runtime if operation_runtime is OperationRuntime else OperationRuntime.new()
+	var runtime: Variant = operation_runtime if operation_runtime != null else Game.event_scheduler
 	var context: Dictionary = runtime.get_current_context()
 	if context.is_empty():
 		context = runtime.create_limited_action_context(self, null, num)
@@ -1495,7 +1495,6 @@ func _enter_turn_phase(new_phase: String, reason: String = "") -> Variant:
 		reason,
 		_turn_event
 	)
-	_turn_event.children.append(event)
 	if EventBus != null and is_instance_valid(EventBus):
 		EventBus.phase_event.emit(event)
 		# 兼容旧 UI/教程：保持旧信号原有的 action 进入时机和参数。
@@ -1615,7 +1614,7 @@ func consume_action_evented(n: int, runtime: Variant = null) -> bool:
 func _consume_action_evented_internal(n: int, runtime: Variant = null) -> bool:
 	if n <= 0 or get_effective_action_count() < n:
 		return false
-	var rt: OperationRuntime = OperationRuntime.resolve(runtime)
+	var rt: Variant = runtime if runtime != null else Game.event_scheduler
 	return await rt.dispatch("consume_action", func() -> bool:
 		var event: Dictionary = EventSystem.create_consume_action_event(self, n)
 		event["operation_context"] = get_operation_context()
@@ -1638,7 +1637,7 @@ func _consume_action_evented_internal(n: int, runtime: Variant = null) -> bool:
 
 ## 增加 n 点行动次数（野地夹克使用）。runtime 可选：见 consume_action_evented 说明。
 func add_action(n: int, runtime: Variant = null) -> void:
-	await OperationRuntime.resolve(runtime).dispatch("add_action", func() -> void:
+	await (runtime if runtime != null else Game.event_scheduler).dispatch("add_action", func() -> void:
 		var context: Dictionary = get_operation_context()
 		if context.get("kind", "") == "limited_action":
 			context["remaining_actions"] = maxi(get_effective_action_count() + n, 0)
@@ -1659,7 +1658,7 @@ func add_action(n: int, runtime: Variant = null) -> void:
 
 ## 增加 n 点行动次数上限（扣动扳机让我快乐使用）。runtime 可选：见 consume_action_evented 说明。
 func increase_max_action(n: int, runtime: Variant = null) -> void:
-	await OperationRuntime.resolve(runtime).dispatch("increase_max_action", func() -> void:
+	await (runtime if runtime != null else Game.event_scheduler).dispatch("increase_max_action", func() -> void:
 		max_action_count += n
 		if Game != null and is_instance_valid(Game):
 			Game.log_message(LogColors.player(player_name) + " 增加了 " + str(n) + " 点行动次数上限"),
@@ -1668,7 +1667,7 @@ func increase_max_action(n: int, runtime: Variant = null) -> void:
 
 ## 减少 n 点行动次数上限（下限 0）。runtime 可选：见 consume_action_evented 说明。
 func decrease_max_action(n: int, runtime: Variant = null) -> void:
-	await OperationRuntime.resolve(runtime).dispatch("decrease_max_action", func() -> void:
+	await (runtime if runtime != null else Game.event_scheduler).dispatch("decrease_max_action", func() -> void:
 		max_action_count = maxi(max_action_count - n, 0)
 		if Game != null and is_instance_valid(Game):
 			Game.log_message(LogColors.player(player_name) + " 减少了 " + str(n) + " 点行动次数上限"),
@@ -1858,7 +1857,7 @@ func has_non_boss_monster() -> bool:
 
 ## 增加 n 层中毒标记。runtime 为可选的统一事件调度 runtime，见 Entity.damage 说明。
 func add_poison(n: int, runtime: Variant = null) -> void:
-	await OperationRuntime.resolve(runtime).dispatch("add_poison", func() -> void:
+	await (runtime if runtime != null else Game.event_scheduler).dispatch("add_poison", func() -> void:
 		var new_count: int = count_mark("poison") + n
 		add_mark("poison", n, "中毒", "中毒结算时受到 " + str(new_count) + " 点伤害"),
 		{"target": self, "num": n})
@@ -2183,7 +2182,7 @@ func choose_to_discard(n: int, type: String = "", runtime: Variant = null) -> vo
 	candidates = _filter_discardable_cards(candidates)
 	if candidates.is_empty():
 		return
-	var rt: OperationRuntime = OperationRuntime.resolve(runtime)
+	var rt: Variant = runtime if runtime != null else Game.event_scheduler
 	await rt.dispatch("choose_to_discard", func() -> void:
 		var chosen: Variant = await choose_card(n, candidates)
 		if chosen == null:
@@ -2462,7 +2461,7 @@ func pull_one_step(target: Player) -> void:
 
 ## 治疗所有状态效果。runtime 为可选的统一事件调度 runtime，见 Entity.damage 说明。
 func heal_all_status(runtime: Variant = null) -> void:
-	await OperationRuntime.resolve(runtime).dispatch("heal_all_status", func() -> void:
+	await (runtime if runtime != null else Game.event_scheduler).dispatch("heal_all_status", func() -> void:
 		remove_mark("poison")
 		remove_mark("hunger_damage_level"),
 		{"target": self})
@@ -2470,7 +2469,7 @@ func heal_all_status(runtime: Variant = null) -> void:
 
 ## 恢复满生命值。runtime 为可选的统一事件调度 runtime，见 Entity.damage 说明。
 func restore_full_health(runtime: Variant = null) -> void:
-	await OperationRuntime.resolve(runtime).dispatch("restore_full_health", func() -> void:
+	await (runtime if runtime != null else Game.event_scheduler).dispatch("restore_full_health", func() -> void:
 		hp = max_hp,
 		{"target": self})
 

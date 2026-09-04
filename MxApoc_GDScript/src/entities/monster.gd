@@ -144,8 +144,8 @@ func stun(source: Variant, expire_trigger: String) -> void:
 ## 事件化的击晕；保留旧方法兼容既有数据。
 ## runtime 为可选的统一事件调度 runtime，见 Entity.damage 说明。
 func stun_evented(source: Variant, expire_trigger: String, runtime: Variant = null) -> bool:
-	var rt: OperationRuntime = OperationRuntime.resolve(runtime)
-	return await rt.dispatch("stun", func() -> bool:
+	var scheduler: Variant = runtime if runtime != null else Game.event_scheduler
+	return await scheduler.dispatch("stun", func() -> bool:
 		var event: Dictionary = EventSystem.create_stun_event(self, source, expire_trigger)
 		await trigger("before_stun", event)
 		if EventSystem.is_cancelled(event):
@@ -169,8 +169,8 @@ func act(runtime: Variant = null) -> void:
 		stunned = false
 		return
 
-	var rt: OperationRuntime = OperationRuntime.resolve(runtime)
-	await rt.dispatch("monster_act", func() -> void:
+	var scheduler: Variant = runtime if runtime != null else Game.event_scheduler
+	await scheduler.dispatch("monster_act", func() -> void:
 		var event: Dictionary = EventSystem.create_monster_act_event(self)
 
 		# 1. before_monster_act
@@ -189,7 +189,7 @@ func act(runtime: Variant = null) -> void:
 		if not event["target_players"].is_empty():
 			await _play_attack_animation(event["target_players"])
 		await trigger("on_monster_attack", event)
-		await _attack(rt)
+		await _attack(scheduler)
 
 		# 5. after_monster_attack
 		await trigger("after_monster_attack", event)
@@ -247,8 +247,8 @@ func _play_attack_animation(targets: Array) -> void:
 ## 流程：before_monster_death → on_monster_death → after_monster_death（从怪物区移除 + 进入怪物弃牌堆）
 ## 取消点：无（死亡流程不可取消）。runtime 为可选的统一事件调度 runtime，见 Entity.damage 说明。
 func death(source: Entity, runtime: Variant = null) -> void:
-	var rt: OperationRuntime = OperationRuntime.resolve(runtime)
-	await rt.dispatch("monster_death", func() -> void:
+	var scheduler: Variant = runtime if runtime != null else Game.event_scheduler
+	await scheduler.dispatch("monster_death", func() -> void:
 		if Game != null and is_instance_valid(Game):
 			if source != null and source.is_player():
 				Game.log_message(LogColors.monster(monster_name) + " 被 " + LogColors.player(source.player_name) + " 击杀")
