@@ -22,6 +22,7 @@ var _pile_views: Dictionary = {}
 var _ui_layer: CanvasLayer
 var _selected_pile_key: String = ""
 var _acting_player: Variant = null
+var _event_scheduler: Variant = null
 
 
 func setup(ui_layer: CanvasLayer) -> void:
@@ -33,7 +34,18 @@ func set_acting_player(player: Variant) -> void:
 	_acting_player = player
 
 
+## 注入 EventScheduler；牌堆可操作性和个人牌堆显示跟随当前 InputRequest owner。
+func set_event_scheduler(scheduler: Variant) -> void:
+	_event_scheduler = scheduler
+	refresh_pile_counts()
+	refresh_pile_highlights()
+
+
 func _get_acting_player() -> Variant:
+	if _event_scheduler != null and is_instance_valid(_event_scheduler):
+		var request: Variant = _event_scheduler.get_current_input_request()
+		if request != null and request.owner != null and is_instance_valid(request.owner):
+			return request.owner
 	if _acting_player != null and is_instance_valid(_acting_player):
 		return _acting_player
 	return Game.get_current_player()

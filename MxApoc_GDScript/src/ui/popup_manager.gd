@@ -28,10 +28,29 @@ var _popup_ok_button: Button = null
 var _popup_item_views: Array = []
 
 var _popup_layer: CanvasLayer
+var _event_scheduler: Variant = null
 
 
 func setup(popup_layer: CanvasLayer) -> void:
 	_popup_layer = popup_layer
+
+
+## 注入 EventScheduler，未显式传入玩家时从当前 InputRequest owner 取值。
+func set_event_scheduler(scheduler: Variant) -> void:
+	_event_scheduler = scheduler
+
+
+func get_input_request() -> Variant:
+	if _event_scheduler == null or not is_instance_valid(_event_scheduler):
+		return null
+	return _event_scheduler.get_current_input_request()
+
+
+func get_input_request_owner() -> Variant:
+	var request: Variant = get_input_request()
+	if request != null and request.owner != null and is_instance_valid(request.owner):
+		return request.owner
+	return null
 
 
 func is_popup_open() -> bool:
@@ -1190,7 +1209,10 @@ func show_scavenge_discard_popup() -> void:
 
 func show_game_discard_popup(player: Variant = null) -> void:
 	var cards: Array = []
-	var current: Variant = player if player != null else Game.get_current_player()
+	var request_owner: Variant = get_input_request_owner()
+	var current: Variant = player if player != null else request_owner
+	if current == null or not is_instance_valid(current):
+		current = Game.get_current_player()
 	if current != null and is_instance_valid(current):
 		var pile: Variant = current.get("game_discard_pile")
 		if pile != null and is_instance_valid(pile):

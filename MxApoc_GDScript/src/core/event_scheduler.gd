@@ -53,6 +53,20 @@ func get_active_request() -> Variant:
 	return _active_request
 
 
+## 当前 InputRequest 的只读别名，供 UI 观察当前等待节点。
+## 不暴露请求栈，UI 只能依据当前活动请求刷新自身。
+func get_current_input_request() -> Variant:
+	return _active_request
+
+
+func get_current_input_request_id() -> int:
+	return get_active_request_id()
+
+
+func get_current_input_request_owner() -> Variant:
+	return get_active_request_owner()
+
+
 ## 写入当前活动请求的响应；request_id/owner 不匹配或已响应则忽略。
 func respond(value: Variant, request_id: int = -1, owner: Variant = null) -> void:
 	if _active_request == null:

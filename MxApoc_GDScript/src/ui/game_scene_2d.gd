@@ -170,6 +170,11 @@ func _start_game_flow() -> void:
 	_pile_manager.refresh_pile_counts()
 
 	_gui_input = GUIPlayerInput.new()
+	# UI 模块只观察 EventScheduler 的当前 InputRequest；不再各自猜测操作玩家。
+	var event_scheduler: Variant = _gui_input.get_scheduler()
+	_popup_manager.set_event_scheduler(event_scheduler)
+	_pile_manager.set_event_scheduler(event_scheduler)
+	_seat_hud_manager.set_event_scheduler(event_scheduler)
 	_gui_input.action_requested.connect(_on_action_requested)
 	_gui_input.request_owner_changed.connect(_on_request_owner_changed)
 	_gui_input.choose_requested.connect(_on_choose_requested)
@@ -426,14 +431,35 @@ func _refresh_hand_area() -> void:
 
 
 func _get_acting_player() -> Variant:
+	var request_owner: Variant = _get_input_request_owner()
+	if request_owner != null:
+		return request_owner
 	if _acting_player != null and is_instance_valid(_acting_player):
 		return _acting_player
 	return Game.get_current_player()
 
 
+func _get_input_request() -> Variant:
+	if _gui_input == null or not is_instance_valid(_gui_input):
+		return null
+	return _gui_input.get_active_request()
+
+
+func _get_input_request_owner() -> Variant:
+	var request: Variant = _get_input_request()
+	if request != null and request.owner != null and is_instance_valid(request.owner):
+		return request.owner
+	return null
+
+
 func _capture_popup_request_identity() -> void:
-	_pending_popup_request_id = _gui_input.get_active_request_id()
-	_pending_popup_request_owner = _gui_input.get_active_request_owner()
+	var request: Variant = _get_input_request()
+	if request == null:
+		_pending_popup_request_id = -1
+		_pending_popup_request_owner = null
+		return
+	_pending_popup_request_id = request.id
+	_pending_popup_request_owner = request.owner
 
 
 func _clear_popup_request_identity() -> void:
