@@ -168,3 +168,14 @@ func test_scheduler_rejects_wrong_owner() -> void:
 
 	scheduler.respond(true, request.id, owner)
 	assert_true(await scheduler.wait_request(request))
+
+
+func test_reset_cancels_active_input_and_unblocks_wait() -> void:
+	var scheduler: Variant = EventSchedulerScript.new()
+	var owner := Player.new()
+	var request: Variant = scheduler.enqueue_input(owner, func() -> void:
+		pass
+	)
+	scheduler.reset()
+	assert_true(request.received, "reset 应取消活动输入请求")
+	assert_null(await scheduler.wait_request(request), "取消后 wait_request 应返回 null")

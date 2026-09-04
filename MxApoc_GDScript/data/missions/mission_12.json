@@ -48,21 +48,21 @@
   "objective_marks": [
     {
       "mark_id": "mark_1",
-      "mark_description": "任务目标：需用大炸药摧毁此地块",
+      "mark_description": "任务目标：需用摧毁此地块",
       "initial_monster_marks": 0,
       "remove_condition": null,
       "effect_code": ""
     },
     {
       "mark_id": "mark_2",
-      "mark_description": "任务目标：需用大炸药摧毁此地块",
+      "mark_description": "任务目标：需用摧毁此地块",
       "initial_monster_marks": 0,
       "remove_condition": null,
       "effect_code": ""
     },
     {
       "mark_id": "mark_3",
-      "mark_description": "任务目标：需用大炸药摧毁此地块",
+      "mark_description": "任务目标：需用摧毁此地块",
       "initial_monster_marks": 0,
       "remove_condition": null,
       "effect_code": ""
@@ -75,7 +75,6 @@
       { "card_name": "医疗用品", "count": 4 },
       { "card_name": "弹药", "count": 2 },
       { "card_name": "双筒望远镜", "count": 1 },
-      { "card_name": "大炸药", "count": 1 },
       { "card_name": "多余配件", "count": 2 },
       { "card_name": "伏击！", "count": 2 },
       { "card_name": "一无所获", "count": 1 }
@@ -86,7 +85,6 @@
       { "card_name": "弹药", "count": 2 },
       { "card_name": "手电筒", "count": 1 },
       { "card_name": "背包", "count": 1 },
-      { "card_name": "大炸药", "count": 1 },
       { "card_name": "多余配件", "count": 1 },
       { "card_name": "一无所获", "count": 1 },
       { "card_name": "伏击！", "count": 2 }
@@ -98,7 +96,6 @@
       { "card_name": "手枪", "count": 1 },
       { "card_name": "对讲机", "count": 1 },
       { "card_name": "手电筒", "count": 1 },
-      { "card_name": "大炸药", "count": 2 },
       { "card_name": "多余配件", "count": 2 },
       { "card_name": "伏击！", "count": 2 },
       { "card_name": "一无所获", "count": 1 }

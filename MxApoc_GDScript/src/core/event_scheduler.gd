@@ -306,6 +306,15 @@ func reset() -> void:
 			request.cancel_request("调度器已重置")
 	_request_stack.clear()
 	_active_request = null
+	for event in _event_stack:
+		if event != null:
+			event.cancel()
+	for operation in _operation_stack:
+		if operation is Dictionary:
+			operation["status"] = "cancelled"
+			var ev: Variant = operation.get("game_event", null)
+			if ev != null:
+				ev.cancel()
 	_operations.clear()
 	_event_stack.clear()
 	_operation_stack.clear()

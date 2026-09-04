@@ -10,6 +10,7 @@ const _STAT_HEADERS: PackedStringArray = [
 	"造成伤害", "受到伤害", "击杀", "移动", "摸牌", "拾荒",
 	"减饥饿", "回复HP", "治疗量", "用牌", "技能", "回合",
 ]
+const LoadingScreenScript := preload("res://src/ui/loading_screen.gd")
 
 const _NAME_COL_WIDTH: float = 100.0
 const _STAT_COL_WIDTH: float = 62.0
@@ -284,15 +285,11 @@ func _stats_to_array(stats: Variant) -> Array:
 # === 按钮回调 ===
 
 func _on_back_pressed() -> void:
-	Game.state_machine.current_state = GameStateMachine.GameState.WAITING
-	Game.players.clear()
-	Game.map_area.clear()
-	RoomState.clear()
-	get_tree().change_scene_to_file("res://scenes/MainMenu.tscn")
+	LoadingScreenScript.go_exit_to_menu(get_tree())
 
 
 func _on_restart_pressed() -> void:
-	get_tree().change_scene_to_file("res://scenes/GameScene2D.tscn")
+	LoadingScreenScript.go_restart_game(get_tree())
 
 
 func _on_view_log_pressed() -> void:

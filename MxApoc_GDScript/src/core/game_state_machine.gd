@@ -67,8 +67,11 @@ func transition_to(new_state: int) -> void:
 ## 游戏开局流程：WAITING → PLAYING + 触发游戏开始时 + 抓初始手牌 + 抓初始怪物卡 + 进入第一玩家回合。
 ## runtime 为可选的统一事件调度 runtime，见 Entity.damage 说明。
 func start_game(runtime: Variant = null) -> void:
+	var session_id: int = Game.get_session_id() if Game != null else 0
 	var scheduler: Variant = runtime if runtime != null else Game.event_scheduler
 	await scheduler.dispatch("game_start", func() -> void:
+		if _session_aborted(session_id):
+			return
 		transition_to(GameState.PLAYING)
 		if EventBus != null and is_instance_valid(EventBus):
 			EventBus.game_started.emit()
@@ -79,23 +82,37 @@ func start_game(runtime: Variant = null) -> void:
 			return
 		# 1. 触发「游戏开始时」trigger
 		for player in Game.players:
+			if _session_aborted(session_id):
+				return
 			if player == null or not is_instance_valid(player):
 				continue
 			var event: Dictionary = EventSystem.create_event({"player": player})
 			await player.trigger("on_game_start", event)
+		if _session_aborted(session_id):
+			return
 		# 2. 每个玩家抓 4 张初始手牌（豁免超限弹窗：从空手牌抓起，初始手牌数不会超过上限）
 		for player in Game.players:
+			if _session_aborted(session_id):
+				return
 			if player == null or not is_instance_valid(player):
 				continue
 			await player.draw(4, scheduler)
+		if _session_aborted(session_id):
+			return
 		# 3. 每个玩家抓 1 张初始怪物卡（任务声明 no_initial_monster_draw 时跳过，如任务 11）
 		if Game.mission_config == null or not Game.mission_config.no_initial_monster_draw:
 			for player in Game.players:
+				if _session_aborted(session_id):
+					return
 				if player == null or not is_instance_valid(player):
 					continue
 				await player.draw_monster(1, scheduler)
+		if _session_aborted(session_id):
+			return
 		# 4. 第零轮：重调阶段
-		await _round_zero()
+		await _round_zero(session_id)
+		if _session_aborted(session_id):
+			return
 		# 5. 进入第一玩家回合
 		await next_turn(),
 		{})
@@ -106,12 +123,16 @@ func start_game(runtime: Variant = null) -> void:
 ## 第零轮：每个存活玩家依次进行特殊重调回合。
 ## 玩家可选择"确定"返回全部手牌并重新抓取等量牌，或"取消"跳过。
 ## 此回合不执行 start_turn() 的21节点流程，不增加饥饿值、不被怪物攻击。
-func _round_zero() -> void:
+func _round_zero(session_id: int = -1) -> void:
 	if Game == null or not is_instance_valid(Game):
 		return
+	if session_id < 0:
+		session_id = Game.get_session_id()
 	if EventBus != null and is_instance_valid(EventBus):
 		EventBus.log_message.emit("==== 第0轮（重调阶段）====")
 	for player in Game.players:
+		if _session_aborted(session_id):
+			return
 		if player == null or not is_instance_valid(player):
 			continue
 		if not player.is_alive():
@@ -124,7 +145,11 @@ func _round_zero() -> void:
 			EventBus.player_turn_started.emit(player)
 		# 循环等待玩家重调决策（支持多次重调，直到取消或超时）
 		while true:
+			if _session_aborted(session_id):
+				return
 			var redraw: bool = await player.wait_redraw_decision()
+			if _session_aborted(session_id):
+				return
 			if not redraw:
 				break
 			# 返回全部手牌 → 洗牌 → 重抓等量
@@ -133,7 +158,9 @@ func _round_zero() -> void:
 				player.game_deck.add(card)
 			player.hand.clear()
 			player.game_deck.shuffle()
-			player.draw(count)
+			await player.draw(count)
+			if _session_aborted(session_id):
+				return
 			if EventBus != null and is_instance_valid(EventBus):
 				EventBus.log_message.emit(LogColors.player(player.player_name) + " 执行了重调。")
 		# 结束第零轮回合
@@ -188,7 +215,10 @@ func game_over(result: int, reason: String = "", runtime: Variant = null) -> voi
 
 ## 切换到下一个玩家并执行其回合。用 while 循环避免递归栈溢出。
 func next_turn() -> void:
+	var session_id: int = Game.get_session_id() if Game != null else 0
 	while current_state == GameState.PLAYING:
+		if _session_aborted(session_id):
+			return
 		# 1. 获取下一个玩家
 		var player: Variant = _get_next_player()
 		if player == null:
@@ -204,6 +234,8 @@ func next_turn() -> void:
 				EventBus.player_turn_started.emit(current_player)
 		# 3. 执行玩家回合
 		await player.start_turn()
+		if _session_aborted(session_id):
+			return
 		if Game != null and is_instance_valid(Game) and current_state == GameState.PLAYING:
 			Game.log_message("==== " + LogColors.player(player.player_name) + " 回合结束 ====")
 		# 4. 检查胜利条件
@@ -355,3 +387,7 @@ func is_game_over() -> bool:
 
 func get_turn_number() -> int:
 	return turn_number
+
+
+func _session_aborted(session_id: int) -> bool:
+	return Game == null or not is_instance_valid(Game) or not Game.is_session(session_id)
