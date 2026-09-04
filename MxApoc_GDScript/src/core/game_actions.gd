@@ -78,7 +78,7 @@ func move_to(target: Variant, block: MapBlock) -> Variant:
 
 func use_card(target: Variant, card: Card) -> Variant:
 	return await runtime.dispatch("use_card", func() -> bool:
-		return await target.use_card(card), {"target": target, "card": card})
+		return await target.use_card(card, false, runtime), {"target": target, "card": card}, target, player, "use_card")
 
 
 func consume_action(target: Variant, num: int = 1) -> Variant:
@@ -187,13 +187,31 @@ func restore_full_health(target: Variant) -> Variant:
 
 
 func execute_action_immediately(target: Variant, num: int) -> Variant:
-	return await runtime.dispatch("execute_action_immediately", func() -> void:
-		await target.execute_action_immediately(num), {"target": target, "num": num})
+	var context: Dictionary = runtime.create_limited_action_context(target, player, num)
+	return await runtime.dispatch(
+		"execute_action_immediately",
+		func() -> Variant:
+			return await target.execute_action_immediately(num, runtime),
+		{"target": target, "num": num},
+		target,
+		player,
+		"limited_action",
+		{"free_action": true, "action_count": num},
+		context
+	)
 
 
-func play_card_immediately(target: Variant) -> Variant:
-	return await runtime.dispatch("play_card_immediately", func() -> void:
-		await target.play_card_immediately(), {"target": target})
+func play_card_immediately(target: Variant, max_cards: int = 1) -> Variant:
+	return await runtime.dispatch(
+		"play_card_immediately",
+		func() -> Variant:
+			return await target.play_card_immediately(max_cards, runtime),
+		{"target": target, "max_cards": max_cards},
+		target,
+		player,
+		"limited_card_use",
+		{"free_action": true, "max_cards": max_cards}
+	)
 
 
 func end_phase(target: Variant, phase: String) -> Variant:

@@ -8,6 +8,7 @@ const SETTINGS_DIALOG_SCENE := preload("res://scenes/SettingsDialog.tscn")
 const TUTORIAL_DIALOG_SCENE := preload("res://scenes/TutorialDialog.tscn")
 const WIKI_OVERLAY_SCENE := preload("res://scenes/WikiOverlay.tscn")
 const TutorialManager = preload("res://src/ui/tutorial_manager.gd")
+const SeatHudManagerScript = preload("res://src/ui/seat_hud_manager.gd")
 
 # === 层节点（来自 .tscn）===
 @onready var _table_layer: CanvasLayer = $TableLayer
@@ -30,10 +31,15 @@ var _active_skill_bar: ActiveSkillBar
 var _event_log_panel: EventLogPanel
 var _animation_controller: AnimationController
 var _cheat_menu: CheatMenu = null
+var _seat_switch_label: Label
+var _seat_hud_manager: Node
 
 # === 游戏状态 ===
 var _gui_input: GUIPlayerInput
 var _pending_target_source: Variant = null
+var _acting_player: Variant = null
+var _pending_popup_request_id: int = -1
+var _pending_popup_request_owner: Variant = null
 
 # === 设置弹出菜单 ===
 var _settings_popup: PopupMenu
@@ -75,22 +81,27 @@ func _create_modules() -> void:
 	add_child(_pile_manager)
 	_pile_manager.wire_pile_nodes()
 	_pile_manager.apply_pile_styles()
-
-	_action_selection_controller = ActionSelectionController.new()
-	_action_selection_controller.setup(_ui_layer)
-	add_child(_action_selection_controller)
-	_action_selection_controller.build_buttons()
+	_seat_hud_manager = SeatHudManagerScript.new()
+	_seat_hud_manager.setup(_ui_layer)
+	add_child(_seat_hud_manager)
 
 	# 统一动画控制器：集中持有全屏演出、目标指向演出和回合横幅。
 	_animation_controller = AnimationController.new()
 	_ui_layer.add_child(_animation_controller)
 
-	_active_skill_bar = ActiveSkillBar.new()
-	_active_skill_bar.setup(_active_skill_grid)
-	add_child(_active_skill_bar)
-
 	_event_log_panel = EventLogPanel.new()
 	_ui_layer.add_child(_event_log_panel)
+	_seat_switch_label = Label.new()
+	_seat_switch_label.position = Vector2(520, 8)
+	_seat_switch_label.size = Vector2(420, 28)
+	_seat_switch_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_seat_switch_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_seat_switch_label.add_theme_font_size_override("font_size", 16)
+	_seat_switch_label.add_theme_color_override("font_color", Color(0.95, 0.85, 0.35, 1.0))
+	_seat_switch_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	_seat_switch_label.add_theme_constant_override("outline_size", 4)
+	_seat_switch_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_ui_layer.add_child(_seat_switch_label)
 
 	_build_cheat_menu()
 
@@ -99,12 +110,6 @@ func _create_modules() -> void:
 	_table_map_controller.avatar_clicked.connect(_on_avatar_clicked)
 	_pile_manager.pile_clicked.connect(_on_pile_clicked)
 	_pile_manager.discard_pile_clicked.connect(_on_discard_pile_clicked)
-	_action_selection_controller.action_requested.connect(_on_action_from_controller)
-	_action_selection_controller.confirm_responded.connect(_on_confirm_from_controller)
-	_action_selection_controller.move_mode_changed.connect(_on_move_mode_changed)
-	_action_selection_controller.card_move_select_completed.connect(_on_card_move_select_completed)
-	_action_selection_controller.pile_selection_changed.connect(_pile_manager.set_selected_pile_key)
-	_active_skill_bar.skill_pressed.connect(_on_skill_pressed)
 
 
 func _wire_static_buttons() -> void:
@@ -166,6 +171,7 @@ func _start_game_flow() -> void:
 
 	_gui_input = GUIPlayerInput.new()
 	_gui_input.action_requested.connect(_on_action_requested)
+	_gui_input.request_owner_changed.connect(_on_request_owner_changed)
 	_gui_input.choose_requested.connect(_on_choose_requested)
 	_gui_input.choose_card_requested.connect(_on_choose_card_requested)
 	_gui_input.choose_target_requested.connect(_on_choose_target_requested)
@@ -182,13 +188,19 @@ func _start_game_flow() -> void:
 	_gui_input.card_destroy_animation_requested.connect(_on_card_destroy_animation_requested)
 	_gui_input.monster_skill_trigger_animation_requested.connect(_on_monster_skill_trigger_animation_requested)
 	_gui_input.monster_attack_animation_requested.connect(_on_monster_attack_animation_requested)
-	_popup_manager.option_selected.connect(_gui_input.respond_choose)
-	_popup_manager.confirm_responded.connect(_gui_input.respond_confirm)
-	_popup_manager.cards_selected.connect(_gui_input.respond_choose_card)
+	_popup_manager.option_selected.connect(_on_popup_option_selected)
+	_popup_manager.confirm_responded.connect(_on_popup_confirm_responded)
+	_popup_manager.cards_selected.connect(_on_popup_cards_selected)
 	_popup_manager.targets_selected.connect(_on_popup_targets_selected)
 	_popup_manager.block_selected.connect(_on_popup_block_selected)
-	_action_selection_controller.redraw_decision_responded.connect(_gui_input.respond_redraw_decision)
-	_action_selection_controller.judge_confirm_responded.connect(_gui_input.respond_judge_confirm)
+	_seat_hud_manager.action_requested.connect(_on_action_from_controller)
+	_seat_hud_manager.confirm_responded.connect(_on_confirm_from_controller)
+	_seat_hud_manager.move_mode_changed.connect(_on_move_mode_changed)
+	_seat_hud_manager.card_move_select_completed.connect(_on_card_move_select_completed)
+	_seat_hud_manager.pile_selection_changed.connect(_on_pile_selection_changed)
+	_seat_hud_manager.skill_pressed.connect(_on_skill_pressed)
+	_seat_hud_manager.redraw_decision_responded.connect(_on_redraw_decision_responded)
+	_seat_hud_manager.judge_confirm_responded.connect(_on_judge_confirm_responded)
 	for player in Game.players:
 		if player != null and is_instance_valid(player):
 			player.input = _gui_input
@@ -314,30 +326,36 @@ func _build_player_panels() -> void:
 
 
 ## 将玩家分配到面板：当前回合玩家 → self 面板，其他玩家 → teammate 面板（按座位顺序）。
-func _assign_player_panels() -> void:
+func _assign_player_panels(focus_player: Variant = null) -> void:
 	_player_to_panel_idx.clear()
 	var current: Variant = Game.get_current_player()
+	var focus: Variant = focus_player
+	if focus == null or not is_instance_valid(focus):
+		focus = current
 	var others: Array = []
 	for player in Game.players:
 		if player == null or not is_instance_valid(player):
 			continue
-		if current != null and is_instance_valid(current) and player == current:
+		if focus != null and is_instance_valid(focus) and player == focus:
 			continue
 		others.append(player)
 	# self 面板
 	if _player_panels.size() > 0:
 		var self_panel: PlayerPanel = _player_panels[0]
-		if current != null and is_instance_valid(current):
-			self_panel.set_player(current, true)
-			self_panel.set_current_turn(true)
-			_player_to_panel_idx[current.get_instance_id()] = 0
+		if focus != null and is_instance_valid(focus):
+			self_panel.set_player(focus, true)
+			self_panel.set_current_turn(focus == current)
+			self_panel.set_operation_focus(focus != current)
+			_player_to_panel_idx[focus.get_instance_id()] = 0
 		else:
 			self_panel.set_player(null, true)
+			self_panel.set_operation_focus(false)
 	# teammate 面板（最多 5 个）
 	for i in range(mini(others.size(), 5)):
 		var teammate_panel: PlayerPanel = _player_panels[i + 1]
 		teammate_panel.set_player(others[i], false)
 		teammate_panel.set_current_turn(false)
+		teammate_panel.set_operation_focus(false)
 		_player_to_panel_idx[others[i].get_instance_id()] = i + 1
 	# 隐藏多余的面板
 	for i in range(others.size() + 1, 6):
@@ -345,6 +363,7 @@ func _assign_player_panels() -> void:
 			var empty_panel: PlayerPanel = _player_panels[i]
 			empty_panel.set_player(null, i == 0)
 			empty_panel.set_current_turn(false)
+			empty_panel.set_operation_focus(false)
 
 
 ## 刷新显示指定玩家的面板。
@@ -376,23 +395,89 @@ func _refresh_all_panels() -> void:
 			panel.refresh(true)
 
 
-# === 手牌区 ===
+# === 座位私有 HUD ===
 
 func _build_hand_area() -> void:
-	_hand_area = HandDisplayArea.new()
-	_hand_area.card_selected.connect(_action_selection_controller.on_card_selected)
-	_hand_area.card_deselected.connect(_action_selection_controller.on_card_deselected)
-	_ui_layer.add_child(_hand_area)
-	_hand_area.mouse_filter = Control.MOUSE_FILTER_STOP
-	_action_selection_controller.set_hand_area(_hand_area)
+	_seat_hud_manager.build(Game.players)
+
+
+func _get_seat_hud(player: Variant) -> SeatHud:
+	return _seat_hud_manager.get_hud(player)
+
+
+func _activate_seat_hud(player: Variant) -> void:
+	var hud: SeatHud = _get_seat_hud(player)
+	if hud == null:
+		return
+	_seat_hud_manager.focus_player(player)
+	_assign_player_panels(player)
+	_hand_area = hud.hand_area
+	_action_selection_controller = hud.action_controller
+	_active_skill_bar = hud.active_skill_bar
+	hud.refresh()
 
 
 ## 刷新手牌区（显示当前玩家的手牌）。
 func _refresh_hand_area() -> void:
 	if _hand_area == null or not is_instance_valid(_hand_area):
 		return
-	var current: Variant = Game.get_current_player()
+	var current: Variant = _get_acting_player()
 	_hand_area.set_player(current)
+
+
+func _get_acting_player() -> Variant:
+	if _acting_player != null and is_instance_valid(_acting_player):
+		return _acting_player
+	return Game.get_current_player()
+
+
+func _capture_popup_request_identity() -> void:
+	_pending_popup_request_id = _gui_input.get_active_request_id()
+	_pending_popup_request_owner = _gui_input.get_active_request_owner()
+
+
+func _clear_popup_request_identity() -> void:
+	_pending_popup_request_id = -1
+	_pending_popup_request_owner = null
+
+
+func _on_popup_option_selected(choice: Variant) -> void:
+	_gui_input.respond_choose(choice, _pending_popup_request_id, _pending_popup_request_owner)
+	_clear_popup_request_identity()
+
+
+func _on_popup_confirm_responded(result: bool) -> void:
+	_gui_input.respond_confirm(result, _pending_popup_request_id, _pending_popup_request_owner)
+	_clear_popup_request_identity()
+
+
+func _on_popup_cards_selected(cards: Array) -> void:
+	_gui_input.respond_choose_card(cards, _pending_popup_request_id, _pending_popup_request_owner)
+	_clear_popup_request_identity()
+
+
+func _on_request_owner_changed(player: Variant) -> void:
+	_acting_player = player
+	_activate_seat_hud(player if player != null else Game.get_current_player())
+	if _action_selection_controller == null or not is_instance_valid(_action_selection_controller):
+		return
+	_action_selection_controller.set_acting_player(player if player != null else Game.get_current_player())
+	_pile_manager.set_acting_player(player)
+	_refresh_hand_area()
+	if player != null and is_instance_valid(player):
+		_active_skill_bar.refresh(player)
+	else:
+		_active_skill_bar.clear()
+	_action_selection_controller.refresh_confirm_cancel_buttons()
+	_pile_manager.refresh_pile_counts()
+	_pile_manager.refresh_pile_highlights()
+	_table_map_controller.refresh_map(player if player != null else Game.get_current_player())
+	if _seat_switch_label != null and is_instance_valid(_seat_switch_label):
+		if player != null and is_instance_valid(player):
+			_seat_switch_label.text = "请 %s 操作" % player.player_name
+			_seat_switch_label.visible = true
+		else:
+			_seat_switch_label.visible = false
 
 
 # === Block/Avatar 点击 ===
@@ -406,13 +491,19 @@ func _on_block_inspected(block: Variant) -> void:
 	_popup_manager.show_block_detail_popup(block)
 
 
-func _on_avatar_clicked(_block: Variant) -> void:
+func _on_avatar_clicked(player: Variant, _block: Variant) -> void:
+	if player == null or not is_instance_valid(player):
+		return
+	if player != _get_acting_player():
+		return
 	_action_selection_controller.enter_move_select_mode()
 
 
 # === Move mode changed ===
 
-func _on_move_mode_changed(active: bool) -> void:
+func _on_move_mode_changed(player: Variant, active: bool) -> void:
+	if player != null and is_instance_valid(player):
+		_activate_seat_hud(player)
 	var valid_blocks: Array = []
 	var selected_blocks: Array = []
 	if active:
@@ -420,19 +511,23 @@ func _on_move_mode_changed(active: bool) -> void:
 		if _action_selection_controller.is_card_move_mode():
 			valid_blocks = _action_selection_controller.get_card_move_valid_blocks()
 		else:
-			var current: Variant = Game.get_current_player()
+			var current: Variant = _get_acting_player()
 			if current != null and is_instance_valid(current):
 				var current_block: Variant = current.get("current_block")
 				if current_block != null and is_instance_valid(current_block):
 					valid_blocks = current_block.get_adjacent_blocks()
 	_table_map_controller.refresh_move_highlights(active, valid_blocks, selected_blocks)
 	if not active:
-		_table_map_controller.refresh_map()
+		_table_map_controller.refresh_map(_get_acting_player())
 	_action_selection_controller.refresh_confirm_cancel_buttons()
 
 
-func _on_card_move_select_completed(blocks: Variant) -> void:
-	_gui_input.respond_choose_block(blocks)
+func _on_card_move_select_completed(player: Variant, blocks: Variant) -> void:
+	_gui_input.respond_choose_block(
+		blocks,
+		_gui_input.get_active_request_id(),
+		player
+	)
 
 
 # === Pile 点击 ===
@@ -449,12 +544,14 @@ func _on_discard_pile_clicked(pile_type: String) -> void:
 	if pile_type == "scavenge":
 		_popup_manager.show_scavenge_discard_popup()
 	elif pile_type == "game":
-		_popup_manager.show_game_discard_popup()
+		_popup_manager.show_game_discard_popup(_get_acting_player())
 
 
 # === Skill pressed ===
 
-func _on_skill_pressed(skill: Variant) -> void:
+func _on_skill_pressed(player: Variant, skill: Variant) -> void:
+	if player != null and is_instance_valid(player):
+		_activate_seat_hud(player)
 	if _action_selection_controller.is_busy():
 		return
 	_action_selection_controller.enter_skill_confirm_mode(skill)
@@ -462,21 +559,36 @@ func _on_skill_pressed(skill: Variant) -> void:
 
 # === Action/Confirm from controller ===
 
-func _on_action_from_controller(action: Dictionary) -> void:
+func _on_action_from_controller(player: Variant, action: Dictionary) -> void:
+	if player != null and is_instance_valid(player):
+		_activate_seat_hud(player)
 	if action.is_empty():
-		_gui_input.respond_action(null)
+		_gui_input.respond_action(null, _gui_input.get_active_request_id(), player)
 	else:
-		_gui_input.respond_action(action)
+		_gui_input.respond_action(action, _gui_input.get_active_request_id(), player)
 
 
-func _on_confirm_from_controller(result: bool) -> void:
-	_gui_input.respond_confirm(result)
+func _on_confirm_from_controller(player: Variant, result: bool) -> void:
+	_gui_input.respond_confirm(result, _gui_input.get_active_request_id(), player)
+
+
+func _on_redraw_decision_responded(player: Variant, result: bool) -> void:
+	_gui_input.respond_redraw_decision(result, _gui_input.get_active_request_id(), player)
+
+
+func _on_judge_confirm_responded(player: Variant, result: bool) -> void:
+	_gui_input.respond_judge_confirm(result, _gui_input.get_active_request_id(), player)
+
+
+func _on_pile_selection_changed(_player: Variant, pile_key: String) -> void:
+	_pile_manager.set_selected_pile_key(pile_key)
 
 
 func _on_popup_block_selected(block: Variant) -> void:
 	if _action_selection_controller.is_in_move_mode():
 		return
-	_gui_input.respond_choose_block(block)
+	_gui_input.respond_choose_block(block, _pending_popup_request_id, _pending_popup_request_owner)
+	_clear_popup_request_identity()
 
 
 # === Settings ===
@@ -532,13 +644,20 @@ func _on_settings_popup_id_pressed(id: int) -> void:
 
 # === GUIPlayerInput 信号处理 ===
 
-func _on_action_requested(_player: Variant) -> void:
-	_active_skill_bar.refresh(Game.get_current_player())
+func _on_action_requested(player: Variant) -> void:
+	_acting_player = player
+	_activate_seat_hud(player)
+	_action_selection_controller.set_acting_player(player)
+	_pile_manager.set_acting_player(player)
+	_refresh_hand_area()
+	_active_skill_bar.refresh(player)
 	_action_selection_controller.refresh_confirm_cancel_buttons()
 	_pile_manager.refresh_pile_highlights()
+	_table_map_controller.refresh_map(player)
 
 
 func _on_choose_requested(options: Array, prompt: String) -> void:
+	_capture_popup_request_identity()
 	_popup_manager.show_option_popup(options, prompt)
 
 
@@ -547,9 +666,11 @@ func _on_confirm_requested(message: String) -> void:
 
 
 func _on_choose_card_requested(n: int, param: Variant, filter: Variant, prompt: String, min_n: int) -> void:
-	var current: Variant = Game.get_current_player()
+	_capture_popup_request_identity()
+	var current: Variant = _get_acting_player()
 	if current == null or not is_instance_valid(current):
-		_gui_input.respond_choose_card([])
+		_gui_input.respond_choose_card([], _pending_popup_request_id, _pending_popup_request_owner)
+		_clear_popup_request_identity()
 		return
 	var cards: Array = []
 	var label: String = ""
@@ -600,11 +721,13 @@ func _on_popup_targets_selected(targets: Array) -> void:
 	var source: Variant = _pending_target_source
 	_pending_target_source = null
 	if targets.is_empty() or source == null or not is_instance_valid(source):
-		_gui_input.respond_choose_target(targets)
+		_gui_input.respond_choose_target(targets, _pending_popup_request_id, _pending_popup_request_owner)
+		_clear_popup_request_identity()
 		return
 	var source_panel: PlayerPanel = _get_panel_for_player(source)
 	if source_panel == null:
-		_gui_input.respond_choose_target(targets)
+		_gui_input.respond_choose_target(targets, _pending_popup_request_id, _pending_popup_request_owner)
+		_clear_popup_request_identity()
 		return
 	var player_positions: Array[Vector2] = []
 	var monsters: Array = []
@@ -616,16 +739,20 @@ func _on_popup_targets_selected(targets: Array) -> void:
 		elif target is Monster and is_instance_valid(target):
 			monsters.append(target)
 	if player_positions.is_empty() and monsters.is_empty():
-		_gui_input.respond_choose_target(targets)
+		_gui_input.respond_choose_target(targets, _pending_popup_request_id, _pending_popup_request_owner)
+		_clear_popup_request_identity()
 		return
 	await _animation_controller.play_target_links(source_panel.get_role_card_global_position(), player_positions, monsters)
-	_gui_input.respond_choose_target(targets)
+	_gui_input.respond_choose_target(targets, _pending_popup_request_id, _pending_popup_request_owner)
+	_clear_popup_request_identity()
 
 
 func _on_choose_target_requested(n: int, skill: Variant, prompt: String, min_n: int) -> void:
-	var current: Variant = Game.get_current_player()
+	_capture_popup_request_identity()
+	var current: Variant = _get_acting_player()
 	if current == null or not is_instance_valid(current):
-		_gui_input.respond_choose_target([])
+		_gui_input.respond_choose_target([], _pending_popup_request_id, _pending_popup_request_owner)
+		_clear_popup_request_identity()
 		return
 	_pending_target_source = current
 	var current_block: Variant = current.get("current_block")
@@ -719,13 +846,23 @@ func _on_choose_target_requested(n: int, skill: Variant, prompt: String, min_n: 
 				merged_prompt = str(wp)
 	if filtered.is_empty():
 		# 无合法候选：直接返回空，不弹 UI
-		_gui_input.respond_choose_target.call_deferred([])
+		_gui_input.respond_choose_target.call_deferred(
+			[],
+			_pending_popup_request_id,
+			_pending_popup_request_owner
+		)
+		_clear_popup_request_identity()
 		return
 	if select_n == -1:
 		# 全选模式
 		if Settings.skip_target_selection:
 			# 设置开启：自动选取全部过滤后候选，不弹 UI
-			_gui_input.respond_choose_target.call_deferred(filtered)
+			_gui_input.respond_choose_target.call_deferred(
+				filtered,
+				_pending_popup_request_id,
+				_pending_popup_request_owner
+			)
+			_clear_popup_request_identity()
 		else:
 			# 设置关闭：弹出目标选择区并预选全部，玩家确认后经 targets_selected -> respond_choose_target 回传
 			_popup_manager.show_target_select_area(filtered, filtered.size(), zone_labels, merged_prompt, -1, true)
@@ -734,7 +871,12 @@ func _on_choose_target_requested(n: int, skill: Variant, prompt: String, min_n: 
 		# 候选数 ≤ 所需数
 		if Settings.skip_target_selection:
 			# 设置开启：直接全选
-			_gui_input.respond_choose_target.call_deferred(filtered)
+			_gui_input.respond_choose_target.call_deferred(
+				filtered,
+				_pending_popup_request_id,
+				_pending_popup_request_owner
+			)
+			_clear_popup_request_identity()
 		else:
 			# 设置关闭：以候选数为选择数弹窗并预选全部，玩家确认后经 targets_selected -> respond_choose_target 回传
 			_popup_manager.show_target_select_area(filtered, filtered.size(), zone_labels, merged_prompt, min_n, true)
@@ -781,6 +923,7 @@ func _is_valid_target(skill: Variant, target: Variant, event: Dictionary, player
 
 
 func _on_choose_block_requested(blocks: Array, prompt: String) -> void:
+	_capture_popup_request_identity()
 	_popup_manager.show_block_select_popup(blocks, prompt)
 
 
@@ -809,31 +952,38 @@ func _on_judge_confirm_requested(prompt: String, allow_cancel: bool) -> void:
 
 # 骰子投掷动画：播放完毕后结算响应，阻塞后续请求派发
 func _on_dice_animation_requested(d1: int, d2: int, label: String, outcome: String) -> void:
+	var request_id: int = _gui_input.get_active_request_id()
+	var owner: Variant = _gui_input.get_active_request_owner()
 	await _animation_controller.play_dice(d1, d2, label, outcome)
-	_gui_input.respond_dice_animation()
+	_gui_input.respond_dice_animation(request_id, owner)
 
 
 # 怪物抓取动画：飞行终点取该玩家面板怪物区按钮的全局中心位置，
 # 面板不存在或按钮无效时终点为 Vector2.ZERO（视图原地淡出）；播放完毕后结算响应，阻塞后续请求派发
 func _on_monster_draw_animation_requested(player: Variant, card: Variant) -> void:
+	var request_id: int = _gui_input.get_active_request_id()
 	var target_position: Vector2 = Vector2.ZERO
 	var panel: PlayerPanel = _get_panel_for_player(player)
 	if panel != null:
 		target_position = panel.get_monster_zone_button_global_position()
 	await _animation_controller.play_monster_draw(card, target_position)
-	_gui_input.respond_monster_draw_animation()
+	_gui_input.respond_monster_draw_animation(request_id, player)
 
 
 # 拾荒牌"抓取时"技能触发动画：原地放大淡出（无飞行终点）；播放完毕后结算响应，阻塞后续请求派发
 func _on_scavenge_draw_animation_requested(_player: Variant, card: Variant) -> void:
+	var request_id: int = _gui_input.get_active_request_id()
+	var owner: Variant = _gui_input.get_active_request_owner()
 	await _animation_controller.play_scavenge_draw(card)
-	_gui_input.respond_scavenge_draw_animation()
+	_gui_input.respond_scavenge_draw_animation(request_id, owner)
 
 
 ## 卡牌销毁动画：居中焚毁卡面，结束后释放等待中的销毁事件。
 func _on_card_destroy_animation_requested(card: Card) -> void:
+	var request_id: int = _gui_input.get_active_request_id()
+	var owner: Variant = _gui_input.get_active_request_owner()
 	await _animation_controller.play_card_destroy(card)
-	_gui_input.respond_card_destroy_animation()
+	_gui_input.respond_card_destroy_animation(request_id, owner)
 	# 回执会恢复 Player.remove_card 的后续流程，实际从 hand 移除发生在下一帧。
 	# 若不在实体移除后刷新，HandDisplayArea 会继续保留已经销毁的 CardView。
 	await get_tree().process_frame
@@ -842,13 +992,17 @@ func _on_card_destroy_animation_requested(card: Card) -> void:
 
 # 怪物技能触发动画：播放完毕后结算响应，阻塞后续请求派发
 func _on_monster_skill_trigger_animation_requested(monster: Variant) -> void:
+	var request_id: int = _gui_input.get_active_request_id()
+	var owner: Variant = _gui_input.get_active_request_owner()
 	await _animation_controller.play_monster_skill_trigger(monster)
-	_gui_input.respond_monster_skill_trigger_animation()
+	_gui_input.respond_monster_skill_trigger_animation(request_id, owner)
 
 
 # 怪物攻击动画：飞行终点取各目标玩家面板角色牌的全局中心位置，
 # 面板不存在或目标无效时跳过该目标；播放完毕后结算响应，阻塞后续请求派发
 func _on_monster_attack_animation_requested(monster: Variant, targets: Array) -> void:
+	var request_id: int = _gui_input.get_active_request_id()
+	var owner: Variant = _gui_input.get_active_request_owner()
 	var positions: Array = []
 	for target in targets:
 		if target is Player and is_instance_valid(target):
@@ -856,7 +1010,7 @@ func _on_monster_attack_animation_requested(monster: Variant, targets: Array) ->
 			if target_panel != null:
 				positions.append(target_panel.get_role_card_global_position())
 	await _animation_controller.play_monster_attack(monster, positions)
-	_gui_input.respond_monster_attack_animation()
+	_gui_input.respond_monster_attack_animation(request_id, owner)
 
 
 # === EventBus 信号处理 ===
@@ -864,8 +1018,12 @@ func _on_monster_attack_animation_requested(monster: Variant, targets: Array) ->
 func _on_turn_started(player: Variant) -> void:
 	if player == null or not is_instance_valid(player):
 		return
+	_acting_player = player
+	_activate_seat_hud(player)
+	_action_selection_controller.set_acting_player(player)
+	_pile_manager.set_acting_player(player)
 	_assign_player_panels()
-	_table_map_controller.refresh_map()
+	_table_map_controller.refresh_map(player)
 	_refresh_hand_area()
 	_pile_manager.refresh_pile_counts()
 	_action_selection_controller.refresh_confirm_cancel_buttons()
@@ -877,7 +1035,9 @@ func _on_turn_started(player: Variant) -> void:
 			panel.set_turn_highlight(panel._player == player)
 
 
-func _on_phase_changed(_player: Variant, _old_phase: String, new_phase: String) -> void:
+func _on_phase_changed(player: Variant, _old_phase: String, new_phase: String) -> void:
+	if player != _get_acting_player():
+		return
 	_action_selection_controller.refresh_confirm_cancel_buttons()
 	_pile_manager.refresh_pile_highlights()
 	if new_phase != "action":
@@ -890,17 +1050,17 @@ func _on_player_moved(player: Variant, source_block: Variant, target_block: Vari
 	var dst_view: Variant = _table_map_controller.get_block_view(target_block)
 	if src_view != null and dst_view != null and player != null and is_instance_valid(player):
 		await _table_map_controller.play_avatar_move(player, source_block, target_block)
-	_table_map_controller.refresh_map()
+	_table_map_controller.refresh_map(_get_acting_player())
 	_refresh_all_panels()
 	_pile_manager.refresh_pile_highlights()
 	# 移动完成后地块技能/任务行动技能已挂载/卸载，刷新技能栏
-	_active_skill_bar.refresh(Game.get_current_player())
+	_active_skill_bar.refresh(_get_acting_player())
 
 
 func _on_block_revealed(block: Variant, _player: Variant) -> void:
 	# refresh 前先取该地块视图，refresh 后播放翻入动画（叠加在揭示样式之上）
 	var view: Variant = _table_map_controller.get_block_view(block)
-	_table_map_controller.refresh_map()
+	_table_map_controller.refresh_map(_get_acting_player())
 	if view != null and is_instance_valid(view):
 		view.play_reveal_animation()
 
@@ -930,7 +1090,7 @@ func _on_block_mark_changed(block: Variant) -> void:
 			current_block = current.get("current_block")
 		var is_current: bool = (current_block != null and is_instance_valid(current_block)
 			and block == current_block)
-		view.refresh(is_current, current)
+		view.refresh(is_current, current, _get_acting_player())
 		# 标记数变化时播放弹入/淡出反馈（objective_mark_changed 复用本 handler，标记数不变则不播）
 		if new_count != old_count:
 			view.play_mark_pulse(new_count > old_count)
@@ -939,7 +1099,7 @@ func _on_block_mark_changed(block: Variant) -> void:
 
 func _on_monster_changed(_monster: Variant, _player: Variant) -> void:
 	# 怪物生成/死亡影响地块上的怪物标记显示和玩家面板的怪物区
-	_table_map_controller.refresh_map()
+	_table_map_controller.refresh_map(_get_acting_player())
 	_refresh_all_panels()
 	_pile_manager.refresh_pile_counts()
 
@@ -981,8 +1141,8 @@ func _on_monster_engaged_target_changed(_monster: Variant, old_target: Variant, 
 
 func _on_player_stat_changed(player: Variant, _arg1: Variant = null, _arg2: Variant = null) -> void:
 	_refresh_panel_for_player(player)
-	# 若是当前玩家，刷新手牌区、牌堆数与主动技能区（装备变化会增减主动技能）
-	var current: Variant = Game.get_current_player()
+	# 若是实际操作玩家，刷新手牌区、牌堆数与主动技能区（装备变化会增减主动技能）
+	var current: Variant = _get_acting_player()
 	if player != null and is_instance_valid(player) and current != null and is_instance_valid(current) and player == current:
 		_refresh_hand_area()
 		_pile_manager.refresh_pile_counts()
@@ -1033,8 +1193,8 @@ func _on_pile_drawn(_player: Variant, _card: Variant) -> void:
 	_pile_manager.refresh_pile_counts()
 	_pile_manager.refresh_pile_highlights()
 	_refresh_panel_for_player(_player)
-	# 若摸牌玩家为当前回合玩家，刷新手牌展示区
-	var current: Variant = Game.get_current_player()
+	# 若摸牌玩家为实际操作玩家，刷新手牌展示区
+	var current: Variant = _get_acting_player()
 	if _player != null and is_instance_valid(_player) and current != null and is_instance_valid(current) and _player == current:
 		_refresh_hand_area()
 

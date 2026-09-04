@@ -12,6 +12,7 @@ extends IPlayerInput
 # === 请求信号（GameScene2D 订阅） ===
 
 signal action_requested(player: Variant)
+signal request_owner_changed(player: Variant)
 signal choose_requested(options: Array, prompt: String)
 signal choose_card_requested(n: int, param: Variant, filter: Variant, prompt: String, min_n: int)
 signal choose_target_requested(n: int, skill: Variant, prompt: String, min_n: int)
@@ -35,11 +36,17 @@ signal monster_attack_animation_requested(monster: Variant, targets: Array)
 var _request_stack: Array = []  # 被暂停的外层请求，栈顶最先恢复
 var _active_request: Dictionary = {}  # 当前活动请求（空字典 = 无活动请求）
 var _request_counter: int = 0  # 请求 id 自增计数器
+var _request_owner: Variant = null  # 下一次输入请求的所属玩家
 
 
 # === 栈核心 ===
 
 ## 创建请求并入栈。仅当当前活动请求可抢占（wait_action）时才将其压栈暂停。
+## 设置下一次输入请求的所属玩家。
+func set_request_owner(player: Variant) -> void:
+	_request_owner = player
+
+
 func _enqueue_request(emit_fn: Callable, preemptible: bool = false) -> Dictionary:
 	_request_counter += 1
 	var req: Dictionary = {
@@ -48,7 +55,9 @@ func _enqueue_request(emit_fn: Callable, preemptible: bool = false) -> Dictionar
 		"response": null,
 		"received": false,
 		"preemptible": preemptible,
+		"owner": _request_owner,
 	}
+	_request_owner = null
 	if not _active_request.is_empty() and not _active_request.get("received", false):
 		if _active_request.get("preemptible", false):
 			_request_stack.append(_active_request)
@@ -62,8 +71,18 @@ func _enqueue_request(emit_fn: Callable, preemptible: bool = false) -> Dictionar
 func _dispatch_next_if_idle() -> void:
 	if _active_request.is_empty() and not _request_stack.is_empty():
 		_active_request = _request_stack.pop_back()
+		request_owner_changed.emit(_active_request.get("owner", null))
 		var fn: Callable = _active_request["emit_fn"]
 		fn.call()
+
+
+## 当前活动请求的身份。UI 回执应携带这两个值，避免旧弹窗/旧 HUD 误响应。
+func get_active_request_id() -> int:
+	return int(_active_request.get("id", -1))
+
+
+func get_active_request_owner() -> Variant:
+	return _active_request.get("owner", null)
 
 
 ## 等待指定请求自身的响应；恢复后释放活动槽并弹出栈顶外层请求。
@@ -78,7 +97,15 @@ func _wait_for_request(req: Dictionary) -> Variant:
 
 ## 写入当前活动请求的响应；已响应的请求忽略重复响应（防双击）。
 func _respond_active(value: Variant) -> void:
+	_respond_active_with_identity(value)
+
+
+func _respond_active_with_identity(value: Variant, request_id: int = -1, owner: Variant = null) -> void:
 	if _active_request.is_empty():
+		return
+	if request_id >= 0 and get_active_request_id() != request_id:
+		return
+	if owner != null and get_active_request_owner() != owner:
 		return
 	if _active_request["received"]:
 		return
@@ -89,6 +116,7 @@ func _respond_active(value: Variant) -> void:
 # === IPlayerInput 实现 ===
 
 func wait_action(player: Variant) -> Variant:
+	set_request_owner(player)
 	var req: Dictionary = _enqueue_request(func() -> void:
 		action_requested.emit(player), true)
 	return await _wait_for_request(req)
@@ -141,11 +169,19 @@ func confirm(message: String) -> bool:
 
 
 func show_card(card: Card, target: Variant) -> void:
+	var owner: Variant = _request_owner
+	_request_owner = null
+	if owner != null:
+		request_owner_changed.emit(owner)
 	show_card_requested.emit(card, target)
 
 
 ## 设置 prompt 区文本（fire-and-forget，不等待响应）。
 func set_prompt(text: String) -> void:
+	var owner: Variant = _request_owner
+	_request_owner = null
+	if owner != null:
+		request_owner_changed.emit(owner)
 	set_prompt_requested.emit(text)
 
 
@@ -209,57 +245,57 @@ func play_monster_attack_animation(monster: Variant, targets: Array) -> void:
 
 # === 响应方法（GameScene2D 调用，写入当前活动请求） ===
 
-func respond_action(choice: Variant) -> void:
-	_respond_active(choice)
+func respond_action(choice: Variant, request_id: int = -1, owner: Variant = null) -> void:
+	_respond_active_with_identity(choice, request_id, owner)
 
 
-func respond_choose(choice: Variant) -> void:
-	_respond_active(choice)
+func respond_choose(choice: Variant, request_id: int = -1, owner: Variant = null) -> void:
+	_respond_active_with_identity(choice, request_id, owner)
 
 
-func respond_choose_card(cards: Array) -> void:
-	_respond_active(cards)
+func respond_choose_card(cards: Array, request_id: int = -1, owner: Variant = null) -> void:
+	_respond_active_with_identity(cards, request_id, owner)
 
 
-func respond_choose_target(targets: Array) -> void:
-	_respond_active(targets)
+func respond_choose_target(targets: Array, request_id: int = -1, owner: Variant = null) -> void:
+	_respond_active_with_identity(targets, request_id, owner)
 
 
-func respond_choose_block(blocks: Variant) -> void:
-	_respond_active(blocks)
+func respond_choose_block(blocks: Variant, request_id: int = -1, owner: Variant = null) -> void:
+	_respond_active_with_identity(blocks, request_id, owner)
 
 
-func respond_confirm(result: bool) -> void:
-	_respond_active(result)
+func respond_confirm(result: bool, request_id: int = -1, owner: Variant = null) -> void:
+	_respond_active_with_identity(result, request_id, owner)
 
 
-func respond_redraw_decision(result: bool) -> void:
-	_respond_active(result)
+func respond_redraw_decision(result: bool, request_id: int = -1, owner: Variant = null) -> void:
+	_respond_active_with_identity(result, request_id, owner)
 
 
-func respond_judge_confirm(result: bool) -> void:
-	_respond_active(result)
+func respond_judge_confirm(result: bool, request_id: int = -1, owner: Variant = null) -> void:
+	_respond_active_with_identity(result, request_id, owner)
 
 
-func respond_dice_animation() -> void:
-	_respond_active(null)
+func respond_dice_animation(request_id: int = -1, owner: Variant = null) -> void:
+	_respond_active_with_identity(null, request_id, owner)
 
 
-func respond_monster_draw_animation() -> void:
-	_respond_active(null)
+func respond_monster_draw_animation(request_id: int = -1, owner: Variant = null) -> void:
+	_respond_active_with_identity(null, request_id, owner)
 
 
-func respond_scavenge_draw_animation() -> void:
-	_respond_active(null)
+func respond_scavenge_draw_animation(request_id: int = -1, owner: Variant = null) -> void:
+	_respond_active_with_identity(null, request_id, owner)
 
 
-func respond_card_destroy_animation() -> void:
-	_respond_active(null)
+func respond_card_destroy_animation(request_id: int = -1, owner: Variant = null) -> void:
+	_respond_active_with_identity(null, request_id, owner)
 
 
-func respond_monster_skill_trigger_animation() -> void:
-	_respond_active(null)
+func respond_monster_skill_trigger_animation(request_id: int = -1, owner: Variant = null) -> void:
+	_respond_active_with_identity(null, request_id, owner)
 
 
-func respond_monster_attack_animation() -> void:
-	_respond_active(null)
+func respond_monster_attack_animation(request_id: int = -1, owner: Variant = null) -> void:
+	_respond_active_with_identity(null, request_id, owner)

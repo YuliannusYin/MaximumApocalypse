@@ -116,7 +116,7 @@
           "skill_description": "行动：如果这里没有怪物，移动到另一个已展示的地图块。",
           "skill_type": "block",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_current_block().has_skill(\"airport\") && !player.get_current_block().has_monster()",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0 && player.get_current_block().has_skill(\"airport\") && !player.get_current_block().has_monster()",
           "content": "var candidates = []\nfor b in game.map_area:\n\tif b.is_revealed() and not b.has_monster_mark() and b != player.get_current_block():\n\t\tcandidates.append(b)\nif candidates.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar chosen = await player.choose_block_inline(candidates, \"\\\"机场\\\": 选择目标地图块\", 1)\nif chosen.is_empty():\n\tEventSystem.cancel(event)\n\treturn\ntarget = chosen[0]\nactions.consume_action(player, 1)\nawait player.move_to(target)"
         }
       ]
@@ -171,7 +171,7 @@
           "trigger": "on_reveal_block、on_enter_block",
           "filter": "return true",
           "forced": true,
-          "content": "if event.trigger_name == \"on_reveal_block\" && player.in_phase == \"action\":\n\tactions.end_phase(player, \"action\")\nelif event.trigger_name == \"on_enter_block\" && player.get_current_block().has_skill(\"prison\"):\n\tactions.consume_action(player, 1)"
+          "content": "if event.trigger_name == \"on_reveal_block\" && player.get_effective_phase() == \"action\":\n\tactions.end_phase(player, \"action\")\nelif event.trigger_name == \"on_enter_block\" && player.get_current_block().has_skill(\"prison\"):\n\tactions.consume_action(player, 1)"
         }
       ]
     },
@@ -287,7 +287,7 @@
           "skill_type": "block",
           "active": "action",
           "usable": -1,
-          "filter": "if player.in_phase != \"action\" or player.get_number(\"action_count\") <= 0:\n\treturn false\nvar block = player.get_current_block()\nif block == null or not block.has_skill(\"van\"):\n\treturn false\nif game.mission_config == null or game.mission_config.van_fuel_required <= 0:\n\treturn false\nif block.get_van_fuel() < block.get_van_fuel_max():\n\treturn player.get_equipment(\"fuel\") != null\nif block.has_monster() or block.has_monster_mark():\n\treturn false\nfor p in game.get_all_players():\n\tif p.is_alive() and p.get_current_block() != block:\n\t\treturn false\nreturn true",
+          "filter": "if player.get_effective_phase() != \"action\" or player.get_effective_action_count() <= 0:\n\treturn false\nvar block = player.get_current_block()\nif block == null or not block.has_skill(\"van\"):\n\treturn false\nif game.mission_config == null or game.mission_config.van_fuel_required <= 0:\n\treturn false\nif block.get_van_fuel() < block.get_van_fuel_max():\n\treturn player.get_equipment(\"fuel\") != null\nif block.has_monster() or block.has_monster_mark():\n\treturn false\nfor p in game.get_all_players():\n\tif p.is_alive() and p.get_current_block() != block:\n\t\treturn false\nreturn true",
           "confirm_prompt": "var block = player.get_current_block()\nif block.get_van_fuel() < block.get_van_fuel_max():\n\treturn '行动：是否给 \"面包车\" 添加一桶燃料'\nelse:\n\treturn '行动：是否启动 \"面包车\" 离开'",
           "content": "actions.consume_action(player, 1)\nvar block = player.get_current_block()\nif block.get_van_fuel() < block.get_van_fuel_max():\n\tblock.add_van_fuel(1)\n\tvar fuel_equip = player.get_equipment(\"fuel\")\n\tif fuel_equip != null:\n\t\tactions.discard(player, fuel_equip)\nelse:\n\tgame.game_over(\"win\")"
         }
@@ -393,7 +393,7 @@
           "skill_description": "行动：移动到另一个已经展示的【隧道】地图块",
           "skill_type": "block",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_current_block().has_skill(\"tunnel\")",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0 && player.get_current_block().has_skill(\"tunnel\")",
           "content": "var candidates = []\nfor b in game.map_area:\n\tif b.has_skill(\"tunnel\") and b != player.get_current_block():\n\t\tcandidates.append(b)\nif candidates.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar chosen = await player.choose_block_inline(candidates, \"\\\"隧道\\\": 选择目标地图块\", 1)\nif chosen.is_empty():\n\tEventSystem.cancel(event)\n\treturn\ntarget = chosen[0]\nactions.consume_action(player, 1)\nawait player.move_to(target)"
         }
       ]

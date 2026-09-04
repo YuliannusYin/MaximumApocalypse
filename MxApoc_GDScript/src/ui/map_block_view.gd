@@ -33,7 +33,7 @@ var _avatar_cell_count: int = 0  # 头像占用的格数（其后连续段为怪
 
 signal block_clicked(block: Variant)
 signal block_inspected(block: Variant)
-signal avatar_clicked(block: Variant)
+signal avatar_clicked(player: Variant, block: Variant)
 
 const CLICK_THRESHOLD := 6.0
 
@@ -54,7 +54,11 @@ func setup(block: MapBlock, is_current_player_block: bool = false) -> void:
 	refresh(is_current_player_block)
 
 
-func refresh(is_current_player_block: bool = false, current_player: Variant = null) -> void:
+func refresh(
+	is_current_player_block: bool = false,
+	current_player: Variant = null,
+	interactive_player: Variant = null
+) -> void:
 	if _block == null or not is_instance_valid(_block):
 		return
 	if _block.is_destroyed():
@@ -67,7 +71,7 @@ func refresh(is_current_player_block: bool = false, current_player: Variant = nu
 		_highlight_panel.visible = true
 	else:
 		_highlight_panel.visible = false
-	_update_grid(current_player)
+	_update_grid(current_player, interactive_player)
 	# 记录本次怪物标记数，供外部（GameScene2D）对比判断增减
 	_last_mark_count = _block.monster_marks
 
@@ -376,15 +380,17 @@ func _get_mark_cells() -> Array[TextureRect]:
 
 
 ## 填充九宫格：玩家头像（前 N 格）+ 怪物标记图标（后 M 格）。
-func _update_grid(current_player: Variant = null) -> void:
+func _update_grid(current_player: Variant = null, interactive_player: Variant = null) -> void:
 	# 先清空所有格子
 	for cell in _grid_cells:
 		cell.texture = null
 		cell.visible = false
 		cell.modulate = Color(1, 1, 1, 1)
 		cell.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		if cell.is_connected("gui_input", _on_avatar_cell_input):
-			cell.gui_input.disconnect(_on_avatar_cell_input)
+		for connection in cell.gui_input.get_connections():
+			var callback: Variant = connection.get("callable", null)
+			if callback is Callable:
+				cell.gui_input.disconnect(callback)
 	_cell_player_ids.clear()
 	_avatar_cell_count = 0
 	if _block == null or not is_instance_valid(_block):
@@ -409,10 +415,9 @@ func _update_grid(current_player: Variant = null) -> void:
 				_grid_cells[idx].texture = tex
 				_grid_cells[idx].visible = true
 				_cell_player_ids[idx] = player.get_instance_id()
-				if current_player != null and player == current_player:
+				if interactive_player != null and player == interactive_player:
 					_grid_cells[idx].mouse_filter = Control.MOUSE_FILTER_STOP
-					if not _grid_cells[idx].is_connected("gui_input", _on_avatar_cell_input):
-						_grid_cells[idx].gui_input.connect(_on_avatar_cell_input)
+					_grid_cells[idx].gui_input.connect(_on_avatar_cell_input.bind(player))
 				idx += 1
 	# 头像占用的格数（其后连续段为怪物标记格）
 	_avatar_cell_count = idx
@@ -539,10 +544,10 @@ func set_move_highlight(state: String) -> void:
 			_move_highlight_panel.visible = false
 
 
-func _on_avatar_cell_input(event: InputEvent) -> void:
+func _on_avatar_cell_input(event: InputEvent, player: Variant) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
 		block_inspected.emit(_block)
 		accept_event()
 		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		avatar_clicked.emit(_block)
+		avatar_clicked.emit(player, _block)

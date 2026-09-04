@@ -242,10 +242,78 @@ func test_wait_action_is_preempted_by_nested_confirm() -> void:
 	assert_eq(action_holder["value"], "move", "恢复后 wait_action 应返回真实行动")
 
 
+func test_request_owner_is_propagated_and_restored() -> void:
+	var input: GUIPlayerInput = GUIPlayerInput.new()
+	var source := Player.new()
+	var target := Player.new()
+	var owners: Array = []
+	input.request_owner_changed.connect(func(owner): owners.append(owner))
+
+	var action_holder: Dictionary = {"value": "sentinel"}
+	_run_wait_action_for_player(input, action_holder, source)
+	input.set_request_owner(target)
+	var card_holder: Dictionary = {"value": null}
+	_run_choose_card(input, card_holder, 1, "hand")
+	assert_eq(owners, [source, target], "嵌套请求应先切换到目标玩家")
+
+	input.respond_choose_card([])
+	await get_tree().create_timer(0.05).timeout
+	assert_eq(owners, [source, target, source], "嵌套请求结束后应恢复外层玩家")
+	input.respond_action(null)
+	await get_tree().create_timer(0.05).timeout
+
+
+func test_response_rejects_stale_request_identity() -> void:
+	var input: GUIPlayerInput = GUIPlayerInput.new()
+	var owner := Player.new()
+	var request_info: Array = []
+	input.confirm_requested.connect(func(_message): request_info.append([
+		input.get_active_request_id(),
+		input.get_active_request_owner(),
+	]))
+
+	input.set_request_owner(owner)
+	var holder: Dictionary = {"value": "pending"}
+	_run_confirm(input, holder, "身份校验")
+	await get_tree().process_frame
+
+	assert_eq(request_info.size(), 1)
+	var request_id: int = request_info[0][0]
+	assert_eq(request_info[0][1], owner)
+
+	input.respond_confirm(true, request_id - 1, owner)
+	await get_tree().create_timer(0.02).timeout
+	assert_eq(holder["value"], "pending", "旧 request_id 不应完成当前请求")
+
+	input.respond_confirm(true, request_id, owner)
+	await get_tree().create_timer(0.02).timeout
+	assert_true(holder["value"], "正确 request_id 和 owner 应完成请求")
+
+
+func test_fire_and_forget_owner_does_not_leak_to_next_request() -> void:
+	var input: GUIPlayerInput = GUIPlayerInput.new()
+	var owner := Player.new()
+	var owners: Array = []
+	input.request_owner_changed.connect(func(value): owners.append(value))
+
+	input.set_request_owner(owner)
+	input.show_card(Card.new(), owner)
+	input.confirm("下一次请求")
+	await get_tree().process_frame
+
+	assert_eq(owners, [owner, null], "单向通知消耗 owner 后不应污染下一次请求")
+	input.respond_confirm(false, input.get_active_request_id(), null)
+	await get_tree().create_timer(0.02).timeout
+
+
 # === 协程辅助方法 ===
 
 func _run_wait_action(input: GUIPlayerInput, holder: Dictionary) -> void:
 	holder["value"] = await input.wait_action(null)
+
+
+func _run_wait_action_for_player(input: GUIPlayerInput, holder: Dictionary, player: Player) -> void:
+	holder["value"] = await input.wait_action(player)
 
 
 func _run_choose(input: GUIPlayerInput, holder: Dictionary, options: Array, prompt: String) -> void:

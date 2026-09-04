@@ -11,7 +11,7 @@
     "filter_card": "return target.source != \"scavenge\"",
     "window_prompt": "\"制衡\": 选择两张求生者游戏牌",
     "usable": 1,
-    "filter": "return player.in_phase == \"action\"",
+    "filter": "return player.get_effective_phase() == \"action\"",
     "content": "var cards = event[\"cards\"]\nactions.discard(player, cards)\nactions.draw(player, 1)"
   }
 ]

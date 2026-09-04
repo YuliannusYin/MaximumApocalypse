@@ -14,7 +14,7 @@
           "skill_description": "恢复2点生命值",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_hp() < player.get_max_hp()",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_hp() < player.get_max_hp()",
           "select_target": 1,
           "filter_target": "return target == player",
           "content": "actions.recover(player, 2)"
@@ -33,7 +33,7 @@
           "skill_description": "恢复4点生命值",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_hp() < player.get_max_hp()",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_hp() < player.get_max_hp()",
           "select_target": 1,
           "filter_target": "return target == player",
           "content": "actions.recover(player, 4)"
@@ -52,7 +52,7 @@
           "skill_description": "恢复6点生命值",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_hp() < player.get_max_hp()",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_hp() < player.get_max_hp()",
           "select_target": 1,
           "filter_target": "return target == player",
           "content": "actions.recover(player, 6)"
@@ -70,7 +70,7 @@
           "skill_description": "清除所有的异常状态效果",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\"",
+          "filter": "return player.get_effective_phase() == \"action\"",
           "select_target": 1,
           "filter_target": "return target == player",
           "content": "actions.heal_all_status(player)"
@@ -105,7 +105,7 @@
           "target_type": "equipment",
           "usable": -1,
           "select_target": 1,
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0",
           "filter_target": "return target.in_equipment_area && target.charge_type == \"fuel\" && target.charge_current < target.charge_max",
           "window_prompt": "\"加油\": 选择未满的燃料装备",
           "content": "actions.consume_action(player, 1)\nactions.fill_charge_to(player, target)\nvar fuel_to_discard = null\nfor e in player.equipment_zone:\n\tif e.get(\"english_name\") == \"fuel\":\n\t\tfuel_to_discard = e\n\t\tbreak\nif fuel_to_discard != null:\n\tactions.discard(player, fuel_to_discard)"

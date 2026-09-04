@@ -158,7 +158,9 @@ func _on_monster_spawned(_monster: Variant, _player: Variant) -> void:
 
 
 func _on_card_drawn(player: Variant, _card: Variant) -> void:
-	var in_phase: String = player.get("in_phase") if player != null else ""
+	var in_phase: String = ""
+	if player != null and is_instance_valid(player):
+		in_phase = player.get_effective_phase() if player.has_method("get_effective_phase") else player.get("in_phase")
 	if in_phase == "draw":
 		_trigger("first_draw_phase")
 

@@ -43,7 +43,7 @@ class TableSurface extends Control:
 
 signal block_clicked(block: Variant)
 signal block_inspected(block: Variant)
-signal avatar_clicked(block: Variant)
+signal avatar_clicked(player: Variant, block: Variant)
 
 const WINDOW_W := 1430
 const WINDOW_H := 780
@@ -113,7 +113,7 @@ func build_table_and_map() -> void:
 	refresh_map()
 
 
-func refresh_map() -> void:
+func refresh_map(interactive_player: Variant = null) -> void:
 	var current: Variant = Game.get_current_player()
 	var current_block: Variant = null
 	if current != null and is_instance_valid(current):
@@ -126,7 +126,7 @@ func refresh_map() -> void:
 			continue
 		var is_current: bool = (current_block != null and is_instance_valid(current_block)
 			and block == current_block)
-		view.refresh(is_current, current)
+		view.refresh(is_current, current, interactive_player)
 
 
 ## 仅在 GUI 未消费的事件上开始拖拽 / 缩放，避免手牌、按钮、弹窗被左键拖走。
@@ -226,8 +226,8 @@ func get_block_view(block: Variant) -> Variant:
 
 
 ## 教程挖洞：当前玩家在地图上的头像（或所在地块）。
-func get_current_player_avatar_rect() -> Rect2:
-	var current: Variant = Game.get_current_player()
+func get_current_player_avatar_rect(player: Variant = null) -> Rect2:
+	var current: Variant = player if player != null else Game.get_current_player()
 	if current == null or not is_instance_valid(current):
 		return Rect2()
 	var block: Variant = current.get("current_block")
@@ -342,5 +342,5 @@ func _on_block_inspected_signal(block: Variant) -> void:
 	block_inspected.emit(block)
 
 
-func _on_avatar_clicked_signal(block: Variant) -> void:
-	avatar_clicked.emit(block)
+func _on_avatar_clicked_signal(player: Variant, block: Variant) -> void:
+	avatar_clicked.emit(player, block)

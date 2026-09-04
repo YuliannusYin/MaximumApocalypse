@@ -52,7 +52,7 @@ func get_action_options(game: Game, player: Player) -> Array:
 		return []
 	if not player.has_item(params.get("card_name", "多余配件")):
 		return []
-	if player.action_count < 1:
+	if player.get_effective_action_count() < 1:
 		return []
 	return [{
 		"id": "repair_van",
@@ -77,7 +77,7 @@ func get_action_skill_decl() -> Variant:
 			return false
 		if not player.has_item(params.get("card_name", "多余配件")):
 			return false
-		return player.action_count >= 1
+		return player.get_effective_action_count() >= 1
 	decl["execute"] = func(player: Player) -> void:
 		await _do_repair(_game, player)
 	decl["confirm"] = func(player: Player) -> String:
@@ -109,7 +109,8 @@ func _do_repair(game: Game, player: Player) -> void:
 				break
 	if card_to_discard == null:
 		return
-	player.reduce_action_count(1)
+	if not await player.consume_action_evented(1):
+		return
 	await player.discard(card_to_discard)
 	var count: int = int(_mission_config.mission_state.get("van_repair_count", 0)) + 1
 	_mission_config.mission_state["van_repair_count"] = count

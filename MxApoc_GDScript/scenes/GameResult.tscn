@@ -70,9 +70,9 @@ vertical_alignment = 1
 
 [node name="Seat1" type="PanelContainer" parent="."]
 layout_mode = 1
-offset_left = 340.0
+offset_left = 150.0
 offset_top = 130.0
-offset_right = 520.0
+offset_right = 330.0
 offset_bottom = 430.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_seat")
 
@@ -84,9 +84,9 @@ stretch_mode = 6
 
 [node name="Seat2" type="PanelContainer" parent="."]
 layout_mode = 1
-offset_left = 530.0
+offset_left = 340.0
 offset_top = 130.0
-offset_right = 710.0
+offset_right = 520.0
 offset_bottom = 430.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_seat")
 
@@ -98,9 +98,9 @@ stretch_mode = 6
 
 [node name="Seat3" type="PanelContainer" parent="."]
 layout_mode = 1
-offset_left = 720.0
+offset_left = 530.0
 offset_top = 130.0
-offset_right = 900.0
+offset_right = 710.0
 offset_bottom = 430.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_seat")
 
@@ -112,13 +112,41 @@ stretch_mode = 6
 
 [node name="Seat4" type="PanelContainer" parent="."]
 layout_mode = 1
+offset_left = 720.0
+offset_top = 130.0
+offset_right = 900.0
+offset_bottom = 430.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_seat")
+
+[node name="RoleCard" type="TextureRect" parent="Seat4"]
+layout_mode = 2
+custom_minimum_size = Vector2(160, 280)
+expand_mode = 1
+stretch_mode = 6
+
+[node name="Seat5" type="PanelContainer" parent="."]
+layout_mode = 1
 offset_left = 910.0
 offset_top = 130.0
 offset_right = 1090.0
 offset_bottom = 430.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_seat")
 
-[node name="RoleCard" type="TextureRect" parent="Seat4"]
+[node name="RoleCard" type="TextureRect" parent="Seat5"]
+layout_mode = 2
+custom_minimum_size = Vector2(160, 280)
+expand_mode = 1
+stretch_mode = 6
+
+[node name="Seat6" type="PanelContainer" parent="."]
+layout_mode = 1
+offset_left = 1100.0
+offset_top = 130.0
+offset_right = 1280.0
+offset_bottom = 430.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_seat")
+
+[node name="RoleCard" type="TextureRect" parent="Seat6"]
 layout_mode = 2
 custom_minimum_size = Vector2(160, 280)
 expand_mode = 1

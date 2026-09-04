@@ -114,7 +114,7 @@ func _round_zero() -> void:
 			continue
 		# 设置当前回合玩家
 		current_player = player
-		player.set("in_phase", "round_zero")
+		player.begin_turn_context("round_zero", turn_number, 0)
 		if EventBus != null and is_instance_valid(EventBus):
 			EventBus.turn_started.emit(player)
 			EventBus.player_turn_started.emit(player)
@@ -133,7 +133,8 @@ func _round_zero() -> void:
 			if EventBus != null and is_instance_valid(EventBus):
 				EventBus.log_message.emit(LogColors.player(player.player_name) + " 执行了重调。")
 		# 结束第零轮回合
-		player.set("in_phase", "idle")
+		player._enter_turn_phase("idle", "round_zero_finished")
+		player.finish_turn_context()
 		if EventBus != null and is_instance_valid(EventBus):
 			EventBus.turn_ended.emit(player)
 	current_player = null

@@ -1132,6 +1132,11 @@ func test_start_turn_phases_progression() -> void:
 	var p: Player = _make_player()
 	_setup_game_for_player(p)
 	var phases: Array = []
+	var phase_events: Array = []
+	var phase_callback := func(event: Variant) -> void:
+		if event != null and event.player == p:
+			phase_events.append(event)
+	EventBus.phase_event.connect(phase_callback)
 	var s: Skill = Skill.new()
 	s.trigger = "on_turn_start、before_monster_spawn、before_draw_phase、before_action_phase、before_hunger_settlement、before_poison_settlement、before_zone_monster_act、before_turn_end"
 	s.content = func(_p, _t, _ev: Dictionary, _g) -> void:
@@ -1143,8 +1148,21 @@ func test_start_turn_phases_progression() -> void:
 	Game.map_area = [block]
 	p.current_block = block
 	await p.start_turn()
+	EventBus.phase_event.disconnect(phase_callback)
 	# 验证至少触发了回合开始
 	assert_true(phases.size() > 0, "应触发回合流程节点")
+	assert_eq(
+		phase_events.map(func(event: Variant) -> String: return event.new_phase),
+		["turn_start", "monster_spawn", "draw", "action", "hunger", "poison", "monster_action", "turn_end", "idle"],
+		"正式回合应按固定顺序发射 PhaseEvent"
+	)
+	assert_eq(
+		phase_events[0].old_phase,
+		"idle",
+		"新回合的第一阶段应从 idle 切换"
+	)
+	assert_eq(p.get_turn_context().phase, "idle")
+	assert_false(p.get_turn_context().active, "正常回合完成后 TurnContext 应结束")
 
 
 func test_start_turn_empty_deck_death_returns_early() -> void:
@@ -1159,6 +1177,23 @@ func test_start_turn_empty_deck_death_returns_early() -> void:
 	assert_eq(p.hp, 0, "空牌堆应导致死亡")
 	# 死亡后应提前返回，不再执行后续阶段
 	assert_eq(p.in_phase, "draw", "应在摸牌阶段死亡")
+
+
+func test_start_turn_death_keeps_formal_context_at_current_phase() -> void:
+	var p: Player = _make_player(5, 10)
+	_setup_game_for_player(p)
+	var phases: Array[String] = []
+	var callback := func(event: Variant) -> void:
+		if event != null and event.player == p:
+			phases.append(event.new_phase)
+	EventBus.phase_event.connect(callback)
+
+	await p.start_turn()
+
+	EventBus.phase_event.disconnect(callback)
+	assert_eq(phases, ["turn_start", "monster_spawn", "draw"])
+	assert_eq(p.get_turn_context().phase, "draw")
+	assert_true(p.get_turn_context().active, "死亡提前返回时应保留当前正式上下文")
 
 
 # === 12. 底层接口 ===
@@ -1290,6 +1325,92 @@ func test_play_card_immediately_equipment() -> void:
 	p.input.queue_choose_card([e])
 	await p.play_card_immediately()
 	assert_eq(p.equipment_zone.size(), 1, "应装备选择的卡")
+
+
+func test_play_card_immediately_uses_full_card_lifecycle_for_free_action() -> void:
+	var p: Player = _make_player()
+	_setup_game_for_player(p)
+	p.action_count = 0
+	var card: Card = _make_card("free_action", "action")
+	var observed: Array = []
+	var skill := Skill.new()
+	skill.active = "action"
+	skill.content = func(player: Player, _target, event: Dictionary, _game) -> void:
+		observed.append({
+			"player": player,
+			"in_settlement": player.card_settlement_zone.has(card),
+			"free_action": event.get("free_action", false),
+		})
+	card.add_skill(skill)
+	p.hand.append(card)
+	p.input.queue_choose_card([card])
+
+	var result: Dictionary = await p.play_card_immediately()
+
+	assert_eq(result["used_count"], 1, "有限操作应记录已使用的牌数")
+	assert_eq(observed.size(), 1, "免费使用仍应执行行动牌 content")
+	assert_eq(observed[0]["player"], p)
+	assert_true(observed[0]["in_settlement"], "content 执行期间牌应位于结算区")
+	assert_true(observed[0]["free_action"], "卡牌事件应标记为免费操作")
+	assert_eq(p.action_count, 0, "免费使用不应消耗目标玩家正式行动点")
+	assert_true(p.game_discard_pile.cards.has(card), "完整结算后行动牌应进入弃牌堆")
+
+
+func test_cross_player_card_operation_preserves_source_and_target_context() -> void:
+	var source: Player = _make_player()
+	var target: Player = _make_player()
+	_setup_game_for_player(source)
+	Game.players.append(target)
+	target.game_deck = Pile.new()
+	target.game_discard_pile = Pile.new()
+	target.action_count = 0
+	var card: Card = _make_card("cross_player_card", "action")
+	var observed: Array = []
+	var skill := Skill.new()
+	skill.active = "action"
+	skill.content = func(_player: Player, _target, event: Dictionary, _game) -> void:
+		var actions: GameActions = event.get("actions", null)
+		observed.append([
+			event.get("free_action", false),
+			actions.runtime.get_current_owner() if actions != null else null,
+			actions.runtime.get_current_source() if actions != null else null,
+		])
+	card.add_skill(skill)
+	target.hand.append(card)
+	target.input.queue_choose_card([card])
+
+	var actions := GameActions.new(source, Game)
+	var result: Dictionary = await actions.play_card_immediately(target)
+
+	assert_eq(result["used_count"], 1, "目标玩家应完成一次有限手牌操作")
+	assert_eq(observed, [[true, target, source]], "卡牌 content 应看到目标 owner 和发起 source")
+	assert_eq(actions.runtime.get_current_operation(), {}, "父操作完成后运行时应恢复为空闲")
+	assert_eq(target.action_count, 0, "跨玩家免费操作不应消耗目标行动点")
+
+
+func test_limited_action_operation_does_not_overwrite_formal_player_state() -> void:
+	var source: Player = _make_player()
+	var target: Player = _make_player()
+	_setup_game_for_player(source)
+	Game.players.append(target)
+	target.game_deck = Pile.new()
+	target.game_discard_pile = Pile.new()
+	target.in_phase = "idle"
+	target.action_count = 4
+	var card := _make_card("drawn")
+	target.game_deck.add(card)
+	target.input.queue_action({"type": "pile_draw", "pile_key": "game_deck"})
+
+	var actions := GameActions.new(source, Game)
+	var result: Dictionary = await actions.execute_action_immediately(target, 1)
+
+	assert_eq(result["consumed_actions"], 1, "有限行动应记录实际消耗数")
+	assert_eq(result["remaining_actions"], 0, "有限行动预算应归零")
+	assert_eq(result["reason"], "budget_exhausted")
+	assert_eq(target.in_phase, "idle", "有限行动不应覆盖正式阶段")
+	assert_eq(target.action_count, 4, "有限行动不应消耗目标正式行动点")
+	assert_eq(target.hand, [card], "有限行动仍应执行牌堆行动")
+	assert_eq(actions.runtime.get_current_context(), {}, "有限操作完成后上下文应释放")
 
 
 # === 14. 任务系统方法 ===

@@ -24,6 +24,8 @@ const _ROW_HEIGHT: float = 30.0
 	$Seat2/RoleCard,
 	$Seat3/RoleCard,
 	$Seat4/RoleCard,
+	$Seat5/RoleCard,
+	$Seat6/RoleCard,
 ]
 @onready var _stats_grid: GridContainer = $StatsScroll/StatsGrid
 @onready var _back_button: Button = $BottomBar/BackButton
@@ -50,7 +52,7 @@ func _ready() -> void:
 	HudTheme.apply_slot_button(_back_button, 13)
 	HudTheme.apply_slot_button(_log_button, 13)
 	HudTheme.apply_mission_slot_button(_restart_button, 13)
-	for seat_idx in range(1, 5):
+	for seat_idx in range(1, 7):
 		HudTheme.apply_section_panel(get_node("Seat%d" % seat_idx), Color("#171713"))
 	# 读取本局数据
 	var result: int = -1
@@ -190,7 +192,7 @@ func _record_archive(result: int) -> void:
 	_new_achievements = ArchiveManager.record_game_result(summary)
 
 
-## 新达成成就区块：在结算页右侧（座位区/统计表右旁的空区）动态构建，
+## 新达成成就区块：在结算页右侧（统计表旁）动态构建，
 ## 结构为 标题「新达成成就」+ 滚动列表（每条成就：名称 + 描述）。
 ## 本局无新成就（开发者模式 / 未归档 / 无新解锁）时不创建该区块（天然隐藏）。
 func _fill_new_achievements() -> void:
@@ -198,8 +200,8 @@ func _fill_new_achievements() -> void:
 		return
 	var frame := PanelContainer.new()
 	frame.name = "NewAchievements"
-	frame.position = Vector2(1150.0, 130.0)
-	frame.size = Vector2(270.0, 570.0)
+	frame.position = Vector2(1150.0, 460.0)
+	frame.size = Vector2(270.0, 240.0)
 	frame.add_theme_stylebox_override("panel", _make_stylebox(Color(0.16, 0.13, 0.08)))
 	var outer := VBoxContainer.new()
 	outer.add_theme_constant_override("separation", 8)

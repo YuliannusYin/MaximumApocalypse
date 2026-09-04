@@ -32,7 +32,7 @@ func get_action_options(game: Game, player: Player) -> Array:
 	if not block.has_objective_mark():
 		return []
 	var cost: int = int(params.get("cost", 1))
-	if player.action_count < cost:
+	if player.get_effective_action_count() < cost:
 		return []
 	if params.get("require_no_monster", false) == true:
 		if block.count_monster_mark() > 0:
@@ -61,7 +61,7 @@ func get_action_skill_decl() -> Variant:
 		var block: MapBlock = player.current_block
 		if not block.has_objective_mark():
 			return false
-		if player.action_count < int(params.get("cost", 1)):
+		if player.get_effective_action_count() < int(params.get("cost", 1)):
 			return false
 		if params.get("require_no_monster", false) == true:
 			if _game == null or not is_instance_valid(_game):
@@ -102,6 +102,7 @@ func _do_destroy(game: Game, player: Player) -> void:
 		return
 	var block: MapBlock = player.current_block
 	var cost: int = int(params.get("cost", 1))
-	player.reduce_action_count(cost)
+	if not await player.consume_action_evented(cost):
+		return
 	block.remove_all_objective_marks()
 	game.log_message(LogColors.player(player.player_name) + " 摧毁了 " + LogColors.block(block.block_name) + " 上的任务标记！")

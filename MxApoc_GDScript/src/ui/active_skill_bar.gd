@@ -23,8 +23,10 @@ func refresh(player: Variant) -> void:
 
 	if player == null or not is_instance_valid(player):
 		return
-	if player.get("in_phase") != "action":
+	var in_action: bool = player.get_effective_phase() == "action" if player.has_method("get_effective_phase") else player.get("in_phase") == "action"
+	if not in_action:
 		return
+	var has_action: bool = player.is_action_available(1) if player.has_method("is_action_available") else player.get("action_count") > 0
 
 	var seen_names: Dictionary = {}
 	for skill in player.get("skills"):
@@ -46,7 +48,7 @@ func refresh(player: Variant) -> void:
 		else:
 			HudTheme.apply_slot_button(btn, 12)
 		btn.clip_text = true
-		btn.disabled = not skill.is_usable()
+		btn.disabled = not skill.is_usable() or not has_action
 		btn.pressed.connect(_on_skill_button_pressed.bind(skill))
 		_active_skill_grid.add_child(btn)
 		_active_skill_buttons.append(btn)
