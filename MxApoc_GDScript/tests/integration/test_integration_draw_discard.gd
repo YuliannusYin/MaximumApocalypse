@@ -1,77 +1,8 @@
-extends GutTest
+extends TestBase
 
 ## 集成测试：抓牌 + 弃牌 + 弃牌堆分派 全链路。
 ## 覆盖 Player.draw + Player.discard + Pile 循环 + 弃牌堆按 source 分派。
 ## 设计文档：GameDesignDocus/GameSystem/Entities/Player.md
-
-
-# === 辅助方法 ===
-
-func _make_player(name: String = "P", hp: int = 10) -> Player:
-	var p: Player = Player.new()
-	p.player_name = name
-	p.hp = hp
-	p.max_hp = hp
-	p.game_deck = Pile.new()
-	p.game_discard_pile = Pile.new()
-	return p
-
-
-func _make_card(name: String = "test_card", type: String = "action", source: String = "game") -> Card:
-	var c: Card = Card.new()
-	c.card_name = name
-	c.card_type = type
-	c.source = source
-	return c
-
-
-func _make_scavenge_card(name: String = "test_scavenge", color: String = "blue") -> ScavengeCard:
-	var c: ScavengeCard = ScavengeCard.new()
-	c.card_name = name
-	c.card_type = "item"
-	c.source = "scavenge"
-	c.color = color
-	c.scavenge_type = "consumable"
-	return c
-
-
-func _make_equipment(name: String = "test_equip") -> EquipmentCard:
-	var e: EquipmentCard = EquipmentCard.new()
-	e.card_name = name
-	e.card_type = "equipment"
-	e.card_subtype = "equipment"
-	e.source = "game"
-	e.charge_type = "ammo"
-	e.charge_max = 3
-	e.charge_current = 3
-	return e
-
-
-func _clear_game() -> void:
-	Game.players = []
-	Game.map_area = []
-	Game.monster_pile = null
-	Game.monster_discard_pile = null
-	Game.scavenge_discard_pile = null
-	Game.red_scavenge_pile = null
-	Game.green_scavenge_pile = null
-	Game.blue_scavenge_pile = null
-	Game.mission_config = null
-	Game.removed_cards = []
-	Game.game_over_called = false
-	Game.game_result = ""
-	Game.coop_death_mode = false
-	Game.log_list = []
-	if Game.state_machine != null and is_instance_valid(Game.state_machine):
-		Game.state_machine.init()
-
-
-func before_each() -> void:
-	_clear_game()
-
-
-func after_each() -> void:
-	_clear_game()
 
 
 # === 测试用例 ===

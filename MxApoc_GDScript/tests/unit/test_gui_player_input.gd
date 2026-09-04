@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## 测试 GUIPlayerInput 异步等待/响应机制。
 

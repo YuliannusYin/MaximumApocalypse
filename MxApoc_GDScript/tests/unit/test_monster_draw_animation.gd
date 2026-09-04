@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## 抓取怪物牌动画单元测试。
 ## 覆盖 Player.draw_monster 中 _play_monster_draw_animation 的调用约定：
@@ -7,7 +7,7 @@ extends GutTest
 
 # === 辅助方法 ===
 
-func _make_player(hp: int = 10, max_hp: int = 10) -> Player:
+func _make_combat_player(hp: int = 10, max_hp: int = 10) -> Player:
 	var p: Player = Player.new()
 	p.hp = hp
 	p.max_hp = max_hp
@@ -15,19 +15,6 @@ func _make_player(hp: int = 10, max_hp: int = 10) -> Player:
 	p.game_deck = Pile.new()
 	p.game_discard_pile = Pile.new()
 	return p
-
-
-func _make_monster_card(name: String = "test_monster") -> MonsterCard:
-	var c: MonsterCard = MonsterCard.new()
-	c.card_name = name
-	c.card_type = "monster"
-	c.source = "monster"
-	c.monster_type = "zombie"
-	c.monster_level = "normal"
-	c.max_hp = 3
-	c.damage_value = 2
-	c.range = "none"
-	return c
 
 
 func _setup_game_for_player(p: Player) -> void:
@@ -48,31 +35,6 @@ func _setup_game_for_player(p: Player) -> void:
 		Game.state_machine.init()
 
 
-func _clear_game() -> void:
-	Game.players = []
-	Game.map_area = []
-	Game.monster_pile = null
-	Game.monster_discard_pile = null
-	Game.scavenge_discard_pile = null
-	Game.red_scavenge_pile = null
-	Game.green_scavenge_pile = null
-	Game.blue_scavenge_pile = null
-	Game.mission_config = null
-	Game.removed_cards = []
-	Game.game_over_called = false
-	Game.game_result = ""
-	if Game.state_machine != null and is_instance_valid(Game.state_machine):
-		Game.state_machine.init()
-
-
-func before_each() -> void:
-	_clear_game()
-
-
-func after_each() -> void:
-	_clear_game()
-
-
 ## 探针 input：记录 play_monster_draw_animation 的调用（次数/玩家/卡牌）。
 class _MonsterDrawSpyInput extends CliPlayerInput:
 	var calls: Array = []  # 每项 {"player": Player, "card": MonsterCard}
@@ -84,7 +46,7 @@ class _MonsterDrawSpyInput extends CliPlayerInput:
 # === 用例 ===
 
 func test_draw_monster_two_plays_animation_per_card() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_combat_player()
 	_setup_game_for_player(p)
 	var spy: _MonsterDrawSpyInput = _MonsterDrawSpyInput.new()
 	p.input = spy
@@ -102,7 +64,7 @@ func test_draw_monster_two_plays_animation_per_card() -> void:
 
 
 func test_draw_monster_zero_no_animation() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_combat_player()
 	_setup_game_for_player(p)
 	var spy: _MonsterDrawSpyInput = _MonsterDrawSpyInput.new()
 	p.input = spy
@@ -113,7 +75,7 @@ func test_draw_monster_zero_no_animation() -> void:
 
 
 func test_draw_monster_empty_piles_game_over_no_animation() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_combat_player()
 	_setup_game_for_player(p)
 	var spy: _MonsterDrawSpyInput = _MonsterDrawSpyInput.new()
 	p.input = spy
@@ -126,7 +88,7 @@ func test_draw_monster_empty_piles_game_over_no_animation() -> void:
 
 
 func test_draw_monster_null_input_no_crash() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_combat_player()
 	_setup_game_for_player(p)
 	p.input = null
 	Game.monster_pile.add(_make_monster_card("m1"))

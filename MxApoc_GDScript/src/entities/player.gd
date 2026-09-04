@@ -93,6 +93,13 @@ func has_left_session() -> bool:
 	return Game == null or not is_instance_valid(Game) or not Game.is_session(session_id)
 
 
+## 对局已结束或已退出时返回 true。用于立刻停掉回合循环。
+func is_match_over() -> bool:
+	if has_left_session():
+		return true
+	return Game != null and is_instance_valid(Game) and Game.state_machine != null and Game.state_machine.is_game_over()
+
+
 # === 一、状态管理 ===
 
 ## 回复生命值（4 节点：前/时/系统加血/后）。
@@ -422,7 +429,7 @@ func draw_monster(n: int, runtime: Variant = null) -> void:
 					Game.monster_discard_pile.shuffle_into(Game.monster_pile)
 				# 重洗后仍空 → 游戏失败
 				if Game.monster_pile == null or Game.monster_pile.is_empty():
-					Game.game_over("lose")
+					await Game.game_over("lose", rt)
 					return
 			# 抓取怪物卡
 			var card: MonsterCard = Game.monster_pile.draw()
@@ -810,7 +817,7 @@ func monster_spawn_judge() -> void:
 				elif block.count_monster_mark() == 3 and block.has_player():
 					for p in block.get_players():
 						if p != null and is_instance_valid(p) and p.is_alive():
-							await p.draw_monster(1)
+							await p.draw_monster(1, Game.event_scheduler)
 
 
 # === 六、死亡流程 ===
@@ -877,10 +884,10 @@ func death(source: Entity, runtime: Variant = null) -> void:
 		await trigger("after_player_death", event)
 		# 检查游戏结束条件
 		if Game != null and Game.coop_death_mode:
-			Game.game_over("lose", rt)
+			await Game.game_over("lose", rt)
 			return
 		if Game != null and Game.all_players_dead():
-			Game.game_over("lose", rt),
+			await Game.game_over("lose", rt),
 		{"target": self, "source": source})
 
 
@@ -1301,8 +1308,9 @@ func _format_target_name(target: Variant) -> String:
 
 ## 玩家回合完整流程（21 节点，节点 21 由状态机执行）。
 func start_turn() -> void:
-	if has_left_session():
+	if is_match_over():
 		return
+	var scheduler: Variant = Game.event_scheduler if Game != null else null
 	var event: Dictionary = EventSystem.create_event({"player": self})
 	# 节点 1：进入玩家回合（非钩子节点）
 	var turn_number: int = 0
@@ -1318,34 +1326,34 @@ func start_turn() -> void:
 			skill.reset_use_count()
 	# 节点 2：回合开始前
 	await trigger("before_turn_start", event)
-	if has_left_session():
+	if is_match_over():
 		return
 	# 节点 3：回合开始时
 	await trigger("on_turn_start", event)
-	if has_left_session():
+	if is_match_over():
 		return
 	# 节点 4：怪物出生前
 	phase_event = _enter_turn_phase("monster_spawn")
 	event["phase_event"] = phase_event
 	await trigger("before_monster_spawn", event)
-	if has_left_session():
+	if is_match_over():
 		return
 	# 节点 5：怪物出生时
 	await trigger("on_monster_spawn", event)
-	if has_left_session():
+	if is_match_over():
 		return
 	await monster_spawn_judge()
-	if has_left_session():
+	if is_match_over():
 		return
 	# 节点 6：摸牌阶段前
 	phase_event = _enter_turn_phase("draw")
 	event["phase_event"] = phase_event
 	await trigger("before_draw_phase", event)
-	if has_left_session():
+	if is_match_over():
 		return
 	# 节点 7：摸牌阶段（牌堆空 → 死亡；手牌超限时由 draw 内的 resolve_hand_overflow 弹窗弃牌）
-	await draw(1)
-	if has_left_session() or not is_alive():
+	await draw(1, scheduler)
+	if is_match_over() or not is_alive():
 		return
 	# 节点 8：行动阶段前（含潜行检定）
 	phase_event = _enter_turn_phase("action")
@@ -1353,83 +1361,83 @@ func start_turn() -> void:
 	if current_block != null and current_block.has_method("has_monster_mark"):
 		if current_block.has_monster_mark():
 			if not await sneak_judge():
-				if has_left_session():
+				if is_match_over():
 					return
 				var num: int = current_block.count_monster_mark()
 				current_block.remove_monster_mark(num)
-				await draw_monster(num)
-				if has_left_session():
+				await draw_monster(num, scheduler)
+				if is_match_over():
 					return
 	await trigger("before_action_phase", event)
-	if has_left_session():
+	if is_match_over():
 		return
 	# 节点 9：行动阶段
 	await wait_player_action()
-	if has_left_session():
+	if is_match_over():
 		return
 	# 节点 10：行动阶段结束前
 	await trigger("before_action_phase_end", event)
-	if has_left_session():
+	if is_match_over():
 		return
 	# 节点 11：行动阶段结束时
 	await trigger("on_action_phase_end", event)
-	if has_left_session():
+	if is_match_over():
 		return
 	# 节点 12：求生者饥饿状态结算前
 	phase_event = _enter_turn_phase("hunger")
 	event["phase_event"] = phase_event
 	await trigger("before_hunger_settlement", event)
-	if has_left_session():
+	if is_match_over():
 		return
 	var hunger_cancelled: bool = EventSystem.is_cancelled(event)
 	if not hunger_cancelled:
 		# 节点 13：求生者饥饿状态结算时
 		await trigger("on_hunger_settlement", event)
-		if has_left_session():
+		if is_match_over():
 			return
-		await increase_hunger_evented(1)
-		if has_left_session() or not is_alive():
+		await increase_hunger_evented(1, scheduler)
+		if is_match_over() or not is_alive():
 			return
 	# 节点 14：求生者中毒状态结算前
 	phase_event = _enter_turn_phase("poison")
 	event["phase_event"] = phase_event
 	await trigger("before_poison_settlement", event)
-	if has_left_session():
+	if is_match_over():
 		return
 	# 节点 15：求生者中毒状态结算时
 	await trigger("on_poison_settlement", event)
-	if has_left_session():
+	if is_match_over():
 		return
-	await poison_evented()
-	if has_left_session() or not is_alive():
+	await poison_evented(scheduler)
+	if is_match_over() or not is_alive():
 		return
 	# 节点 16：面前怪物行动前
 	phase_event = _enter_turn_phase("monster_action")
 	event["phase_event"] = phase_event
 	await trigger("before_zone_monster_act", event)
-	if has_left_session():
+	if is_match_over():
 		return
 	# 节点 17：面前怪物行动时
 	await trigger("on_zone_monster_act", event)
-	if has_left_session():
+	if is_match_over():
 		return
 	var monsters_copy: Array = monster_zone.duplicate()
 	for monster in monsters_copy:
-		if has_left_session():
+		if is_match_over():
 			return
 		if monster != null and is_instance_valid(monster):
-			await monster.act()
-	if has_left_session() or not is_alive():
+			await monster.act(scheduler)
+	if is_match_over() or not is_alive():
 		return
 	# 节点 18：回合结束前
 	phase_event = _enter_turn_phase("turn_end")
 	event["phase_event"] = phase_event
 	await trigger("before_turn_end", event)
-	if has_left_session():
+	if is_match_over():
 		return
 	# 节点 19：回合结束时
 	await trigger("on_turn_end", event)
-	if has_left_session():
+	if is_match_over():
 		return
 	# 节点 20：退出玩家回合
 	phase_event = _enter_turn_phase("idle")
@@ -2144,7 +2152,7 @@ func wait_player_action(_operation_context: Dictionary = {}) -> Dictionary:
 		"remaining_actions": int(_operation_context.get("remaining_actions", 0)),
 	}
 	while is_alive():
-		if has_left_session():
+		if is_match_over():
 			result["reason"] = "cancelled"
 			break
 		if _phase_end_requested != "":
@@ -2155,7 +2163,7 @@ func wait_player_action(_operation_context: Dictionary = {}) -> Dictionary:
 			result["reason"] = "budget_exhausted"
 			break
 		var choice: Variant = await input.wait_action(self)
-		if has_left_session():
+		if is_match_over():
 			result["reason"] = "cancelled"
 			break
 		if choice == null:
@@ -2163,6 +2171,9 @@ func wait_player_action(_operation_context: Dictionary = {}) -> Dictionary:
 			break  # 结束回合
 		if typeof(choice) == TYPE_DICTIONARY:
 			await dispatch_player_action(choice)
+			if is_match_over():
+				result["reason"] = "cancelled"
+				break
 	if result["reason"] == "":
 		result["reason"] = "player_unavailable" if not is_alive() else "completed"
 	result["consumed_actions"] = int(get_operation_context().get("consumed_actions", result["consumed_actions"]))
@@ -2190,7 +2201,7 @@ func dispatch_player_action(choice: Dictionary) -> void:
 		var target_block: Variant = choice.get("target", null)
 		if target_block != null and is_instance_valid(target_block):
 			if await consume_action_evented(1, operation_runtime):
-				await move_to(target_block)
+				await move_to(target_block, operation_runtime)
 
 
 ## 执行任务行动选项（actions 组件/任务脚本提供的专属行动）。
@@ -2211,7 +2222,7 @@ func _execute_mission_action(option_id: String) -> void:
 func _execute_pile_draw(pile_key: String, operation_runtime: Variant = null) -> void:
 	if pile_key == "game_deck":
 		if await consume_action_evented(1, operation_runtime):
-			await draw(1)
+			await draw(1, operation_runtime)
 		return
 	var pile: Pile = null
 	match pile_key:
@@ -2226,7 +2237,7 @@ func _execute_pile_draw(pile_key: String, operation_runtime: Variant = null) -> 
 	if pile == null:
 		return
 	if await consume_action_evented(1, operation_runtime):
-		await draw_scavenge(1, pile)
+		await draw_scavenge(1, pile, operation_runtime)
 
 
 ## 设置标记让 wait_player_action 循环跳出。phase 为请求结束的阶段名。

@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## 首批迁移包的防逃逸检查。旧数据允许继续使用 await player.*，
 ## 但已迁移的怪物包不得回退到会脱离当前操作上下文的旧调用形式。

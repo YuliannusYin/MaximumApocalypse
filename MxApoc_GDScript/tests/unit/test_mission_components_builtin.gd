@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## 内置任务组件单元测试（三层架构第二层：5 个可复用组件）。
 ## 覆盖：collect_items / all_players_at_block / escort_equipment_at_block /
@@ -10,57 +10,14 @@ extends GutTest
 
 # === 辅助方法 ===
 
-func _make_player(name: String = "P", hp: int = 10) -> Player:
-	var p: Player = Player.new()
-	p.player_name = name
-	p.hp = hp
-	p.max_hp = hp
-	p.game_deck = Pile.new()
-	p.game_discard_pile = Pile.new()
-	return p
-
-
-func _make_card(card_name: String = "test_card", type: String = "action") -> Card:
-	var c: Card = Card.new()
-	c.card_name = card_name
-	c.card_type = type
-	c.source = "game"
-	return c
-
-
-func _make_block(block_name: String = "test_block", x: int = 0, y: int = 0) -> MapBlock:
-	var b: MapBlock = MapBlock.new()
-	b.block_name = block_name
-	b.set_coordinate(x, y)
-	return b
-
-
-func _clear_game() -> void:
-	Game.players = []
-	Game.map_area = []
-	Game.monster_pile = null
-	Game.monster_discard_pile = null
-	Game.scavenge_discard_pile = null
-	Game.red_scavenge_pile = null
-	Game.green_scavenge_pile = null
-	Game.blue_scavenge_pile = null
-	Game.mission_config = null
-	Game.removed_cards = []
-	Game.game_over_called = false
-	Game.game_result = ""
-	Game.log_list = []
-	if Game.state_machine != null and is_instance_valid(Game.state_machine):
-		Game.state_machine.init()
-
-
 func before_each() -> void:
 	MissionComponentRegistry.reset()
-	_clear_game()
+	super.before_each()
 
 
 func after_each() -> void:
 	MissionComponentRegistry.reset()
-	_clear_game()
+	super.after_each()
 
 
 # === 0. 注册表内置映射 ===
@@ -80,7 +37,8 @@ func test_registry_builtin_components_registered() -> void:
 
 # === 1. collect_items ===
 
-func test_collect_items_insufficient() -> void:
+## 合并族：collect_items 手持计数达标与否（原 2 个独立测试，断言逐段保留）。
+func test_collect_items_sufficient_and_insufficient() -> void:
 	var component: MissionComponent = MissionComponentRegistry.create("collect_items", {"items": {"燃料": 3, "弹药（少量）": 1}})
 	var p1: Player = _make_player("P1")
 	var p2: Player = _make_player("P2")
@@ -88,18 +46,10 @@ func test_collect_items_insufficient() -> void:
 	p1.hand.append(_make_card("燃料"))
 	p2.hand.append(_make_card("燃料"))
 	Game.players = [p1, p2]
+	# 弹药数量不足 → 失败
 	assert_false(component.check_win(Game), "弹药数量不足应判定失败")
-
-
-func test_collect_items_sufficient() -> void:
-	var component: MissionComponent = MissionComponentRegistry.create("collect_items", {"items": {"燃料": 3, "弹药（少量）": 1}})
-	var p1: Player = _make_player("P1")
-	var p2: Player = _make_player("P2")
-	p1.hand.append(_make_card("燃料"))
-	p1.hand.append(_make_card("燃料"))
-	p2.hand.append(_make_card("燃料"))
+	# 补足弹药 → 达标
 	p2.hand.append(_make_card("弹药（少量）"))
-	Game.players = [p1, p2]
 	assert_true(component.check_win(Game), "每种卡名数量均达标应判定胜利")
 
 
@@ -125,17 +75,9 @@ func test_collect_items_dead_player_excluded() -> void:
 
 # === 1.1 collect_items submit 模式 ===
 
-func test_collect_items_submit_sufficient() -> void:
-	var mc: MissionConfig = MissionConfig.new()
-	var component: MissionComponent = MissionComponentRegistry.create("collect_items", {"items": {"燃料": 3, "弹药（少量）": 1}, "mode": "submit"})
-	component.setup(Game, mc)
-	mc.mission_state["submitted_items"] = {"燃料": 3, "弹药（少量）": 2}
-	var p1: Player = _make_player("P1")
-	Game.players = [p1]
-	assert_true(component.check_win(Game), "submitted_items 每种卡名计数达标应判定胜利")
-
-
-func test_collect_items_submit_insufficient() -> void:
+## 合并族：collect_items submit 模式达标与否（原 2 个独立测试，断言逐段保留）。
+func test_collect_items_submit_sufficient_and_insufficient() -> void:
+	# --- 缺键与计数不足 → 失败 ---
 	var mc: MissionConfig = MissionConfig.new()
 	var component: MissionComponent = MissionComponentRegistry.create("collect_items", {"items": {"燃料": 3}, "mode": "submit"})
 	component.setup(Game, mc)
@@ -144,6 +86,12 @@ func test_collect_items_submit_insufficient() -> void:
 	assert_false(component.check_win(Game), "submitted_items 缺键应判定失败")
 	mc.mission_state["submitted_items"] = {"燃料": 2}
 	assert_false(component.check_win(Game), "submitted_items 计数不足应判定失败")
+	# --- 每种卡名计数达标 → 胜利 ---
+	mc = MissionConfig.new()
+	component = MissionComponentRegistry.create("collect_items", {"items": {"燃料": 3, "弹药（少量）": 1}, "mode": "submit"})
+	component.setup(Game, mc)
+	mc.mission_state["submitted_items"] = {"燃料": 3, "弹药（少量）": 2}
+	assert_true(component.check_win(Game), "submitted_items 每种卡名计数达标应判定胜利")
 
 
 func test_collect_items_submit_ignores_holdings() -> void:
@@ -177,45 +125,31 @@ func test_collect_items_hold_mode_regression() -> void:
 
 # === 2. all_players_at_block ===
 
-func test_all_players_at_block_all_present() -> void:
+## 合并族：all_players_at_block 玩家分布判定（原 4 个独立测试，断言逐段保留）。
+func test_all_players_at_block_placement_cases() -> void:
 	var component: MissionComponent = MissionComponentRegistry.create("all_players_at_block", {"block_name": "撤离点"})
 	var p1: Player = _make_player("P1")
 	var p2: Player = _make_player("P2")
 	p1.current_block = _make_block("撤离点", 0, 0)
 	p2.current_block = _make_block("撤离点", 1, 0)
 	Game.players = [p1, p2]
+	# 全部存活玩家在指定地块 → 胜利
 	assert_true(component.check_win(Game), "全部存活玩家在指定地块应判定胜利")
-
-
-func test_all_players_at_block_one_elsewhere() -> void:
-	var component: MissionComponent = MissionComponentRegistry.create("all_players_at_block", {"block_name": "撤离点"})
-	var p1: Player = _make_player("P1")
-	var p2: Player = _make_player("P2")
-	p1.current_block = _make_block("撤离点", 0, 0)
+	# 一名玩家在其他地块 → 失败
 	p2.current_block = _make_block("避难所", 1, 0)
-	Game.players = [p1, p2]
 	assert_false(component.check_win(Game), "有玩家不在指定地块应判定失败")
-
-
-func test_all_players_at_block_missing_block() -> void:
-	var component: MissionComponent = MissionComponentRegistry.create("all_players_at_block", {"block_name": "撤离点"})
-	var p1: Player = _make_player("P1")
-	p1.current_block = _make_block("撤离点", 0, 0)
-	var p2: Player = _make_player("P2")
-	Game.players = [p1, p2]
+	# 玩家 current_block 为空 → 失败
+	p2.current_block = null
 	assert_false(component.check_win(Game), "玩家 current_block 为空应判定失败")
-
-
-func test_all_players_at_block_no_alive_players() -> void:
-	var component: MissionComponent = MissionComponentRegistry.create("all_players_at_block", {"block_name": "撤离点"})
-	var p1: Player = _make_player("P1", 0)
-	Game.players = [p1]
+	# 无存活玩家 → 失败
+	Game.players = [_make_player("P3", 0)]
 	assert_false(component.check_win(Game), "无存活玩家应判定失败")
 
 
 # === 2.1 all_players_at_block no_monster ===
 
-func test_all_players_at_block_no_monster_with_mark() -> void:
+## 合并族：all_players_at_block no_monster 判定（原 4 个独立测试，断言逐段保留）。
+func test_all_players_at_block_no_monster_cases() -> void:
 	var component: MissionComponent = MissionComponentRegistry.create("all_players_at_block", {"block_name": "撤离点", "no_monster": true})
 	var p1: Player = _make_player("P1")
 	var p2: Player = _make_player("P2")
@@ -224,39 +158,21 @@ func test_all_players_at_block_no_monster_with_mark() -> void:
 	p2.current_block = block
 	block.add_monster_mark(1)
 	Game.players = [p1, p2]
+	# 地块有怪物标记 → 失败
 	assert_false(component.check_win(Game), "no_monster 时地块有怪物标记应判定失败")
-
-
-func test_all_players_at_block_no_monster_with_monster_zone() -> void:
-	var component: MissionComponent = MissionComponentRegistry.create("all_players_at_block", {"block_name": "撤离点", "no_monster": true})
-	var p1: Player = _make_player("P1")
-	var p2: Player = _make_player("P2")
-	p1.current_block = _make_block("撤离点", 0, 0)
+	# 玩家面前有怪 → 失败
 	p2.current_block = _make_block("撤离点", 1, 0)
+	block.remove_all_monster_marks()
 	p2.monster_zone.append(Monster.new())
-	Game.players = [p1, p2]
 	assert_false(component.check_win(Game), "no_monster 时有玩家面前有怪应判定失败")
-
-
-func test_all_players_at_block_no_monster_clear() -> void:
-	var component: MissionComponent = MissionComponentRegistry.create("all_players_at_block", {"block_name": "撤离点", "no_monster": true})
-	var p1: Player = _make_player("P1")
-	var p2: Player = _make_player("P2")
-	p1.current_block = _make_block("撤离点", 0, 0)
-	p2.current_block = _make_block("撤离点", 1, 0)
-	Game.players = [p1, p2]
+	# 无怪物标记且玩家面前无怪 → 胜利
+	p2.monster_zone.clear()
 	assert_true(component.check_win(Game), "无怪物标记且玩家面前无怪应判定胜利")
-
-
-func test_all_players_at_block_monster_ignored_without_no_monster() -> void:
-	var component: MissionComponent = MissionComponentRegistry.create("all_players_at_block", {"block_name": "撤离点"})
-	var p1: Player = _make_player("P1")
-	var block: MapBlock = _make_block("撤离点", 0, 0)
-	p1.current_block = block
+	# 未配置 no_monster 时怪物不影响判定
+	var component2: MissionComponent = MissionComponentRegistry.create("all_players_at_block", {"block_name": "撤离点"})
 	block.add_monster_mark(2)
 	p1.monster_zone.append(Monster.new())
-	Game.players = [p1]
-	assert_true(component.check_win(Game), "未配置 no_monster 时怪物标记与面前怪物不影响判定")
+	assert_true(component2.check_win(Game), "未配置 no_monster 时怪物标记与面前怪物不影响判定")
 
 
 # === 3. escort_equipment_at_block（直接查找持有者模式） ===
@@ -276,25 +192,21 @@ func _setup_escort(block_name: String = "撤离点") -> Dictionary:
 	return {"mc": mc, "p1": p1, "p2": p2}
 
 
-func test_escort_holder_at_block() -> void:
+## 合并族：escort_equipment_at_block 持有者判定（原 4 个独立测试，断言逐段保留）。
+func test_escort_holder_cases() -> void:
+	# 持有者在目标地块 → 胜利
 	var ctx: Dictionary = _setup_escort()
 	ctx["p1"].equipment_zone.append(_make_card("科学家", "equipment"))
 	assert_true(ctx["mc"].check_win(Game), "装备科学家的存活玩家在目标地块应判定胜利")
-
-
-func test_escort_holder_elsewhere() -> void:
-	var ctx: Dictionary = _setup_escort()
+	# 持有者不在目标地块 → 失败
+	ctx = _setup_escort()
 	ctx["p2"].equipment_zone.append(_make_card("科学家", "equipment"))
 	assert_false(ctx["mc"].check_win(Game), "持有者不在目标地块应判定失败")
-
-
-func test_escort_no_holder() -> void:
-	var ctx: Dictionary = _setup_escort()
+	# 无人装备指定卡 → 失败
+	ctx = _setup_escort()
 	assert_false(ctx["mc"].check_win(Game), "无人装备指定卡应判定失败")
-
-
-func test_escort_holder_dead() -> void:
-	var ctx: Dictionary = _setup_escort()
+	# 持有者死亡 → 失败
+	ctx = _setup_escort()
 	var p1: Player = ctx["p1"]
 	p1.equipment_zone.append(_make_card("科学家", "equipment"))
 	p1.hp = 0
@@ -324,20 +236,18 @@ func test_rescue_option_available() -> void:
 	assert_true(options[0]["execute"].is_valid(), "选项 execute 应为有效 Callable")
 
 
-func test_rescue_option_wrong_block() -> void:
+## 合并族：spend_action_rescue 选项隐藏条件（原 3 个独立测试，断言逐段保留）。
+func test_rescue_option_hidden_cases() -> void:
+	# 不在解救地点
 	var ctx: Dictionary = _setup_rescue({"block_name": "实验室"}, 2)
 	var p: Player = ctx["p"]
 	p.current_block = _make_block("避难所")
 	assert_eq(ctx["component"].get_action_options(Game, p).size(), 0, "不在解救地点不应出现选项")
-
-
-func test_rescue_option_insufficient_actions() -> void:
-	var ctx: Dictionary = _setup_rescue({"block_name": "实验室"}, 1)
+	# 行动数不足
+	ctx = _setup_rescue({"block_name": "实验室"}, 1)
 	assert_eq(ctx["component"].get_action_options(Game, ctx["p"]).size(), 0, "行动数不足不应出现选项")
-
-
-func test_rescue_option_hidden_after_rescued() -> void:
-	var ctx: Dictionary = _setup_rescue({"block_name": "实验室"}, 2)
+	# 已解救后
+	ctx = _setup_rescue({"block_name": "实验室"}, 2)
 	ctx["mc"].mission_state["scientist_rescued"] = true
 	assert_eq(ctx["component"].get_action_options(Game, ctx["p"]).size(), 0, "已解救后不应再出现选项")
 

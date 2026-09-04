@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## Entity 基类单元测试。
 

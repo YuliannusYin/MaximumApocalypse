@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## Equipment 实体化回归测试。
 ## 覆盖装备牌实体化新契约：装备区持有 Equipment 实体（非卡），来源卡通过 equipment_card 回引，
@@ -17,7 +17,7 @@ extends GutTest
 
 # === 辅助方法 ===
 
-func _make_player(hp: int = 10, max_hp: int = 10) -> Player:
+func _make_combat_player(hp: int = 10, max_hp: int = 10) -> Player:
 	var p: Player = Player.new()
 	p.hp = hp
 	p.max_hp = max_hp
@@ -25,19 +25,6 @@ func _make_player(hp: int = 10, max_hp: int = 10) -> Player:
 	p.game_deck = Pile.new()
 	p.game_discard_pile = Pile.new()
 	return p
-
-
-func _make_equipment(name: String = "test_equip") -> EquipmentCard:
-	var e: EquipmentCard = EquipmentCard.new()
-	e.card_name = name
-	e.english_name = name
-	e.card_type = "equipment"
-	e.card_subtype = "equipment"
-	e.source = "game"
-	e.charge_type = "ammo"
-	e.charge_max = 3
-	e.charge_current = 3
-	return e
 
 
 func _setup_game_for_player(p: Player) -> void:
@@ -59,24 +46,6 @@ func _setup_game_for_player(p: Player) -> void:
 		Game.state_machine.init()
 
 
-func _clear_game() -> void:
-	Game.players = []
-	Game.map_area = []
-	Game.monster_pile = null
-	Game.monster_discard_pile = null
-	Game.scavenge_discard_pile = null
-	Game.red_scavenge_pile = null
-	Game.green_scavenge_pile = null
-	Game.blue_scavenge_pile = null
-	Game.mission_config = null
-	Game.removed_cards = []
-	Game.game_over_called = false
-	Game.game_result = ""
-	Game.log_list = []
-	if Game.state_machine != null and is_instance_valid(Game.state_machine):
-		Game.state_machine.init()
-
-
 ## 从 DataManager 拾荒牌堆中按卡名取首个技能的 SkillData（用于获取原始 filter_target 字符串）。
 func _get_scavenge_skill_data(card_name: String) -> SkillData:
 	for color in ["red", "green", "blue", "gray"]:
@@ -86,14 +55,6 @@ func _get_scavenge_skill_data(card_name: String) -> SkillData:
 					return card_data.skills[0]
 				return null
 	return null
-
-
-func before_each() -> void:
-	_clear_game()
-
-
-func after_each() -> void:
-	_clear_game()
 
 
 # === 1. 实体化单元 ===
@@ -160,7 +121,7 @@ func test_charge_current_delegates_to_source_card() -> void:
 # === 3. 装备入区 ===
 
 func test_equip_puts_entity_in_zone() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_combat_player()
 	_setup_game_for_player(p)
 	var card: EquipmentCard = _make_equipment("weapon")
 	await p.equip(card)
@@ -173,7 +134,7 @@ func test_equip_puts_entity_in_zone() -> void:
 # === 4. 卸下/弃置来源卡入弃牌堆（重装时填充物重置） ===
 
 func test_discard_scavenge_equipment_sends_source_to_scavenge_pile_with_charge() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_combat_player()
 	_setup_game_for_player(p)
 	# scavenge 武器：弃置后来源卡进 scavenge_discard_pile
 	var weapon: EquipmentCard = _make_equipment("shotgun")
@@ -198,7 +159,7 @@ func test_discard_scavenge_equipment_sends_source_to_scavenge_pile_with_charge()
 
 
 func test_discard_game_equipment_sends_source_to_game_pile() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_combat_player()
 	_setup_game_for_player(p)
 	# game 来源装备：弃置后来源卡进 game_discard_pile
 	var weapon: EquipmentCard = _make_equipment("game_weapon")  # source = "game"
@@ -228,7 +189,7 @@ func test_ammo_filter_target_on_equipment_entity_no_crash() -> void:
 	pistol.charge_current = 3
 	var entity: Equipment = pistol.instantiate(null)
 	pistol.charge_current = 3
-	var p: Player = _make_player()
+	var p: Player = _make_combat_player()
 	var event: Dictionary = {"player": p, "target": entity, "card": null}
 	# 未满 → 返回 true，不崩溃
 	var ok: bool = filter_callable.call(p, entity, event, Game)
@@ -271,7 +232,7 @@ func test_homemade_bullets_filter_excludes_empty_charge_type() -> void:
 	assert_false(filter_code.is_empty(), "自制子弹 filter_target 不应为空")
 	var filter_callable: Callable = CodeExecutor.compile_filter_target(filter_code)
 	assert_true(filter_callable.is_valid(), "filter_target 应编译为有效 Callable")
-	var p: Player = _make_player()
+	var p: Player = _make_combat_player()
 	var event: Dictionary = {"player": p, "target": null, "card": null}
 
 	var helmet_card: EquipmentCard = EquipmentCard.new()

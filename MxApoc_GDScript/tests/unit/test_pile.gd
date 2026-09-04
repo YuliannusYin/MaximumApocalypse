@@ -1,20 +1,14 @@
-extends GutTest
+extends TestBase
 
 ## Pile 单元测试。
-
-
-func _make_card(n: String = "") -> Card:
-	var c: Card = Card.new()
-	c.card_name = n
-	return c
 
 
 func test_draw_from_top() -> void:
 	var p: Pile = Pile.new()
 	var c1: Card = _make_card("card1")
 	var c2: Card = _make_card("card2")
-	p.add(c1)  # 顶部
-	p.add(c2)  # 底部
+	p.add(c1)
+	p.add(c2)
 	var drawn: Card = await p.draw()
 	assert_eq(drawn, c1, "应从顶部抓取（先加入的先抓）")
 	assert_eq(p.size(), 1, "抓取后 size 应为 1")

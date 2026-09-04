@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## 集成测试：装备 + 消耗填充物 + 使用卡牌 + 卸下 全链路。
 ## 覆盖 Player.equip + EquipmentCard.consume_charge + Player.use_card + Player.unequip。
@@ -7,17 +7,7 @@ extends GutTest
 
 # === 辅助方法 ===
 
-func _make_player(name: String = "P", hp: int = 10) -> Player:
-	var p: Player = Player.new()
-	p.player_name = name
-	p.hp = hp
-	p.max_hp = hp
-	p.game_deck = Pile.new()
-	p.game_discard_pile = Pile.new()
-	return p
-
-
-func _make_equipment(name: String = "test_equip", charge: int = 3) -> EquipmentCard:
+func _make_charged_equipment(name: String = "test_equip", charge: int = 3) -> EquipmentCard:
 	var e: EquipmentCard = EquipmentCard.new()
 	e.card_name = name
 	e.card_type = "equipment"
@@ -37,39 +27,12 @@ func _make_action_card(name: String = "action1") -> Card:
 	return c
 
 
-func _clear_game() -> void:
-	Game.players = []
-	Game.map_area = []
-	Game.monster_pile = null
-	Game.monster_discard_pile = null
-	Game.scavenge_discard_pile = null
-	Game.red_scavenge_pile = null
-	Game.green_scavenge_pile = null
-	Game.blue_scavenge_pile = null
-	Game.mission_config = null
-	Game.removed_cards = []
-	Game.game_over_called = false
-	Game.game_result = ""
-	Game.coop_death_mode = false
-	Game.log_list = []
-	if Game.state_machine != null and is_instance_valid(Game.state_machine):
-		Game.state_machine.init()
-
-
-func before_each() -> void:
-	_clear_game()
-
-
-func after_each() -> void:
-	_clear_game()
-
-
 # === 测试用例 ===
 
 func test_equip_then_consume_charge_then_unequip() -> void:
 	var p: Player = _make_player("A")
 	Game.players = [p]
-	var e: EquipmentCard = _make_equipment("weapon", 3)
+	var e: EquipmentCard = _make_charged_equipment("weapon", 3)
 	# 1. 装备
 	await p.equip(e)
 	assert_true(p.has_equipment("weapon"), "应已装备")
@@ -88,7 +51,7 @@ func test_use_card_equipment_routes_to_equip() -> void:
 	var p: Player = _make_player("A")
 	Game.players = [p]
 	p.action_count = 4
-	var e: EquipmentCard = _make_equipment("weapon", 3)
+	var e: EquipmentCard = _make_charged_equipment("weapon", 3)
 	p.hand.append(e)
 	# 使用装备牌应路由到 equip
 	var ok: bool = await p.use_card(e)
@@ -115,8 +78,8 @@ func test_use_card_action_routes_to_discard() -> void:
 func test_equip_same_name_discards_existing() -> void:
 	var p: Player = _make_player("A")
 	Game.players = [p]
-	var e1: EquipmentCard = _make_equipment("weapon", 3)
-	var e2: EquipmentCard = _make_equipment("weapon", 5)
+	var e1: EquipmentCard = _make_charged_equipment("weapon", 3)
+	var e2: EquipmentCard = _make_charged_equipment("weapon", 5)
 	# 先装备 e1
 	await p.equip(e1)
 	assert_true(p.has_equipment("weapon"))
@@ -132,7 +95,7 @@ func test_equip_same_name_discards_existing() -> void:
 func test_consume_charge_insufficient_returns_false() -> void:
 	var p: Player = _make_player("A")
 	Game.players = [p]
-	var e: EquipmentCard = _make_equipment("weapon", 2)
+	var e: EquipmentCard = _make_charged_equipment("weapon", 2)
 	await p.equip(e)
 	# 尝试消耗 3 点（不足）
 	var ok: bool = await p.consume_charge(e, 3)

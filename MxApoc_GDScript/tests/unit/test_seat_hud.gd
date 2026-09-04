@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## SeatHud 为每个座位独立持有私有交互组件。
 

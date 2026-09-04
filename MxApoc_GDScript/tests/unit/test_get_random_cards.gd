@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## Game.get_random_cards 单元测试。
 ## 覆盖：牌足时返回 n 张不重复、不足 n 张返回全部、无牌返回空数组、n<=0 返回空数组、
@@ -6,22 +6,6 @@ extends GutTest
 
 
 # === 辅助方法 ===
-
-func _make_player() -> Player:
-	var p: Player = Player.new()
-	p.player_name = "TestPlayer"
-	p.hp = 10
-	p.max_hp = 10
-	return p
-
-
-func _make_card(card_name: String) -> Card:
-	var c: Card = Card.new()
-	c.card_name = card_name
-	c.card_type = "action"
-	c.source = "game"
-	return c
-
 
 func _make_equipment_entry(card_name: String) -> Equipment:
 	var card: EquipmentCard = EquipmentCard.new()

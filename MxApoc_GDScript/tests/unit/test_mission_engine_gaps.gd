@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## 任务引擎缺口修补单元测试（13 个任务新设计 Task 1）。
 ## 覆盖：card_discarded / monster_spawn_judged 事件转发（EventBus → mission_config.on_event）、
@@ -25,16 +25,6 @@ class AlwaysWinComponent extends MissionComponent:
 
 # === 辅助方法 ===
 
-func _make_player(name: String = "P", hp: int = 10) -> Player:
-	var p: Player = Player.new()
-	p.player_name = name
-	p.hp = hp
-	p.max_hp = hp
-	p.game_deck = Pile.new()
-	p.game_discard_pile = Pile.new()
-	return p
-
-
 func _make_deck_player(name: String = "A") -> Player:
 	# 带 5 张游戏牌的玩家，避免 start_turn 摸牌阶段空牌堆死亡
 	var p: Player = _make_player(name)
@@ -45,47 +35,6 @@ func _make_deck_player(name: String = "A") -> Player:
 		c.source = "game"
 		p.game_deck.add(c)
 	return p
-
-
-func _make_monster_card(name: String = "test_monster", level: String = "normal") -> MonsterCard:
-	var c: MonsterCard = MonsterCard.new()
-	c.card_name = name
-	c.card_type = "monster"
-	c.source = "monster"
-	c.monster_type = "zombie"
-	c.monster_level = level
-	c.max_hp = 3
-	c.damage_value = 2
-	c.range = "none"
-	return c
-
-
-func _clear_game() -> void:
-	Game.players = []
-	Game.map_area = []
-	Game.monster_pile = null
-	Game.monster_discard_pile = null
-	Game.scavenge_discard_pile = null
-	Game.red_scavenge_pile = null
-	Game.green_scavenge_pile = null
-	Game.blue_scavenge_pile = null
-	Game.mission_config = null
-	Game.current_mission = null
-	Game.removed_cards = []
-	Game.game_over_called = false
-	Game.game_result = ""
-	Game.coop_death_mode = false
-	Game.log_list = []
-	if Game.state_machine != null and is_instance_valid(Game.state_machine):
-		Game.state_machine.init()
-
-
-func before_each() -> void:
-	_clear_game()
-
-
-func after_each() -> void:
-	_clear_game()
 
 
 # === 1. EventBus 事件转发 ===

@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## Game 单元测试。
 ## 覆盖：地图查询 / 玩家管理 / 状态机委托 / build_map / destroy_map_block / 弃牌堆装备查询。
@@ -19,24 +19,7 @@ class WinFalseComponent extends MissionComponent:
 
 # === 辅助方法 ===
 
-func _make_block(name: String = "test_block", x: int = 0, y: int = 0) -> MapBlock:
-	var b: MapBlock = MapBlock.new()
-	b.block_name = name
-	b.set_coordinate(x, y)
-	return b
-
-
-func _make_player(name: String = "P", hp: int = 10) -> Player:
-	var p: Player = Player.new()
-	p.player_name = name
-	p.hp = hp
-	p.max_hp = hp
-	p.game_deck = Pile.new()
-	p.game_discard_pile = Pile.new()
-	return p
-
-
-func _make_equipment(name: String = "test_equip") -> EquipmentCard:
+func _make_equipment_card(name: String = "test_equip") -> EquipmentCard:
 	var e: EquipmentCard = EquipmentCard.new()
 	e.card_name = name
 	e.card_type = "equipment"
@@ -45,74 +28,25 @@ func _make_equipment(name: String = "test_equip") -> EquipmentCard:
 	return e
 
 
-func _make_card(name: String = "test_card") -> Card:
-	var c: Card = Card.new()
-	c.card_name = name
-	c.card_type = "action"
-	c.source = "game"
-	return c
-
-
-func _clear_game() -> void:
-	Game.players = []
-	Game.map_area = []
-	Game.map_width = 0
-	Game.map_height = 0
-	Game.monster_pile = null
-	Game.monster_discard_pile = null
-	Game.scavenge_discard_pile = null
-	Game.red_scavenge_pile = null
-	Game.green_scavenge_pile = null
-	Game.blue_scavenge_pile = null
-	Game.mission_config = null
-	Game.removed_cards = []
-	Game.game_over_called = false
-	Game.game_result = ""
-	Game.coop_death_mode = false
-	Game.log_list = []
-	if Game.state_machine != null and is_instance_valid(Game.state_machine):
-		Game.state_machine.init()
-
-
-func before_each() -> void:
-	_clear_game()
-
-
-func after_each() -> void:
-	_clear_game()
-
-
 # === 1. 地图查询 ===
 
-func test_get_block_by_coord_found() -> void:
+## 合并族：按坐标查地块（原 2 个独立测试，断言逐段保留）。
+func test_get_block_by_coord_found_and_missing() -> void:
 	var b1: MapBlock = _make_block("b1", 0, 0)
 	var b2: MapBlock = _make_block("b2", 1, 0)
 	Game.map_area = [b1, b2]
-	var result: MapBlock = Game.get_block_by_coord(1, 0)
-	assert_eq(result, b2)
+	assert_eq(Game.get_block_by_coord(1, 0), b2)
+	assert_null(Game.get_block_by_coord(5, 5))
 
 
-func test_get_block_by_coord_not_found() -> void:
-	var b1: MapBlock = _make_block("b1", 0, 0)
-	Game.map_area = [b1]
-	var result: MapBlock = Game.get_block_by_coord(5, 5)
-	assert_null(result)
-
-
-func test_get_blocks_by_name() -> void:
+## 合并族：按名字查地块（原 2 个独立测试，断言逐段保留）。
+func test_get_blocks_by_name_found_and_empty() -> void:
 	var b1: MapBlock = _make_block("隧道", 0, 0)
 	var b2: MapBlock = _make_block("隧道", 1, 0)
 	var b3: MapBlock = _make_block("加油站", 2, 0)
 	Game.map_area = [b1, b2, b3]
-	var result: Array = Game.get_blocks_by_name("隧道")
-	assert_eq(result.size(), 2)
-
-
-func test_get_blocks_by_name_empty() -> void:
-	var b1: MapBlock = _make_block("隧道", 0, 0)
-	Game.map_area = [b1]
-	var result: Array = Game.get_blocks_by_name("不存在")
-	assert_eq(result.size(), 0)
+	assert_eq(Game.get_blocks_by_name("隧道").size(), 2)
+	assert_eq(Game.get_blocks_by_name("不存在").size(), 0)
 
 
 func test_get_adjacent_alive_blocks() -> void:
@@ -133,53 +67,49 @@ func test_get_alive_players_excludes_dead() -> void:
 	assert_eq(Game.get_alive_players().size(), 1)
 
 
-func test_all_players_dead_all_alive() -> void:
+## 合并族：all_players_dead 随存活状态判定（原 2 个独立测试，断言逐段保留）。
+func test_all_players_dead_by_hp() -> void:
 	var p1: Player = _make_player("P1", 10)
 	Game.players = [p1]
 	assert_false(Game.all_players_dead())
-
-
-func test_all_players_dead_all_dead() -> void:
-	var p1: Player = _make_player("P1", 0)
+	p1 = _make_player("P1", 0)
 	Game.players = [p1]
 	assert_true(Game.all_players_dead())
 
 
 # === 3. 状态机委托 ===
 
-func test_game_over_lose_sets_flags() -> void:
-	Game.game_over("lose")
-	assert_true(Game.game_over_called)
-	assert_eq(Game.game_result, "lose")
-
-
-func test_game_over_win_sets_flags() -> void:
-	Game.game_over("win")
-	assert_true(Game.game_over_called)
-	assert_eq(Game.game_result, "win")
+## 合并族：game_over 按结果设置标记（原 2 个独立测试，断言逐段保留；
+## 每个 case 前重置状态机与标记，因 game_over 在 GAME_OVER 态下会直接返回）。
+func test_game_over_sets_flags() -> void:
+	for result in ["lose", "win"]:
+		Game.state_machine.init()
+		Game.game_over_called = false
+		Game.game_result = ""
+		await Game.game_over(result)
+		assert_true(Game.game_over_called)
+		assert_eq(Game.game_result, result)
 
 
 func test_game_over_sets_state_machine() -> void:
-	Game.game_over("lose")
+	await Game.game_over("lose")
 	assert_eq(Game.state_machine.get_game_state(), GameStateMachine.GameState.GAME_OVER)
 	assert_eq(Game.state_machine.get_game_result(), GameStateMachine.GameResult.LOSE)
 
 
 func test_game_over_idempotent() -> void:
-	Game.game_over("lose")
-	Game.game_over("win")
+	await Game.game_over("lose")
+	await Game.game_over("win")
 	assert_eq(Game.game_result, "lose", "已结束不应覆盖")
 
 
-func test_check_mission_win_condition_component_true() -> void:
+## 合并族：check_mission_win_condition 随胜利组件判定（原 2 个独立测试，断言逐段保留）。
+func test_check_mission_win_condition_by_component() -> void:
 	var mc: MissionConfig = MissionConfig.new()
 	mc.win_condition_components.append(WinTrueComponent.new())
 	Game.mission_config = mc
 	assert_true(Game.check_mission_win_condition())
-
-
-func test_check_mission_win_condition_component_false() -> void:
-	var mc: MissionConfig = MissionConfig.new()
+	mc = MissionConfig.new()
 	mc.win_condition_components.append(WinFalseComponent.new())
 	Game.mission_config = mc
 	assert_false(Game.check_mission_win_condition())
@@ -424,89 +354,70 @@ func test_remove_card() -> void:
 
 # === 7. 弃牌堆装备查询 ===
 
-func test_get_all_discard_pile_equipments_from_player() -> void:
+## 合并族：get_all_discard_pile_equipments 汇总玩家/拾荒弃牌堆（原 3 个独立测试，断言逐段保留）。
+func test_get_all_discard_pile_equipments_sources() -> void:
+	# 玩家弃牌堆
 	var p: Player = _make_player("P")
-	var e: EquipmentCard = _make_equipment("武器")
+	var e: EquipmentCard = _make_equipment_card("武器")
 	p.game_discard_pile.add(e)
 	Game.players = [p]
-	var result: Array = Game.get_all_discard_pile_equipments()
-	assert_eq(result.size(), 1)
-
-
-func test_get_all_discard_pile_equipments_from_scavenge() -> void:
+	assert_eq(Game.get_all_discard_pile_equipments().size(), 1)
+	# 拾荒弃牌堆
+	Game.players = []
 	var pile: Pile = Pile.new()
-	var e: EquipmentCard = _make_equipment("防弹衣")
-	pile.add(e)
+	pile.add(_make_equipment_card("防弹衣"))
 	Game.scavenge_discard_pile = pile
-	var result: Array = Game.get_all_discard_pile_equipments()
-	assert_eq(result.size(), 1)
-
-
-func test_get_all_discard_pile_equipments_excludes_non_equipment() -> void:
-	var p: Player = _make_player("P")
-	var c: Card = _make_card("普通牌")
-	p.game_discard_pile.add(c)
+	assert_eq(Game.get_all_discard_pile_equipments().size(), 1)
+	# 非装备卡不计入
+	p = _make_player("P")
+	p.game_discard_pile.add(_make_card("普通牌"))
 	Game.players = [p]
-	var result: Array = Game.get_all_discard_pile_equipments()
-	assert_eq(result.size(), 0)
+	Game.scavenge_discard_pile = Pile.new()
+	assert_eq(Game.get_all_discard_pile_equipments().size(), 0)
 
 
-func test_has_equipment_in_discard_piles_true() -> void:
+## 合并族：has_equipment_in_discard_piles 随弃牌堆内容判定（原 2 个独立测试，断言逐段保留）。
+func test_has_equipment_in_discard_piles_by_content() -> void:
 	var p: Player = _make_player("P")
-	var e: EquipmentCard = _make_equipment("武器")
+	var e: EquipmentCard = _make_equipment_card("武器")
 	p.game_discard_pile.add(e)
 	Game.players = [p]
 	assert_true(Game.has_equipment_in_discard_piles())
-
-
-func test_has_equipment_in_discard_piles_false() -> void:
-	var p: Player = _make_player("P")
-	var c: Card = _make_card("普通牌")
-	p.game_discard_pile.add(c)
+	p = _make_player("P")
+	p.game_discard_pile.add(_make_card("普通牌"))
 	Game.players = [p]
 	assert_false(Game.has_equipment_in_discard_piles())
 
 
 # === 8. get_step_toward ===
 
-func test_get_step_toward_horizontal() -> void:
+## 合并族：get_step_toward 方向与边界（原 5 个独立测试，断言逐段保留）。
+func test_get_step_toward_cases() -> void:
+	# 水平方向
 	var b1: MapBlock = _make_block("b1", 0, 0)
 	var b2: MapBlock = _make_block("b2", 1, 0)
 	var b3: MapBlock = _make_block("b3", 2, 0)
 	Game.map_area = [b1, b2, b3]
-	var step: MapBlock = Game.get_step_toward(b1, b3)
-	assert_eq(step, b2)
-
-
-func test_get_step_toward_vertical() -> void:
-	var b1: MapBlock = _make_block("b1", 0, 0)
-	var b2: MapBlock = _make_block("b2", 0, 1)
-	var b3: MapBlock = _make_block("b3", 0, 2)
+	assert_eq(Game.get_step_toward(b1, b3), b2)
+	# 垂直方向
+	b1 = _make_block("b1", 0, 0)
+	b2 = _make_block("b2", 0, 1)
+	b3 = _make_block("b3", 0, 2)
 	Game.map_area = [b1, b2, b3]
-	var step: MapBlock = Game.get_step_toward(b1, b3)
-	assert_eq(step, b2)
-
-
-func test_get_step_toward_adjacent_returns_target() -> void:
-	var b1: MapBlock = _make_block("b1", 0, 0)
-	var b2: MapBlock = _make_block("b2", 1, 0)
+	assert_eq(Game.get_step_toward(b1, b3), b2)
+	# 相邻地块返回目标
+	b1 = _make_block("b1", 0, 0)
+	b2 = _make_block("b2", 1, 0)
 	Game.map_area = [b1, b2]
-	var step: MapBlock = Game.get_step_toward(b1, b2)
-	assert_eq(step, b2)
-
-
-func test_get_step_toward_same_block() -> void:
-	var b1: MapBlock = _make_block("b1", 0, 0)
+	assert_eq(Game.get_step_toward(b1, b2), b2)
+	# 同地块返回自身
+	b1 = _make_block("b1", 0, 0)
 	Game.map_area = [b1]
-	var step: MapBlock = Game.get_step_toward(b1, b1)
-	assert_eq(step, b1)
-
-
-func test_get_step_toward_null_source() -> void:
-	var b1: MapBlock = _make_block("b1", 0, 0)
+	assert_eq(Game.get_step_toward(b1, b1), b1)
+	# 源为空返回 null
+	b1 = _make_block("b1", 0, 0)
 	Game.map_area = [b1]
-	var step: MapBlock = Game.get_step_toward(null, b1)
-	assert_null(step)
+	assert_null(Game.get_step_toward(null, b1))
 
 
 # === 9. 对局中止 / 世代 ===

@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 
 func test_skill_content_flushes_registered_actions_before_returning() -> void:

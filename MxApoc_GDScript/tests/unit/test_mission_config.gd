@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## MissionConfig 单元测试（三层架构：组件/脚本编排）。
 ## 覆盖：check_win AND 组合 / check_lose OR 组合 / 无组件默认（空真）/
@@ -71,7 +71,7 @@ class RecordingScript extends MissionScript:
 
 # === 辅助方法 ===
 
-func _make_player(name: String = "P", hp: int = 10) -> Player:
+func _make_mission_player(name: String = "P", hp: int = 10) -> Player:
 	var p: Player = Player.new()
 	p.player_name = name
 	p.hp = hp
@@ -80,14 +80,6 @@ func _make_player(name: String = "P", hp: int = 10) -> Player:
 	p.game_discard_pile = Pile.new()
 	p.input = CliPlayerInput.new()
 	return p
-
-
-func before_each() -> void:
-	Game.mission_config = null
-
-
-func after_each() -> void:
-	Game.mission_config = null
 
 
 # === 1. check_win（AND 组合） ===
@@ -258,7 +250,7 @@ func test_mission_action_execute_chain() -> void:
 	var mc: MissionConfig = MissionConfig.new()
 	mc.action_components.append(component)
 	Game.mission_config = mc
-	var p: Player = _make_player("P")
+	var p: Player = _make_mission_player("P")
 	(p.input as CliPlayerInput).queue_action({"type": "mission_action", "option_id": "x"})
 	(p.input as CliPlayerInput).queue_action(null)
 	await p.wait_player_action()
@@ -272,7 +264,7 @@ func test_mission_action_unknown_option_not_executed() -> void:
 	var mc: MissionConfig = MissionConfig.new()
 	mc.action_components.append(component)
 	Game.mission_config = mc
-	var p: Player = _make_player("P")
+	var p: Player = _make_mission_player("P")
 	(p.input as CliPlayerInput).queue_action({"type": "mission_action", "option_id": "not_exist"})
 	(p.input as CliPlayerInput).queue_action(null)
 	await p.wait_player_action()
@@ -281,7 +273,7 @@ func test_mission_action_unknown_option_not_executed() -> void:
 
 func test_mission_action_no_mission_config_no_error() -> void:
 	Game.mission_config = null
-	var p: Player = _make_player("P")
+	var p: Player = _make_mission_player("P")
 	(p.input as CliPlayerInput).queue_action({"type": "mission_action", "option_id": "x"})
 	(p.input as CliPlayerInput).queue_action(null)
 	await p.wait_player_action()

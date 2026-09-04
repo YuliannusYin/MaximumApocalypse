@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 const TurnContextScript = preload("res://src/core/turn_context.gd")
 

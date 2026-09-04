@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## 任务行动技能化单元测试（surface-mission-actions-as-skills Task 1+2+3）。
 ## 覆盖：7 个行动组件 get_action_skill_decl 声明完整性、block_match 地块匹配、
@@ -9,51 +9,6 @@ extends GutTest
 ## move_to 挂载链路（进入/回滚/清理）由 Task 5 集成测试覆盖，此处只测 mount/unmount/decl。
 
 # === 辅助方法 ===
-
-func _make_player(name: String = "P", hp: int = 10) -> Player:
-	var p: Player = Player.new()
-	p.player_name = name
-	p.hp = hp
-	p.max_hp = hp
-	p.game_deck = Pile.new()
-	p.game_discard_pile = Pile.new()
-	return p
-
-
-func _make_card(card_name: String = "test_card", type: String = "action") -> Card:
-	var c: Card = Card.new()
-	c.card_name = card_name
-	c.card_type = type
-	c.source = "game"
-	return c
-
-
-func _make_block(block_name: String = "test_block", x: int = 0, y: int = 0) -> MapBlock:
-	var b: MapBlock = MapBlock.new()
-	b.block_name = block_name
-	b.set_coordinate(x, y)
-	return b
-
-
-func _clear_game() -> void:
-	Game.players = []
-	Game.map_area = []
-	Game.monster_pile = null
-	Game.monster_discard_pile = null
-	Game.scavenge_discard_pile = null
-	Game.red_scavenge_pile = null
-	Game.green_scavenge_pile = null
-	Game.blue_scavenge_pile = null
-	Game.mission_config = null
-	Game.current_mission = null
-	Game.removed_cards = []
-	Game.game_over_called = false
-	Game.game_result = ""
-	Game.coop_death_mode = false
-	Game.log_list = []
-	if Game.state_machine != null and is_instance_valid(Game.state_machine):
-		Game.state_machine.init()
-
 
 ## 构造挂载单个行动组件的 MissionConfig 并完成 setup，返回上下文。
 func _setup_component(id: String, comp_params: Dictionary, action_count: int = 3) -> Dictionary:
@@ -79,12 +34,12 @@ func _mission_skills(p: Player) -> Array:
 
 func before_each() -> void:
 	MissionComponentRegistry.reset()
-	_clear_game()
+	super.before_each()
 
 
 func after_each() -> void:
 	MissionComponentRegistry.reset()
-	_clear_game()
+	super.after_each()
 
 
 # === 1. decl 完整性 ===

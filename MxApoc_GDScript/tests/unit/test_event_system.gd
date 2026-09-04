@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## EventSystem 单元测试。
 

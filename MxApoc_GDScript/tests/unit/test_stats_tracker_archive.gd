@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## StatsTracker 归档扩展单元测试。
 ## 覆盖：玩家→survivor_id 映射、按单个怪物（english_name）击杀数、首领击杀归属、
@@ -28,7 +28,7 @@ func _make_test_player(survivor_english_name: String, hp: int = 32, max_hp: int 
 
 
 ## 构造怪物实例。english_name 为归档统计键；monster_level 供首领击杀归属判定。
-func _make_monster(english_name: String, monster_level: String) -> Monster:
+func _make_monster_with_level(english_name: String, monster_level: String) -> Monster:
 	var mc: MonsterCard = MonsterCard.new()
 	mc.card_name = "test_monster_" + english_name
 	mc.english_name = english_name
@@ -40,22 +40,9 @@ func _make_monster(english_name: String, monster_level: String) -> Monster:
 	return mc.instantiate(null)
 
 
-func _reset_game_globals() -> void:
-	Game.current_mission = null
-	Game.game_result = ""
-	Game.game_over_called = false
-	Game.mission_config = null
-	if Game.state_machine != null and is_instance_valid(Game.state_machine):
-		Game.state_machine.init()
-
-
 func before_each() -> void:
+	super.before_each()
 	_tracker = StatsTracker.new()
-	_reset_game_globals()
-
-
-func after_each() -> void:
-	_reset_game_globals()
 
 
 # === 玩家→survivor_id 映射 ===
@@ -84,9 +71,9 @@ func test_survivor_mapping_reset_with_new_players() -> void:
 func test_monster_kills_by_english_name() -> void:
 	var p: Player = _make_test_player("firefighter")
 	_tracker.reset([p])
-	EventBus.monster_died.emit(_make_monster("zombie_dog", "normal"), p)
-	EventBus.monster_died.emit(_make_monster("zombie_dog", "normal"), p)
-	EventBus.monster_died.emit(_make_monster("zombie_queen", "boss"), p)
+	EventBus.monster_died.emit(_make_monster_with_level("zombie_dog", "normal"), p)
+	EventBus.monster_died.emit(_make_monster_with_level("zombie_dog", "normal"), p)
+	EventBus.monster_died.emit(_make_monster_with_level("zombie_queen", "boss"), p)
 	var summary: Dictionary = _tracker.get_archive_summary()
 	var monsters: Dictionary = summary["monsters"]
 	assert_eq(monsters.get("zombie_dog", 0), 2, "zombie_dog 击杀数应为 2")
@@ -99,7 +86,7 @@ func test_monster_kills_counted_without_player_source() -> void:
 	# 无击杀来源（source=null，如地块效果致死）的怪物死亡也应计入分型击杀数
 	var p: Player = _make_test_player("firefighter")
 	_tracker.reset([p])
-	EventBus.monster_died.emit(_make_monster("robot_scout", "normal"), null)
+	EventBus.monster_died.emit(_make_monster_with_level("robot_scout", "normal"), null)
 	var summary: Dictionary = _tracker.get_archive_summary()
 	assert_eq(summary["monsters"].get("robot_scout", 0), 1, "无来源怪物死亡应计入分型击杀数")
 	assert_eq(_tracker.get_stats(p).kills, 0, "无来源时不计入玩家击杀数")
@@ -109,7 +96,7 @@ func test_monster_kills_missing_english_name_fallback_unknown() -> void:
 	# english_name 缺失/为空时以 "unknown" 兜底计数（击杀数据不丢失）
 	var p: Player = _make_test_player("firefighter")
 	_tracker.reset([p])
-	EventBus.monster_died.emit(_make_monster("", "normal"), p)
+	EventBus.monster_died.emit(_make_monster_with_level("", "normal"), p)
 	var summary: Dictionary = _tracker.get_archive_summary()
 	assert_eq(summary["monsters"].get("unknown", 0), 1, "english_name 为空时应以 unknown 兜底计数")
 
@@ -120,9 +107,9 @@ func test_boss_kill_attribution() -> void:
 	var p1: Player = _make_test_player("firefighter")
 	var p2: Player = _make_test_player("surgeon")
 	_tracker.reset([p1, p2])
-	EventBus.monster_died.emit(_make_monster("zombie_queen", "boss"), p1)
-	EventBus.monster_died.emit(_make_monster("zombie_dog", "normal"), p1)
-	EventBus.monster_died.emit(_make_monster("alien_queen", "boss"), p2)
+	EventBus.monster_died.emit(_make_monster_with_level("zombie_queen", "boss"), p1)
+	EventBus.monster_died.emit(_make_monster_with_level("zombie_dog", "normal"), p1)
+	EventBus.monster_died.emit(_make_monster_with_level("alien_queen", "boss"), p2)
 	var summary: Dictionary = _tracker.get_archive_summary()
 	var survivors: Dictionary = summary["survivors"]
 	assert_eq(survivors["firefighter"]["boss_kills"], 1, "firefighter 首领击杀数应为 1")
@@ -136,10 +123,10 @@ func test_archive_summary_structure() -> void:
 	var p: Player = _make_test_player("mechanic")
 	_tracker.reset([p])
 	# 累计统计：造成伤害 / 治疗 / 回合数 / 击杀
-	EventBus.damage_dealt.emit(p, _make_monster("zombie_dog", "normal"), 5)
+	EventBus.damage_dealt.emit(p, _make_monster_with_level("zombie_dog", "normal"), 5)
 	EventBus.healing_done.emit(p, p, 3)
 	EventBus.player_turn_started.emit(p)
-	EventBus.monster_died.emit(_make_monster("zombie_dog", "normal"), p)
+	EventBus.monster_died.emit(_make_monster_with_level("zombie_dog", "normal"), p)
 	_tracker.game_duration_msec = 12345
 	# 任务与胜负来源
 	Game.current_mission = MissionData.new({"mission_id": 7})

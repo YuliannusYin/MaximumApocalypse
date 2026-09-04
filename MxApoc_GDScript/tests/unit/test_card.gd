@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## Card 继承体系单元测试。
 

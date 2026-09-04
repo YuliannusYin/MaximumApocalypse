@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## Game 任务组件挂载与事件转发单元测试（三层架构第二/三层）。
 ## 覆盖：_mount_mission_components 注册表实例化挂载 / 未知 id 容错 /
@@ -38,23 +38,15 @@ class DummyScript extends MissionScript:
 
 # === 辅助方法 ===
 
-func _make_player(name: String = "P", hp: int = 10) -> Player:
-	var p: Player = Player.new()
-	p.player_name = name
-	p.hp = hp
-	p.max_hp = hp
-	p.game_deck = Pile.new()
-	p.game_discard_pile = Pile.new()
-	return p
-
-
 func before_each() -> void:
+	super.before_each()
 	MissionComponentRegistry.reset()
 	MissionScriptRegistry.reset()
 	Game.mission_config = null
 
 
 func after_each() -> void:
+	super.after_each()
 	MissionComponentRegistry.reset()
 	MissionScriptRegistry.reset()
 	Game.mission_config = null

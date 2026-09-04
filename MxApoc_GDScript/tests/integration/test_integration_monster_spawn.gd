@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## 集成测试：怪物生成 + 行动 + 死亡 全链路。
 ## 覆盖 Player.draw_monster + MonsterCard.instantiate + Monster.act + Monster.death。
@@ -7,25 +7,11 @@ extends GutTest
 
 # === 辅助方法 ===
 
-func _make_player(name: String = "P", hp: int = 10) -> Player:
-	var p: Player = Player.new()
-	p.player_name = name
-	p.hp = hp
-	p.max_hp = hp
-	p.game_deck = Pile.new()
-	p.game_discard_pile = Pile.new()
-	return p
+func _make_block(block_name: String = "test_block", x: int = 0, y: int = 0, revealed: bool = true) -> MapBlock:
+	return super._make_block(block_name, x, y, revealed)
 
 
-func _make_block(name: String = "B", x: int = 0, y: int = 0) -> MapBlock:
-	var b: MapBlock = MapBlock.new()
-	b.block_name = name
-	b.set_coordinate(x, y)
-	b.revealed = true
-	return b
-
-
-func _make_monster_card(name: String = "zombie", level: String = "normal", hp: int = 3, dmg: int = 2) -> MonsterCard:
+func _make_custom_monster_card(name: String = "zombie", level: String = "normal", hp: int = 3, dmg: int = 2) -> MonsterCard:
 	var c: MonsterCard = MonsterCard.new()
 	c.card_name = name
 	c.card_type = "monster"
@@ -38,40 +24,13 @@ func _make_monster_card(name: String = "zombie", level: String = "normal", hp: i
 	return c
 
 
-func _clear_game() -> void:
-	Game.players = []
-	Game.map_area = []
-	Game.monster_pile = null
-	Game.monster_discard_pile = null
-	Game.scavenge_discard_pile = null
-	Game.red_scavenge_pile = null
-	Game.green_scavenge_pile = null
-	Game.blue_scavenge_pile = null
-	Game.mission_config = null
-	Game.removed_cards = []
-	Game.game_over_called = false
-	Game.game_result = ""
-	Game.coop_death_mode = false
-	Game.log_list = []
-	if Game.state_machine != null and is_instance_valid(Game.state_machine):
-		Game.state_machine.init()
-
-
-func before_each() -> void:
-	_clear_game()
-
-
-func after_each() -> void:
-	_clear_game()
-
-
 # === 测试用例 ===
 
 func test_draw_monster_instantiates_and_enters_zone() -> void:
 	var p: Player = _make_player("A")
 	Game.players = [p]
 	Game.monster_pile = Pile.new()
-	var mc: MonsterCard = _make_monster_card("zombie1")
+	var mc: MonsterCard = _make_custom_monster_card("zombie1")
 	Game.monster_pile.add(mc)
 	# draw_monster 应实体化怪物并进入怪物区
 	await p.draw_monster(1)
@@ -86,7 +45,7 @@ func test_monster_act_attacks_target_player() -> void:
 	var p: Player = _make_player("A", 10)
 	Game.players = [p]
 	# 直接构造怪物并加入怪物区
-	var mc: MonsterCard = _make_monster_card("zombie", "normal", 3, 4)
+	var mc: MonsterCard = _make_custom_monster_card("zombie", "normal", 3, 4)
 	var m: Monster = mc.instantiate(p)
 	p.monster_zone.append(m)
 	# 怪物行动：range=none 只攻击纠缠玩家
@@ -99,7 +58,7 @@ func test_monster_death_removes_from_zone_and_goes_to_discard() -> void:
 	var p: Player = _make_player("A", 10)
 	Game.players = [p]
 	Game.monster_discard_pile = Pile.new()
-	var mc: MonsterCard = _make_monster_card("zombie", "normal", 3, 2)
+	var mc: MonsterCard = _make_custom_monster_card("zombie", "normal", 3, 2)
 	var m: Monster = mc.instantiate(p)
 	p.monster_zone.append(m)
 	# 造成 3 点伤害致死
@@ -114,7 +73,7 @@ func test_draw_monster_empty_pile_reshuffles_discard() -> void:
 	Game.monster_pile = Pile.new()
 	Game.monster_discard_pile = Pile.new()
 	# 牌堆空，弃牌堆有 1 张
-	var mc: MonsterCard = _make_monster_card("zombie1")
+	var mc: MonsterCard = _make_custom_monster_card("zombie1")
 	Game.monster_discard_pile.add(mc)
 	# draw_monster 应重洗弃牌堆
 	await p.draw_monster(1)

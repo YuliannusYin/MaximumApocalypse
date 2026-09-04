@@ -1,9 +1,9 @@
-extends GutTest
+extends TestBase
 
 ## RoleCard 单元测试。
 
 
-func _make_card() -> RoleCard:
+func _make_role_card() -> RoleCard:
 	var rc: RoleCard = RoleCard.new()
 	rc.role_name = "猎人"
 	rc.max_hp = 24
@@ -20,7 +20,7 @@ func test_default_is_front() -> void:
 
 
 func test_flip_toggles_side() -> void:
-	var rc: RoleCard = _make_card()
+	var rc: RoleCard = _make_role_card()
 	rc.flip()
 	assert_false(rc.is_front(), "flip 后应为反面")
 	rc.flip()
@@ -28,12 +28,12 @@ func test_flip_toggles_side() -> void:
 
 
 func test_get_sneak_front_side() -> void:
-	var rc: RoleCard = _make_card()
+	var rc: RoleCard = _make_role_card()
 	assert_eq(rc.get_sneak(), 9, "正面应返回 sneak")
 
 
 func test_get_sneak_back_side() -> void:
-	var rc: RoleCard = _make_card()
+	var rc: RoleCard = _make_role_card()
 	rc.flip()
 	assert_eq(rc.get_sneak(), 8, "反面应返回 hunger_sneak")
 

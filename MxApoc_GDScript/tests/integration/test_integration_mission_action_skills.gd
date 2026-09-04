@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## 集成测试：任务行动技能化端到端链路（surface-mission-actions-as-skills Task 5）。
 ## 覆盖：真实任务 JSON（mission_1 / mission_9 / mission_11）→ MissionConfig 挂载 →
@@ -12,52 +12,8 @@ extends GutTest
 
 # === 辅助方法 ===
 
-func _make_player(player_name: String = "P", hp: int = 10) -> Player:
-	var p: Player = Player.new()
-	p.player_name = player_name
-	p.hp = hp
-	p.max_hp = hp
-	p.game_deck = Pile.new()
-	p.game_discard_pile = Pile.new()
-	return p
-
-
-func _make_card(card_name: String = "test_card", card_type: String = "action") -> Card:
-	var c: Card = Card.new()
-	c.card_name = card_name
-	c.card_type = card_type
-	c.source = "game"
-	return c
-
-
-func _make_block(block_name: String = "B", x: int = 0, y: int = 0) -> MapBlock:
-	var b: MapBlock = MapBlock.new()
-	b.block_name = block_name
-	b.set_coordinate(x, y)
-	b.revealed = true
-	return b
-
-
-func _clear_game() -> void:
-	Game.players = []
-	Game.map_area = []
-	Game.map_width = 0
-	Game.map_height = 0
-	Game.monster_pile = null
-	Game.monster_discard_pile = null
-	Game.scavenge_discard_pile = null
-	Game.red_scavenge_pile = null
-	Game.green_scavenge_pile = null
-	Game.blue_scavenge_pile = null
-	Game.mission_config = null
-	Game.current_mission = null
-	Game.removed_cards = []
-	Game.game_over_called = false
-	Game.game_result = ""
-	Game.coop_death_mode = false
-	Game.log_list = []
-	if Game.state_machine != null and is_instance_valid(Game.state_machine):
-		Game.state_machine.init()
+func _make_block(block_name: String = "test_block", x: int = 0, y: int = 0, revealed: bool = true) -> MapBlock:
+	return super._make_block(block_name, x, y, revealed)
 
 
 ## 轻量挂载：真实任务 JSON 组件 → MissionConfig（与 initialize_game 一致的旗标解析）
@@ -115,12 +71,8 @@ func _make_cancel_skill(trigger_name: String) -> Skill:
 	return s
 
 
-func before_each() -> void:
-	_clear_game()
-
-
 func after_each() -> void:
-	_clear_game()
+	super.after_each()
 	# 冲刷装备等 fire-and-forget 协程，避免事件残留跨用例
 	for i in 3:
 		await Engine.get_main_loop().process_frame

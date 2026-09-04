@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## 第零轮重调阶段集成测试。
 
@@ -20,42 +20,10 @@ func after_all() -> void:
 	Game.players = _original_players
 
 
-func _clear_game() -> void:
-	Game.players = []
-	Game.map_area = []
-	Game.monster_pile = null
-	Game.monster_discard_pile = null
-	Game.scavenge_discard_pile = null
-	Game.red_scavenge_pile = null
-	Game.green_scavenge_pile = null
-	Game.blue_scavenge_pile = null
-	Game.mission_config = null
-	Game.removed_cards = []
-	Game.game_over_called = false
-	Game.game_result = ""
-	Game.coop_death_mode = false
-	Game.log_list = []
-	if Game.state_machine != null and is_instance_valid(Game.state_machine):
-		Game.state_machine.init()
-
-
-func before_each() -> void:
-	_clear_game()
-
-
-func after_each() -> void:
-	_clear_game()
-
-
 # === 辅助方法 ===
 
-func _make_player(name: String = "P", hp: int = 10) -> Player:
-	var p: Player = Player.new()
-	p.player_name = name
-	p.hp = hp
-	p.max_hp = hp
-	p.game_deck = Pile.new()
-	p.game_discard_pile = Pile.new()
+func _make_player(player_name: String = "TestPlayer", hp: int = 10, max_hp: int = -1) -> Player:
+	var p: Player = super._make_player(player_name, hp, max_hp)
 	# 填充牌堆：至少 8 张牌（4 初始 + 4 重调）
 	for i in 8:
 		var card: Card = Card.new()
@@ -66,19 +34,6 @@ func _make_player(name: String = "P", hp: int = 10) -> Player:
 	# 设置 input 为 CliPlayerInput
 	p.input = CliPlayerInput.new()
 	return p
-
-
-func _make_monster_card(name: String = "z") -> MonsterCard:
-	var mc: MonsterCard = MonsterCard.new()
-	mc.card_name = name
-	mc.card_type = "monster"
-	mc.source = "monster"
-	mc.monster_type = "zombie"
-	mc.monster_level = "normal"
-	mc.max_hp = 3
-	mc.damage_value = 2
-	mc.range = "none"
-	return mc
 
 
 func _make_winning_mission_config() -> MissionConfig:

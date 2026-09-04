@@ -95,4 +95,4 @@ func _do_upload(game: Game, player: Player) -> void:
 	if not await player.consume_action_evented(1):
 		return
 	game.log_message(LogColors.player(player.player_name) + " 上传了病毒！")
-	game.game_over("win")
+	await game.game_over("win")

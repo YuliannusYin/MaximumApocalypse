@@ -158,7 +158,7 @@ func _round_zero(session_id: int = -1) -> void:
 				player.game_deck.add(card)
 			player.hand.clear()
 			player.game_deck.shuffle()
-			await player.draw(count)
+			await player.draw(count, Game.event_scheduler)
 			if _session_aborted(session_id):
 				return
 			if EventBus != null and is_instance_valid(EventBus):
@@ -180,22 +180,21 @@ func _round_zero(session_id: int = -1) -> void:
 func game_over(result: int, reason: String = "", runtime: Variant = null) -> void:
 	if current_state == GameState.GAME_OVER:
 		return
+	# 先同步进入终态，让回合循环/等待输入在结束触发跑完前就能停下来。
+	current_state = GameState.GAME_OVER
+	game_result = result
+	last_player = current_player
+	current_player = null
+	turn_queue.clear()
 	var scheduler: Variant = runtime if runtime != null else Game.event_scheduler
 	await scheduler.dispatch("game_over", func() -> void:
-		current_state = GameState.GAME_OVER
-		game_result = result
 		if Game != null and is_instance_valid(Game) and Game.stats_tracker != null:
 			Game.stats_tracker.stop_timer()
-		last_player = current_player
-		current_player = null
-		turn_queue.clear()
-		# 日志输出
 		if Game != null and is_instance_valid(Game):
 			if result == GameResult.WIN:
 				Game.log_message(reason if reason != "" else "求生者成功逃离启示录的废土！")
 			elif result == GameResult.LOSE:
 				Game.log_message(reason if reason != "" else "所有求生者死亡，游戏失败。")
-			# 触发「游戏结束时」trigger
 			for player in Game.players:
 				if player == null or not is_instance_valid(player):
 					continue
@@ -222,7 +221,7 @@ func next_turn() -> void:
 		# 1. 获取下一个玩家
 		var player: Variant = _get_next_player()
 		if player == null:
-			game_over(GameResult.LOSE)
+			await game_over(GameResult.LOSE)
 			return
 		# 2. 设置当前回合玩家
 		current_player = player
@@ -236,10 +235,12 @@ func next_turn() -> void:
 		await player.start_turn()
 		if _session_aborted(session_id):
 			return
-		if Game != null and is_instance_valid(Game) and current_state == GameState.PLAYING:
+		if current_state != GameState.PLAYING:
+			return
+		if Game != null and is_instance_valid(Game):
 			Game.log_message("==== " + LogColors.player(player.player_name) + " 回合结束 ====")
 		# 4. 检查胜利条件
-		if check_win_condition():
+		if await check_win_condition():
 			return
 		# 5. 若游戏未结束，循环继续下一个回合
 
@@ -321,14 +322,14 @@ func check_win_condition() -> bool:
 		return false
 	# 0. 任务特定失败条件（优先于胜利检查）
 	if Game.mission_config != null and Game.mission_config.check_lose(Game):
-		game_over(GameResult.LOSE, "任务目标失败，游戏结束。")
+		await game_over(GameResult.LOSE, "任务目标失败，游戏结束。")
 		return true
 	# 1. 玩家完成了任务（由任务系统检查）
 	if not _check_mission_win_condition():
 		return false
 	# 若该任务不通过面包车胜利（燃料值为 NULL/-1），直接胜利
 	if Game.mission_config == null or Game.mission_config.van_fuel_required < 0:
-		game_over(GameResult.WIN)
+		await game_over(GameResult.WIN)
 		return true
 	# 2. 往面包车添加了所需要的燃料值
 	var van_blocks: Array = Game.get_blocks_by_name("面包车")
@@ -350,7 +351,7 @@ func check_win_condition() -> bool:
 	if van.has_method("count_monster") and van.count_monster() > 0:
 		return false
 	# 所有胜利条件满足
-	game_over(GameResult.WIN)
+	await game_over(GameResult.WIN)
 	return true
 
 

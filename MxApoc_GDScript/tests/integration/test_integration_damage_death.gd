@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## 集成测试：伤害 → 死亡 → 游戏结束 全链路。
 ## 覆盖 Entity.damage 8 节点 + Player.death 3 节点 + Game.game_over("lose")。
@@ -7,17 +7,7 @@ extends GutTest
 
 # === 辅助方法 ===
 
-func _make_player(name: String = "P", hp: int = 10) -> Player:
-	var p: Player = Player.new()
-	p.player_name = name
-	p.hp = hp
-	p.max_hp = hp
-	p.game_deck = Pile.new()
-	p.game_discard_pile = Pile.new()
-	return p
-
-
-func _make_monster(name: String = "M", dmg: int = 3) -> Monster:
+func _make_monster_with_dmg(name: String = "M", dmg: int = 3) -> Monster:
 	var m: Monster = Monster.new()
 	m.monster_name = name
 	m.hp = 5
@@ -25,40 +15,6 @@ func _make_monster(name: String = "M", dmg: int = 3) -> Monster:
 	m.damage_value = dmg
 	m.range = "none"
 	return m
-
-
-func _make_block(name: String = "B", x: int = 0, y: int = 0) -> MapBlock:
-	var b: MapBlock = MapBlock.new()
-	b.block_name = name
-	b.set_coordinate(x, y)
-	return b
-
-
-func _clear_game() -> void:
-	Game.players = []
-	Game.map_area = []
-	Game.monster_pile = null
-	Game.monster_discard_pile = null
-	Game.scavenge_discard_pile = null
-	Game.red_scavenge_pile = null
-	Game.green_scavenge_pile = null
-	Game.blue_scavenge_pile = null
-	Game.mission_config = null
-	Game.removed_cards = []
-	Game.game_over_called = false
-	Game.game_result = ""
-	Game.coop_death_mode = false
-	Game.log_list = []
-	if Game.state_machine != null and is_instance_valid(Game.state_machine):
-		Game.state_machine.init()
-
-
-func before_each() -> void:
-	_clear_game()
-
-
-func after_each() -> void:
-	_clear_game()
 
 
 # === 测试用例 ===
@@ -118,8 +74,8 @@ func test_death_moves_monsters_to_discard_and_adds_marks() -> void:
 	Game.players = [p]
 	Game.monster_discard_pile = Pile.new()
 	# 给玩家面前放 2 个怪物
-	var m1: Monster = _make_monster("M1")
-	var m2: Monster = _make_monster("M2")
+	var m1: Monster = _make_monster_with_dmg("M1")
+	var m2: Monster = _make_monster_with_dmg("M2")
 	m1.attack_target = p
 	m2.attack_target = p
 	p.monster_zone.append(m1)

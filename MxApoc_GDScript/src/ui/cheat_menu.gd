@@ -288,13 +288,13 @@ func _build_win_lose_section() -> void:
 func _on_win_pressed() -> void:
 	_log("触发一键胜利")
 	if Game != null and is_instance_valid(Game):
-		Game.game_over("win")
+		await Game.game_over("win")
 
 
 func _on_lose_pressed() -> void:
 	_log("触发一键失败")
 	if Game != null and is_instance_valid(Game):
-		Game.game_over("lose")
+		await Game.game_over("lose")
 
 
 # === 卡牌 ===

@@ -91,11 +91,11 @@ func _do_rescue(game: Game, player: Player) -> void:
 	var success: bool = await player.sneak_judge(player.current_block)
 	if success:
 		game.log_message("潜行检定成功！科学家还活着！")
-		game.game_over("win")
+		await game.game_over("win")
 		return
 	if player.has_item(params.get("card_name", "满是灰尘的日记本")):
 		game.log_message("潜行检定失败，但记下了科学家弥留之际的信息！")
-		game.game_over("win")
+		await game.game_over("win")
 	else:
 		game.log_message("潜行检定失败且没有日记本……")
-		game.game_over("lose")
+		await game.game_over("lose")

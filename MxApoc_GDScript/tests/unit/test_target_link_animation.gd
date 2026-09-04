@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## 目标指向动画的无场景布局与安全回退测试。
 const TargetLinkAnimationViewScript = preload("res://src/ui/target_link_animation_view.gd")

@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## MapBlock 单元测试。
 
@@ -23,13 +23,6 @@ class MockPlayer extends RefCounted:
 
 # === 辅助方法 ===
 
-func _make_block(name: String, x: int, y: int) -> MapBlock:
-	var b: MapBlock = MapBlock.new()
-	b.block_name = name
-	b.set_coordinate(x, y)
-	return b
-
-
 func _setup_game_map(blocks: Array) -> void:
 	Game.map_area = blocks
 	Game.players = []
@@ -41,6 +34,7 @@ func _clear_game_map() -> void:
 
 
 func after_each() -> void:
+	super.after_each()
 	_clear_game_map()
 
 
