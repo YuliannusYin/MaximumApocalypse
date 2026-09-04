@@ -1165,6 +1165,29 @@ func test_start_turn_phases_progression() -> void:
 	assert_false(p.get_turn_context().active, "正常回合完成后 TurnContext 应结束")
 
 
+func test_start_turn_builds_unified_turn_event_tree() -> void:
+	const GameEventScript = preload("res://src/core/game_event.gd")
+	var p: Player = _make_player()
+	_setup_game_for_player(p)
+	p.game_deck.add(_make_card("c1"))
+	var block: MapBlock = _make_block("b", 0, 0)
+	block.revealed = true
+	Game.map_area = [block]
+	p.current_block = block
+	await p.start_turn()
+	var turn: Variant = p.get_turn_event()
+	assert_not_null(turn, "正式回合应建立统一 TurnEvent")
+	assert_eq(turn.owner, p)
+	assert_eq(turn.status, GameEventScript.Status.COMPLETED, "回合正常结束后 TurnEvent 应 completed")
+	assert_eq(
+		turn.children.map(func(phase: Variant) -> String: return phase.new_phase),
+		["turn_start", "monster_spawn", "draw", "action", "hunger", "poison", "monster_action", "turn_end", "idle"],
+		"TurnEvent 的子节点应与 PhaseEvent 顺序一致"
+	)
+	for phase in turn.children:
+		assert_eq(phase.parent, turn, "每个 PhaseEvent 都应挂接回同一个 TurnEvent")
+
+
 func test_start_turn_empty_deck_death_returns_early() -> void:
 	var p: Player = _make_player(5, 10)
 	_setup_game_for_player(p)
@@ -1194,6 +1217,12 @@ func test_start_turn_death_keeps_formal_context_at_current_phase() -> void:
 	assert_eq(phases, ["turn_start", "monster_spawn", "draw"])
 	assert_eq(p.get_turn_context().phase, "draw")
 	assert_true(p.get_turn_context().active, "死亡提前返回时应保留当前正式上下文")
+	const GameEventScript = preload("res://src/core/game_event.gd")
+	assert_eq(
+		p.get_turn_event().status,
+		GameEventScript.Status.RUNNING,
+		"回合因死亡提前返回时 TurnEvent 不应被标记为 completed"
+	)
 
 
 # === 12. 底层接口 ===

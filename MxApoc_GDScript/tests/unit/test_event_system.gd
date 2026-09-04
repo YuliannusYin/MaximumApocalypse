@@ -80,3 +80,22 @@ func test_initial_fields_override() -> void:
 	assert_eq(event["num"], 10)
 	assert_eq(event["custom"], "value")
 	assert_false(event["cancelled"])
+
+
+func test_create_event_has_unified_node_metadata() -> void:
+	var parent: Dictionary = EventSystem.create_event({"type": "parent"})
+	var child: Dictionary = EventSystem.create_event({
+		"type": "child",
+		"parent": parent,
+		"owner": "owner",
+		"source": "source",
+	})
+
+	assert_gt(parent["id"], 0)
+	assert_eq(child["type"], "child")
+	assert_eq(child["parent"], parent)
+	assert_eq(child["root"], parent["id"])
+	assert_eq(parent["children"], [child["id"]])
+	assert_not_null(child["game_event"])
+	assert_eq(child["game_event"].owner, "owner")
+	assert_eq(child["game_event"].source, "source")

@@ -12,6 +12,7 @@ var new_phase: String = ""
 var sequence: int = 0
 var reason: String = ""
 var action_remaining: int = 0
+var parent: Variant = null  # TurnEvent，统一事件树的正式回合父节点
 
 
 func _init(
@@ -20,7 +21,8 @@ func _init(
 	previous_phase: String,
 	next_phase: String,
 	phase_sequence: int,
-	phase_reason: String = ""
+	phase_reason: String = "",
+	turn_event: Variant = null
 ) -> void:
 	player = phase_player
 	context = turn_context
@@ -29,3 +31,4 @@ func _init(
 	sequence = phase_sequence
 	reason = phase_reason
 	action_remaining = turn_context.remaining_actions if turn_context != null else 0
+	parent = turn_event

@@ -133,3 +133,33 @@ func test_round_zero_skip_redraw_keeps_hand() -> void:
 	await Game.state_machine.start_game()
 	# 不重调 + start_turn 抓 1 张 → 手牌应 5 张（4 初始 + 1 start_turn）
 	assert_true(p.hand.size() >= 4, "不重调手牌应至少 4 张，实际 " + str(p.hand.size()))
+
+
+func test_round_zero_builds_independent_turn_event() -> void:
+	const GameEventScript = preload("res://src/core/game_event.gd")
+	var p: Player = _make_player("A")
+	Game.players = [p]
+	Game.monster_pile = Pile.new()
+	Game.monster_pile.add(_make_monster_card("z1"))
+	# 不使用胜利组件：手动只跑第零轮 + 第一个正式回合，逐步比对 TurnEvent
+	Game.state_machine.transition_to(GameStateMachine.GameState.PLAYING)
+	for player in Game.players:
+		player.draw(4)
+		await player.draw_monster(1)
+	await Game.state_machine._round_zero()
+	var round_zero_turn: Variant = p.get_turn_event()
+	assert_not_null(round_zero_turn, "第零轮也应建立独立 TurnEvent")
+	assert_eq(round_zero_turn.turn_number, 0)
+	assert_eq(round_zero_turn.status, GameEventScript.Status.COMPLETED, "第零轮结束后 TurnEvent 应 completed")
+	assert_eq(
+		round_zero_turn.children.map(func(phase: Variant) -> String: return phase.new_phase),
+		["round_zero", "idle"],
+		"第零轮不应套用正式回合 21 节点的阶段序列"
+	)
+	# 紧接着的正式回合应建立一个全新的 TurnEvent，不复用第零轮的实例
+	# 直接调用 start_turn（而非 next_turn，因为它是驱动整局游戏的 while 循环）。
+	await p.start_turn()
+	var formal_turn: Variant = p.get_turn_event()
+	assert_not_null(formal_turn)
+	assert_ne(formal_turn, round_zero_turn, "正式回合应建立新的 TurnEvent，而非复用第零轮的")
+	assert_eq(round_zero_turn.status, GameEventScript.Status.COMPLETED, "第零轮的 TurnEvent 状态不应被后续回合影响")

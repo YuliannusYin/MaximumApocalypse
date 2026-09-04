@@ -19,6 +19,7 @@ var marks: Dictionary = {}
 ## 技能 content 执行时可通过 event 访问流程参数；
 ## 若 trigger 为取消点，技能可调用 event["cancel"].call() 或 EventSystem.cancel(event) 终止流程。
 func trigger(trigger_name: String, event: Dictionary) -> void:
+	_begin_event_node(event, "trigger")
 	EventSystem.set_trigger_name(event, trigger_name)
 	# 迭代副本：技能 content 可能挂载/移除技能（如燃料 on_draw 调用 equip），
 	# 避免新挂载的同触发器技能在当前迭代中重复触发导致死循环。
@@ -46,11 +47,13 @@ func trigger(trigger_name: String, event: Dictionary) -> void:
 		await s.execute_content(self, event)
 		if EventSystem.is_cancelled(event):
 			break
+	_finish_event_node(event)
 
 
 ## 仅在指定技能列表中触发匹配 trigger_name 的技能。
 ## 用于 on_draw_scavenge_card 等自身反应触发器，避免已装备卡牌的同名触发器重复触发。
 func trigger_only(trigger_name: String, event: Dictionary, skill_list: Array) -> void:
+	_begin_event_node(event, "trigger_only")
 	EventSystem.set_trigger_name(event, trigger_name)
 	for s in skill_list:
 		if not s.matches_trigger(trigger_name):
@@ -76,6 +79,31 @@ func trigger_only(trigger_name: String, event: Dictionary, skill_list: Array) ->
 		await s.execute_content(self, event)
 		if EventSystem.is_cancelled(event):
 			break
+	_finish_event_node(event)
+
+
+func _begin_event_node(event: Dictionary, event_type: String) -> void:
+	event["type"] = event.get("type", event_type)
+	event["owner"] = event.get("owner", self)
+	event["status"] = "running"
+	var node: Variant = event.get("game_event", null)
+	if node != null:
+		node.owner = event["owner"]
+		node.source = event.get("source", null)
+		node.context = event.get("context", null)
+		node.mark_running()
+
+
+func _finish_event_node(event: Dictionary) -> void:
+	var node: Variant = event.get("game_event", null)
+	if EventSystem.is_cancelled(event):
+		event["status"] = "cancelled"
+		if node != null:
+			node.cancel()
+	else:
+		event["status"] = "completed"
+		if node != null:
+			node.complete(event.get("result", null))
 
 
 ## 怪物技能触发通知钩子（动画用）。基类 no-op，Monster 覆写以播放"触发怪物技能"动画。

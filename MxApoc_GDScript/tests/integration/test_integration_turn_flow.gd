@@ -142,6 +142,32 @@ func test_next_turn_advances_to_next_player() -> void:
 	assert_true(p2.hand.size() >= 4, "p2 应已抓牌")
 
 
+func test_next_turn_builds_fresh_turn_event_per_player() -> void:
+	const GameEventScript = preload("res://src/core/game_event.gd")
+	var p1: Player = _make_player("A")
+	var p2: Player = _make_player("B")
+	Game.players = [p1, p2]
+	Game.monster_pile = Pile.new()
+	for i in 4:
+		Game.monster_pile.add(_make_monster_card("z" + str(i)))
+	var mc: MissionConfig = MissionConfig.new()
+	mc.van_fuel_required = -1
+	mc.win_condition_components.append(CountingWinComponent.new())
+	Game.mission_config = mc
+	await Game.state_machine.start_game()
+	# p1、p2 各自都应建立自己的正式 TurnEvent，owner 各自归属正确，且都已 completed。
+	var turn1: Variant = p1.get_turn_event()
+	var turn2: Variant = p2.get_turn_event()
+	assert_not_null(turn1)
+	assert_not_null(turn2)
+	assert_eq(turn1.owner, p1)
+	assert_eq(turn2.owner, p2)
+	assert_eq(turn1.status, GameEventScript.Status.COMPLETED)
+	assert_eq(turn2.status, GameEventScript.Status.COMPLETED)
+	assert_eq(turn1.turn_number, Game.state_machine.get_turn_number())
+	assert_eq(turn2.turn_number, Game.state_machine.get_turn_number())
+
+
 func test_turn_flow_with_dead_player_skipped() -> void:
 	var p1: Player = _make_player("A", 10)
 	var p2: Player = _make_player("B", 0)  # 已死
