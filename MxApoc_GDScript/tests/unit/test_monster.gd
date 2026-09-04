@@ -12,7 +12,7 @@ class MockPlayer extends Player:
 		hp = 10
 		max_hp = 10
 
-	func damage(num: int, source: Entity, type: Variant = "", card: Card = null) -> void:
+	func damage(num: int, source: Entity, type: Variant = "", card: Card = null, runtime: Variant = null) -> void:
 		damage_received.append([num, source, type])
 		hp = maxi(hp - num, 0)
 

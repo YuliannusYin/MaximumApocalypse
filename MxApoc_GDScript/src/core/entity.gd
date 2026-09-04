@@ -360,73 +360,77 @@ func add_mark_skill(name: String, n: int = 1, expire_trigger: String = "", mark_
 ## card = null 时表示非武器伤害；card 为武器牌时供「造成伤害时」filter 判断。
 ## type 为伤害类型标识，可为 String（"monster_attack"/"poison"/"hunger"）或 int。
 ## 流程节点 8 触发死亡判定，调用 target.death(source)（多态）。
-func damage(num: int, source: Entity, type: Variant = "", card: Card = null) -> void:
+## runtime 为可选的统一事件调度 runtime：调用方持有 runtime 时应传入以保持嵌套父子关系；
+## 省略时内部临时新建一个局部 runtime 承载本次 OperationEvent（不会跨调用共享子树）。
+func damage(num: int, source: Entity, type: Variant = "", card: Card = null, runtime: Variant = null) -> void:
 	if num <= 0:
 		return
 	if get_hp() <= 0:
 		return
+	var rt: OperationRuntime = OperationRuntime.resolve(runtime)
+	await rt.dispatch("damage", func() -> void:
+		var event: Dictionary = EventSystem.create_damage_event(self, source, num, type, card)
 
-	var event: Dictionary = EventSystem.create_damage_event(self, source, num, type, card)
-
-	# 1-2. before_deal_damage / before_take_damage
-	if source != null:
-		await source.trigger("before_deal_damage", event)
-		await trigger("before_take_damage", event)
-	else:
-		await trigger("before_take_damage", event)
-
-	# 3. on_deal_damage（可修改 event.num）
-	if source != null:
-		await source.trigger("on_deal_damage", event)
-
-	# 4. on_take_damage（取消点：可修改 event.num 或 event.cancel()）
-	await trigger("on_take_damage", event)
-
-	if EventSystem.is_cancelled(event):
-		return
-
-	# 5. 系统扣血（非钩子节点）
-	var hp_before: int = get_hp()
-	reduce_hp(event["num"])
-	var actual_damage: int = hp_before - get_hp()
-	# 5.5 统计信号：仅统计实际扣血量（trigger 可能修改/取消伤害）
-	if actual_damage > 0 and EventBus != null and is_instance_valid(EventBus):
-		EventBus.damage_taken.emit(self, source, actual_damage)
+		# 1-2. before_deal_damage / before_take_damage
 		if source != null:
-			EventBus.damage_dealt.emit(source, self, actual_damage)
-	# 5.6 日志记录（玩家/怪物受伤时区分来源）
-	if is_player() and event["num"] > 0 and Game != null and is_instance_valid(Game):
-		var p_name: String = self.get("player_name")
-		var dmg_num: int = event["num"]
-		var dmg_type: String = str(type) if type != null else ""
-		if dmg_type == "monster_attack" and source != null and is_instance_valid(source) and source.is_monster():
-			Game.log_message(LogColors.player(p_name) + " 受到 " + LogColors.monster(source.get("monster_name")) + " 造成的 " + str(dmg_num) + " 点伤害")
-		elif dmg_type == "hunger":
-			Game.log_message(LogColors.player(p_name) + " 因饥饿受到 " + str(dmg_num) + " 点伤害")
-		elif dmg_type == "poison":
-			Game.log_message(LogColors.player(p_name) + " 因中毒受到 " + str(dmg_num) + " 点伤害")
-		elif dmg_type == "block_destroy":
-			Game.log_message(LogColors.player(p_name) + " 因地块摧毁受到 " + str(dmg_num) + " 点伤害")
+			await source.trigger("before_deal_damage", event)
+			await trigger("before_take_damage", event)
 		else:
-			Game.log_message(LogColors.player(p_name) + " 受到 " + str(dmg_num) + " 点伤害")
-	elif is_monster() and event["num"] > 0 and Game != null and is_instance_valid(Game):
-		var m_name: String = self.get("monster_name")
-		var dmg_num_m: int = event["num"]
-		if source != null and is_instance_valid(source) and source.is_player():
-			Game.log_message(LogColors.monster(m_name) + " 受到 " + LogColors.player(source.get("player_name")) + " 造成的 " + str(dmg_num_m) + " 点伤害")
-		else:
-			Game.log_message(LogColors.monster(m_name) + " 受到 " + str(dmg_num_m) + " 点伤害")
+			await trigger("before_take_damage", event)
 
-	# 6. after_deal_damage
-	if source != null:
-		await source.trigger("after_deal_damage", event)
+		# 3. on_deal_damage（可修改 event.num）
+		if source != null:
+			await source.trigger("on_deal_damage", event)
 
-	# 7. after_take_damage
-	await trigger("after_take_damage", event)
+		# 4. on_take_damage（取消点：可修改 event.num 或 event.cancel()）
+		await trigger("on_take_damage", event)
 
-	# 8. 死亡判定（多态调用）
-	if get_hp() <= 0:
-		death(source)
+		if EventSystem.is_cancelled(event):
+			return
+
+		# 5. 系统扣血（非钩子节点）
+		var hp_before: int = get_hp()
+		reduce_hp(event["num"])
+		var actual_damage: int = hp_before - get_hp()
+		# 5.5 统计信号：仅统计实际扣血量（trigger 可能修改/取消伤害）
+		if actual_damage > 0 and EventBus != null and is_instance_valid(EventBus):
+			EventBus.damage_taken.emit(self, source, actual_damage)
+			if source != null:
+				EventBus.damage_dealt.emit(source, self, actual_damage)
+		# 5.6 日志记录（玩家/怪物受伤时区分来源）
+		if is_player() and event["num"] > 0 and Game != null and is_instance_valid(Game):
+			var p_name: String = self.get("player_name")
+			var dmg_num: int = event["num"]
+			var dmg_type: String = str(type) if type != null else ""
+			if dmg_type == "monster_attack" and source != null and is_instance_valid(source) and source.is_monster():
+				Game.log_message(LogColors.player(p_name) + " 受到 " + LogColors.monster(source.get("monster_name")) + " 造成的 " + str(dmg_num) + " 点伤害")
+			elif dmg_type == "hunger":
+				Game.log_message(LogColors.player(p_name) + " 因饥饿受到 " + str(dmg_num) + " 点伤害")
+			elif dmg_type == "poison":
+				Game.log_message(LogColors.player(p_name) + " 因中毒受到 " + str(dmg_num) + " 点伤害")
+			elif dmg_type == "block_destroy":
+				Game.log_message(LogColors.player(p_name) + " 因地块摧毁受到 " + str(dmg_num) + " 点伤害")
+			else:
+				Game.log_message(LogColors.player(p_name) + " 受到 " + str(dmg_num) + " 点伤害")
+		elif is_monster() and event["num"] > 0 and Game != null and is_instance_valid(Game):
+			var m_name: String = self.get("monster_name")
+			var dmg_num_m: int = event["num"]
+			if source != null and is_instance_valid(source) and source.is_player():
+				Game.log_message(LogColors.monster(m_name) + " 受到 " + LogColors.player(source.get("player_name")) + " 造成的 " + str(dmg_num_m) + " 点伤害")
+			else:
+				Game.log_message(LogColors.monster(m_name) + " 受到 " + str(dmg_num_m) + " 点伤害")
+
+		# 6. after_deal_damage
+		if source != null:
+			await source.trigger("after_deal_damage", event)
+
+		# 7. after_take_damage
+		await trigger("after_take_damage", event)
+
+		# 8. 死亡判定（多态调用）
+		if get_hp() <= 0:
+			death(source, rt),
+		{"target": self, "source": source, "num": num, "type": type, "card": card})
 
 
 # === 4. 生命值接口（子类必须 override） ===
@@ -467,5 +471,6 @@ func is_monster() -> bool:
 
 ## 死亡流程的抽象方法，由子类实现。
 ## Player.death → player_death；Monster.death → monster_death。
-func death(source: Entity) -> void:
+## runtime 为可选的统一事件调度 runtime，见 Entity.damage 说明。
+func death(source: Entity, runtime: Variant = null) -> void:
 	pass

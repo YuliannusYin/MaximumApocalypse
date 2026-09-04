@@ -11,6 +11,13 @@ var _is_flushing: bool = false
 var _stack: Array[Dictionary] = []
 
 
+## 解析领域方法应使用的 runtime：调用方显式传入时复用（保持嵌套/owner 继承）；
+## 否则新建一个仅供本次调用使用的局部 runtime（不会跨调用共享，形成独立子树）。
+## 供 Entity/Player/Monster/Game 领域方法统一调用，实现"逐类迁移到统一 OperationEvent"。
+static func resolve(runtime: Variant) -> OperationRuntime:
+	return runtime if runtime is OperationRuntime else OperationRuntime.new()
+
+
 ## 立即执行一个操作。操作执行期间触发的子操作会压到栈顶，
 ## 子操作完成后才恢复父操作。
 ## owner 是实际执行操作的玩家，source 是发起该操作的玩家。

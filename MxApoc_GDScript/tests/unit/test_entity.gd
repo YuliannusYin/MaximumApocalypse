@@ -23,7 +23,7 @@ class MockEntity extends Entity:
 	func add_hp(n: int) -> void:
 		hp += n
 
-	func death(source) -> void:
+	func death(source: Entity, runtime: Variant = null) -> void:
 		death_called = true
 		death_source = source
 
