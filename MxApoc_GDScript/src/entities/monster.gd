@@ -94,6 +94,10 @@ func _notify_monster_skill_triggered() -> void:
 		return
 	if owner.input == null or not is_instance_valid(owner.input):
 		return
+	# 与 Player 其它输入请求一致：先标记所属玩家，避免 owner 落到字符串 "__system__"，
+	# 进而在地图刷新里出现 Player == String 崩溃。
+	if owner.has_method("_prepare_input_request"):
+		owner._prepare_input_request()
 	await owner.input.play_monster_skill_trigger_animation(self)
 
 
@@ -238,6 +242,8 @@ func _play_attack_animation(targets: Array) -> void:
 		return
 	if owner.input == null or not is_instance_valid(owner.input):
 		return
+	if owner.has_method("_prepare_input_request"):
+		owner._prepare_input_request()
 	await owner.input.play_monster_attack_animation(self, targets)
 
 

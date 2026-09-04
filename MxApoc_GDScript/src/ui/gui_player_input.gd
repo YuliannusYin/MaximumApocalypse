@@ -96,6 +96,11 @@ func _respond_active_with_identity(value: Variant, request_id: int, owner: Varia
 	_get_event_scheduler().respond(value, request_id, owner)
 
 
+## Godot 的 bool() 构造只接受 bool/int/float；取消请求会留下 null，直接 bool(null) 会崩。
+func _as_bool(result: Variant) -> bool:
+	return result if typeof(result) == TYPE_BOOL else false
+
+
 # === IPlayerInput 实现 ===
 
 func wait_action(player: Variant) -> Variant:
@@ -148,7 +153,7 @@ func confirm(message: String) -> bool:
 	var req: Variant = _enqueue_request(func() -> void:
 		confirm_requested.emit(message))
 	var result: Variant = await _wait_for_request(req)
-	return bool(result)
+	return _as_bool(result)
 
 
 func show_card(card: Card, target: Variant) -> void:
@@ -174,7 +179,7 @@ func wait_redraw_decision(player: Variant) -> bool:
 	var req: Variant = _enqueue_request(func() -> void:
 		redraw_decision_requested.emit())
 	var result: Variant = await _wait_for_request(req)
-	return bool(result)
+	return _as_bool(result)
 
 
 ## 检定确认门。发射信号请求 UI 显示确认门，await 响应后返回（true=执行 / false=放弃）。
@@ -183,7 +188,7 @@ func wait_judge_confirm(player: Variant, prompt: String, allow_cancel: bool) -> 
 	var req: Variant = _enqueue_request(func() -> void:
 		judge_confirm_requested.emit(prompt, allow_cancel))
 	var result: Variant = await _wait_for_request(req)
-	return bool(result)
+	return _as_bool(result)
 
 
 ## 播放两颗骰子投掷动画并等待结束。动画播完后由 UI 调用 respond_dice_animation 结算，期间阻塞后续请求派发。

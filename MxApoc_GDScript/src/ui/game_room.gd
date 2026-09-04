@@ -1,6 +1,7 @@
 extends Control
 
 const SEAT_ITEM_SCENE := preload("res://scenes/SeatItem.tscn")
+const LoadingScreenScript := preload("res://src/ui/loading_screen.gd")
 const MAX_SEATS := 6
 const MIN_SEATS := 1
 const RANDOM_MISSION_IDX := 0
@@ -248,7 +249,7 @@ func _update_start_button() -> void:
 func _on_start_game() -> void:
 	if not RoomState.is_ready_to_start():
 		return
-	get_tree().change_scene_to_file("res://scenes/LoadingScreen.tscn")
+	LoadingScreenScript.go_enter_game(get_tree())
 
 func _on_back() -> void:
 	get_tree().change_scene_to_file("res://scenes/MainMenu.tscn")

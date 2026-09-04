@@ -2,13 +2,14 @@ extends Control
 
 ## 2D 试玩版游戏主场景。
 ## 层结构：TableLayer（桌子+地图，可平移）/ UILayer（固定 UI）/ PopupLayer（弹窗）。
-## 游戏流程：_ready() → 创建子模块 → initialize_game() → 注入 GUIPlayerInput → start_game()。
+## 游戏流程：加载页 initialize_game → 本场景搭 UI、注入输入 → start_game()。
 
 const SETTINGS_DIALOG_SCENE := preload("res://scenes/SettingsDialog.tscn")
 const TUTORIAL_DIALOG_SCENE := preload("res://scenes/TutorialDialog.tscn")
 const WIKI_OVERLAY_SCENE := preload("res://scenes/WikiOverlay.tscn")
 const TutorialManager = preload("res://src/ui/tutorial_manager.gd")
 const SeatHudManagerScript = preload("res://src/ui/seat_hud_manager.gd")
+const LoadingScreenScript = preload("res://src/ui/loading_screen.gd")
 
 # === 层节点（来自 .tscn）===
 @onready var _table_layer: CanvasLayer = $TableLayer
@@ -153,13 +154,9 @@ func _cheat_refresh_ui(player: Variant = null) -> void:
 # === 游戏流程 ===
 
 func _start_game_flow() -> void:
-	var mission: MissionData = RoomState.selected_mission
-	if RoomState.selected_mission_is_random:
-		mission = null
-	var variants: Dictionary = RoomState.variants
-	var seats: Array = RoomState.seats
-
-	Game.initialize_game(mission, variants, seats)
+	# 正常路径由 LoadingScreen 完成 initialize_game；直接进本场景（编辑器试玩）时补一次。
+	if Game.players.is_empty():
+		Game.initialize_from_room_state()
 	_table_map_controller.build_table_and_map()
 	# 任务进度面板：常驻 UI 层右侧固定位置，_process 自刷新任务条件进度
 	_progress_panel = MissionProgressPanel.new()
@@ -661,12 +658,8 @@ func _on_settings_popup_id_pressed(id: int) -> void:
 			add_child(dialog)
 			dialog.popup_centered(Vector2i(360, 180))
 		1:
-			# 返回主菜单
-			Game.state_machine.current_state = GameStateMachine.GameState.WAITING
-			Game.players.clear()
-			Game.map_area.clear()
-			RoomState.clear()
-			get_tree().change_scene_to_file("res://scenes/MainMenu.tscn")
+			# 返回主菜单：先卸对局场景，再在加载页清理调度器与旧协程。
+			LoadingScreenScript.go_exit_to_menu(get_tree())
 
 
 # === GUIPlayerInput 信号处理 ===

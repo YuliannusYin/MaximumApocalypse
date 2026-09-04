@@ -45,6 +45,8 @@ var player_name: String = ""
 
 # === 输入接口 ===
 var input: IPlayerInput = null
+## 所属对局世代。-1 表示未绑定（测试 mock），不拦截过期协程。
+var session_id: int = -1
 
 
 func _init() -> void:
@@ -82,6 +84,13 @@ func is_player() -> bool:
 
 func is_alive() -> bool:
 	return hp > 0
+
+
+## 当前对局已退出/重开时返回 true。未绑定 session_id 的测试玩家始终为 false。
+func has_left_session() -> bool:
+	if session_id < 0:
+		return false
+	return Game == null or not is_instance_valid(Game) or not Game.is_session(session_id)
 
 
 # === 一、状态管理 ===
@@ -243,6 +252,8 @@ func poison_evented(runtime: Variant = null) -> bool:
 
 ## 从求生者游戏牌堆抓 n 张牌（4 节点）。runtime 为可选的统一事件调度 runtime，见 Entity.damage 说明。
 func draw(n: int, runtime: Variant = null) -> void:
+	if has_left_session():
+		return
 	if n <= 0:
 		return
 	var rt: Variant = runtime if runtime != null else Game.event_scheduler
@@ -391,6 +402,8 @@ func draw_scavenge_card(card: Card, pile: Pile, event: Dictionary, runtime: Vari
 
 ## 从怪物牌堆抓 n 张怪物卡（7 节点）。runtime 为可选的统一事件调度 runtime，见 Entity.damage 说明。
 func draw_monster(n: int, runtime: Variant = null) -> void:
+	if has_left_session():
+		return
 	if n <= 0:
 		return
 	var rt: Variant = runtime if runtime != null else Game.event_scheduler
@@ -1288,6 +1301,8 @@ func _format_target_name(target: Variant) -> String:
 
 ## 玩家回合完整流程（21 节点，节点 21 由状态机执行）。
 func start_turn() -> void:
+	if has_left_session():
+		return
 	var event: Dictionary = EventSystem.create_event({"player": self})
 	# 节点 1：进入玩家回合（非钩子节点）
 	var turn_number: int = 0
@@ -1303,22 +1318,34 @@ func start_turn() -> void:
 			skill.reset_use_count()
 	# 节点 2：回合开始前
 	await trigger("before_turn_start", event)
+	if has_left_session():
+		return
 	# 节点 3：回合开始时
 	await trigger("on_turn_start", event)
+	if has_left_session():
+		return
 	# 节点 4：怪物出生前
 	phase_event = _enter_turn_phase("monster_spawn")
 	event["phase_event"] = phase_event
 	await trigger("before_monster_spawn", event)
+	if has_left_session():
+		return
 	# 节点 5：怪物出生时
 	await trigger("on_monster_spawn", event)
+	if has_left_session():
+		return
 	await monster_spawn_judge()
+	if has_left_session():
+		return
 	# 节点 6：摸牌阶段前
 	phase_event = _enter_turn_phase("draw")
 	event["phase_event"] = phase_event
 	await trigger("before_draw_phase", event)
+	if has_left_session():
+		return
 	# 节点 7：摸牌阶段（牌堆空 → 死亡；手牌超限时由 draw 内的 resolve_hand_overflow 弹窗弃牌）
 	await draw(1)
-	if not is_alive():
+	if has_left_session() or not is_alive():
 		return
 	# 节点 8：行动阶段前（含潜行检定）
 	phase_event = _enter_turn_phase("action")
@@ -1326,54 +1353,84 @@ func start_turn() -> void:
 	if current_block != null and current_block.has_method("has_monster_mark"):
 		if current_block.has_monster_mark():
 			if not await sneak_judge():
+				if has_left_session():
+					return
 				var num: int = current_block.count_monster_mark()
 				current_block.remove_monster_mark(num)
 				await draw_monster(num)
+				if has_left_session():
+					return
 	await trigger("before_action_phase", event)
+	if has_left_session():
+		return
 	# 节点 9：行动阶段
 	await wait_player_action()
+	if has_left_session():
+		return
 	# 节点 10：行动阶段结束前
 	await trigger("before_action_phase_end", event)
+	if has_left_session():
+		return
 	# 节点 11：行动阶段结束时
 	await trigger("on_action_phase_end", event)
+	if has_left_session():
+		return
 	# 节点 12：求生者饥饿状态结算前
 	phase_event = _enter_turn_phase("hunger")
 	event["phase_event"] = phase_event
 	await trigger("before_hunger_settlement", event)
+	if has_left_session():
+		return
 	var hunger_cancelled: bool = EventSystem.is_cancelled(event)
 	if not hunger_cancelled:
 		# 节点 13：求生者饥饿状态结算时
 		await trigger("on_hunger_settlement", event)
+		if has_left_session():
+			return
 		await increase_hunger_evented(1)
-		if not is_alive():
+		if has_left_session() or not is_alive():
 			return
 	# 节点 14：求生者中毒状态结算前
 	phase_event = _enter_turn_phase("poison")
 	event["phase_event"] = phase_event
 	await trigger("before_poison_settlement", event)
+	if has_left_session():
+		return
 	# 节点 15：求生者中毒状态结算时
 	await trigger("on_poison_settlement", event)
+	if has_left_session():
+		return
 	await poison_evented()
-	if not is_alive():
+	if has_left_session() or not is_alive():
 		return
 	# 节点 16：面前怪物行动前
 	phase_event = _enter_turn_phase("monster_action")
 	event["phase_event"] = phase_event
 	await trigger("before_zone_monster_act", event)
+	if has_left_session():
+		return
 	# 节点 17：面前怪物行动时
 	await trigger("on_zone_monster_act", event)
+	if has_left_session():
+		return
 	var monsters_copy: Array = monster_zone.duplicate()
 	for monster in monsters_copy:
+		if has_left_session():
+			return
 		if monster != null and is_instance_valid(monster):
 			await monster.act()
-	if not is_alive():
+	if has_left_session() or not is_alive():
 		return
 	# 节点 18：回合结束前
 	phase_event = _enter_turn_phase("turn_end")
 	event["phase_event"] = phase_event
 	await trigger("before_turn_end", event)
+	if has_left_session():
+		return
 	# 节点 19：回合结束时
 	await trigger("on_turn_end", event)
+	if has_left_session():
+		return
 	# 节点 20：退出玩家回合
 	phase_event = _enter_turn_phase("idle")
 	event["phase_event"] = phase_event
@@ -2070,6 +2127,8 @@ func set_prompt(text: String) -> void:
 
 ## 等待玩家重调决策（第零轮专用）。返回 true 表示确定重调，false 表示取消。
 func wait_redraw_decision() -> bool:
+	if has_left_session():
+		return false
 	if input == null or not is_instance_valid(input):
 		return false
 	_prepare_input_request()
@@ -2085,6 +2144,9 @@ func wait_player_action(_operation_context: Dictionary = {}) -> Dictionary:
 		"remaining_actions": int(_operation_context.get("remaining_actions", 0)),
 	}
 	while is_alive():
+		if has_left_session():
+			result["reason"] = "cancelled"
+			break
 		if _phase_end_requested != "":
 			_phase_end_requested = ""
 			result["reason"] = "ended"
@@ -2093,6 +2155,9 @@ func wait_player_action(_operation_context: Dictionary = {}) -> Dictionary:
 			result["reason"] = "budget_exhausted"
 			break
 		var choice: Variant = await input.wait_action(self)
+		if has_left_session():
+			result["reason"] = "cancelled"
+			break
 		if choice == null:
 			result["reason"] = "cancelled"
 			break  # 结束回合

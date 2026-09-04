@@ -509,6 +509,29 @@ func test_get_step_toward_null_source() -> void:
 	assert_null(step)
 
 
+# === 9. 对局中止 / 世代 ===
+
+func test_abort_session_invalidates_previous_session() -> void:
+	var old_id: int = Game.get_session_id()
+	Game.players.append(_make_player())
+	Game.abort_session()
+	assert_false(Game.is_session(old_id), "abort 后旧世代应失效")
+	assert_eq(Game.players.size(), 0, "abort 应清空玩家")
+	assert_eq(Game.state_machine.current_state, GameStateMachine.GameState.WAITING)
+	assert_not_null(Game.event_scheduler)
+
+
+func test_stale_player_draw_is_ignored_after_abort() -> void:
+	var p: Player = _make_player()
+	p.session_id = Game.get_session_id()
+	p.game_deck.add(_make_card())
+	Game.abort_session()
+	assert_true(p.has_left_session())
+	await p.draw(1)
+	assert_eq(p.hand.size(), 0, "过期对局的玩家不应再抓牌")
+	assert_eq(p.game_deck.size(), 1, "过期抓牌不应从牌堆抽走卡")
+
+
 # === 辅助 skill 工厂 ===
 
 func _make_skill_with_trigger(trigger_name: String, called: Array) -> Skill:

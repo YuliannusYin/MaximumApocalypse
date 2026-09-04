@@ -415,7 +415,7 @@ func _update_grid(current_player: Variant = null, interactive_player: Variant = 
 				_grid_cells[idx].texture = tex
 				_grid_cells[idx].visible = true
 				_cell_player_ids[idx] = player.get_instance_id()
-				if interactive_player != null and player == interactive_player:
+				if interactive_player != null and is_instance_valid(interactive_player) and player == interactive_player:
 					_grid_cells[idx].mouse_filter = Control.MOUSE_FILTER_STOP
 					_grid_cells[idx].gui_input.connect(_on_avatar_cell_input.bind(player))
 				idx += 1

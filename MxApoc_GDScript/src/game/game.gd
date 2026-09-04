@@ -28,6 +28,8 @@ var current_mission: Variant = null  # 可能是 Dictionary 或 Resource，类�
 var removed_cards: Array = []
 var log_list: Array = []
 var event_scheduler: Variant = null
+## 对局世代。退出/重开时递增；仍在跑的旧开局/回合协程用它判断自己是否已过期。
+var _session_id: int = 0
 
 # === 子技能注册表 ===
 # 键为子技能 english_name（全局唯一），值为 SkillData。
@@ -45,6 +47,32 @@ func _ready() -> void:
 	state_machine.init()
 	stats_tracker = StatsTracker.new()
 	_wire_mission_event_forwarding()
+
+
+func get_session_id() -> int:
+	return _session_id
+
+
+func is_session(session_id: int) -> bool:
+	return session_id == _session_id
+
+
+## 中止当前对局：递增世代、解开仍在 await 的输入、换新调度器，避免旧协程污染下一局。
+func abort_session() -> void:
+	_session_id += 1
+	if event_scheduler != null:
+		event_scheduler.reset()
+	event_scheduler = EventSchedulerScript.new()
+	if state_machine != null:
+		state_machine.init()
+	players.clear()
+	map_area.clear()
+	map_width = 0
+	map_height = 0
+	card_resolution_area.clear()
+	removed_cards.clear()
+	game_over_called = false
+	game_result = ""
 
 
 ## 日志输出。方法名避开 GDScript 内置 log()（自然对数）。
@@ -560,13 +588,18 @@ func get_card(card_english_name: String, pile: Variant) -> Card:
 
 # === 游戏初始化 ===
 
+## 按房间当前选座/任务初始化一局。加载页开局与对局场景兜底共用。
+func initialize_from_room_state() -> void:
+	var mission: MissionData = RoomState.selected_mission
+	if RoomState.selected_mission_is_random:
+		mission = null
+	initialize_game(mission, RoomState.variants, RoomState.seats)
+
+
 ## 游戏初始化：从 RoomState 创建玩家、构建地图、初始化牌堆。
 ## 在 start_game() 前调用。mission 为 null 时随机抽取一个任务。
 func initialize_game(mission: MissionData, variants: Dictionary, seats: Array) -> void:
-	if event_scheduler == null:
-		event_scheduler = EventSchedulerScript.new()
-	else:
-		event_scheduler.reset()
+	abort_session()
 	# 1. 确定任务
 	if mission == null:
 		var all_missions: Array = DataManager.get_all_missions()
@@ -593,6 +626,7 @@ func initialize_game(mission: MissionData, variants: Dictionary, seats: Array) -
 		if survivor == null:
 			continue
 		var player: Player = Player.new()
+		player.session_id = _session_id
 		player.seat_number = i
 		player.player_name = survivor.character_name
 		player.max_hp = survivor.max_hp

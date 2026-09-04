@@ -77,7 +77,6 @@
       { "card_name": "弹药", "count": 2 },
       { "card_name": "手电筒", "count": 1 },
       { "card_name": "对讲机", "count": 1 },
-      { "card_name": "炸药", "count": 1 },
       { "card_name": "多余配件", "count": 1 },
       { "card_name": "一无所获", "count": 1 },
       { "card_name": "满是灰尘的日记本", "count": 1 },
@@ -88,7 +87,6 @@
       { "card_name": "燃料", "count": 2 },
       { "card_name": "弹药", "count": 2 },
       { "card_name": "手枪", "count": 1 },
-      { "card_name": "炸药", "count": 2 },
       { "card_name": "多余配件", "count": 2 },
       { "card_name": "一无所获", "count": 1 },
       { "card_name": "伏击！", "count": 2 }
