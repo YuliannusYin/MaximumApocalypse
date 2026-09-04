@@ -58,18 +58,20 @@ func log(message: String) -> void:
 # === 状态机委托 ===
 
 ## 游戏开局流程。委托给 state_machine.start_game()。
-func start_game() -> void:
+## runtime 为可选的统一事件调度 runtime，见 Entity.damage 说明。
+func start_game(runtime: Variant = null) -> void:
 	if state_machine != null and is_instance_valid(state_machine):
-		await state_machine.start_game()
+		await state_machine.start_game(runtime)
 
 
 ## 游戏结束流程。接受 String ("win"/"lose") 并委托给 state_machine.game_over(enum)。
-func game_over(result: String) -> void:
+## runtime 为可选的统一事件调度 runtime，见 Entity.damage 说明。
+func game_over(result: String, runtime: Variant = null) -> void:
 	var enum_result: int = GameStateMachine.GameResult.LOSE
 	if result == "win":
 		enum_result = GameStateMachine.GameResult.WIN
 	if state_machine != null and is_instance_valid(state_machine):
-		state_machine.game_over(enum_result)
+		state_machine.game_over(enum_result, "", runtime) # Unawaited as per original behavior
 	else:
 		game_over_called = true
 		game_result = result
@@ -342,53 +344,57 @@ func _create_map_block(block_name: String, variant_index: int = -1) -> MapBlock:
 
 
 ## 摧毁地块流程。6 节点：before → 玩家弹出 → 怪物标记清零 → on → 状态变更 → after。
-func destroy_map_block(block: MapBlock, source: Variant) -> bool:
+## runtime 为可选的统一事件调度 runtime，见 Entity.damage 说明。
+func destroy_map_block(block: MapBlock, source: Variant, runtime: Variant = null) -> bool:
 	if block == null or not is_instance_valid(block):
 		return false
-	var event: Dictionary = EventSystem.create_destroy_block_event(source, block)
-	# 1. 摧毁地块前（取消点）
-	for player in players:
-		if player != null and is_instance_valid(player):
-			await player.trigger("before_destroy_block", event)
-	if EventSystem.is_cancelled(event):
-		return false
-	# 2. 处理地块上的玩家（弹出到相邻存活地块）
-	var players_on_block: Array = block.get_players()
-	for player in players_on_block:
-		var adjacent: Array = block.get_adjacent_blocks()
-		if adjacent.is_empty():
-			log_message(LogColors.player(player.player_name) + " 无处可逃，受到 5 点伤害")
-			player.damage(5, null, "block_destroy")
-		else:
-			var target: MapBlock = await player.choose_map_block(adjacent)
-			if target == null:
-				target = adjacent[0]
-			if block.has_method("_clear_skills_for_player"):
-				block._clear_skills_for_player(player)
-			player.current_block = target
-			if target.has_method("_acquire_skills_for_player"):
-				target._acquire_skills_for_player(player)
-			# 并列维护任务行动技能挂载（卸载被摧毁地块的、挂载迁移目标地块的）
-			if mission_config != null:
-				mission_config.unmount_action_skills(player)
-				mission_config.mount_action_skills(player, target)
-			if not target.is_revealed():
-				await target.reveal(true, player)
-	# 3. 消灭地块上的所有怪物标记
-	block.monster_marks = 0
-	# 4. 摧毁地块时（系统结算）
-	for player in players:
-		if player != null and is_instance_valid(player):
-			await player.trigger("on_destroy_block", event)
-	# 5. 地块状态变更，从地图区域移除
-	block.block_state = "destroyed"
-	map_area.erase(block)
-	log_message(LogColors.block(block.block_name) + " 被摧毁了")
-	# 6. 摧毁地块后（通知）
-	for player in players:
-		if player != null and is_instance_valid(player):
-			await player.trigger("after_destroy_block", event)
-	return true
+	var rt: OperationRuntime = OperationRuntime.resolve(runtime)
+	return await rt.dispatch("destroy_block", func() -> bool:
+		var event: Dictionary = EventSystem.create_destroy_block_event(source, block)
+		# 1. 摧毁地块前（取消点）
+		for player in players:
+			if player != null and is_instance_valid(player):
+				await player.trigger("before_destroy_block", event)
+		if EventSystem.is_cancelled(event):
+			return false
+		# 2. 处理地块上的玩家（弹出到相邻存活地块）
+		var players_on_block: Array = block.get_players()
+		for player in players_on_block:
+			var adjacent: Array = block.get_adjacent_blocks()
+			if adjacent.is_empty():
+				log_message(LogColors.player(player.player_name) + " 无处可逃，受到 5 点伤害")
+				player.damage(5, null, "block_destroy", null, rt)
+			else:
+				var target: MapBlock = await player.choose_map_block(adjacent)
+				if target == null:
+					target = adjacent[0]
+				if block.has_method("_clear_skills_for_player"):
+					block._clear_skills_for_player(player)
+				player.current_block = target
+				if target.has_method("_acquire_skills_for_player"):
+					target._acquire_skills_for_player(player)
+				# 并列维护任务行动技能挂载（卸载被摧毁地块的、挂载迁移目标地块的）
+				if mission_config != null:
+					mission_config.unmount_action_skills(player)
+					mission_config.mount_action_skills(player, target)
+				if not target.is_revealed():
+					await target.reveal(true, player)
+		# 3. 消灭地块上的所有怪物标记
+		block.monster_marks = 0
+		# 4. 摧毁地块时（系统结算）
+		for player in players:
+			if player != null and is_instance_valid(player):
+				await player.trigger("on_destroy_block", event)
+		# 5. 地块状态变更，从地图区域移除
+		block.block_state = "destroyed"
+		map_area.erase(block)
+		log_message(LogColors.block(block.block_name) + " 被摧毁了")
+		# 6. 摧毁地块后（通知）
+		for player in players:
+			if player != null and is_instance_valid(player):
+				await player.trigger("after_destroy_block", event)
+		return true,
+		{"source": source, "block": block})
 
 
 # === 玩家管理 ===

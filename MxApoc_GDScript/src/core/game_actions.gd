@@ -17,59 +17,45 @@ func _init(owner: Variant, game_instance: Variant, operation_runtime: OperationR
 
 
 func damage(target: Entity, num: int, source: Entity = null, type: Variant = "", card: Card = null) -> Variant:
-	return await runtime.dispatch("damage", func() -> void:
-		await target.damage(num, source, type, card), {
-			"target": target, "source": source, "num": num, "type": type, "card": card,
-		})
+	## damage() 内部已自行创建 OperationEvent（复用同一 runtime 以保持嵌套），
+	## 这里直接转发调用，避免重复包裹出两层同名 "damage" 节点。
+	return await target.damage(num, source, type, card, runtime)
 
 
 func recover(target: Variant, num: int, source: Variant = null) -> Variant:
-	return await runtime.dispatch("recover", func() -> void:
-		await target.recover(num, source), {"target": target, "source": source, "num": num})
+	return await target.recover(num, source, runtime)
 
 
 func draw(target: Variant, num: int) -> Variant:
-	return await runtime.dispatch("draw_game_card", func() -> void:
-		await target.draw(num), {"target": target, "num": num})
+	return await target.draw(num, runtime)
 
 
 func draw_scavenge(target: Variant, num: int, pile: Pile) -> Variant:
-	return await runtime.dispatch("draw_scavenge_card", func() -> void:
-		await target.draw_scavenge(num, pile), {"target": target, "num": num, "pile": pile})
+	return await target.draw_scavenge(num, pile, runtime)
 
 
 func draw_scavenge_card(target: Variant, card: Variant, pile: Pile, event: Dictionary) -> Variant:
-	return await runtime.dispatch("draw_scavenge_card_single", func() -> void:
-		await target.draw_scavenge_card(card, pile, event), {"target": target, "card": card, "pile": pile})
+	return await target.draw_scavenge_card(card, pile, event, runtime)
 
 
 func draw_monster(target: Variant, num: int) -> Variant:
-	return await runtime.dispatch("draw_monster_card", func() -> void:
-		await target.draw_monster(num), {"target": target, "num": num})
+	return await target.draw_monster(num, runtime)
 
 
 func discard(target: Variant, card_or_cards: Variant, position: String = "", quantity: int = 1, type: String = "", silent: bool = false) -> Variant:
-	return await runtime.dispatch("discard", func() -> void:
-		await target.discard(card_or_cards, position, quantity, type, silent), {
-			"target": target, "cards": card_or_cards, "position": position, "quantity": quantity,
-		})
+	return await target.discard(card_or_cards, position, quantity, type, silent, runtime)
 
 
 func choose_to_discard(target: Variant, n: int, type: String = "") -> Variant:
-	return await runtime.dispatch("choose_to_discard", func() -> void:
-		await target.choose_to_discard(n, type), {"target": target, "n": n, "type": type})
+	return await target.choose_to_discard(n, type, runtime)
 
 
 func remove_card(target: Variant, card_or_cards: Variant, position: String = "", quantity: int = 1) -> Variant:
-	return await runtime.dispatch("remove_card", func() -> void:
-		await target.remove_card(card_or_cards, position, quantity), {
-			"target": target, "cards": card_or_cards, "position": position, "quantity": quantity,
-		})
+	return await target.remove_card(card_or_cards, position, quantity, runtime)
 
 
 func move(target: Variant, block: MapBlock) -> Variant:
-	return await runtime.dispatch("move", func() -> bool:
-		return await target.move_to(block), {"target": target, "block": block})
+	return await target.move_to(block, runtime)
 
 
 func move_to(target: Variant, block: MapBlock) -> Variant:
@@ -77,33 +63,29 @@ func move_to(target: Variant, block: MapBlock) -> Variant:
 
 
 func use_card(target: Variant, card: Card) -> Variant:
-	return await runtime.dispatch("use_card", func() -> bool:
-		return await target.use_card(card, false, runtime), {"target": target, "card": card}, target, player, "use_card")
+	return await target.use_card(card, false, runtime, player)
 
 
 func consume_action(target: Variant, num: int = 1) -> Variant:
-	return await runtime.dispatch("consume_action", func() -> void:
-		await target.consume_action_evented(num), {"target": target, "num": num})
+	## consume_action_evented 内部已自行创建 OperationEvent（复用同一 runtime 以保持嵌套），
+	## 这里直接转发调用，避免重复包裹出两层同名 "consume_action" 节点。
+	return await target.consume_action_evented(num, runtime)
 
 
 func consume_charge(target: Variant, equipment: Variant, num: int = 1) -> Variant:
-	return await runtime.dispatch("consume_charge", func() -> bool:
-		return await target.consume_charge(equipment, num), {"target": target, "equipment": equipment, "num": num})
+	return await target.consume_charge(equipment, num, runtime)
 
 
 func clear_charge(target: Variant, charge_type: String) -> Variant:
-	return await runtime.dispatch("clear_charge", func() -> void:
-		await target.clear_charge(charge_type), {"target": target, "charge_type": charge_type})
+	return await target.clear_charge(charge_type, runtime)
 
 
 func add_charge_to(target: Variant, equipment: Variant, amount: int, type: String) -> Variant:
-	return await runtime.dispatch("add_charge", func() -> void:
-		target.add_charge_to(equipment, amount, type), {"target": target, "equipment": equipment, "amount": amount})
+	return await target.add_charge_to(equipment, amount, type, runtime)
 
 
 func fill_charge_to(target: Variant, equipment: Variant) -> Variant:
-	return await runtime.dispatch("fill_charge", func() -> void:
-		target.fill_charge_to(equipment), {"target": target, "equipment": equipment})
+	return await target.fill_charge_to(equipment, runtime)
 
 
 func fill_charge(equipment: Variant) -> Variant:
@@ -117,23 +99,19 @@ func change_charge_type(equipment: Variant, charge_type: String) -> Variant:
 
 
 func add_action(target: Variant, num: int) -> Variant:
-	return await runtime.dispatch("add_action", func() -> void:
-		target.add_action(num), {"target": target, "num": num})
+	return await target.add_action(num, runtime)
 
 
 func increase_max_action(target: Variant, num: int) -> Variant:
-	return await runtime.dispatch("increase_max_action", func() -> void:
-		target.increase_max_action(num), {"target": target, "num": num})
+	return await target.increase_max_action(num, runtime)
 
 
 func decrease_max_action(target: Variant, num: int) -> Variant:
-	return await runtime.dispatch("decrease_max_action", func() -> void:
-		target.decrease_max_action(num), {"target": target, "num": num})
+	return await target.decrease_max_action(num, runtime)
 
 
 func add_poison(target: Variant, num: int) -> Variant:
-	return await runtime.dispatch("add_poison", func() -> void:
-		target.add_poison(num), {"target": target, "num": num})
+	return await target.add_poison(num, runtime)
 
 
 func add_mark(target: Variant, name: String, num: int = 1, mark_text: String = "", mark_content: String = "", visible: bool = true) -> Variant:
@@ -162,28 +140,23 @@ func reveal(target: Variant, with_effect: bool, player: Variant) -> Variant:
 
 
 func equip(target: Variant, card: Variant) -> Variant:
-	return await runtime.dispatch("equip", func() -> bool:
-		return await target.equip(card), {"target": target, "card": card})
+	return await target.equip(card, runtime)
 
 
 func unequip(target: Variant, equipment: Variant) -> Variant:
-	return await runtime.dispatch("unequip", func() -> bool:
-		return await target.unequip(equipment), {"target": target, "equipment": equipment})
+	return await target.unequip(equipment, runtime)
 
 
 func gain(target: Variant, card: Variant) -> Variant:
-	return await runtime.dispatch("gain", func() -> void:
-		await target.gain(card), {"target": target, "card": card})
+	return await target.gain(card, runtime)
 
 
 func heal_all_status(target: Variant) -> Variant:
-	return await runtime.dispatch("heal_all_status", func() -> void:
-		target.heal_all_status(), {"target": target})
+	return await target.heal_all_status(runtime)
 
 
 func restore_full_health(target: Variant) -> Variant:
-	return await runtime.dispatch("restore_full_health", func() -> void:
-		target.hp = target.max_hp, {"target": target})
+	return await target.restore_full_health(runtime)
 
 
 func execute_action_immediately(target: Variant, num: int) -> Variant:
@@ -235,25 +208,19 @@ func add_mark_skill(target: Variant, name: String, num: int, expire_trigger: Str
 
 
 func increase_hunger(target: Variant, num: int = 1) -> Variant:
-	return await runtime.dispatch("increase_hunger", func() -> bool:
-		return await target.increase_hunger_evented(num), {"target": target, "num": num})
+	return await target.increase_hunger_evented(num, runtime)
 
 
 func decrease_hunger(target: Variant, num: int = 1) -> Variant:
-	return await runtime.dispatch("decrease_hunger", func() -> bool:
-		return await target.decrease_hunger_evented(num), {"target": target, "num": num})
+	return await target.decrease_hunger_evented(num, runtime)
 
 
 func poison(target: Variant) -> Variant:
-	return await runtime.dispatch("poison", func() -> bool:
-		return await target.poison_evented(), {"target": target})
+	return await target.poison_evented(runtime)
 
 
 func stun(target: Variant, source: Variant, expire_trigger: String) -> Variant:
-	return await runtime.dispatch("stun", func() -> bool:
-		return await target.stun_evented(source, expire_trigger), {
-			"target": target, "source": source, "expire_trigger": expire_trigger,
-		})
+	return await target.stun_evented(source, expire_trigger, runtime)
 
 
 func change_engaged_target(monster: Variant, target: Variant) -> Variant:
@@ -264,8 +231,9 @@ func change_engaged_target(monster: Variant, target: Variant) -> Variant:
 
 
 func destroy_block(source: Variant, block: MapBlock) -> Variant:
-	return await runtime.dispatch("destroy_block", func() -> void:
-		await game.destroy_map_block(source, block), {"source": source, "block": block})
+	## 注意：沿用既有调用顺序 (source, block) 传入 destroy_map_block(block, source)，
+	## 与迁移前行为保持一致，不在本次迁移中调整参数顺序。
+	return await game.destroy_map_block(source, block, runtime)
 
 
 func flush() -> void:

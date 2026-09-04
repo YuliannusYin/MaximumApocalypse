@@ -142,53 +142,61 @@ func stun(source: Variant, expire_trigger: String) -> void:
 
 
 ## 事件化的击晕；保留旧方法兼容既有数据。
-func stun_evented(source: Variant, expire_trigger: String) -> bool:
-	var event: Dictionary = EventSystem.create_stun_event(self, source, expire_trigger)
-	await trigger("before_stun", event)
-	if EventSystem.is_cancelled(event):
-		return false
-	await trigger("on_stun", event)
-	if EventSystem.is_cancelled(event):
-		return false
-	stun(source, expire_trigger)
-	await trigger("after_stun", event)
-	return true
+## runtime 为可选的统一事件调度 runtime，见 Entity.damage 说明。
+func stun_evented(source: Variant, expire_trigger: String, runtime: Variant = null) -> bool:
+	var rt: OperationRuntime = OperationRuntime.resolve(runtime)
+	return await rt.dispatch("stun", func() -> bool:
+		var event: Dictionary = EventSystem.create_stun_event(self, source, expire_trigger)
+		await trigger("before_stun", event)
+		if EventSystem.is_cancelled(event):
+			return false
+		await trigger("on_stun", event)
+		if EventSystem.is_cancelled(event):
+			return false
+		stun(source, expire_trigger)
+		await trigger("after_stun", event)
+		return true,
+		{"target": self, "source": source, "expire_trigger": expire_trigger})
 
 
 ## 怪物行动流程。
 ## 击晕的怪物跳过行动；击晕仅持续到下次行动。
 ## 节点：before_monster_act → on_monster_act → before_monster_attack → on_monster_attack 前（含攻击演出）→ on_monster_attack + _attack() → after_monster_attack → after_monster_act
-func act() -> void:
+## runtime 为可选的统一事件调度 runtime，见 Entity.damage 说明。
+func act(runtime: Variant = null) -> void:
 	# 击晕的怪物跳过行动，击晕仅持续到下次行动
 	if stunned:
 		stunned = false
 		return
 
-	var event: Dictionary = EventSystem.create_monster_act_event(self)
+	var rt: OperationRuntime = OperationRuntime.resolve(runtime)
+	await rt.dispatch("monster_act", func() -> void:
+		var event: Dictionary = EventSystem.create_monster_act_event(self)
 
-	# 1. before_monster_act
-	await trigger("before_monster_act", event)
+		# 1. before_monster_act
+		await trigger("before_monster_act", event)
 
-	# 2. on_monster_act
-	await trigger("on_monster_act", event)
+		# 2. on_monster_act
+		await trigger("on_monster_act", event)
 
-	# 3. before_monster_attack
-	await trigger("before_monster_attack", event)
+		# 3. before_monster_attack
+		await trigger("before_monster_attack", event)
 
-	# 4. on_monster_attack + 调用 _attack()
-	# 先填充 target_players，供 on_monster_attack 数据技能（如突变体中毒、外星人技能）遍历
-	event["target_players"] = _get_attack_targets()
-	# 攻击演出：目标非空时先播放居中怪物牌 + 血红色箭头动画（经所属玩家 input）
-	if not event["target_players"].is_empty():
-		await _play_attack_animation(event["target_players"])
-	await trigger("on_monster_attack", event)
-	await _attack()
+		# 4. on_monster_attack + 调用 _attack()
+		# 先填充 target_players，供 on_monster_attack 数据技能（如突变体中毒、外星人技能）遍历
+		event["target_players"] = _get_attack_targets()
+		# 攻击演出：目标非空时先播放居中怪物牌 + 血红色箭头动画（经所属玩家 input）
+		if not event["target_players"].is_empty():
+			await _play_attack_animation(event["target_players"])
+		await trigger("on_monster_attack", event)
+		await _attack(rt)
 
-	# 5. after_monster_attack
-	await trigger("after_monster_attack", event)
+		# 5. after_monster_attack
+		await trigger("after_monster_attack", event)
 
-	# 6. after_monster_act
-	await trigger("after_monster_act", event)
+		# 6. after_monster_act
+		await trigger("after_monster_act", event),
+		{"target": self})
 
 
 # === 攻击流程 ===
@@ -213,14 +221,14 @@ func _get_attack_targets() -> Array:
 
 ## 怪物根据射程对目标发动攻击。
 ## 对 _get_attack_targets() 返回的每个存活目标造成伤害（source = self）。
-func _attack() -> void:
+func _attack(runtime: Variant = null) -> void:
 	var targets: Array = _get_attack_targets()
 
 	for target in targets:
 		if target != null and is_instance_valid(target) and target.is_alive():
 			if Game != null and is_instance_valid(Game):
 				Game.log_message(LogColors.monster(monster_name) + " 攻击了 " + LogColors.player(target.player_name))
-			await target.damage(damage_value, self, "monster_attack")
+			await target.damage(damage_value, self, "monster_attack", null, runtime)
 
 
 ## 播放"怪物攻击"动画：经所属玩家 input 请求，阻塞至播完；无所属玩家或 input 时跳过。
@@ -237,42 +245,45 @@ func _play_attack_animation(targets: Array) -> void:
 
 ## 实现 Entity.death。
 ## 流程：before_monster_death → on_monster_death → after_monster_death（从怪物区移除 + 进入怪物弃牌堆）
-## 取消点：无（死亡流程不可取消）
-func death(source: Entity) -> void:
-	if Game != null and is_instance_valid(Game):
-		if source != null and source.is_player():
-			Game.log_message(LogColors.monster(monster_name) + " 被 " + LogColors.player(source.player_name) + " 击杀")
-		else:
-			Game.log_message(LogColors.monster(monster_name) + " 被击杀")
-	var event: Dictionary = EventSystem.create_monster_death_event(self, source)
+## 取消点：无（死亡流程不可取消）。runtime 为可选的统一事件调度 runtime，见 Entity.damage 说明。
+func death(source: Entity, runtime: Variant = null) -> void:
+	var rt: OperationRuntime = OperationRuntime.resolve(runtime)
+	await rt.dispatch("monster_death", func() -> void:
+		if Game != null and is_instance_valid(Game):
+			if source != null and source.is_player():
+				Game.log_message(LogColors.monster(monster_name) + " 被 " + LogColors.player(source.player_name) + " 击杀")
+			else:
+				Game.log_message(LogColors.monster(monster_name) + " 被击杀")
+		var event: Dictionary = EventSystem.create_monster_death_event(self, source)
 
-	# 1. before_monster_death
-	await trigger("before_monster_death", event)
+		# 1. before_monster_death
+		await trigger("before_monster_death", event)
 
-	# 2. on_monster_death（如僵尸女王、爆破机器人、方阵机器人）
-	await trigger("on_monster_death", event)
-	# 向所有玩家怪物区中的其他存活怪物广播，使跨怪物监听技能（如僵尸女王）能触发
-	if Game != null and is_instance_valid(Game):
-		for _p in Game.players:
-			if _p == null or not is_instance_valid(_p):
-				continue
-			for _m in _p.monster_zone:
-				if _m == null or not is_instance_valid(_m) or _m == self:
+		# 2. on_monster_death（如僵尸女王、爆破机器人、方阵机器人）
+		await trigger("on_monster_death", event)
+		# 向所有玩家怪物区中的其他存活怪物广播，使跨怪物监听技能（如僵尸女王）能触发
+		if Game != null and is_instance_valid(Game):
+			for _p in Game.players:
+				if _p == null or not is_instance_valid(_p):
 					continue
-				await _m.trigger("on_monster_death", event)
+				for _m in _p.monster_zone:
+					if _m == null or not is_instance_valid(_m) or _m == self:
+						continue
+					await _m.trigger("on_monster_death", event)
 
-	# 向击杀者（玩家）触发，使玩家身上的 on_monster_death 技能（如搜索尸体）能触发
-	if source != null and is_instance_valid(source) and source.has_method("is_player") and source.is_player():
-		await source.trigger("on_monster_death", event)
+		# 向击杀者（玩家）触发，使玩家身上的 on_monster_death 技能（如搜索尸体）能触发
+		if source != null and is_instance_valid(source) and source.has_method("is_player") and source.is_player():
+			await source.trigger("on_monster_death", event)
 
-	# 3. after_monster_death：从纠缠玩家怪物区移除 + 进入怪物弃牌堆
-	if attack_target != null and is_instance_valid(attack_target):
-		if "monster_zone" in attack_target:
-			attack_target.monster_zone.erase(self)
-	if Game != null and is_instance_valid(Game):
-		if Game.monster_discard_pile != null:
-			Game.monster_discard_pile.add(self.monster_card)
-	if EventBus != null and is_instance_valid(EventBus):
-		EventBus.monster_died.emit(self, source)
+		# 3. after_monster_death：从纠缠玩家怪物区移除 + 进入怪物弃牌堆
+		if attack_target != null and is_instance_valid(attack_target):
+			if "monster_zone" in attack_target:
+				attack_target.monster_zone.erase(self)
+		if Game != null and is_instance_valid(Game):
+			if Game.monster_discard_pile != null:
+				Game.monster_discard_pile.add(self.monster_card)
+		if EventBus != null and is_instance_valid(EventBus):
+			EventBus.monster_died.emit(self, source)
 
-	await trigger("after_monster_death", event)
+		await trigger("after_monster_death", event),
+		{"target": self, "source": source})

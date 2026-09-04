@@ -397,7 +397,7 @@ func test_start_game_on_game_start_before_draw_4() -> void:
 		var line: String = lines[i]
 		if on_game_start_line < 0 and line.contains("trigger(\"on_game_start\""):
 			on_game_start_line = i
-		if draw_4_line < 0 and line.contains("draw(4)"):
+		if draw_4_line < 0 and line.contains("player.draw(4"):
 			draw_4_line = i
 	assert_true(on_game_start_line >= 0, "应找到 trigger(\"on_game_start\") 行")
 	assert_true(draw_4_line >= 0, "应找到 draw(4) 行")

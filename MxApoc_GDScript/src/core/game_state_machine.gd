@@ -65,36 +65,40 @@ func transition_to(new_state: int) -> void:
 # === 游戏开局 ===
 
 ## 游戏开局流程：WAITING → PLAYING + 触发游戏开始时 + 抓初始手牌 + 抓初始怪物卡 + 进入第一玩家回合。
-func start_game() -> void:
-	transition_to(GameState.PLAYING)
-	if EventBus != null and is_instance_valid(EventBus):
-		EventBus.game_started.emit()
-	if Game != null and is_instance_valid(Game) and Game.stats_tracker != null:
-		Game.stats_tracker.reset(Game.players)
-		Game.stats_tracker.start_timer()
-	if Game == null or not is_instance_valid(Game):
-		return
-	# 1. 触发「游戏开始时」trigger
-	for player in Game.players:
-		if player == null or not is_instance_valid(player):
-			continue
-		var event: Dictionary = EventSystem.create_event({"player": player})
-		await player.trigger("on_game_start", event)
-	# 2. 每个玩家抓 4 张初始手牌（豁免超限弹窗：从空手牌抓起，初始手牌数不会超过上限）
-	for player in Game.players:
-		if player == null or not is_instance_valid(player):
-			continue
-		player.draw(4)
-	# 3. 每个玩家抓 1 张初始怪物卡（任务声明 no_initial_monster_draw 时跳过，如任务 11）
-	if Game.mission_config == null or not Game.mission_config.no_initial_monster_draw:
+## runtime 为可选的统一事件调度 runtime，见 Entity.damage 说明。
+func start_game(runtime: Variant = null) -> void:
+	var rt: OperationRuntime = OperationRuntime.resolve(runtime)
+	await rt.dispatch("game_start", func() -> void:
+		transition_to(GameState.PLAYING)
+		if EventBus != null and is_instance_valid(EventBus):
+			EventBus.game_started.emit()
+		if Game != null and is_instance_valid(Game) and Game.stats_tracker != null:
+			Game.stats_tracker.reset(Game.players)
+			Game.stats_tracker.start_timer()
+		if Game == null or not is_instance_valid(Game):
+			return
+		# 1. 触发「游戏开始时」trigger
 		for player in Game.players:
 			if player == null or not is_instance_valid(player):
 				continue
-			await player.draw_monster(1)
-	# 4. 第零轮：重调阶段
-	await _round_zero()
-	# 5. 进入第一玩家回合
-	await next_turn()
+			var event: Dictionary = EventSystem.create_event({"player": player})
+			await player.trigger("on_game_start", event)
+		# 2. 每个玩家抓 4 张初始手牌（豁免超限弹窗：从空手牌抓起，初始手牌数不会超过上限）
+		for player in Game.players:
+			if player == null or not is_instance_valid(player):
+				continue
+			player.draw(4, rt)
+		# 3. 每个玩家抓 1 张初始怪物卡（任务声明 no_initial_monster_draw 时跳过，如任务 11）
+		if Game.mission_config == null or not Game.mission_config.no_initial_monster_draw:
+			for player in Game.players:
+				if player == null or not is_instance_valid(player):
+					continue
+				await player.draw_monster(1, rt)
+		# 4. 第零轮：重调阶段
+		await _round_zero()
+		# 5. 进入第一玩家回合
+		await next_turn(),
+		{})
 
 
 # === 第零轮：重调阶段 ===
@@ -145,35 +149,39 @@ func _round_zero() -> void:
 ## 游戏结束流程：→ GAME_OVER + 设置结果 + 触发游戏结束时。
 ## 可从 PLAYING 或 WAITING 状态调用（WAITING 时直接强制进入 GAME_OVER，用于测试/异常场景）。
 ## reason 非空时替代默认的 WIN/LOSE 结束日志（如任务特定失败原因）。
-func game_over(result: int, reason: String = "") -> void:
+## runtime 为可选的统一事件调度 runtime，见 Entity.damage 说明。
+func game_over(result: int, reason: String = "", runtime: Variant = null) -> void:
 	if current_state == GameState.GAME_OVER:
 		return
-	current_state = GameState.GAME_OVER
-	game_result = result
-	if Game != null and is_instance_valid(Game) and Game.stats_tracker != null:
-		Game.stats_tracker.stop_timer()
-	last_player = current_player
-	current_player = null
-	turn_queue.clear()
-	# 日志输出
-	if Game != null and is_instance_valid(Game):
-		if result == GameResult.WIN:
-			Game.log_message(reason if reason != "" else "求生者成功逃离启示录的废土！")
-		elif result == GameResult.LOSE:
-			Game.log_message(reason if reason != "" else "所有求生者死亡，游戏失败。")
-		# 触发「游戏结束时」trigger
-		for player in Game.players:
-			if player == null or not is_instance_valid(player):
-				continue
-			var event: Dictionary = EventSystem.create_event({
-				"player": player,
-				"result": result,
-			})
-			await player.trigger("on_game_over", event)
-		Game.game_over_called = true
-		Game.game_result = "win" if result == GameResult.WIN else "lose"
-		if EventBus != null and is_instance_valid(EventBus):
-			EventBus.game_over.emit(result)
+	var rt: OperationRuntime = OperationRuntime.resolve(runtime)
+	await rt.dispatch("game_over", func() -> void:
+		current_state = GameState.GAME_OVER
+		game_result = result
+		if Game != null and is_instance_valid(Game) and Game.stats_tracker != null:
+			Game.stats_tracker.stop_timer()
+		last_player = current_player
+		current_player = null
+		turn_queue.clear()
+		# 日志输出
+		if Game != null and is_instance_valid(Game):
+			if result == GameResult.WIN:
+				Game.log_message(reason if reason != "" else "求生者成功逃离启示录的废土！")
+			elif result == GameResult.LOSE:
+				Game.log_message(reason if reason != "" else "所有求生者死亡，游戏失败。")
+			# 触发「游戏结束时」trigger
+			for player in Game.players:
+				if player == null or not is_instance_valid(player):
+					continue
+				var event: Dictionary = EventSystem.create_event({
+					"player": player,
+					"result": result,
+				})
+				await player.trigger("on_game_over", event)
+			Game.game_over_called = true
+			Game.game_result = "win" if result == GameResult.WIN else "lose"
+			if EventBus != null and is_instance_valid(EventBus):
+				EventBus.game_over.emit(result),
+		{"result": result})
 
 
 # === 回合循环 ===
