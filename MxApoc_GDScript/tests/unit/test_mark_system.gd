@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## Mark 系统单元测试。
 ## 覆盖：
@@ -13,7 +13,7 @@ extends GutTest
 
 # === 辅助方法 ===
 
-func _make_player(hp: int = 28, max_hp: int = 28) -> Player:
+func _make_test_player(hp: int = 28, max_hp: int = 28) -> Player:
 	var p: Player = Player.new()
 	p.player_name = "test"
 	p.hp = hp
@@ -23,7 +23,7 @@ func _make_player(hp: int = 28, max_hp: int = 28) -> Player:
 	return p
 
 
-func _make_monster(monster_name: String = "test_monster", hp: int = 20) -> Monster:
+func _make_monster_with_hp(monster_name: String = "test_monster", hp: int = 20) -> Monster:
 	var mc: MonsterCard = MonsterCard.new()
 	mc.card_name = monster_name
 	mc.monster_type = "zombie"
@@ -62,33 +62,6 @@ func _setup_game_for_player(p: Player) -> void:
 		Game.state_machine.init()
 
 
-func _clear_game() -> void:
-	Game.players = []
-	Game.map_area = []
-	Game.monster_pile = null
-	Game.monster_discard_pile = null
-	Game.scavenge_discard_pile = null
-	Game.red_scavenge_pile = null
-	Game.green_scavenge_pile = null
-	Game.blue_scavenge_pile = null
-	Game.mission_config = null
-	Game.removed_cards = []
-	Game.game_over_called = false
-	Game.game_result = ""
-	Game.log_list = []
-	Game.sub_skill_registry = {}
-	if Game.state_machine != null and is_instance_valid(Game.state_machine):
-		Game.state_machine.init()
-
-
-func before_each() -> void:
-	_clear_game()
-
-
-func after_each() -> void:
-	_clear_game()
-
-
 # === 1. Mark 类测试 ===
 
 # 测试: 新建 Mark 的默认字段值
@@ -119,7 +92,7 @@ func test_mark_get_display_text_empty_fallback() -> void:
 
 # 测试: add_mark 创建标记并设置计数
 func test_add_mark_creates_mark() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_test_player()
 	p.add_mark("poison", 2, "中毒", "desc")
 	assert_true(p.has_mark("poison"), "应存在 poison 标记")
 	assert_eq(p.count_mark("poison"), 2, "poison 计数应为 2")
@@ -127,7 +100,7 @@ func test_add_mark_creates_mark() -> void:
 
 # 测试: 多次 add_mark 累加计数
 func test_add_mark_increments_count() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_test_player()
 	p.add_mark("poison", 1)
 	p.add_mark("poison", 2)
 	assert_eq(p.count_mark("poison"), 3, "两次 add_mark 后计数应累加为 3")
@@ -135,7 +108,7 @@ func test_add_mark_increments_count() -> void:
 
 # 测试: 对已存在的 mark 调用 add_mark 更新元数据
 func test_add_mark_updates_metadata_on_existing() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_test_player()
 	p.add_mark("x", 1, "A", "a")
 	p.add_mark("x", 1, "B", "b")
 	assert_eq(p.count_mark("x"), 2, "计数应累加为 2")
@@ -144,14 +117,14 @@ func test_add_mark_updates_metadata_on_existing() -> void:
 
 # 测试: add_mark 不传 mark_text 时默认用 name
 func test_add_mark_empty_text_defaults_to_name() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_test_player()
 	p.add_mark("internal")
 	assert_eq(p.get_mark("internal").mark_text, "internal", "mark_text 为空时应默认为 name")
 
 
 # 测试: remove_mark 移除标记
 func test_remove_mark() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_test_player()
 	p.add_mark("poison", 1)
 	p.remove_mark("poison")
 	assert_false(p.has_mark("poison"), "移除后应不存在 poison 标记")
@@ -160,25 +133,25 @@ func test_remove_mark() -> void:
 
 # 测试: 不存在的标记 count_mark 返回 0
 func test_count_mark_nonexistent() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_test_player()
 	assert_eq(p.count_mark("nope"), 0, "不存在的标记计数应为 0")
 
 
 # 测试: 不存在的标记 has_mark 返回 false
 func test_has_mark_nonexistent() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_test_player()
 	assert_false(p.has_mark("nope"), "不存在的标记 has_mark 应为 false")
 
 
 # 测试: 不存在的标记 get_mark 返回 null
 func test_get_mark_nonexistent() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_test_player()
 	assert_null(p.get_mark("nope"), "不存在的标记 get_mark 应返回 null")
 
 
 # 测试: get_mark 返回 Mark 对象及其字段
 func test_get_mark_returns_mark_object() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_test_player()
 	p.add_mark("x", 3)
 	var m: Mark = p.get_mark("x")
 	assert_not_null(m, "get_mark 应返回 Mark 对象")
@@ -189,7 +162,7 @@ func test_get_mark_returns_mark_object() -> void:
 
 # 测试: add_mark_item 添加元素到 items 集合，不影响 count
 func test_add_mark_item() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_test_player()
 	p.add_mark_item("tags", "fire")
 	var items: Array = p.get_mark_items("tags")
 	assert_true(items.has("fire"), "items 应包含 fire")
@@ -198,7 +171,7 @@ func test_add_mark_item() -> void:
 
 # 测试: 多次 add_mark_item 添加多个元素
 func test_add_mark_item_multiple() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_test_player()
 	p.add_mark_item("tags", "fire")
 	p.add_mark_item("tags", "ice")
 	var items: Array = p.get_mark_items("tags")
@@ -207,7 +180,7 @@ func test_add_mark_item_multiple() -> void:
 
 # 测试: remove_mark_item 从 items 移除元素
 func test_remove_mark_item() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_test_player()
 	p.add_mark_item("tags", "fire")
 	p.remove_mark_item("tags", "fire")
 	assert_eq(p.get_mark_items("tags").size(), 0, "移除 item 后 items 应为空")
@@ -215,13 +188,13 @@ func test_remove_mark_item() -> void:
 
 # 测试: 不存在的标记 get_mark_items 返回空数组
 func test_get_mark_items_nonexistent() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_test_player()
 	assert_eq(p.get_mark_items("nope").size(), 0, "不存在的标记 get_mark_items 应返回空数组")
 
 
 # 测试: clear_mark_items 清空 items 但保留标记
 func test_clear_mark_items() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_test_player()
 	p.add_mark_item("tags", "fire")
 	p.add_mark_item("tags", "ice")
 	p.clear_mark_items("tags")
@@ -233,7 +206,7 @@ func test_clear_mark_items() -> void:
 
 # 测试: count 和 items 可同时存在于同一标记
 func test_count_and_items_coexist() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_test_player()
 	p.add_mark("x", 5, "X", "desc")
 	p.add_mark_item("x", "item")
 	assert_eq(p.count_mark("x"), 5, "count 应为 5")
@@ -244,7 +217,7 @@ func test_count_and_items_coexist() -> void:
 
 # 测试: clear_mark_count 清零 count 但保留标记和 items
 func test_clear_mark_count() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_test_player()
 	p.add_mark("x", 5)
 	p.add_mark_item("x", "item1")
 	p.clear_mark_count("x")
@@ -257,7 +230,7 @@ func test_clear_mark_count() -> void:
 
 # 测试: add_mark_skill 不带 expire_trigger 时仅添加标记
 func test_add_mark_skill_no_expire() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_test_player()
 	p.add_mark_skill("poison", 1, "", "中毒", "desc")
 	assert_true(p.has_mark("poison"), "应存在 poison 标记")
 	assert_eq(p.count_mark("poison"), 1, "poison 计数应为 1")
@@ -265,14 +238,14 @@ func test_add_mark_skill_no_expire() -> void:
 
 # 测试: has_mark_skill 等价于 has_mark
 func test_has_mark_skill() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_test_player()
 	p.add_mark("poison", 1)
 	assert_true(p.has_mark_skill("poison"), "has_mark_skill 应等价于 has_mark 返回 true")
 
 
 # 测试: add_mark_skill 带 expire_trigger，触发后自动移除标记
 func test_add_mark_skill_with_expire_trigger() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_test_player()
 	_setup_game_for_player(p)
 	p.add_mark_skill("temp", 1, "turn_end", "T", "desc")
 	assert_true(p.has_mark("temp"), "添加后应存在 temp 标记")
@@ -284,7 +257,7 @@ func test_add_mark_skill_with_expire_trigger() -> void:
 
 # 测试: Monster 可持有标记
 func test_monster_can_have_mark() -> void:
-	var m: Monster = _make_monster()
+	var m: Monster = _make_monster_with_hp()
 	m.add_mark("stunned", 1, "眩晕", "skip")
 	assert_true(m.has_mark("stunned"), "怪物应能持有标记")
 
@@ -300,7 +273,7 @@ func test_equipment_card_can_have_mark() -> void:
 
 # 测试: add_poison 添加中毒标记，mark_text 为"中毒"
 func test_add_poison() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_test_player()
 	p.add_poison(2)
 	assert_eq(p.count_mark("poison"), 2, "add_poison(2) 后计数应为 2")
 	assert_eq(p.get_mark("poison").mark_text, "中毒", "mark_text 应为 中毒")
@@ -308,7 +281,7 @@ func test_add_poison() -> void:
 
 # 测试: 多次 add_poison 累加计数，mark_content 包含累加后总数
 func test_add_poison_accumulates() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_test_player()
 	p.add_poison(2)
 	p.add_poison(1)
 	assert_eq(p.count_mark("poison"), 3, "两次 add_poison 后计数应为 3")
@@ -318,7 +291,7 @@ func test_add_poison_accumulates() -> void:
 
 # 测试: clear_turn_marks 移除回合临时标记
 func test_clear_turn_marks() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_test_player()
 	p.add_mark("moved_this_turn", 1, "", "", false)
 	p.add_mark("shelter_disabled", 1, "避难所", "desc")
 	p.clear_turn_marks()

@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 const GameEventScript = preload("res://src/core/game_event.gd")
 const EventSchedulerScript = preload("res://src/core/event_scheduler.gd")

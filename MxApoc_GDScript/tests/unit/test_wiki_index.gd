@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## WikiIndex：规则 JSON 与 DataManager 图鉴能否组成目录。
 

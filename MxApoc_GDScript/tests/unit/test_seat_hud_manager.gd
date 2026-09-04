@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## SeatHudManager：稳定座位映射与单一可见焦点。
 

@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 const PhaseEventScript = preload("res://src/core/phase_event.gd")
 const TurnContextScript = preload("res://src/core/turn_context.gd")

@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## 集成测试：全部 13 个任务的关键路径（已批准 spec implement-all-13-missions Task 8）。
 ## 逐任务胜利/失败路径。优先手动搭建
@@ -11,69 +11,8 @@ extends GutTest
 
 # === 辅助方法 ===
 
-func _make_player(player_name: String = "P", hp: int = 10) -> Player:
-	var p: Player = Player.new()
-	p.player_name = player_name
-	p.hp = hp
-	p.max_hp = hp
-	p.game_deck = Pile.new()
-	p.game_discard_pile = Pile.new()
-	return p
-
-
-func _make_card(card_name: String = "test_card", card_type: String = "action") -> Card:
-	var c: Card = Card.new()
-	c.card_name = card_name
-	c.card_type = card_type
-	c.source = "game"
-	return c
-
-
 func _make_block(block_name: String = "B", x: int = 0, y: int = 0, revealed: bool = true) -> MapBlock:
-	var b: MapBlock = MapBlock.new()
-	b.block_name = block_name
-	b.set_coordinate(x, y)
-	b.revealed = revealed
-	return b
-
-
-func _make_monster_card(card_name: String = "test_monster", level: String = "normal") -> MonsterCard:
-	var c: MonsterCard = MonsterCard.new()
-	c.card_name = card_name
-	c.card_type = "monster"
-	c.source = "monster"
-	c.monster_type = "zombie"
-	c.monster_level = level
-	c.max_hp = 3
-	c.damage_value = 2
-	c.range = "none"
-	return c
-
-
-func _make_monster(monster_name: String) -> Monster:
-	return _make_monster_card(monster_name).instantiate(null)
-
-
-func _clear_game() -> void:
-	Game.players = []
-	Game.map_area = []
-	Game.map_width = 0
-	Game.map_height = 0
-	Game.monster_pile = null
-	Game.monster_discard_pile = null
-	Game.scavenge_discard_pile = null
-	Game.red_scavenge_pile = null
-	Game.green_scavenge_pile = null
-	Game.blue_scavenge_pile = null
-	Game.mission_config = null
-	Game.current_mission = null
-	Game.removed_cards = []
-	Game.game_over_called = false
-	Game.game_result = ""
-	Game.coop_death_mode = false
-	Game.log_list = []
-	if Game.state_machine != null and is_instance_valid(Game.state_machine):
-		Game.state_machine.init()
+	return super._make_block(block_name, x, y, revealed)
 
 
 ## 轻量挂载：真实任务 JSON 组件 → MissionConfig（补齐 van_fuel_required / 旗标解析，
@@ -158,11 +97,11 @@ func _count_in_hand(p: Player, card_name: String) -> int:
 
 
 func before_each() -> void:
-	_clear_game()
+	super.before_each()
 
 
 func after_each() -> void:
-	_clear_game()
+	super.after_each()
 	# 冲刷开局装备等 fire-and-forget 协程，避免事件残留跨用例
 	for i in 3:
 		await Engine.get_main_loop().process_frame
@@ -181,12 +120,12 @@ func test_mission_0_van_fuel_engine_win_path() -> void:
 	var p: Player = _make_player("P")
 	p.current_block = van
 	_setup_game_env([p], [van, other])
-	assert_false(Game.state_machine.check_win_condition(), "燃料 0/4 不应胜利")
+	assert_false(await Game.state_machine.check_win_condition(), "燃料 0/4 不应胜利")
 	van.van_fuel = 4
 	p.current_block = other
-	assert_false(Game.state_machine.check_win_condition(), "玩家不在面包车不应胜利")
+	assert_false(await Game.state_machine.check_win_condition(), "玩家不在面包车不应胜利")
 	p.current_block = van
-	assert_true(Game.state_machine.check_win_condition(), "玩家在面包车+燃料4+无怪应胜利")
+	assert_true(await Game.state_machine.check_win_condition(), "玩家在面包车+燃料4+无怪应胜利")
 	assert_eq(Game.state_machine.get_game_result(), GameStateMachine.GameResult.WIN, "结果应为 WIN")
 	assert_eq(Game.game_result, "win", "Game.game_result 应为 win")
 
@@ -216,7 +155,7 @@ func test_mission_1_rescue_via_input_then_van_win() -> void:
 	# 护送：到面包车 + 燃料 4 → WIN
 	p.current_block = van
 	van.van_fuel = 4
-	assert_true(Game.state_machine.check_win_condition(), "解救+持有者在面包车+燃料4应胜利")
+	assert_true(await Game.state_machine.check_win_condition(), "解救+持有者在面包车+燃料4应胜利")
 	assert_eq(Game.game_result, "win", "Game.game_result 应为 win")
 
 
@@ -264,9 +203,9 @@ func test_mission_2_kill_monsters_event_chain_then_van_win() -> void:
 	assert_eq(int(kill_counts.get("僵尸士兵", 0)), 2, "僵尸士兵应累计 2 次")
 	assert_true(mc.win_condition_components[0].check_win(Game), "四种僵尸各杀 2 只应满足胜利组件")
 	# 叠加面包车判定：燃料不足 → 不胜；加满 → WIN
-	assert_false(Game.state_machine.check_win_condition(), "燃料 0/4 不应胜利")
+	assert_false(await Game.state_machine.check_win_condition(), "燃料 0/4 不应胜利")
 	van.van_fuel = 4
-	assert_true(Game.state_machine.check_win_condition(), "击杀达标+面包车条件应胜利")
+	assert_true(await Game.state_machine.check_win_condition(), "击杀达标+面包车条件应胜利")
 	assert_eq(Game.game_result, "win", "Game.game_result 应为 win")
 
 
@@ -290,7 +229,7 @@ func test_mission_3_setup_equip_submit_and_hospital_win() -> void:
 	p.action_count = 2
 	Game.state_machine.transition_to(GameStateMachine.GameState.PLAYING)
 	# 随身持有不再直接判胜（collect_items 提交模式）：须经医院提交物资
-	assert_false(Game.state_machine.check_win_condition(), "仅持有未提交不应胜利")
+	assert_false(await Game.state_machine.check_win_condition(), "仅持有未提交不应胜利")
 	var options: Array = Game.mission_config.get_action_options(Game, p)
 	assert_eq(options.size(), 1, "在医院持有清单物资应出现提交选项")
 	assert_eq(options[0]["id"], "submit_items", "选项 id 应为 submit_items")
@@ -301,7 +240,7 @@ func test_mission_3_setup_equip_submit_and_hospital_win() -> void:
 	assert_eq(int(submitted.get("医疗用品", 0)), 2, "医疗用品应提交 2 张")
 	assert_eq(int(submitted.get("解毒剂", 0)), 3, "解毒剂应提交 3 张")
 	# collect_items submit 模式达标 + 科学家持有者在医院 → WIN
-	assert_true(Game.state_machine.check_win_condition(), "提交达标+科学家在医院应胜利")
+	assert_true(await Game.state_machine.check_win_condition(), "提交达标+科学家在医院应胜利")
 	assert_eq(Game.state_machine.get_game_result(), GameStateMachine.GameResult.WIN, "结果应为 WIN")
 	assert_eq(Game.game_result, "win", "Game.game_result 应为 win")
 
@@ -319,16 +258,19 @@ func test_mission_3_progress_panel_submitted_count_lines() -> void:
 	assert_eq(lines[1], "2. 提交解毒剂(0/3)", "未提交的解毒剂行应显示 (0/3)")
 
 
-func test_mission_3_lose_when_scientist_holder_dies() -> void:
-	_init_real_mission(3)
-	var p: Player = Game.players[0]
-	assert_true(await _wait_for_equipment(p, "科学家"), "开局应装备科学家")
-	# 携带科学家的玩家死亡 → player_died → card_discard_watch on_death 分支
-	await p.death(null)
-	assert_eq(Game.mission_config.mission_state.get("card_death_failed"), true,
-		"携带科学家的玩家死亡应置 card_death_failed")
-	assert_eq(Game.state_machine.get_game_result(), GameStateMachine.GameResult.LOSE, "结果应为 LOSE")
-	assert_eq(Game.game_result, "lose", "Game.game_result 应为 lose")
+## 合并族：任务 3/9 均为"携带科学家的玩家死亡 → 判负"（原 2 个独立测试，断言逐段保留；
+## _init_real_mission 每次经 initialize_game→abort_session 全新重置，循环内无状态残留）。
+func test_scientist_holder_death_loses_mission_3_and_9() -> void:
+	for mission_id in [3, 9]:
+		_init_real_mission(mission_id)
+		var p: Player = Game.players[0]
+		assert_true(await _wait_for_equipment(p, "科学家"), "开局应装备科学家")
+		# 携带科学家的玩家死亡 → player_died → card_discard_watch on_death 分支
+		await p.death(null)
+		assert_eq(Game.mission_config.mission_state.get("card_death_failed"), true,
+			"携带科学家的玩家死亡应置 card_death_failed")
+		assert_eq(Game.state_machine.get_game_result(), GameStateMachine.GameResult.LOSE, "结果应为 LOSE")
+		assert_eq(Game.game_result, "lose", "Game.game_result 应为 lose")
 
 
 # === 任务 4：核冬天 —— 物资 + 全员避难所 ===
@@ -351,7 +293,7 @@ func test_mission_4_supplies_and_shelter_win() -> void:
 	p2.action_count = 1
 	_setup_game_env([p1, p2], [shelter])
 	# 随身持有不再直接判胜（collect_items 提交模式）：须经避难所提交物资
-	assert_false(Game.state_machine.check_win_condition(), "仅持有未提交不应胜利")
+	assert_false(await Game.state_machine.check_win_condition(), "仅持有未提交不应胜利")
 	# P1 提交燃料+脏毯子
 	var options1: Array = Game.mission_config.get_action_options(Game, p1)
 	assert_eq(options1.size(), 1, "在避难所持有清单物资应出现提交选项")
@@ -365,7 +307,7 @@ func test_mission_4_supplies_and_shelter_win() -> void:
 	assert_eq(int(submitted.get("燃料", 0)), 3, "燃料应提交 3 张")
 	assert_eq(int(submitted.get("脏毯子", 0)), 2, "脏毯子应提交 2 张")
 	assert_eq(int(submitted.get("老报纸", 0)), 2, "老报纸应提交 2 张")
-	assert_true(Game.state_machine.check_win_condition(), "提交达标+全员避难所无怪应胜利")
+	assert_true(await Game.state_machine.check_win_condition(), "提交达标+全员避难所无怪应胜利")
 	assert_eq(Game.game_result, "win", "Game.game_result 应为 win")
 
 
@@ -380,12 +322,12 @@ func test_mission_4_monster_at_shelter_blocks_win() -> void:
 	mc.mission_state["submitted_items"] = {"燃料": 3, "脏毯子": 2, "老报纸": 2}
 	# 避难所有怪物标记 → 不胜
 	shelter.add_monster_mark(1)
-	assert_false(Game.state_machine.check_win_condition(), "避难所有怪物标记不应胜利")
+	assert_false(await Game.state_machine.check_win_condition(), "避难所有怪物标记不应胜利")
 	assert_false(Game.state_machine.is_game_over(), "不应进入 GAME_OVER")
 	# 清标记但玩家面前有怪 → 不胜
 	shelter.remove_all_monster_marks()
 	p.monster_zone.append(_make_monster("变异老鼠"))
-	assert_false(Game.state_machine.check_win_condition(), "避难所玩家面前有怪物不应胜利")
+	assert_false(await Game.state_machine.check_win_condition(), "避难所玩家面前有怪物不应胜利")
 
 
 # === 任务 5：拆除炸弹 —— 标记奖励 → 解除 → 倒计时 → 撤离 ===
@@ -425,7 +367,7 @@ func test_mission_5_defuse_countdown_kill_outside_win() -> void:
 	assert_eq(mc.mission_state.get("bomb_defused"), true, "解除后应标记 bomb_defused")
 	assert_eq(mc.mission_state.get("countdown_activate"), true, "解除后应写入倒计时激活标记")
 	assert_eq(p_out.action_count, 2, "解除应消耗 2 点行动（4 → 2）")
-	assert_false(Game.state_machine.check_win_condition(), "燃料 0/3 不应胜利")
+	assert_false(await Game.state_machine.check_win_condition(), "燃料 0/3 不应胜利")
 	# 倒计时激活：下一个转发事件消费 countdown_activate 标记
 	Game.mission_config.on_event(Game, "turn_ended", {"player": p_out})
 	assert_eq(mc.mission_state.get("countdown_active"), true, "倒计时应已激活")
@@ -444,7 +386,7 @@ func test_mission_5_defuse_countdown_kill_outside_win() -> void:
 	assert_true(p_in.is_alive(), "车内玩家应存活")
 	# 车内玩家 + 燃料 3 → WIN
 	van.van_fuel = 3
-	assert_true(Game.state_machine.check_win_condition(), "炸弹解除+车内玩家+燃料3应胜利")
+	assert_true(await Game.state_machine.check_win_condition(), "炸弹解除+车内玩家+燃料3应胜利")
 	assert_eq(Game.game_result, "win", "Game.game_result 应为 win")
 
 
@@ -471,7 +413,7 @@ func test_mission_6_repair_three_times_van_win() -> void:
 	assert_eq(component.get_action_options(Game, p).size(), 0, "修满后不应再出现维修选项")
 	# 修满 + 燃料 3 + 全员面包车 → WIN
 	van.van_fuel = 3
-	assert_true(Game.state_machine.check_win_condition(), "修满+燃料3+全员面包车应胜利")
+	assert_true(await Game.state_machine.check_win_condition(), "修满+燃料3+全员面包车应胜利")
 	assert_eq(Game.game_result, "win", "Game.game_result 应为 win")
 
 
@@ -557,9 +499,9 @@ func test_mission_7_all_blocks_revealed_van_win() -> void:
 	p.current_block = van
 	_setup_game_env([p], [wild, van])
 	van.van_fuel = 4
-	assert_false(Game.state_machine.check_win_condition(), "有未展示地块不应胜利")
+	assert_false(await Game.state_machine.check_win_condition(), "有未展示地块不应胜利")
 	wild.revealed = true
-	assert_true(Game.state_machine.check_win_condition(), "全部地块展示+面包车条件应胜利")
+	assert_true(await Game.state_machine.check_win_condition(), "全部地块展示+面包车条件应胜利")
 	assert_eq(Game.game_result, "win", "Game.game_result 应为 win")
 
 
@@ -583,7 +525,7 @@ func test_mission_8_action_win_only_prevents_vacuous_win() -> void:
 	_mount_mission(8)
 	var p: Player = _make_player("P")
 	_setup_game_env([p])
-	assert_false(Game.state_machine.check_win_condition(),
+	assert_false(await Game.state_machine.check_win_condition(),
 		"action_win_only 组件应防止开局空真胜利")
 	assert_false(Game.state_machine.is_game_over(), "不应进入 GAME_OVER")
 
@@ -674,17 +616,6 @@ func test_mission_9_destroy_marks_and_upload_virus_win() -> void:
 	assert_eq(Game.game_result, "win", "上传病毒应判定胜利")
 
 
-func test_mission_9_lose_when_scientist_holder_dies() -> void:
-	_init_real_mission(9)
-	var p: Player = Game.players[0]
-	assert_true(await _wait_for_equipment(p, "科学家"), "开局应装备科学家")
-	await p.death(null)
-	assert_eq(Game.mission_config.mission_state.get("card_death_failed"), true,
-		"携带科学家的玩家死亡应置 card_death_failed")
-	assert_eq(Game.state_machine.get_game_result(), GameStateMachine.GameResult.LOSE, "结果应为 LOSE")
-	assert_eq(Game.game_result, "lose", "Game.game_result 应为 lose")
-
-
 # === 任务 10：运输 —— 三标记奖励 → 提交物资 → 集结 ===
 
 func test_mission_10_three_mark_rewards() -> void:
@@ -722,7 +653,7 @@ func test_mission_10_submit_items_rally_win() -> void:
 	for i in 2:
 		p.hand.append(_make_card("多余配件"))
 	_setup_game_env([p], [base])
-	assert_false(Game.state_machine.check_win_condition(), "未提交物资不应胜利")
+	assert_false(await Game.state_machine.check_win_condition(), "未提交物资不应胜利")
 	var options: Array = Game.mission_config.get_action_options(Game, p)
 	assert_eq(options.size(), 1, "在军事基地持有清单物资应出现提交选项")
 	assert_eq(options[0]["id"], "submit_items", "选项 id 应为 submit_items")
@@ -735,7 +666,7 @@ func test_mission_10_submit_items_rally_win() -> void:
 	assert_eq(int(submitted.get("医疗用品", 0)), 2, "医疗用品应提交 2 张")
 	assert_eq(int(submitted.get("多余配件", 0)), 2, "多余配件应提交 2 张")
 	# collect_items submit 模式达标 + 全员军事基地无怪 → WIN
-	assert_true(Game.state_machine.check_win_condition(), "提交达标+全员军事基地无怪应胜利")
+	assert_true(await Game.state_machine.check_win_condition(), "提交达标+全员军事基地无怪应胜利")
 	assert_eq(Game.game_result, "win", "Game.game_result 应为 win")
 
 
@@ -805,9 +736,9 @@ func test_mission_11_destroy_three_marks_rally_win() -> void:
 		await options[0]["execute"].call()
 		assert_false(b.has_objective_mark(), "任务标记应被移除")
 	# 标记清零但玩家未回军事基地 → 不胜
-	assert_false(Game.state_machine.check_win_condition(), "未全员抵达军事基地不应胜利")
+	assert_false(await Game.state_machine.check_win_condition(), "未全员抵达军事基地不应胜利")
 	p.current_block = base
-	assert_true(Game.state_machine.check_win_condition(), "标记清零+全员军事基地无怪应胜利")
+	assert_true(await Game.state_machine.check_win_condition(), "标记清零+全员军事基地无怪应胜利")
 	assert_eq(Game.game_result, "win", "Game.game_result 应为 win")
 
 
@@ -832,11 +763,11 @@ func test_mission_12_destroy_marks_van_win() -> void:
 	for i in 2:
 		p.current_block = marked_blocks[i]
 		await Game.mission_config.get_action_options(Game, p)[0]["execute"].call()
-	assert_false(Game.state_machine.check_win_condition(), "仅移除 2/3 个标记不应胜利")
+	assert_false(await Game.state_machine.check_win_condition(), "仅移除 2/3 个标记不应胜利")
 	# 摧毁第 3 个 → 达标；玩家返回面包车 → WIN
 	p.current_block = marked_blocks[2]
 	await Game.mission_config.get_action_options(Game, p)[0]["execute"].call()
 	assert_true(mc.win_condition_components[0].check_win(Game), "移除 3/3 个标记应满足胜利组件")
 	p.current_block = van
-	assert_true(Game.state_machine.check_win_condition(), "标记清零+燃料3+全员面包车应胜利")
+	assert_true(await Game.state_machine.check_win_condition(), "标记清零+燃料3+全员面包车应胜利")
 	assert_eq(Game.game_result, "win", "Game.game_result 应为 win")

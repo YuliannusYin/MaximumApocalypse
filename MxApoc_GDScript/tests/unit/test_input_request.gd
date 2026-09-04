@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 const InputRequestScript = preload("res://src/core/input_request.gd")
 

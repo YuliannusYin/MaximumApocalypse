@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## 集成测试：地图块技能端到端。
 ## 覆盖电厂/百货商店/森林/河流/避难所地块技能的真实 JSON 加载与触发全链路。
@@ -7,60 +7,14 @@ extends GutTest
 
 # === 辅助方法 ===
 
-func _make_player(name: String = "P", hp: int = 10) -> Player:
-	var p: Player = Player.new()
-	p.player_name = name
-	p.hp = hp
-	p.max_hp = hp
-	p.game_deck = Pile.new()
-	p.game_discard_pile = Pile.new()
+func _make_player(player_name: String = "TestPlayer", hp: int = 10, max_hp: int = -1) -> Player:
+	var p: Player = super._make_player(player_name, hp, max_hp)
 	p.role_card = RoleCard.new()
 	return p
 
 
-func _make_block(name: String = "B", x: int = 0, y: int = 0) -> MapBlock:
-	var b: MapBlock = MapBlock.new()
-	b.block_name = name
-	b.set_coordinate(x, y)
-	b.revealed = true
-	return b
-
-
-func _make_scavenge_card(name: String = "test_scavenge", color: String = "green") -> ScavengeCard:
-	var c: ScavengeCard = ScavengeCard.new()
-	c.card_name = name
-	c.card_type = "item"
-	c.source = "scavenge"
-	c.color = color
-	c.scavenge_type = "consumable"
-	return c
-
-
-func _clear_game() -> void:
-	Game.players = []
-	Game.map_area = []
-	Game.monster_pile = null
-	Game.monster_discard_pile = null
-	Game.scavenge_discard_pile = null
-	Game.red_scavenge_pile = null
-	Game.green_scavenge_pile = null
-	Game.blue_scavenge_pile = null
-	Game.mission_config = null
-	Game.removed_cards = []
-	Game.game_over_called = false
-	Game.game_result = ""
-	Game.coop_death_mode = false
-	Game.log_list = []
-	if Game.state_machine != null and is_instance_valid(Game.state_machine):
-		Game.state_machine.init()
-
-
-func before_each() -> void:
-	_clear_game()
-
-
-func after_each() -> void:
-	_clear_game()
+func _make_block(block_name: String = "test_block", x: int = 0, y: int = 0, revealed: bool = true) -> MapBlock:
+	return super._make_block(block_name, x, y, revealed)
 
 
 # === 测试用例 ===

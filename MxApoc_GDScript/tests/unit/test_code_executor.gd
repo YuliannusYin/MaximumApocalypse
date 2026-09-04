@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## CodeExecutor 单元测试。
 ## 验证代码字符串编译为 Callable、上下文注入、失败降级。
@@ -27,18 +27,12 @@ func _compile_deck_contents(survivor_english_name: String) -> Array:
 
 # === 1. compile_filter ===
 
-func test_compile_filter_simple_true() -> void:
-	var cb: Callable = CodeExecutor.compile_filter("return true")
-	assert_true(cb.is_valid(), "应返回有效 Callable")
-	var result: bool = cb.call(null, null, {}, null)
-	assert_true(result)
-
-
-func test_compile_filter_simple_false() -> void:
-	var cb: Callable = CodeExecutor.compile_filter("return false")
-	assert_true(cb.is_valid())
-	var result: bool = cb.call(null, null, {}, null)
-	assert_false(result)
+func test_compile_filter_simple_constant() -> void:
+	# 编译常量布尔表达式，filter 结果应与表达式一致
+	for case in [["return true", true], ["return false", false]]:
+		var cb: Callable = CodeExecutor.compile_filter(case[0])
+		assert_true(cb.is_valid(), "应返回有效 Callable")
+		assert_eq(cb.call(null, null, {}, null), case[1])
 
 
 func test_compile_filter_with_player_dict() -> void:
@@ -96,6 +90,13 @@ func test_compile_content_exposes_actions_context() -> void:
 	assert_true(event["has_actions"], "content 应可使用 actions 操作门面")
 
 
+func test_compile_content_implicitly_awaits_game_over() -> void:
+	var code: String = CodeExecutor._add_implicit_action_awaits("game.game_over(\"win\")")
+	assert_eq(code, "await game.game_over(\"win\")")
+	code = CodeExecutor._add_implicit_action_awaits("await game.game_over(\"lose\")")
+	assert_eq(code, "await game.game_over(\"lose\")")
+
+
 func test_compile_content_with_for_loop() -> void:
 	# 测试多语句 for 循环（Expression 无法处理，CodeExecutor 可以）
 	var cb: Callable = CodeExecutor.compile_content("var sum = 0\nfor i in range(5):\n\tsum += i\nevent.sum = sum")
@@ -129,15 +130,11 @@ func test_compile_content_empty_string() -> void:
 
 # === 3. compile_filter_target ===
 
-func test_compile_filter_target_true_returns_empty() -> void:
-	# "true" 应返回空 Callable（无过滤）
-	var cb: Callable = CodeExecutor.compile_filter_target("true")
-	assert_false(cb.is_valid())
-
-
-func test_compile_filter_target_empty_returns_empty() -> void:
-	var cb: Callable = CodeExecutor.compile_filter_target("")
-	assert_false(cb.is_valid())
+func test_compile_filter_target_noop_inputs_return_empty() -> void:
+	# "true"（表示无过滤）与空字符串均应返回空 Callable
+	for code in ["true", ""]:
+		var cb: Callable = CodeExecutor.compile_filter_target(code)
+		assert_false(cb.is_valid())
 
 
 func test_compile_filter_target_with_target() -> void:
@@ -160,9 +157,7 @@ func test_skill_filter_and_content_combined() -> void:
 	var player: Dictionary = {"in_phase": "action", "action_count": 3}
 	var target: Dictionary = {"hp": 10}
 	var event: Dictionary = {}
-	# filter 应通过
 	assert_true(filter_cb.call(player, target, event, null))
-	# 执行 content
 	content_cb.call(player, target, event, null)
 	assert_eq(player["action_count"], 2, "行动次数应减 1")
 	assert_eq(target["hp"], 8, "目标 hp 应减 2")

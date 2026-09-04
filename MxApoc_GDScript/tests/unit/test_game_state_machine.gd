@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## GameStateMachine 单元测试。
 
@@ -60,7 +60,7 @@ func _make_gsm() -> GameStateMachine:
 	return gsm
 
 
-func _make_player(name: String = "P", hp: int = 10) -> MockPlayer:
+func _make_mock_player(name: String = "P", hp: int = 10) -> MockPlayer:
 	var p: MockPlayer = MockPlayer.new()
 	p.player_name = name
 	p.hp = hp
@@ -79,25 +79,15 @@ func _setup_game(players: Array = []) -> void:
 		Game.state_machine.init()
 
 
-func after_each() -> void:
-	Game.players = []
-	Game.map_area = []
-	Game.mission_config = null
-	Game.game_over_called = false
-	Game.game_result = ""
-	if Game.state_machine != null and is_instance_valid(Game.state_machine):
-		Game.state_machine.init()
-
-
 # === 1. 初始化与状态 ===
 
 func test_init_sets_defaults() -> void:
 	var gsm: GameStateMachine = GameStateMachine.new()
 	gsm.current_state = GameStateMachine.GameState.PLAYING
 	gsm.game_result = GameStateMachine.GameResult.WIN
-	gsm.current_player = _make_player()
-	gsm.turn_queue = [_make_player()]
-	gsm.skip_turn_marks = {_make_player(): true}
+	gsm.current_player = _make_mock_player()
+	gsm.turn_queue = [_make_mock_player()]
+	gsm.skip_turn_marks = {_make_mock_player(): true}
 	gsm.turn_number = 5
 	gsm.init()
 	assert_eq(gsm.current_state, GameStateMachine.GameState.WAITING)
@@ -150,7 +140,7 @@ func test_game_over_sets_result_and_state() -> void:
 	var gsm: GameStateMachine = _make_gsm()
 	_setup_game()
 	gsm.transition_to(GameStateMachine.GameState.PLAYING)
-	gsm.game_over(GameStateMachine.GameResult.LOSE)
+	await gsm.game_over(GameStateMachine.GameResult.LOSE)
 	assert_eq(gsm.get_game_state(), GameStateMachine.GameState.GAME_OVER)
 	assert_eq(gsm.get_game_result(), GameStateMachine.GameResult.LOSE)
 	assert_null(gsm.current_player)
@@ -161,17 +151,17 @@ func test_game_over_idempotent() -> void:
 	var gsm: GameStateMachine = _make_gsm()
 	_setup_game()
 	gsm.transition_to(GameStateMachine.GameState.PLAYING)
-	gsm.game_over(GameStateMachine.GameResult.LOSE)
-	gsm.game_over(GameStateMachine.GameResult.WIN)
+	await gsm.game_over(GameStateMachine.GameResult.LOSE)
+	await gsm.game_over(GameStateMachine.GameResult.WIN)
 	assert_eq(gsm.get_game_result(), GameStateMachine.GameResult.LOSE, "已结束不应覆盖结果")
 
 
 func test_game_over_triggers_on_game_over() -> void:
 	var gsm: GameStateMachine = _make_gsm()
-	var p: MockPlayer = _make_player()
+	var p: MockPlayer = _make_mock_player()
 	_setup_game([p])
 	gsm.transition_to(GameStateMachine.GameState.PLAYING)
-	gsm.game_over(GameStateMachine.GameResult.WIN)
+	await gsm.game_over(GameStateMachine.GameResult.WIN)
 	assert_true(p.triggers_received.has("on_game_over"), "应触发 on_game_over")
 
 
@@ -179,7 +169,7 @@ func test_game_over_sets_game_flags() -> void:
 	var gsm: GameStateMachine = _make_gsm()
 	_setup_game()
 	gsm.transition_to(GameStateMachine.GameState.PLAYING)
-	gsm.game_over(GameStateMachine.GameResult.LOSE)
+	await gsm.game_over(GameStateMachine.GameResult.LOSE)
 	assert_true(Game.game_over_called)
 	assert_eq(Game.game_result, "lose")
 
@@ -188,8 +178,8 @@ func test_game_over_sets_game_flags() -> void:
 
 func test_fill_new_turn_queue_increments_round() -> void:
 	var gsm: GameStateMachine = _make_gsm()
-	var p1: MockPlayer = _make_player("A")
-	var p2: MockPlayer = _make_player("B")
+	var p1: MockPlayer = _make_mock_player("A")
+	var p2: MockPlayer = _make_mock_player("B")
 	_setup_game([p1, p2])
 	gsm.transition_to(GameStateMachine.GameState.PLAYING)
 	gsm._fill_new_turn_queue()
@@ -199,8 +189,8 @@ func test_fill_new_turn_queue_increments_round() -> void:
 
 func test_fill_new_turn_queue_excludes_dead() -> void:
 	var gsm: GameStateMachine = _make_gsm()
-	var p1: MockPlayer = _make_player("A", 10)
-	var p2: MockPlayer = _make_player("B", 0)
+	var p1: MockPlayer = _make_mock_player("A", 10)
+	var p2: MockPlayer = _make_mock_player("B", 0)
 	_setup_game([p1, p2])
 	gsm.transition_to(GameStateMachine.GameState.PLAYING)
 	gsm._fill_new_turn_queue()
@@ -212,8 +202,8 @@ func test_fill_new_turn_queue_excludes_dead() -> void:
 
 func test_get_next_player_returns_first() -> void:
 	var gsm: GameStateMachine = _make_gsm()
-	var p1: MockPlayer = _make_player("A")
-	var p2: MockPlayer = _make_player("B")
+	var p1: MockPlayer = _make_mock_player("A")
+	var p2: MockPlayer = _make_mock_player("B")
 	_setup_game([p1, p2])
 	gsm.transition_to(GameStateMachine.GameState.PLAYING)
 	var player: Variant = gsm._get_next_player()
@@ -222,8 +212,8 @@ func test_get_next_player_returns_first() -> void:
 
 func test_get_next_player_skips_dead() -> void:
 	var gsm: GameStateMachine = _make_gsm()
-	var p1: MockPlayer = _make_player("A", 0)
-	var p2: MockPlayer = _make_player("B", 10)
+	var p1: MockPlayer = _make_mock_player("A", 0)
+	var p2: MockPlayer = _make_mock_player("B", 10)
 	_setup_game([p1, p2])
 	gsm.transition_to(GameStateMachine.GameState.PLAYING)
 	var player: Variant = gsm._get_next_player()
@@ -232,8 +222,8 @@ func test_get_next_player_skips_dead() -> void:
 
 func test_get_next_player_skips_marked() -> void:
 	var gsm: GameStateMachine = _make_gsm()
-	var p1: MockPlayer = _make_player("A")
-	var p2: MockPlayer = _make_player("B")
+	var p1: MockPlayer = _make_mock_player("A")
+	var p2: MockPlayer = _make_mock_player("B")
 	_setup_game([p1, p2])
 	gsm.transition_to(GameStateMachine.GameState.PLAYING)
 	gsm.skip_next_turn(p1)
@@ -244,7 +234,7 @@ func test_get_next_player_skips_marked() -> void:
 
 func test_get_next_player_returns_null_all_dead() -> void:
 	var gsm: GameStateMachine = _make_gsm()
-	var p1: MockPlayer = _make_player("A", 0)
+	var p1: MockPlayer = _make_mock_player("A", 0)
 	_setup_game([p1])
 	gsm.transition_to(GameStateMachine.GameState.PLAYING)
 	var player: Variant = gsm._get_next_player()
@@ -255,8 +245,8 @@ func test_get_next_player_returns_null_all_dead() -> void:
 
 func test_queue_extra_turn_inserts_front() -> void:
 	var gsm: GameStateMachine = _make_gsm()
-	var p1: MockPlayer = _make_player("A")
-	var p2: MockPlayer = _make_player("B")
+	var p1: MockPlayer = _make_mock_player("A")
+	var p2: MockPlayer = _make_mock_player("B")
 	_setup_game([p1, p2])
 	gsm.transition_to(GameStateMachine.GameState.PLAYING)
 	gsm._fill_new_turn_queue()
@@ -266,7 +256,7 @@ func test_queue_extra_turn_inserts_front() -> void:
 
 func test_queue_extra_turn_ignores_dead() -> void:
 	var gsm: GameStateMachine = _make_gsm()
-	var p1: MockPlayer = _make_player("A", 0)
+	var p1: MockPlayer = _make_mock_player("A", 0)
 	_setup_game([p1])
 	gsm.transition_to(GameStateMachine.GameState.PLAYING)
 	gsm._fill_new_turn_queue()
@@ -276,7 +266,7 @@ func test_queue_extra_turn_ignores_dead() -> void:
 
 func test_queue_extra_turn_ignores_when_not_playing() -> void:
 	var gsm: GameStateMachine = _make_gsm()
-	var p1: MockPlayer = _make_player("A")
+	var p1: MockPlayer = _make_mock_player("A")
 	_setup_game([p1])
 	gsm.queue_extra_turn(p1)
 	assert_eq(gsm.turn_queue.size(), 0, "非游戏中不应插入额外回合")
@@ -284,7 +274,7 @@ func test_queue_extra_turn_ignores_when_not_playing() -> void:
 
 func test_skip_next_turn_adds_mark() -> void:
 	var gsm: GameStateMachine = _make_gsm()
-	var p1: MockPlayer = _make_player("A")
+	var p1: MockPlayer = _make_mock_player("A")
 	_setup_game([p1])
 	gsm.transition_to(GameStateMachine.GameState.PLAYING)
 	gsm.skip_next_turn(p1)
@@ -293,7 +283,7 @@ func test_skip_next_turn_adds_mark() -> void:
 
 func test_skip_next_turn_ignores_when_not_playing() -> void:
 	var gsm: GameStateMachine = _make_gsm()
-	var p1: MockPlayer = _make_player("A")
+	var p1: MockPlayer = _make_mock_player("A")
 	_setup_game([p1])
 	gsm.skip_next_turn(p1)
 	assert_false(gsm.skip_turn_marks.has(p1))
@@ -304,14 +294,14 @@ func test_skip_next_turn_ignores_when_not_playing() -> void:
 func test_check_win_condition_not_playing_returns_false() -> void:
 	var gsm: GameStateMachine = _make_gsm()
 	_setup_game()
-	assert_false(gsm.check_win_condition())
+	assert_false(await gsm.check_win_condition())
 
 
 func test_check_win_condition_no_mission_config_returns_false() -> void:
 	var gsm: GameStateMachine = _make_gsm()
 	_setup_game()
 	gsm.transition_to(GameStateMachine.GameState.PLAYING)
-	assert_false(gsm.check_win_condition())
+	assert_false(await gsm.check_win_condition())
 
 
 func test_check_win_condition_mission_returns_false() -> void:
@@ -323,7 +313,7 @@ func test_check_win_condition_mission_returns_false() -> void:
 	wc.win_value = false
 	mc.win_condition_components.append(wc)
 	Game.mission_config = mc
-	assert_false(gsm.check_win_condition())
+	assert_false(await gsm.check_win_condition())
 
 
 func test_check_win_condition_null_fuel_wins() -> void:
@@ -336,7 +326,7 @@ func test_check_win_condition_null_fuel_wins() -> void:
 	wc.win_value = true
 	mc.win_condition_components.append(wc)
 	Game.mission_config = mc
-	var result: bool = gsm.check_win_condition()
+	var result: bool = await gsm.check_win_condition()
 	assert_true(result)
 	assert_eq(gsm.get_game_state(), GameStateMachine.GameState.GAME_OVER)
 	assert_eq(gsm.get_game_result(), GameStateMachine.GameResult.WIN)
@@ -369,7 +359,7 @@ func test_get_turn_number() -> void:
 func test_get_current_player() -> void:
 	var gsm: GameStateMachine = _make_gsm()
 	assert_null(gsm.get_current_player())
-	var p: MockPlayer = _make_player()
+	var p: MockPlayer = _make_mock_player()
 	gsm.current_player = p
 	assert_eq(gsm.get_current_player(), p)
 

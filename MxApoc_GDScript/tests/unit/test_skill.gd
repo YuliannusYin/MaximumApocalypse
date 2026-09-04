@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## Skill 单元测试。
 

@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## CardView 区域标签：进树前 set_zone_label 必须在 _ready 后生效。
 

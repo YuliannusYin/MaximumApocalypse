@@ -98,13 +98,14 @@ func start_game(runtime: Variant = null) -> void:
 
 
 ## 游戏结束流程。接受 String ("win"/"lose") 并委托给 state_machine.game_over(enum)。
+## 调用方必须 await，避免结束事件并发插入当前调度栈。
 ## runtime 为可选的统一事件调度 runtime，见 Entity.damage 说明。
 func game_over(result: String, runtime: Variant = null) -> void:
 	var enum_result: int = GameStateMachine.GameResult.LOSE
 	if result == "win":
 		enum_result = GameStateMachine.GameResult.WIN
 	if state_machine != null and is_instance_valid(state_machine):
-		state_machine.game_over(enum_result, "", event_scheduler if runtime == null else runtime) # Unawaited as per original behavior
+		await state_machine.game_over(enum_result, "", event_scheduler if runtime == null else runtime)
 	else:
 		game_over_called = true
 		game_result = result
@@ -396,7 +397,7 @@ func destroy_map_block(block: MapBlock, source: Variant, runtime: Variant = null
 			var adjacent: Array = block.get_adjacent_blocks()
 			if adjacent.is_empty():
 				log_message(LogColors.player(player.player_name) + " 无处可逃，受到 5 点伤害")
-				player.damage(5, null, "block_destroy", null, scheduler)
+				await player.damage(5, null, "block_destroy", null, scheduler)
 			else:
 				var target: MapBlock = await player.choose_map_block(adjacent)
 				if target == null:

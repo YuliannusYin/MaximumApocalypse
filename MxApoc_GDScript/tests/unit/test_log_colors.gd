@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## LogColors 单元测试。
 ## 覆盖：BBCode 着色包裹、导出纯文本时去掉颜色标签。

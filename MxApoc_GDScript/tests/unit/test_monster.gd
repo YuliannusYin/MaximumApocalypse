@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## Monster 单元测试。
 
@@ -28,7 +28,7 @@ class MockBlock extends MapBlock:
 
 # === 辅助方法 ===
 
-func _make_monster() -> Monster:
+func _make_combat_monster() -> Monster:
 	var m: Monster = Monster.new()
 	m.monster_name = "测试怪物"
 	m.monster_type = "zombie"
@@ -48,7 +48,7 @@ func _make_skill_with_trigger(trigger_name: String, called: Array) -> Skill:
 	return s
 
 
-func _make_player(player_name: String = "测试玩家", hp: int = 28, max_hp: int = 28) -> Player:
+func _make_combat_player(player_name: String = "测试玩家", hp: int = 28, max_hp: int = 28) -> Player:
 	var p: Player = Player.new()
 	p.player_name = player_name
 	p.hp = hp
@@ -122,36 +122,36 @@ func test_default_fields() -> void:
 # === 2. 生命值接口 ===
 
 func test_get_hp() -> void:
-	var m: Monster = _make_monster()
+	var m: Monster = _make_combat_monster()
 	assert_eq(m.get_hp(), 5)
 
 
 func test_get_max_hp() -> void:
-	var m: Monster = _make_monster()
+	var m: Monster = _make_combat_monster()
 	assert_eq(m.get_max_hp(), 5)
 
 
 func test_reduce_hp() -> void:
-	var m: Monster = _make_monster()
+	var m: Monster = _make_combat_monster()
 	m.reduce_hp(3)
 	assert_eq(m.hp, 2)
 
 
 func test_reduce_hp_floor_zero() -> void:
-	var m: Monster = _make_monster()
+	var m: Monster = _make_combat_monster()
 	m.reduce_hp(100)
 	assert_eq(m.hp, 0, "生命值下限为 0")
 
 
 func test_add_hp() -> void:
-	var m: Monster = _make_monster()
+	var m: Monster = _make_combat_monster()
 	m.reduce_hp(3)
 	m.add_hp(2)
 	assert_eq(m.hp, 4)
 
 
 func test_add_hp_capped_at_max() -> void:
-	var m: Monster = _make_monster()
+	var m: Monster = _make_combat_monster()
 	m.add_hp(100)
 	assert_eq(m.hp, 5, "生命值上限为 max_hp")
 
@@ -169,7 +169,7 @@ func test_is_player_returns_false() -> void:
 # === 3. 行动流程 ===
 
 func test_act_six_node_trigger_order() -> void:
-	var m: Monster = _make_monster()
+	var m: Monster = _make_combat_monster()
 	var p: MockPlayer = MockPlayer.new()
 	m.attack_target = p
 	var called: Array = []
@@ -181,7 +181,7 @@ func test_act_six_node_trigger_order() -> void:
 
 
 func test_act_stunned_skips_and_resets() -> void:
-	var m: Monster = _make_monster()
+	var m: Monster = _make_combat_monster()
 	m.stunned = true
 	var called: Array = []
 	m.add_skill(_make_skill_with_trigger("on_monster_act", called))
@@ -191,7 +191,7 @@ func test_act_stunned_skips_and_resets() -> void:
 
 
 func test_act_not_stunned_does_not_reset() -> void:
-	var m: Monster = _make_monster()
+	var m: Monster = _make_combat_monster()
 	m.stunned = false
 	await m.act()
 	assert_false(m.stunned)
@@ -200,7 +200,7 @@ func test_act_not_stunned_does_not_reset() -> void:
 # === 4. 攻击流程 ===
 
 func test_attack_none_range_only_targets_attack_target() -> void:
-	var m: Monster = _make_monster()
+	var m: Monster = _make_combat_monster()
 	m.range = "none"
 	var p: MockPlayer = MockPlayer.new()
 	m.attack_target = p
@@ -211,7 +211,7 @@ func test_attack_none_range_only_targets_attack_target() -> void:
 
 
 func test_attack_with_range_uses_block_players_in_range() -> void:
-	var m: Monster = _make_monster()
+	var m: Monster = _make_combat_monster()
 	m.range = "short"
 	m.damage_value = 3
 	var p1: MockPlayer = MockPlayer.new()
@@ -228,7 +228,7 @@ func test_attack_with_range_uses_block_players_in_range() -> void:
 
 
 func test_attack_null_attack_target_safe_return() -> void:
-	var m: Monster = _make_monster()
+	var m: Monster = _make_combat_monster()
 	m.attack_target = null
 	# 不应抛错
 	m._attack()
@@ -236,7 +236,7 @@ func test_attack_null_attack_target_safe_return() -> void:
 
 
 func test_attack_dead_attack_target_skipped() -> void:
-	var m: Monster = _make_monster()
+	var m: Monster = _make_combat_monster()
 	var p: MockPlayer = MockPlayer.new()
 	p.hp = 0  # 死亡
 	m.attack_target = p
@@ -245,7 +245,7 @@ func test_attack_dead_attack_target_skipped() -> void:
 
 
 func test_attack_invalid_block_safe_return() -> void:
-	var m: Monster = _make_monster()
+	var m: Monster = _make_combat_monster()
 	var p: MockPlayer = MockPlayer.new()
 	p.current_block = null
 	m.attack_target = p
@@ -256,7 +256,7 @@ func test_attack_invalid_block_safe_return() -> void:
 # === 5. 死亡流程 ===
 
 func test_death_three_node_trigger_order() -> void:
-	var m: Monster = _make_monster()
+	var m: Monster = _make_combat_monster()
 	var called: Array = []
 	for tname in ["before_monster_death", "on_monster_death", "after_monster_death"]:
 		m.add_skill(_make_skill_with_trigger(tname, called))
@@ -265,7 +265,7 @@ func test_death_three_node_trigger_order() -> void:
 
 
 func test_death_removes_from_attack_target_monster_zone() -> void:
-	var m: Monster = _make_monster()
+	var m: Monster = _make_combat_monster()
 	var p: MockPlayer = MockPlayer.new()
 	p.monster_zone = [m]
 	m.attack_target = p
@@ -274,7 +274,7 @@ func test_death_removes_from_attack_target_monster_zone() -> void:
 
 
 func test_death_enters_monster_discard_pile() -> void:
-	var m: Monster = _make_monster()
+	var m: Monster = _make_combat_monster()
 	# 暂用 Pile 作为 discard_pile
 	var discard: Pile = Pile.new()
 	Game.monster_discard_pile = discard
@@ -285,7 +285,7 @@ func test_death_enters_monster_discard_pile() -> void:
 
 
 func test_death_null_attack_target_safe() -> void:
-	var m: Monster = _make_monster()
+	var m: Monster = _make_combat_monster()
 	m.attack_target = null
 	Game.monster_discard_pile = Pile.new()
 	await m.death(null)
@@ -296,7 +296,7 @@ func test_death_null_attack_target_safe() -> void:
 # === 6. 修改纠缠对象 ===
 
 func test_change_engaged_target_sets_field() -> void:
-	var m: Monster = _make_monster()
+	var m: Monster = _make_combat_monster()
 	var p1: MockPlayer = MockPlayer.new()
 	var p2: MockPlayer = MockPlayer.new()
 	m.attack_target = p1
@@ -309,7 +309,7 @@ func test_change_engaged_target_emits_signal() -> void:
 	EventBus.monster_engaged_target_changed.connect(
 		func(monster, old_t, new_t): received.append([monster, old_t, new_t])
 	)
-	var m: Monster = _make_monster()
+	var m: Monster = _make_combat_monster()
 	var p1: MockPlayer = MockPlayer.new()
 	var p2: MockPlayer = MockPlayer.new()
 	m.attack_target = p1
@@ -330,10 +330,10 @@ func test_change_engaged_target_emits_signal() -> void:
 # - M.attack_target 应为 A
 # - M 应在 A.monster_zone，不在 B.monster_zone
 func test_change_engaged_target_logs_entangle_message() -> void:
-	var pa: Player = _make_player("玩家A")
-	var pb: Player = _make_player("玩家B")
+	var pa: Player = _make_combat_player("玩家A")
+	var pb: Player = _make_combat_player("玩家B")
 	_setup_game_for_players([pa, pb])
-	var m: Monster = _make_monster()
+	var m: Monster = _make_combat_monster()
 	m.attack_target = pb
 	pb.monster_zone.append(m)
 	# 清空日志
@@ -356,10 +356,10 @@ func test_change_engaged_target_logs_entangle_message() -> void:
 # 紧接上场景：M 已纠缠 A，再次调用 change_engaged_target(A)（目标未变），
 # 不应再次输出 "纠缠了" 日志（target == old_target 跳过日志）。
 func test_change_engaged_target_no_duplicate_log() -> void:
-	var pa: Player = _make_player("玩家A")
-	var pb: Player = _make_player("玩家B")
+	var pa: Player = _make_combat_player("玩家A")
+	var pb: Player = _make_combat_player("玩家B")
 	_setup_game_for_players([pa, pb])
-	var m: Monster = _make_monster()
+	var m: Monster = _make_combat_monster()
 	m.attack_target = pb
 	pb.monster_zone.append(m)
 	# 第一次调用：应输出 1 条日志

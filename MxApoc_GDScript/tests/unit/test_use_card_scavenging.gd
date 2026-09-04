@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## 拾荒基础设施单元测试。
 ## 覆盖：ImageCache 拾荒图片加载、Pile/EquipmentCard/MapBlock/ScavengeCard 基础设施、
@@ -8,7 +8,7 @@ extends GutTest
 
 # === 辅助方法 ===
 
-func _make_player(hp: int = 10, max_hp: int = 10) -> Player:
+func _make_combat_player(hp: int = 10, max_hp: int = 10) -> Player:
 	var p: Player = Player.new()
 	p.player_name = "TestPlayer"
 	p.hp = hp
@@ -18,14 +18,6 @@ func _make_player(hp: int = 10, max_hp: int = 10) -> Player:
 	p.in_phase = "action"
 	p.action_count = 2
 	return p
-
-
-func _make_card(card_name: String = "test_card", type: String = "action") -> Card:
-	var c: Card = Card.new()
-	c.card_name = card_name
-	c.card_type = type
-	c.source = "game"
-	return c
 
 
 func _setup_game_for_player(p: Player) -> void:
@@ -45,32 +37,6 @@ func _setup_game_for_player(p: Player) -> void:
 	Game.log_list = []
 	if Game.state_machine != null and is_instance_valid(Game.state_machine):
 		Game.state_machine.init()
-
-
-func _clear_game() -> void:
-	Game.players = []
-	Game.map_area = []
-	Game.monster_pile = null
-	Game.monster_discard_pile = null
-	Game.scavenge_discard_pile = null
-	Game.red_scavenge_pile = null
-	Game.green_scavenge_pile = null
-	Game.blue_scavenge_pile = null
-	Game.mission_config = null
-	Game.removed_cards = []
-	Game.game_over_called = false
-	Game.game_result = ""
-	Game.log_list = []
-	if Game.state_machine != null and is_instance_valid(Game.state_machine):
-		Game.state_machine.init()
-
-
-func before_each() -> void:
-	_clear_game()
-
-
-func after_each() -> void:
-	_clear_game()
 
 
 # === 一、基础设施测试 ===
@@ -159,7 +125,7 @@ func test_scavenge_card_get_color() -> void:
 
 
 func test_player_gain() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_combat_player()
 	var c: Card = _make_card("c1")
 	p.gain(c)
 	assert_eq(p.hand.size(), 1, "gain 后手牌应有 1 张")
@@ -167,14 +133,14 @@ func test_player_gain() -> void:
 
 
 func test_player_get_discard_pile() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_combat_player()
 	var dp: Pile = Pile.new()
 	p.game_discard_pile = dp
 	assert_eq(p.get_discard_pile(), dp, "get_discard_pile 应返回 game_discard_pile")
 
 
 func test_player_choose_card_array_mode() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_combat_player()
 	var cli: CliPlayerInput = CliPlayerInput.new()
 	var c1: Card = _make_card("c1")
 	var c2: Card = _make_card("c2")
@@ -201,7 +167,7 @@ func test_game_create_scavenge_card_not_found() -> void:
 # === 二、装备区字段维护测试 ===
 
 func test_equip_sets_in_equipment_area_true() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_combat_player()
 	_setup_game_for_player(p)
 	var e: EquipmentCard = EquipmentCard.new()
 	e.card_name = "test_equip"
@@ -215,7 +181,7 @@ func test_equip_sets_in_equipment_area_true() -> void:
 
 
 func test_unequip_sets_in_equipment_area_false() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_combat_player()
 	_setup_game_for_player(p)
 	var e: EquipmentCard = EquipmentCard.new()
 	e.card_name = "test_equip"

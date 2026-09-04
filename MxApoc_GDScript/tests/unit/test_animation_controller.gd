@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## 统一动画控制器的装配测试。
 ## 主要验证所有动画入口由同一个控制器创建，避免 GameScene2D 漏挂某个视图。

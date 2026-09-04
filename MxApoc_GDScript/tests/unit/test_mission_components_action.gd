@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## 行动类任务组件单元测试（Task 5：6 个行动选项组件）。
 ## 覆盖：destroy_current_mark / submit_items / repair_van / defuse_bomb /
@@ -10,50 +10,6 @@ extends GutTest
 ## 故测试中直接 create 即可，无需手动处理。
 
 # === 辅助方法 ===
-
-func _make_player(name: String = "P", hp: int = 10) -> Player:
-	var p: Player = Player.new()
-	p.player_name = name
-	p.hp = hp
-	p.max_hp = hp
-	p.game_deck = Pile.new()
-	p.game_discard_pile = Pile.new()
-	return p
-
-
-func _make_card(card_name: String = "test_card", type: String = "action") -> Card:
-	var c: Card = Card.new()
-	c.card_name = card_name
-	c.card_type = type
-	c.source = "game"
-	return c
-
-
-func _make_block(block_name: String = "test_block", x: int = 0, y: int = 0) -> MapBlock:
-	var b: MapBlock = MapBlock.new()
-	b.block_name = block_name
-	b.set_coordinate(x, y)
-	return b
-
-
-func _clear_game() -> void:
-	Game.players = []
-	Game.map_area = []
-	Game.monster_pile = null
-	Game.monster_discard_pile = null
-	Game.scavenge_discard_pile = null
-	Game.red_scavenge_pile = null
-	Game.green_scavenge_pile = null
-	Game.blue_scavenge_pile = null
-	Game.mission_config = null
-	Game.removed_cards = []
-	Game.game_over_called = false
-	Game.game_result = ""
-	Game.coop_death_mode = false
-	Game.log_list = []
-	if Game.state_machine != null and is_instance_valid(Game.state_machine):
-		Game.state_machine.init()
-
 
 ## 构造挂载单个行动组件的 MissionConfig 并完成 setup，返回上下文。
 func _setup_component(id: String, comp_params: Dictionary, action_count: int = 3) -> Dictionary:
@@ -70,12 +26,12 @@ func _setup_component(id: String, comp_params: Dictionary, action_count: int = 3
 
 func before_each() -> void:
 	MissionComponentRegistry.reset()
-	_clear_game()
+	super.before_each()
 
 
 func after_each() -> void:
 	MissionComponentRegistry.reset()
-	_clear_game()
+	super.after_each()
 
 
 # === 0. 注册表内置映射 ===

@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## 任务组件/脚本注册表单元测试。
 ## 覆盖 MissionComponentRegistry / MissionScriptRegistry 的 register/has/create/reset。
@@ -40,11 +40,13 @@ class DummyScript extends MissionScript:
 # === 隔离：每个用例前后清空两个注册表 ===
 
 func before_each() -> void:
+	super.before_each()
 	MissionComponentRegistry.reset()
 	MissionScriptRegistry.reset()
 
 
 func after_each() -> void:
+	super.after_each()
 	MissionComponentRegistry.reset()
 	MissionScriptRegistry.reset()
 

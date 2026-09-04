@@ -1,10 +1,10 @@
-extends GutTest
+extends TestBase
 
 ## 四张跨玩家操作牌的有限操作集成测试。
 ## 验证目标玩家实际执行操作/出牌时，不会污染自身正式回合状态。
 
 
-func _make_player(name: String, survivor_id: String) -> Player:
+func _make_survivor_player(name: String, survivor_id: String) -> Player:
 	var survivor: SurvivorData = DataManager.get_survivor(survivor_id)
 	var player := Player.new()
 	player.player_name = name
@@ -50,19 +50,9 @@ func _make_plain_card(name: String) -> Card:
 	return card
 
 
-func before_each() -> void:
-	Game.players = []
-	Game.map_area = []
-
-
-func after_each() -> void:
-	Game.players = []
-	Game.map_area = []
-
-
 func test_walkie_talkie_runs_target_action_without_changing_formal_state() -> void:
-	var source := _make_player("Source", "gunslinger")
-	var target := _make_player("Target", "surgeon")
+	var source := _make_survivor_player("Source", "gunslinger")
+	var target := _make_survivor_player("Target", "surgeon")
 	_setup_game(source, target)
 	var radio: Card = Game.create_scavenge_card("对讲机")
 	assert_not_null(radio, "应能创建对讲机")
@@ -79,8 +69,8 @@ func test_walkie_talkie_runs_target_action_without_changing_formal_state() -> vo
 
 
 func test_tactical_leadership_runs_target_action_without_changing_formal_state() -> void:
-	var source := _make_player("Source", "gunslinger")
-	var target := _make_player("Target", "surgeon")
+	var source := _make_survivor_player("Source", "gunslinger")
+	var target := _make_survivor_player("Target", "surgeon")
 	_setup_game(source, target)
 	var card: Card = _make_survivor_card("gunslinger", "战术领导力")
 	assert_not_null(card, "应能创建战术领导力")
@@ -98,8 +88,8 @@ func test_tactical_leadership_runs_target_action_without_changing_formal_state()
 
 
 func test_adrenaline_injection_allows_target_action_without_changing_formal_state() -> void:
-	var source := _make_player("Source", "surgeon")
-	var target := _make_player("Target", "gunslinger")
+	var source := _make_survivor_player("Source", "surgeon")
+	var target := _make_survivor_player("Target", "gunslinger")
 	_setup_game(source, target)
 	var drawn := _make_plain_card("target_draw")
 	target.game_deck.add(drawn)
@@ -121,8 +111,8 @@ func test_adrenaline_injection_allows_target_action_without_changing_formal_stat
 
 
 func test_steroid_injection_uses_two_target_hand_cards_for_free() -> void:
-	var source := _make_player("Source", "surgeon")
-	var target := _make_player("Target", "gunslinger")
+	var source := _make_survivor_player("Source", "surgeon")
+	var target := _make_survivor_player("Target", "gunslinger")
 	_setup_game(source, target)
 	var first := _make_plain_card("first")
 	var second := _make_plain_card("second")

@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## SubSkill 机制单元测试。
 ## 覆盖：
@@ -9,7 +9,7 @@ extends GutTest
 
 # === 辅助方法 ===
 
-func _make_player(hp: int = 28, max_hp: int = 28) -> Player:
+func _make_subskill_player(hp: int = 28, max_hp: int = 28) -> Player:
 	var p: Player = Player.new()
 	p.player_name = "枪手"
 	p.hp = hp
@@ -40,33 +40,6 @@ func _setup_game_for_player(p: Player) -> void:
 	Game.sub_skill_registry = {}
 	if Game.state_machine != null and is_instance_valid(Game.state_machine):
 		Game.state_machine.init()
-
-
-func _clear_game() -> void:
-	Game.players = []
-	Game.map_area = []
-	Game.monster_pile = null
-	Game.monster_discard_pile = null
-	Game.scavenge_discard_pile = null
-	Game.red_scavenge_pile = null
-	Game.green_scavenge_pile = null
-	Game.blue_scavenge_pile = null
-	Game.mission_config = null
-	Game.removed_cards = []
-	Game.game_over_called = false
-	Game.game_result = ""
-	Game.log_list = []
-	Game.sub_skill_registry = {}
-	if Game.state_machine != null and is_instance_valid(Game.state_machine):
-		Game.state_machine.init()
-
-
-func before_each() -> void:
-	_clear_game()
-
-
-func after_each() -> void:
-	_clear_game()
 
 
 # === 1. SkillData 递归解析 ===
@@ -109,7 +82,7 @@ func test_game_get_sub_skill_data_returns_null_for_unknown() -> void:
 # 注：mount_sub_skill 内部会 push_error，直接调用会触发 GUT "Unexpected Errors"。
 # 改为验证 Game.get_sub_skill_data 对未注册名返回 null（mount_sub_skill 的前置查找逻辑）。
 func test_mount_sub_skill_nonexistent_returns_null() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_subskill_player()
 	_setup_game_for_player(p)
 	assert_null(Game.get_sub_skill_data("nonexistent_sub_skill"), "未注册的 english_name 应返回 null")
 
@@ -118,7 +91,7 @@ func test_mount_sub_skill_nonexistent_returns_null() -> void:
 # 注：add_temp_skill 内部会 push_error，直接调用会触发 GUT "Unexpected Errors"。
 # 改为验证 Game.get_sub_skill_data 对未注册名返回 null（add_temp_skill 的前置查找逻辑）。
 func test_add_temp_skill_nonexistent_pushes_error() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_subskill_player()
 	_setup_game_for_player(p)
 	var initial_count: int = p.get_all_skills().size()
 	assert_null(Game.get_sub_skill_data("nonexistent_temp_skill"), "未注册的 english_name 应返回 null")

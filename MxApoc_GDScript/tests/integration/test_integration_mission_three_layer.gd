@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## 集成测试：任务系统三层架构全链路。
 ## 覆盖：任务 JSON 声明（win_conditions / actions / mission_script）→
@@ -57,49 +57,8 @@ class StubMissionScript extends MissionScript:
 
 # === 辅助方法 ===
 
-func _make_player(name: String = "P", hp: int = 10) -> Player:
-	var p: Player = Player.new()
-	p.player_name = name
-	p.hp = hp
-	p.max_hp = hp
-	p.game_deck = Pile.new()
-	p.game_discard_pile = Pile.new()
-	return p
-
-
-func _make_card(card_name: String = "test_card") -> Card:
-	var c: Card = Card.new()
-	c.card_name = card_name
-	c.card_type = "action"
-	c.source = "game"
-	return c
-
-
-func _make_block(block_name: String = "B", x: int = 0, y: int = 0) -> MapBlock:
-	var b: MapBlock = MapBlock.new()
-	b.block_name = block_name
-	b.set_coordinate(x, y)
-	b.revealed = true
-	return b
-
-
-func _clear_game() -> void:
-	Game.players = []
-	Game.map_area = []
-	Game.monster_pile = null
-	Game.monster_discard_pile = null
-	Game.scavenge_discard_pile = null
-	Game.red_scavenge_pile = null
-	Game.green_scavenge_pile = null
-	Game.blue_scavenge_pile = null
-	Game.mission_config = null
-	Game.removed_cards = []
-	Game.game_over_called = false
-	Game.game_result = ""
-	Game.coop_death_mode = false
-	Game.log_list = []
-	if Game.state_machine != null and is_instance_valid(Game.state_machine):
-		Game.state_machine.init()
+func _make_block(block_name: String = "test_block", x: int = 0, y: int = 0, revealed: bool = true) -> MapBlock:
+	return super._make_block(block_name, x, y, revealed)
 
 
 ## 轮询等待条件成立（on_event 转发链路含协程时的时序兜底），超时返回最后一次求值。
@@ -164,12 +123,8 @@ func _make_mission_10_config() -> MissionConfig:
 	return mc
 
 
-func before_each() -> void:
-	_clear_game()
-
-
 func after_each() -> void:
-	_clear_game()
+	super.after_each()
 	# 清理挂载用例注册的临时脚本 id，避免泄漏到其他用例
 	MissionScriptRegistry.reset()
 
@@ -256,7 +211,7 @@ func test_mission_10_component_win_path() -> void:
 	p1.current_block = _make_block("军事基地", 0, 0)
 	p2.current_block = _make_block("军事基地", 1, 0)
 	_setup_game_env([p1, p2])
-	var result: bool = Game.state_machine.check_win_condition()
+	var result: bool = await Game.state_machine.check_win_condition()
 	assert_true(result, "物品集齐且全员在军事基地应胜利")
 	assert_eq(Game.state_machine.get_game_result(), GameStateMachine.GameResult.WIN, "结果应为 WIN")
 	assert_eq(Game.game_result, "win", "Game.game_result 应为 win")
@@ -273,7 +228,7 @@ func test_mission_10_fails_when_player_not_at_base() -> void:
 	p1.current_block = _make_block("军事基地", 0, 0)
 	p2.current_block = _make_block("加油站", 1, 0)
 	_setup_game_env([p1, p2])
-	assert_false(Game.state_machine.check_win_condition(), "有玩家未到军事基地不应胜利")
+	assert_false(await Game.state_machine.check_win_condition(), "有玩家未到军事基地不应胜利")
 	assert_false(Game.state_machine.is_game_over(), "不应进入 GAME_OVER")
 
 
@@ -286,7 +241,7 @@ func test_mission_10_fails_when_items_insufficient() -> void:
 	p1.current_block = _make_block("军事基地", 0, 0)
 	p2.current_block = _make_block("军事基地", 1, 0)
 	_setup_game_env([p1, p2])
-	assert_false(Game.state_machine.check_win_condition(), "燃料数量不足（1/2）不应胜利")
+	assert_false(await Game.state_machine.check_win_condition(), "燃料数量不足（1/2）不应胜利")
 	assert_false(Game.state_machine.is_game_over(), "不应进入 GAME_OVER")
 
 
@@ -329,7 +284,7 @@ func test_mission_1_rescue_then_escort_to_van_wins() -> void:
 	# 护送：移动到面包车并加满燃料
 	p.current_block = van
 	van.van_fuel = 4
-	assert_true(Game.state_machine.check_win_condition(), "解救+持有者在面包车+燃料足够应胜利")
+	assert_true(await Game.state_machine.check_win_condition(), "解救+持有者在面包车+燃料足够应胜利")
 	assert_eq(Game.state_machine.get_game_result(), GameStateMachine.GameResult.WIN, "结果应为 WIN")
 	assert_eq(Game.game_result, "win", "Game.game_result 应为 win")
 
@@ -343,7 +298,7 @@ func test_mission_1_van_conditions_without_rescue_no_win() -> void:
 	p.current_block = van
 	_setup_game_env([p], [police, van])
 	van.van_fuel = 4
-	assert_false(Game.state_machine.check_win_condition(), "科学家未解救时即使面包车条件满足也不应胜利")
+	assert_false(await Game.state_machine.check_win_condition(), "科学家未解救时即使面包车条件满足也不应胜利")
 	assert_false(Game.state_machine.is_game_over(), "不应进入 GAME_OVER")
 
 
@@ -379,11 +334,11 @@ func test_script_action_options_aggregate_and_execute() -> void:
 	assert_true(state.get("stub_action_done"), "执行选项应触发脚本 execute")
 	assert_eq(p.action_count, 1, "选项执行应消耗 1 点行动")
 	# 判定链：脚本 check_win 为 false 时阻断胜利
-	assert_false(Game.state_machine.check_win_condition(), "脚本 check_win 为 false 时不应胜利")
+	assert_false(await Game.state_machine.check_win_condition(), "脚本 check_win 为 false 时不应胜利")
 	assert_false(Game.state_machine.is_game_over(), "不应进入 GAME_OVER")
 	# 判定链：脚本 check_win 为 true 时参与胜利判定（van_fuel_required=-1 直接胜利）
 	state["stub_win"] = true
-	assert_true(Game.state_machine.check_win_condition(), "脚本 check_win 为 true 时应胜利")
+	assert_true(await Game.state_machine.check_win_condition(), "脚本 check_win 为 true 时应胜利")
 	assert_eq(Game.state_machine.get_game_result(), GameStateMachine.GameResult.WIN, "结果应为 WIN")
 	assert_eq(Game.game_result, "win", "Game.game_result 应为 win")
 
@@ -396,7 +351,7 @@ func test_script_check_lose_has_priority_over_win() -> void:
 	# 同时满足脚本胜利条件与失败条件
 	state["stub_win"] = true
 	state["stub_lose"] = true
-	var result: bool = Game.state_machine.check_win_condition()
+	var result: bool = await Game.state_machine.check_win_condition()
 	assert_true(result, "脚本失败条件满足应终止游戏")
 	assert_eq(Game.state_machine.get_game_result(), GameStateMachine.GameResult.LOSE, "失败应优先于胜利")
 	assert_eq(Game.game_result, "lose", "Game.game_result 应为 lose")
