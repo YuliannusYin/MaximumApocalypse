@@ -441,6 +441,8 @@ func enter_block_select_mode(prompt: String, valid_blocks: Array, count: int, so
 		var current: Variant = _get_acting_player()
 		if current == null or not is_instance_valid(current):
 			return
+		if current.has_method("is_action_type_allowed") and not current.is_action_type_allowed("move"):
+			return
 		var in_action: bool = current.get_effective_phase() == "action" if current.has_method("get_effective_phase") else current.get("in_phase") == "action"
 		var action_count: int = current.get_effective_action_count() if current.has_method("get_effective_action_count") else current.get("action_count")
 		if not in_action or action_count <= 0:

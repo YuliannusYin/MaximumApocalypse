@@ -228,6 +228,8 @@ func is_pile_clickable(pile_key: String) -> bool:
 	var action_count: int = current.get_effective_action_count() if current.has_method("get_effective_action_count") else current.get("action_count")
 	if not in_action or action_count <= 0:
 		return false
+	if current.has_method("is_action_type_allowed") and not current.is_action_type_allowed("pile_draw"):
+		return false
 	match pile_key:
 		"game_deck":
 			return _get_current_player_deck_count() > 0

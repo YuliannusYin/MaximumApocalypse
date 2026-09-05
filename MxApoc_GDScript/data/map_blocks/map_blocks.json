@@ -474,7 +474,7 @@
           "trigger": "on_enter_block、on_turn_end",
           "filter": "return true",
           "forced": true,
-          "content": "if event.trigger_name == \"on_enter_block\":\n\tactions.recover(player, 1)\nelif event.trigger_name == \"on_turn_end\":\n\tactions.recover(player, 2)"
+          "content": "if event.trigger_name == \"on_enter_block\":\n\tactions.recover(player, 1, player.get_current_block())\nelif event.trigger_name == \"on_turn_end\":\n\tactions.recover(player, 2, player.get_current_block())"
         }
       ]
     },

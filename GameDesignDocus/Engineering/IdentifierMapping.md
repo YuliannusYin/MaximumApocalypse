@@ -178,6 +178,15 @@ trigger 名在 JSON 数据中用英文 snake_case，技能 `trigger` 字段可�
 | 受到伤害时 | `on_take_damage` | ✅ |
 | 受到伤害后 | `after_take_damage` | 否 |
 
+### 3.1.1 回复类
+
+| 中文 | 英文键名 | 取消点 |
+| --- | --- | --- |
+| 回复生命前 | `before_recover` | 否 |
+| 造成回复时 | `on_deal_recover` | 否 |
+| 回复生命时 | `on_recover` | 否 |
+| 回复生命后 | `after_recover` | 否 |
+
 ### 3.2 移动 / 地块类
 
 | 中文 | 英文键名 | 取消点 |
@@ -312,7 +321,7 @@ trigger 名在 JSON 数据中用英文 snake_case，技能 `trigger` 字段可�
 | `consume_charge(equipment, num)` | 消耗填充物 |
 | `consume_action(n)` / `add_action(n)` | 扣除 / 增加行动次数 |
 | `use_card(card)` | 使用卡牌（含 `defer_action_cost` 机制） |
-| `recover(num)` | 回复生命 |
+| `recover(num, source = null)` | 回复生命 |
 | `increase_hunger(n)` / `decrease_hunger(n)` | 饥饿值增减 |
 | `poison()` | 中毒结算 |
 | `judge()` / `sneak_judge()` | 投骰 / 潜行检定 |
@@ -468,7 +477,7 @@ trigger 名在 JSON 数据中用英文 snake_case，技能 `trigger` 字段可�
 | --- | --- | --- |
 | `create_event` | `(initial: Dictionary = {})` | `trigger_name` / `cancelled` / `cancel`（基础） |
 | `create_damage_event` | `(target, source, num, type, card = null)` | `target` / `source` / `num` / `type` / `card` |
-| `create_recover_event` | `(player, num)` | `player` / `num` |
+| `create_recover_event` | `(player, num, source = null)` | `player` / `num` / `source` |
 | `create_move_event` | `(player, source_block, target_block)` | `player` / `source_block` / `target_block` |
 | `create_draw_game_card_event` | `(player, num)` | `player` / `num` / `cards` |
 | `create_draw_scavenge_event` | `(player, pile, num)` | `player` / `pile` / `num` / `cards` / `card` |

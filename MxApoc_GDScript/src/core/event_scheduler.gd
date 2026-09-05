@@ -160,7 +160,7 @@ func get_current_context() -> Dictionary:
 	return context if context is Dictionary else {}
 
 
-func create_limited_action_context(owner: Variant, source: Variant, action_count: int) -> Dictionary:
+func create_limited_action_context(owner: Variant, source: Variant, action_count: int, allowed_action_types: Array = []) -> Dictionary:
 	return {
 		"kind": "limited_action",
 		"owner": owner,
@@ -171,6 +171,7 @@ func create_limited_action_context(owner: Variant, source: Variant, action_count
 		"cancelled": false,
 		"completed": false,
 		"reason": "",
+		"allowed_action_types": allowed_action_types.duplicate(),
 	}
 
 

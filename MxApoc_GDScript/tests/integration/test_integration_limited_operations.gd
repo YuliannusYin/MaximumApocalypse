@@ -50,6 +50,18 @@ func _make_plain_card(name: String) -> Card:
 	return card
 
 
+func _make_spend_ap_card(name: String) -> Card:
+	var card := _make_plain_card(name)
+	var skill := Skill.new()
+	skill.active = "action"
+	skill.filter = func(player, _t, _e, _g) -> bool:
+		return player.get_effective_phase() == "action" and player.get_effective_action_count() > 0
+	skill.content = func(_p, _t, _e, _g) -> void:
+		return
+	card.add_skill(skill)
+	return card
+
+
 func test_walkie_talkie_runs_target_action_without_changing_formal_state() -> void:
 	var source := _make_survivor_player("Source", "gunslinger")
 	var target := _make_survivor_player("Target", "surgeon")
@@ -110,19 +122,21 @@ func test_adrenaline_injection_allows_target_action_without_changing_formal_stat
 	assert_eq(target.hand, [drawn])
 
 
-func test_steroid_injection_uses_two_target_hand_cards_for_free() -> void:
+func test_steroid_injection_grants_two_hand_only_actions() -> void:
 	var source := _make_survivor_player("Source", "surgeon")
 	var target := _make_survivor_player("Target", "gunslinger")
 	_setup_game(source, target)
-	var first := _make_plain_card("first")
-	var second := _make_plain_card("second")
+	var first := _make_spend_ap_card("first")
+	var second := _make_spend_ap_card("second")
 	target.hand.append_array([first, second])
+	target.game_deck.add(_make_plain_card("should_not_draw"))
 	var card: Card = _make_survivor_card("surgeon", "注射类固醇")
 	assert_not_null(card, "应能创建注射类固醇")
 	source.hand.append(card)
 	source.input.queue_choose_target([target])
-	target.input.queue_choose_card([first])
-	target.input.queue_choose_card([second])
+	target.input.queue_action({"type": "pile_draw", "pile_key": "game_deck"})
+	target.input.queue_action({"type": "card", "card": first})
+	target.input.queue_action({"type": "card", "card": second})
 	var original_phase: String = target.in_phase
 	var original_actions: int = target.action_count
 
@@ -133,3 +147,56 @@ func test_steroid_injection_uses_two_target_hand_cards_for_free() -> void:
 	assert_eq(target.action_count, original_actions)
 	assert_eq(target.hand.size(), 0)
 	assert_eq(target.game_discard_pile.size(), 2)
+	assert_eq(target.game_deck.size(), 1, "类固醇迷你回合不应允许点牌堆摸牌")
+
+
+func test_scalpel_bonus_applies_to_outgoing_heal() -> void:
+	var healer := _make_survivor_player("Healer", "surgeon")
+	var target := _make_survivor_player("Target", "gunslinger")
+	healer.hp = 20
+	target.hp = 10
+	_setup_game(healer, target)
+	var scalpel: Card = _make_survivor_card("surgeon", "手术刀")
+	assert_not_null(scalpel, "应能创建手术刀")
+	await healer.equip(scalpel)
+	var actions := GameActions.new(healer, Game)
+	await actions.recover(target, 1)
+	assert_eq(target.hp, 12, "手术刀应对来源于装备者的回复 +1")
+
+
+func test_scalpel_bonus_does_not_apply_when_healed_by_other() -> void:
+	var healer := _make_survivor_player("Healer", "firefighter")
+	var target := _make_survivor_player("Target", "surgeon")
+	healer.hp = 20
+	target.hp = 10
+	_setup_game(healer, target)
+	var scalpel: Card = _make_survivor_card("surgeon", "手术刀")
+	await target.equip(scalpel)
+	var actions := GameActions.new(healer, Game)
+	await actions.recover(target, 1)
+	assert_eq(target.hp, 11, "他人治疗时目标的手术刀不应加成")
+
+
+func test_scalpel_and_gloves_stack_on_outgoing_heal() -> void:
+	var healer := _make_survivor_player("Healer", "surgeon")
+	var target := _make_survivor_player("Target", "gunslinger")
+	healer.hp = 20
+	target.hp = 10
+	_setup_game(healer, target)
+	await healer.equip(_make_survivor_card("surgeon", "手术刀"))
+	await healer.equip(_make_survivor_card("surgeon", "手套"))
+	var actions := GameActions.new(healer, Game)
+	await actions.recover(target, 1)
+	assert_eq(target.hp, 13, "手术刀与手套应叠加为 +2")
+
+
+func test_hospital_block_source_does_not_trigger_scalpel() -> void:
+	var player := _make_survivor_player("Healer", "surgeon")
+	player.hp = 10
+	_setup_game(player, _make_survivor_player("Other", "gunslinger"))
+	await player.equip(_make_survivor_card("surgeon", "手术刀"))
+	var hospital := MapBlock.new()
+	hospital.block_name = "医院"
+	var actions := GameActions.new(player, Game)
+	await actions.recover(player, 1, hospital)
+	assert_eq(player.hp, 11, "医院回血以地块为 source 时手术刀不应加成")

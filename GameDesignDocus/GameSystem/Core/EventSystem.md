@@ -72,7 +72,7 @@
 | 流程 | event 字段 |
 |------|-----------|
 | 伤害流程 | `target`、`source`（可 `null`）、`num`（可读写）、`type`、`card`（可 `null`） |
-| 回复生命 | `player`、`num`（可读写） |
+| 回复生命 | `player`、`num`（可读写）、`source`（可 `null`） |
 | 移动流程 | `player`、`source_block`（离开地块）、`target_block`（进入地块） |
 | 抓游戏牌 | `player`、`num`（可读写）、`cards`（实际抓到的牌列表） |
 | 抓拾荒牌 | `player`、`pile`、`num`（可读写）、`cards`、`card`（当前牌） |
@@ -169,15 +169,15 @@
 
 ---
 
-#### create_recover_event(player, num)
+#### create_recover_event(player, num, source = null)
 
 构建回复生命 event。
 
 | 签名 | 参数 | 返回 |
 |------|------|------|
-| `static create_recover_event(player: Variant, num: int) -> Dictionary` | `player` 回复玩家；`num` 回复值 | event Dictionary |
+| `static create_recover_event(player: Variant, num: int, source: Variant = null) -> Dictionary` | `player` 回复玩家；`num` 回复值；`source` 治疗来源（可 null） | event Dictionary |
 
-- 字段：`player`、`num`
+- 字段：`player`、`num`、`source`
 
 ---
 

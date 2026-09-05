@@ -81,7 +81,7 @@
 
 > 完整 trigger 列表见 [EventSystem.md](../Core/EventSystem.md)。Player 类涉及的 trigger 领域：
 
-- **伤害 / 回复类**：`before_take_damage` / `on_take_damage` / `after_take_damage`、`before_recover` / `on_recover` / `after_recover`
+- **伤害 / 回复类**：`before_take_damage` / `on_take_damage` / `after_take_damage`、`before_recover` / `on_deal_recover` / `on_recover` / `after_recover`
 - **移动类**：`before_leave_block` / `on_leave_block` / `after_leave_block`、`before_enter_block` / `on_enter_block` / `after_enter_block`
 - **回合类**：`before_turn_start` / `on_turn_start`、`before_monster_spawn` / `on_monster_spawn`、`before_draw_phase`、`before_action_phase` / `before_action_phase_end` / `on_action_phase_end`、`before_hunger_settlement` / `on_hunger_settlement`、`before_poison_settlement` / `on_poison_settlement`、`before_zone_monster_act` / `on_zone_monster_act`、`before_turn_end` / `on_turn_end`
 - **抓牌类**：`before_draw_game_card` / `on_draw_game_card` / `after_draw_game_card`、`before_draw_scavenge_card` / `on_draw_scavenge_card` / `after_draw_scavenge_card`、`before_draw_monster_card` / `on_draw_monster_card` / `after_draw_monster_card`、`before_monster_enter_zone` / `on_monster_enter_zone` / `after_monster_enter_zone`
@@ -102,20 +102,22 @@
 
 #### `recover(num, source=null)`
 
-回复生命值（4 节点）。`source` 为治疗来源（默认 null 表示自行回复）；`source != self` 时额外发射 `healing_done` 信号。
+回复生命值（5 节点）。`source` 为治疗来源（默认 null 表示无来源，跳过来源侧 `on_deal_recover`）；`source != self` 时额外发射 `healing_done` 信号。经 `GameActions.recover` 调用且未显式传入 source 时，默认归因为发动该技能/卡牌的玩家。
 
 流程：
 
 1. `num <= 0` 直接 return
-2. 构建 `EventSystem.create_recover_event(self, num)`
-3. `before_recover`（不取消）
-4. `on_recover`（技能可修改 `event["num"]`，如 surgeon 手术刀·回复、手套：`num += 1`）
-5. `EventSystem.is_cancelled(event)` 为 true 时 return
-6. 系统加血：`event["num"]` 受 `max_hp - hp` 上限约束，调用 `add_hp(event["num"])`
-7. 实际回复量 > 0 时输出日志、发射 `hp_recovered` 信号；`source != self` 时再发射 `healing_done(source, self, actual)`，否则发射 `healing_done(self, self, actual)`
-8. `after_recover`
+2. 构建 `EventSystem.create_recover_event(self, num, source)`
+3. `before_recover`（目标；不取消）
+4. `on_deal_recover`（来源；`source != null` 时触发，可修改 `event["num"]`，如 surgeon 手术刀·回复、手套：`num += 1`）
+5. `on_recover`（目标；可修改 `event["num"]`）
+6. `EventSystem.is_cancelled(event)` 为 true 时 return
+7. 系统加血：`event["num"]` 受 `max_hp - hp` 上限约束，调用 `add_hp(event["num"])`
+8. 实际回复量 > 0 时输出日志、发射 `hp_recovered` 信号；`source != self` 时再发射 `healing_done(source, self, actual)`，否则发射 `healing_done(self, self, actual)`
+9. `after_recover`
 
-> 与 `add_hp(n)` 的区别：`add_hp` 为底层原子方法，直接修改生命值，不触发钩子且不受最大值约束；`recover` 走完整 4 节点流程。
+> 与 `add_hp(n)` 的区别：`add_hp` 为底层原子方法，直接修改生命值，不触发钩子且不受最大值约束；`recover` 走完整 5 节点流程。
+> 地块回血（如医院）应显式传入地块为 `source`，避免被归因为所在玩家从而触发手术刀/手套。
 
 #### `increase_hunger(num)`
 
@@ -505,7 +507,7 @@
 
 #### `execute_action_immediately(num=1)`
 
-立即执行一个行动（仅含行动阶段）。保存原 `in_phase`，切换到 `"action"`，设置 `action_count = num`，调用 `wait_player_action()`，结束后恢复原 `in_phase`。
+立即执行一个行动（仅含行动阶段的迷你回合）。通过有限行动上下文提供行动预算，不覆盖正式回合的 `in_phase` / `action_count`。`GameActions.execute_action_immediately` 可传入 `allowed_action_types`（如 `["card"]`）；非空时 `dispatch_player_action` 只接受白名单内的行动类型。空白名单表示不限制（肾上腺素等）。
 
 ---
 

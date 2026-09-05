@@ -34,6 +34,12 @@ func test_create_recover_event() -> void:
 	var event: Dictionary = EventSystem.create_recover_event(null, 4)
 	assert_eq(event["num"], 4)
 	assert_true(event.has("player"))
+	assert_true(event.has("source"))
+	assert_null(event["source"])
+
+	var healer := Player.new()
+	event = EventSystem.create_recover_event(null, 2, healer)
+	assert_eq(event["source"], healer)
 
 
 func test_create_move_event() -> void:
