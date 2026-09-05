@@ -37,11 +37,13 @@ func _ready() -> void:
 	HudTheme.apply_mission_slot_button(_start_game_button, 13)
 	_mission_name_label.add_theme_color_override("font_color", HudTheme.GOLD_TEXT)
 	_difficulty_label.add_theme_color_override("font_color", HudTheme.GOLD_TEXT_DIM)
+	RoomState.load_from_disk()
 	_populate_missions()
 	_populate_variants()
 	_restore_state()
 	_rebuild_seats()
 	_update_start_button()
+	RoomState.save()
 	_back_button.pressed.connect(_on_back)
 	_reset_button.pressed.connect(_on_reset)
 	_mission_option.item_selected.connect(_on_mission_selected)
@@ -183,9 +185,11 @@ func _on_mission_selected(idx: int) -> void:
 		RoomState.selected_mission_is_random = false
 		RoomState.selected_mission = meta
 	_refresh_detail_panel()
+	RoomState.save()
 
 func _on_variant_toggled(id: String, toggled: bool) -> void:
 	RoomState.variants[id] = toggled
+	RoomState.save()
 
 func _on_add_seat() -> void:
 	if RoomState.seats.size() >= MAX_SEATS:
@@ -193,6 +197,7 @@ func _on_add_seat() -> void:
 	RoomState.seats.append({"type": "ai", "survivor": null})
 	_rebuild_seats()
 	_update_start_button()
+	RoomState.save()
 
 func _on_remove_seat() -> void:
 	if RoomState.seats.size() <= MIN_SEATS:
@@ -200,11 +205,13 @@ func _on_remove_seat() -> void:
 	RoomState.seats.pop_back()
 	_rebuild_seats()
 	_update_start_button()
+	RoomState.save()
 
 func _on_seat_changed(_idx: int) -> void:
 	_refresh_seats_disabled()
 	_sync_seats_to_state()
 	_update_start_button()
+	RoomState.save()
 
 func _refresh_detail_panel() -> void:
 	if RoomState.selected_mission_is_random:
@@ -255,7 +262,7 @@ func _on_back() -> void:
 	get_tree().change_scene_to_file("res://scenes/MainMenu.tscn")
 
 func _on_reset() -> void:
-	RoomState.clear()
+	RoomState.reset_to_default()
 	# 刷新任务选择下拉框选中项（随机任务未解锁时回退到第一个可选任务）
 	_select_default_mission()
 	# 刷新变体复选框
@@ -266,3 +273,4 @@ func _on_reset() -> void:
 	# 刷新详情面板与开始按钮状态
 	_refresh_detail_panel()
 	_update_start_button()
+	RoomState.save()

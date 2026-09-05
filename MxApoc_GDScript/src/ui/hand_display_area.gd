@@ -251,7 +251,10 @@ func _handle_click(local_pos: Vector2) -> void:
 			card_deselected.emit()
 		return
 	if _selected_view == view:
-		return  # Already selected
+		_selected_view.set_selected(false)
+		_selected_view = null
+		card_deselected.emit()
+		return
 	if _selected_view != null and is_instance_valid(_selected_view):
 		_selected_view.set_selected(false)
 	_selected_view = view

@@ -8,5 +8,4 @@ func _ready() -> void:
 	back_button.pressed.connect(_on_back_pressed)
 
 func _on_back_pressed() -> void:
-	RoomState.clear()
 	get_tree().change_scene_to_file("res://scenes/MainMenu.tscn")

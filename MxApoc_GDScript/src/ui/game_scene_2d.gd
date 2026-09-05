@@ -557,8 +557,6 @@ func _on_card_move_select_completed(player: Variant, blocks: Variant) -> void:
 # === Pile 点击 ===
 
 func _on_pile_clicked(pile_key: String) -> void:
-	if _action_selection_controller.is_busy():
-		return
 	if not _pile_manager.is_pile_clickable(pile_key):
 		return
 	_action_selection_controller.on_pile_selected(pile_key, _pile_manager.pile_display_name(pile_key))
@@ -576,8 +574,6 @@ func _on_discard_pile_clicked(pile_type: String) -> void:
 func _on_skill_pressed(player: Variant, skill: Variant) -> void:
 	if player != null and is_instance_valid(player):
 		_activate_seat_hud(player)
-	if _action_selection_controller.is_busy():
-		return
 	_action_selection_controller.enter_skill_confirm_mode(skill)
 
 

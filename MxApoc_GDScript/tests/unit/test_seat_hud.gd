@@ -23,3 +23,15 @@ func test_seat_hud_builds_independent_private_components() -> void:
 	assert_false(hud.visible)
 	hud.set_active(true)
 	assert_true(hud.visible)
+
+
+func test_seat_hud_wires_hand_area_to_action_controller() -> void:
+	var parent := Control.new()
+	add_child_autofree(parent)
+	var player := Player.new()
+	player.hand = []
+	var hud := SeatHud.new()
+	hud.setup(player, parent)
+	await get_tree().process_frame
+
+	assert_eq(hud.action_controller._hand_area, hud.hand_area, "取消手牌选中需要手牌区引用")

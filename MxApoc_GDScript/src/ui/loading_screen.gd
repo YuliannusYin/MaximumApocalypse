@@ -16,14 +16,12 @@ const MENU_SCENE_PATH := "res://scenes/MainMenu.tscn"
 static var _next_scene_path: String = GAME_SCENE_PATH
 static var _abort_session: bool = false
 static var _prepare_game: bool = false
-static var _clear_room: bool = false
 
 var _dot_container: Node2D
 var _elapsed: float = 0.0
 var _destination: String = GAME_SCENE_PATH
 var _should_abort: bool = false
 var _should_prepare_game: bool = false
-var _should_clear_room: bool = false
 
 
 ## 房间开局：在本页 initialize_game，随后进入 GameScene2D。
@@ -31,16 +29,15 @@ static func go_enter_game(tree: SceneTree) -> void:
 	_next_scene_path = GAME_SCENE_PATH
 	_abort_session = false
 	_prepare_game = true
-	_clear_room = false
 	tree.change_scene_to_file(SCENE_PATH)
 
 
 ## 对局中返回主菜单：卸掉对局场景后清理调度器/旧协程，再进主菜单。
+## 房间配置保留在 RoomState（并已落盘），下次进入游戏房间可继续用。
 static func go_exit_to_menu(tree: SceneTree) -> void:
 	_next_scene_path = MENU_SCENE_PATH
 	_abort_session = true
 	_prepare_game = false
-	_clear_room = true
 	tree.change_scene_to_file(SCENE_PATH)
 
 
@@ -49,7 +46,6 @@ static func go_restart_game(tree: SceneTree) -> void:
 	_next_scene_path = GAME_SCENE_PATH
 	_abort_session = false
 	_prepare_game = true
-	_clear_room = false
 	tree.change_scene_to_file(SCENE_PATH)
 
 
@@ -57,11 +53,9 @@ func _ready() -> void:
 	_destination = _next_scene_path
 	_should_abort = _abort_session
 	_should_prepare_game = _prepare_game
-	_should_clear_room = _clear_room
 	_next_scene_path = GAME_SCENE_PATH
 	_abort_session = false
 	_prepare_game = false
-	_clear_room = false
 	_build_ui()
 	_run_loading()
 
@@ -106,8 +100,6 @@ func _run_loading() -> void:
 	ResourceLoader.load_threaded_request(_destination)
 	if _should_abort and Game != null and is_instance_valid(Game):
 		Game.abort_session()
-	if _should_clear_room:
-		RoomState.clear()
 	if _should_prepare_game and Game != null and is_instance_valid(Game):
 		Game.initialize_from_room_state()
 	while is_inside_tree():

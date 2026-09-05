@@ -87,6 +87,34 @@ func is_busy() -> bool:
 	return _move_select_mode or _confirm_mode or _skill_confirm_mode or _round_zero_mode or _judge_confirm_mode
 
 
+## 规则层已接管的输入：不可用手牌/技能/头像/牌堆切走。
+func _is_domain_locked() -> bool:
+	return _confirm_mode or _round_zero_mode or _judge_confirm_mode or _card_move_mode
+
+
+func _is_player_move_mode() -> bool:
+	return _move_select_mode and not _card_move_mode
+
+
+## 清空控制器手牌选中；有手牌区时同步清视觉。不负责 prompt（避免误擦其它模式）。
+func _clear_hand_selection() -> void:
+	_selected_card = null
+	if _hand_area != null and is_instance_valid(_hand_area):
+		_hand_area.clear_selection()
+
+
+## 退出未提交意图。except 为要保留的入口：skill / move / card / pile。
+func _exit_switchable_modes(except: String = "") -> void:
+	if except != "skill" and _skill_confirm_mode:
+		exit_skill_confirm_mode()
+	if except != "move" and _is_player_move_mode():
+		exit_move_select_mode()
+	if except != "card":
+		_clear_hand_selection()
+	if except != "pile":
+		_set_selected_pile_key("")
+
+
 func get_selected_pile_key() -> String:
 	return _selected_pile_key
 
@@ -202,13 +230,11 @@ func _process(delta: float) -> void:
 # === 卡牌选中处理 ===
 
 func on_card_selected(card: Variant) -> void:
-	if _move_select_mode:
+	if _is_domain_locked():
+		if _hand_area != null and is_instance_valid(_hand_area):
+			_hand_area.clear_selection()
 		return
-	if _confirm_mode:
-		return
-	if _skill_confirm_mode:
-		return
-	_set_selected_pile_key("")  # 互斥：清除牌堆选中
+	_exit_switchable_modes("card")
 	_selected_card = card
 	_update_prompt(card)
 	refresh_confirm_cancel_buttons()
@@ -216,6 +242,8 @@ func on_card_selected(card: Variant) -> void:
 
 func on_card_deselected() -> void:
 	_selected_card = null
+	if _skill_confirm_mode or _move_select_mode or _confirm_mode or _round_zero_mode or _judge_confirm_mode:
+		return
 	_update_prompt(null)
 	refresh_confirm_cancel_buttons()
 
@@ -292,9 +320,9 @@ func _on_confirm_pressed() -> void:
 		if action_count <= 0:
 			return
 	var card = _selected_card
-	# 清空选中状态（会触发 on_card_deselected）
-	if _hand_area != null and is_instance_valid(_hand_area):
-		_hand_area.clear_selection()
+	_clear_hand_selection()
+	_update_prompt(null)
+	refresh_confirm_cancel_buttons()
 	action_requested.emit({"type": "card", "card": card})
 
 
@@ -332,9 +360,9 @@ func _on_cancel_end_pressed() -> void:
 		refresh_confirm_cancel_buttons()
 		return
 	if _selected_card != null:
-		# 有卡牌选中 → 取消选中
-		if _hand_area != null and is_instance_valid(_hand_area):
-			_hand_area.clear_selection()
+		_clear_hand_selection()
+		_update_prompt(null)
+		refresh_confirm_cancel_buttons()
 	else:
 		# 无卡牌选中 + 行动次数=0 → 结束回合
 		action_requested.emit({})
@@ -417,11 +445,15 @@ func refresh_confirm_cancel_buttons() -> void:
 # === 牌堆选中处理 ===
 
 func on_pile_selected(pile_key: String, display_name: String = "") -> void:
-	if _move_select_mode or _confirm_mode or _skill_confirm_mode:
+	if _is_domain_locked():
 		return
-	if _selected_card != null:
-		if _hand_area != null and is_instance_valid(_hand_area):
-			_hand_area.clear_selection()
+	if _selected_pile_key == pile_key:
+		_set_selected_pile_key("")
+		if _prompt_label != null and is_instance_valid(_prompt_label):
+			_prompt_label.text = ""
+		refresh_confirm_cancel_buttons()
+		return
+	_exit_switchable_modes("pile")
 	_set_selected_pile_key(pile_key)
 	if _prompt_label != null and is_instance_valid(_prompt_label):
 		_prompt_label.text = "是否从" + display_name + "中抓取一张牌？"
@@ -434,8 +466,8 @@ func on_pile_selected(pile_key: String, display_name: String = "") -> void:
 ## source == "move" 时执行行动次数守卫；source == "card" 时进入卡牌移动模式，
 ## 结果通过 card_move_select_completed 信号返回；count 为本次选取的目标数量。
 func enter_block_select_mode(prompt: String, valid_blocks: Array, count: int, source: String) -> void:
-	if _confirm_mode or _move_select_mode or _skill_confirm_mode or _round_zero_mode or _judge_confirm_mode:
-		push_warning("enter_block_select_mode 被忽略：UI 模式冲突（confirm=%s move=%s skill_confirm=%s round_zero=%s judge_confirm=%s）" % [_confirm_mode, _move_select_mode, _skill_confirm_mode, _round_zero_mode, _judge_confirm_mode])
+	if _confirm_mode or _round_zero_mode or _judge_confirm_mode or _card_move_mode:
+		push_warning("enter_block_select_mode 被忽略：UI 模式冲突（confirm=%s move=%s skill_confirm=%s round_zero=%s judge_confirm=%s card_move=%s）" % [_confirm_mode, _move_select_mode, _skill_confirm_mode, _round_zero_mode, _judge_confirm_mode, _card_move_mode])
 		return
 	if source == "move":
 		var current: Variant = _get_acting_player()
@@ -447,17 +479,15 @@ func enter_block_select_mode(prompt: String, valid_blocks: Array, count: int, so
 		var action_count: int = current.get_effective_action_count() if current.has_method("get_effective_action_count") else current.get("action_count")
 		if not in_action or action_count <= 0:
 			return
+		_exit_switchable_modes("move")
+	else:
+		_exit_switchable_modes("")
 	_move_select_mode = true
 	_card_move_mode = (source == "card")
 	_card_move_valid_blocks = valid_blocks
 	_block_select_count = count
 	_valid_blocks = valid_blocks
 	_move_selected_blocks = []
-	# 清空手牌/牌堆选中（互斥）
-	if _hand_area != null and is_instance_valid(_hand_area):
-		_hand_area.clear_selection()
-	_selected_card = null
-	_set_selected_pile_key("")
 	if _prompt_label != null and is_instance_valid(_prompt_label):
 		_prompt_label.text = prompt
 	move_mode_changed.emit(true)
@@ -466,6 +496,11 @@ func enter_block_select_mode(prompt: String, valid_blocks: Array, count: int, so
 
 ## M 键移动的薄封装：以当前地块相邻地块、count=1 进入 move 选取模式。
 func enter_move_select_mode() -> void:
+	if _is_domain_locked():
+		return
+	if _is_player_move_mode():
+		exit_move_select_mode()
+		return
 	var adjacent: Array = []
 	var current: Variant = _get_acting_player()
 	if current != null and is_instance_valid(current):
@@ -552,6 +587,9 @@ func handle_shortcut(keycode: int, popup_open: bool = false) -> void:
 			KEY_C:
 				if _cancel_end_button != null and is_instance_valid(_cancel_end_button) and not _cancel_end_button.disabled:
 					_on_cancel_end_pressed()
+			KEY_M:
+				if not _card_move_mode:
+					enter_move_select_mode()
 		return
 	if _skill_confirm_mode:
 		match keycode:
@@ -561,6 +599,8 @@ func handle_shortcut(keycode: int, popup_open: bool = false) -> void:
 			KEY_C:
 				if _cancel_end_button != null and is_instance_valid(_cancel_end_button) and not _cancel_end_button.disabled:
 					_on_cancel_end_pressed()
+			KEY_M:
+				enter_move_select_mode()
 		return
 	if _confirm_mode:
 		match keycode:
@@ -591,30 +631,33 @@ func handle_shortcut(keycode: int, popup_open: bool = false) -> void:
 
 ## 进入技能确认模式：显示技能确认 prompt，根据可用性设置确定按钮置灰。
 func enter_skill_confirm_mode(skill: Variant) -> void:
-	if _confirm_mode or _move_select_mode or _skill_confirm_mode or _round_zero_mode or _judge_confirm_mode:
+	if _is_domain_locked():
 		return
+	if _skill_confirm_mode and _pending_skill == skill:
+		exit_skill_confirm_mode()
+		return
+	_exit_switchable_modes("skill")
 	_skill_confirm_mode = true
 	_pending_skill = skill
-	# 互斥：清空手牌/牌堆选中
-	_selected_card = null
-	_set_selected_pile_key("")
-	if _hand_area != null and is_instance_valid(_hand_area):
-		_hand_area.clear_selection()
-	# prompt 显示：优先使用技能的 confirm_prompt 动态文本，无则用默认格式
-	if _prompt_label != null and is_instance_valid(_prompt_label):
-		var prompt_text: String = ""
-		if skill != null and is_instance_valid(skill) and skill.confirm_prompt.is_valid():
-			var current_player: Variant = _get_acting_player()
-			prompt_text = skill.execute_confirm_prompt(current_player)
-		if prompt_text.is_empty():
-			var sname: String = ""
-			var sdesc: String = ""
-			if skill != null and is_instance_valid(skill):
-				sname = skill.skill_name
-				sdesc = skill.skill_description
-			prompt_text = "是否使用 \"" + sname + "\" { " + sdesc + " }"
-		_prompt_label.text = prompt_text
+	_apply_skill_confirm_prompt(skill)
 	refresh_confirm_cancel_buttons()
+
+
+func _apply_skill_confirm_prompt(skill: Variant) -> void:
+	if _prompt_label == null or not is_instance_valid(_prompt_label):
+		return
+	var prompt_text: String = ""
+	if skill != null and is_instance_valid(skill) and skill.confirm_prompt.is_valid():
+		var current_player: Variant = _get_acting_player()
+		prompt_text = skill.execute_confirm_prompt(current_player)
+	if prompt_text.is_empty():
+		var sname: String = ""
+		var sdesc: String = ""
+		if skill != null and is_instance_valid(skill):
+			sname = skill.skill_name
+			sdesc = skill.skill_description
+		prompt_text = "是否使用 \"" + sname + "\" { " + sdesc + " }"
+	_prompt_label.text = prompt_text
 
 
 ## 退出技能确认模式：复位状态，清空 prompt，刷新按钮。
@@ -630,14 +673,10 @@ func exit_skill_confirm_mode() -> void:
 
 ## 进入第零轮重调模式：显示 prompt + 时限条 + 确定/取消按钮。
 func enter_round_zero_mode(prompt: String, duration: float) -> void:
-	if _confirm_mode or _move_select_mode or _skill_confirm_mode or _round_zero_mode or _judge_confirm_mode:
+	if _confirm_mode or _round_zero_mode or _judge_confirm_mode or _card_move_mode:
 		return
+	_exit_switchable_modes("")
 	_round_zero_mode = true
-	# 互斥：清空手牌/牌堆选中
-	_selected_card = null
-	_set_selected_pile_key("")
-	if _hand_area != null and is_instance_valid(_hand_area):
-		_hand_area.clear_selection()
 	if _prompt_label != null and is_instance_valid(_prompt_label):
 		_prompt_label.text = prompt
 	# 启动倒计时时限条，超时自动取消
@@ -675,15 +714,11 @@ func _on_round_zero_buffer_end() -> void:
 ## 进入检定确认模式：显示检定 prompt + 时限条 + 确定/取消按钮。
 ## allow_cancel 为 false 时取消按钮置灰（如怪物生成检定仅可确定）。
 func enter_judge_confirm_mode(prompt: String, duration: float, allow_cancel: bool) -> void:
-	if _confirm_mode or _move_select_mode or _skill_confirm_mode or _round_zero_mode or _judge_confirm_mode:
+	if _confirm_mode or _round_zero_mode or _judge_confirm_mode or _card_move_mode:
 		return
+	_exit_switchable_modes("")
 	_judge_confirm_mode = true
 	_judge_allow_cancel = allow_cancel
-	# 互斥：清空手牌/牌堆选中
-	_selected_card = null
-	_set_selected_pile_key("")
-	if _hand_area != null and is_instance_valid(_hand_area):
-		_hand_area.clear_selection()
 	if _prompt_label != null and is_instance_valid(_prompt_label):
 		_prompt_label.text = prompt
 	# 启动倒计时时限条，超时自动确定
@@ -711,11 +746,10 @@ func exit_judge_confirm_mode() -> void:
 # === 确认模式（由 GUIPlayerInput confirm_requested 触发）===
 
 func set_confirm_mode(message: String) -> void:
-	if _round_zero_mode or _judge_confirm_mode:
+	if _round_zero_mode or _judge_confirm_mode or _card_move_mode:
 		return
+	_exit_switchable_modes("")
 	_confirm_mode = true
-	_selected_card = null
-	_set_selected_pile_key("")
 	if _prompt_label != null and is_instance_valid(_prompt_label):
 		_prompt_label.text = message
 	refresh_confirm_cancel_buttons()
@@ -732,12 +766,10 @@ func set_prompt_text(text: String) -> void:
 func clear_selection() -> void:
 	_skill_confirm_mode = false
 	_pending_skill = null
-	_selected_card = null
 	_set_selected_pile_key("")
+	_clear_hand_selection()
 	if _prompt_label != null and is_instance_valid(_prompt_label):
 		_prompt_label.text = ""
-	if _hand_area != null and is_instance_valid(_hand_area):
-		_hand_area.clear_selection()
 	refresh_confirm_cancel_buttons()
 	selection_cleared.emit()
 
@@ -745,7 +777,7 @@ func clear_selection() -> void:
 ## 非行动阶段清空选中（手牌 + 牌堆）。
 func clear_for_non_action_phase() -> void:
 	_set_selected_pile_key("")
+	_clear_hand_selection()
 	if _prompt_label != null and is_instance_valid(_prompt_label):
 		_prompt_label.text = ""
-	if _hand_area != null and is_instance_valid(_hand_area):
-		_hand_area.clear_selection()
+	refresh_confirm_cancel_buttons()

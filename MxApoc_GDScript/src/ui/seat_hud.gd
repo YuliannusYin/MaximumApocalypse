@@ -57,6 +57,7 @@ func _build_private_controls() -> void:
 
 	hand_area.card_selected.connect(action_controller.on_card_selected)
 	hand_area.card_deselected.connect(action_controller.on_card_deselected)
+	action_controller.set_hand_area(hand_area)
 
 
 func set_active(active: bool) -> void:
