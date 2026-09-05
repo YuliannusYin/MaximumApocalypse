@@ -108,6 +108,6 @@
   ],
   "progress_conditions": [
     { "text": "移除场上的\"任务标记\"", "type": "marks_cleared", "params": { "count": 2 } },
-    { "text": "携带\"科学家\"的玩家在地图块\"坠毁点\"上执行\"上传病毒\"", "type": "escort_at_block", "params": { "card_name": "科学家", "block_name": "坠毁点" } }
+    { "text": "携带\"科学家\"的玩家在地图块\"坠毁点\"上执行\"上传病毒\"后，获得游戏胜利", "type": "state_flag", "params": { "key": "virus_uploaded" } }
   ]
 }

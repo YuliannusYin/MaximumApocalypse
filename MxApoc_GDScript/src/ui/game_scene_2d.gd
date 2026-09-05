@@ -779,6 +779,7 @@ func _on_choose_target_requested(n: int, skill: Variant, prompt: String, min_n: 
 	# 读取 skill 的 target_type / filter_target_range（兼容 skill 为 null / Dictionary / Object）
 	var target_type: String = ""
 	var filter_target_range: String = "short"
+	var equipment_range: String = ""
 	if skill != null:
 		var tt: Variant = null
 		var ftr: Variant = null
@@ -792,6 +793,7 @@ func _on_choose_target_requested(n: int, skill: Variant, prompt: String, min_n: 
 			target_type = str(tt)
 		if ftr != null and str(ftr) != "":
 			filter_target_range = str(ftr)
+			equipment_range = str(ftr)
 	# 按 target_type 构建候选
 	var candidates: Array = []
 	match target_type:
@@ -800,10 +802,13 @@ func _on_choose_target_requested(n: int, skill: Variant, prompt: String, min_n: 
 			if current_block != null and is_instance_valid(current_block):
 				candidates = current_block.get_blocks_in_range(filter_target_range)
 		"equipment":
-			# 候选为当前玩家装备区
-			var eqz: Variant = current.get("equipment_zone")
-			if eqz != null:
-				candidates = eqz
+			# 空射程：仅自己装备区；声明了射程：射程内所有玩家的装备
+			if current.has_method("get_equipment_candidates"):
+				candidates = current.get_equipment_candidates(equipment_range)
+			else:
+				var eqz: Variant = current.get("equipment_zone")
+				if eqz != null:
+					candidates = eqz
 		_:
 			# entity（缺省）：当前地块射程内玩家 + 当前地块所有玩家（含当前玩家自身） + 当前玩家怪物区怪物
 			if current_block != null and is_instance_valid(current_block):
@@ -849,12 +854,18 @@ func _on_choose_target_requested(n: int, skill: Variant, prompt: String, min_n: 
 			filtered.append(target)
 	# 处理 select_target
 	var select_n: int = n
-	# 构建装备区 zone_labels（下方弹窗调用共用）
+	# 构建装备区 zone_labels（多名持有者时显示「某某的装备区」）
 	var zone_labels: Array = []
 	if target_type == "equipment":
-		zone_labels = ["装备区"]
-		for i in range(1, filtered.size()):
-			zone_labels.append("装备区")
+		for eq in filtered:
+			var owner_label: String = "装备区"
+			if eq != null and is_instance_valid(eq):
+				var op: Variant = eq.get("equipped_player")
+				if op != null and is_instance_valid(op):
+					var pname: Variant = op.get("player_name")
+					if pname != null and str(pname) != "":
+						owner_label = str(pname) + "的装备区"
+			zone_labels.append(owner_label)
 	# 合并 prompt 来源：优先参数 prompt，为空时从 skill 读 window_prompt
 	var merged_prompt: String = prompt
 	if merged_prompt.is_empty() and skill != null:

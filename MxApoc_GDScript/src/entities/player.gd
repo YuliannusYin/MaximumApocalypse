@@ -1874,6 +1874,7 @@ func _unequip(target: Variant, log_unequip: bool = false, event: Variant = null)
 	# 2. 卡牌离开装备区时
 	equipment_zone.erase(entity)
 	entity.in_equipment_area = false
+	entity.equipped_player = null
 	await trigger("on_unequip", unequip_event)
 	# 移除装备技能（在 on_unequip 之后，确保 on_unequip 触发器仍可见装备技能）
 	for s in entity.get_all_skills():
@@ -2399,13 +2400,32 @@ func _filter_targets(skill: Skill, candidates: Array, event: Dictionary) -> Arra
 	return filtered
 
 
+## 构建装备目标候选。
+## range_str 为空：只返回自己的装备区（弹药/空尖弹等未声明射程的技能）。
+## 否则：返回射程内所有玩家装备区中的装备（含自己）。
+func get_equipment_candidates(range_str: String) -> Array:
+	if range_str.strip_edges().is_empty():
+		return equipment_zone.duplicate()
+	if current_block == null or not is_instance_valid(current_block):
+		return equipment_zone.duplicate()
+	var result: Array = []
+	for p in current_block.get_players_in_range(range_str):
+		if p == null or not is_instance_valid(p):
+			continue
+		if p.equipment_zone == null:
+			continue
+		result.append_array(p.equipment_zone)
+	return result
+
+
 ## 构建技能的合法目标候选列表（按 target_type 与 filter_target_range 构建并经 filter_target 过滤）。
 ## 逻辑与 game_scene_2d.gd._on_choose_target_requested 保持一致，供可用性判断复用。
 func get_skill_valid_targets(skill: Variant) -> Array:
 	if skill == null or not is_instance_valid(skill):
 		return []
 	var target_type: String = skill.target_type
-	var filter_target_range: String = skill.filter_target_range
+	var raw_filter_target_range: String = skill.filter_target_range
+	var filter_target_range: String = raw_filter_target_range
 	if filter_target_range == "":
 		filter_target_range = "short"
 	var event: Dictionary = EventSystem.create_event({
@@ -2421,7 +2441,8 @@ func get_skill_valid_targets(skill: Variant) -> Array:
 			if current_block != null and is_instance_valid(current_block):
 				candidates = current_block.get_blocks_in_range(filter_target_range)
 		"equipment":
-			candidates = equipment_zone.duplicate()
+			# 空射程保持「仅自己装备区」；声明了射程则收集射程内玩家的装备。
+			candidates = get_equipment_candidates(raw_filter_target_range)
 		_:
 			# entity 默认分支：当前地块射程内玩家 + 当前地块所有玩家 + 当前玩家怪物区怪物
 			if current_block != null and is_instance_valid(current_block):

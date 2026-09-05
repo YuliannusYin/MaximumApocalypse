@@ -97,6 +97,7 @@
       "card_type": "equipment",
       "size": 1,
       "range": "short",
+      "weapon": true,
       "skills": [
         {
           "skill_name": "手术刀_回复",
@@ -264,6 +265,7 @@
       "card_type": "equipment",
       "size": 1,
       "range": "short",
+      "weapon": true,
       "skills": [
         {
           "skill_name": "钻头",

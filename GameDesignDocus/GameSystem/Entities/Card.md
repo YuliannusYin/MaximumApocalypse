@@ -79,6 +79,7 @@ Card（卡牌基类，继承 Entity）
 | `charge_max` | int | `0` | 填充物上限。补满填充物时不超过此值 |
 | `charge_current` | int | `0` | 当前填充物数量。耗尽时触发 `on_charge_depleted` trigger（见 [Player.消耗填充物](Player.md#消耗填充物consumechargearmmentum-num)） |
 | `in_equipment_area` | bool | `false` | 装备区标记。来源卡实体化为 Equipment 实体后置 true；卸下时置 false |
+| `weapon` | bool | `false` | 是否为武器牌（会造成伤害的装备）。由 JSON `weapon` 字段声明 |
 
 ### 方法
 
@@ -91,8 +92,8 @@ Card（卡牌基类，继承 Entity）
 | `add_charge(amount, type)` | 添加指定类型的填充物。`type` 匹配 `charge_type`（或 `charge_type` 为空时接受任意类型）时增加 `amount` 但不超过上限；不匹配则不操作 |
 | `fill_charge()` | 将填充物填满到上限 |
 | `change_charge_type(type)` | 修改填充物类型 |
-| `is_weapon_card() -> bool` | 是否为武器牌（`range != "none"` 且 `card_subtype == "equipment"`）。用于 damage 流程的 card 参数判断 |
-| `instantiate(player=null) -> Equipment` | 实体化：复制卡面数据到 Equipment 实例，由 [Player.equip](Player.md#equipcard) 调用。详见 [Equipment.md](Equipment.md) |
+| `is_weapon_card() -> bool` | 是否为武器牌（返回 `weapon` 字段）。用于「升级」等按武器筛选目标 |
+| `instantiate(player=null) -> Equipment` | 实体化：复制卡面数据到 Equipment 实例，记下 `equipped_player`，由 [Player.equip](Player.md#equipcard) 调用。详见 [Equipment.md](Equipment.md) |
 
 ### 装备技能挂载
 

@@ -69,6 +69,7 @@
       "card_type": "equipment",
       "size": 1,
       "range": "short",
+      "weapon": true,
       "skills": [
         {
           "skill_name": "捕熊陷阱",
@@ -93,6 +94,7 @@
       "card_type": "equipment",
       "size": 1,
       "range": "medium",
+      "weapon": true,
       "skills": [
         {
           "skill_name": "弓",
@@ -117,6 +119,7 @@
       "card_type": "equipment",
       "size": 1,
       "range": "medium",
+      "weapon": true,
       "charge_type": "fuel",
       "charge_max": 3,
       "charge_initial": 3,
@@ -144,6 +147,7 @@
       "card_type": "equipment",
       "size": 1,
       "range": "short",
+      "weapon": true,
       "skills": [
         {
           "skill_name": "砍刀",
@@ -190,6 +194,7 @@
       "card_type": "equipment",
       "size": 2,
       "range": "medium",
+      "weapon": true,
       "charge_type": "ammo",
       "charge_max": 8,
       "charge_initial": 8,
