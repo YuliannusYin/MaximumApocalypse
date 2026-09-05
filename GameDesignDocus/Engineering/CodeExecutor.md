@@ -83,28 +83,9 @@ func _fn(player, target, event, game) -> bool:
 
 ---
 
-## 五、win_condition_code 特殊处理
+## 五、任务逻辑不走本沙箱
 
-任务胜利条件代码 `win_condition_code` **不走上述 5 个 `compile_*` 接口**，而由 `game.gd` 的私有方法 `_compile_win_condition` 单独编译。
-
-**差异：**
-
-- 包装模板为整函数形式，签名不同：
-
-```
-extends RefCounted
-func _fn(game) -> bool:
-    <代码字符串>
-```
-
-- 签名为 `(game) -> bool`（仅 `game` 单参），而非四参。
-- **直接访问 `CodeExecutor` 的私有静态成员**：`CodeExecutor._path_counter`（生成唯一路径并自增）、`CodeExecutor._scripts`（追加脚本防回收）、`CodeExecutor._instances`（追加实例防回收）。
-- 编译失败时 `push_warning` 并返回空 `Callable`；`GameStateMachine._check_mission_win_condition` 在 `Callable` 无效时直接返回 `true`（视为无须额外任务条件，仅靠面包车胜利）。
-- 编译成功后返回一个闭包，调用时执行 `instance.call("_fn", Game)`。
-
-**调用链：** `Game.setup_mission` 读取 `mission.win_condition_code` → 非空时调用 `_compile_win_condition` → 产物赋给 `mission_config.check_win_condition` → `GameStateMachine.check_win_condition` 在玩家回合结束后委托调用。
-
-> 当前 `data/missions/*.json` 中所有任务的 `win_condition_code` 均为空字符串（靠面包车胜利），但 schema 与编译机制已支持非空代码。
+任务胜利 / 失败 / 行动已改为声明式组件（见 [MissionComponent.md](../GameSystem/Game/MissionComponent.md) 与 [DataFormat.md §3.4](DataFormat.md)）。不存在 `win_condition_code`，`Game` 也不再访问 `CodeExecutor` 私有 static 成员编译胜利函数。
 
 ---
 
@@ -142,3 +123,15 @@ func _fn(game) -> bool:
 
 - 为 `return` 字符串表达式，根据 `player` / `target` / `event` / `game` 状态返回不同的确认提示文案。
 - 示例：面包车技能根据燃料是否满返回"添加燃料"或"启动面包车"两种提示。
+
+---
+
+## 七、运行时 API
+
+全部 `compile_*` 为 static。空字符串：filter / content / confirm_prompt 返回空 Callable（调用方视为恒真 / 无操作 / 默认格式）；filter_target 对空串或 `"true"` 返回空 Callable（视为无过滤）；filter_card 同 filter_target。
+
+`compile_content` 在编译前由 `_add_implicit_action_awaits` 把 `actions.` 与 `game.game_over(` 补成 `await`。
+
+内部：`_next_path(prefix)` 生成唯一 `resource_path`；`_compile(source)` 执行 `GDScript.new` → 设路径 → `reload` → 把脚本与实例追加进 `_scripts` / `_instances`。失败时 `_create_noop_filter` 恒真、`_create_noop_content` 为 `pass`。
+
+调用方：[Game](../GameSystem/Game/Game.md) 的 `_create_skill_from_data` 编译技能字段；[Skill](../GameSystem/Common/Skill.md) 持有编译产物。任务胜负不走本沙箱，见 [MissionComponent.md](../GameSystem/Game/MissionComponent.md)。

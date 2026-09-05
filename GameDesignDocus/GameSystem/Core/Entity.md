@@ -14,8 +14,9 @@ Entity 基类负责：
 
 1. **技能挂载**：维护实体身上的技能列表（角色固有技能、装备技能、地块技能、临时技能等）
 2. **事件触发**：提供统一的 `trigger(trigger_name, event)` 接口，遍历技能并执行匹配的 content
-3. **通用流程**：提供跨子类共享的流程方法（如 `damage` 伤害流程）
-4. **通用接口**：声明子类需实现的抽象方法（如 `death`）与通用查询接口
+3. **标记**：维护 `marks` 字典（[Mark](Mark.md) 对象）
+4. **通用流程**：提供跨子类共享的流程方法（如 `damage` 伤害流程）
+5. **通用接口**：声明子类需实现的抽象方法（如 `death`）与通用查询接口
 
 ---
 
@@ -24,6 +25,7 @@ Entity 基类负责：
 | 字段名 | 类型 | 默认值 | 说明 |
 |------|------|------|------|
 | `skills` | Array[Skill] | `[]` | 挂载在该实体上的所有技能。`get_all_skills()` 返回此列表 |
+| `marks` | Dictionary[String, Mark] | `{}` | 实体标记集合。键为标记名，值为 [Mark](Mark.md) 对象（计数 + 集合项 + UI 文案） |
 
 > 子类各自扩展字段（如 Player 的 HP/饥饿/手牌区，Monster 的纠缠对象/射程等），详见各子类文档。
 
@@ -251,6 +253,7 @@ Entity 基类负责：
 | Card | 继承 Entity，卡牌自带技能（装备技能、行动牌效果、怪物卡技能） |
 | MapBlock | 继承 Entity，地块技能挂载到进入的 Player 身上由 Player.trigger 触发 |
 | Skill | 通过 `add_skill` / `remove_skill` 挂载到 Entity，见 [Skill.md](../Common/Skill.md) |
+| [Mark](Mark.md) | `marks` 字典的值类型；`add_mark` / `count_mark` / `remove_mark` 等接口见 Mark.md |
 | EventSystem | 提供 Dictionary event schema 与取消机制，见 [EventSystem.md](EventSystem.md) |
 | EventScheduler | `damage` 等流程经 `dispatch` 入栈，见 [EventScheduler.md](EventScheduler.md) |
 | EventBus | damage 流程 5.5 节点发射统计信号，详见 [System/EventBus.md](../System/EventBus.md) |

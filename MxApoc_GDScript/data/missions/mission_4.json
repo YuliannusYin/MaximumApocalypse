@@ -6,7 +6,7 @@
   "difficulty": "normal",
   "van_fuel_required": null,
   "intro_text": "炸弹毫无预兆地爆炸了。所有大城市顷刻间化为灰尘。冬季马上就要到来，如果我们不储存足够的食物并找到一处安全地点的话，我们就没法过冬。",
-  "objective_text": "收集物资：收集燃料(0/3)、收集脏毯子(0/2)、收集老报纸(0/2)；回合结束时，所有存活玩家都在“避难所”且“避难所”上没有任何怪物，获得胜利。",
+  "objective_text": "收集物资：收集燃料(0/3)、收集脏毯子(0/2)、收集老报纸(0/2)、收集食物(0/5)；回合结束时，所有存活玩家都在“避难所”且“避难所”上没有任何怪物，获得胜利。",
   "special_setup": "将怪物牌堆中的首领级怪物牌随机分布到怪物牌堆中的下半部分。",
   "monster_pack_type": "mutant",
   "map_blocks_config": {
@@ -75,16 +75,17 @@
     ]
   },
   "win_conditions": [
-    { "component": "collect_items", "params": { "mode": "submit", "items": { "燃料": 3, "脏毯子": 2, "老报纸": 2 } } },
+    { "component": "collect_items", "params": { "mode": "submit", "items": { "燃料": 3, "脏毯子": 2, "老报纸": 2, "食物": 5 } } },
     { "component": "all_players_at_block", "params": { "block_name": "避难所", "no_monster": true } }
   ],
   "actions": [
-    { "component": "submit_items", "params": { "block_name": "避难所", "items": { "燃料": 3, "脏毯子": 2, "老报纸": 2 } } }
+    { "component": "submit_items", "params": { "block_name": "避难所", "items": { "燃料": 3, "脏毯子": 2, "老报纸": 2, "食物": 5 } } }
   ],
   "progress_conditions": [
     { "text": "收集燃料", "type": "submitted_count", "params": { "card_name": "燃料", "count": 3 } },
     { "text": "收集脏毯子", "type": "submitted_count", "params": { "card_name": "脏毯子", "count": 2 } },
     { "text": "收集老报纸", "type": "submitted_count", "params": { "card_name": "老报纸", "count": 2 } },
+    { "text": "收集食物", "type": "submitted_count", "params": { "card_name": "食物", "count": 5 } },
     { "text": "回合结束时，所有存活玩家都在\"避难所\"且\"避难所\"上没有任何怪物，就获得胜利", "type": "all_at_block", "params": { "block_name": "避难所", "no_monster": true } }
   ]
 }

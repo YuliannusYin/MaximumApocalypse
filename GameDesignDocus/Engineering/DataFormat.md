@@ -58,13 +58,13 @@
 | --- | --- | --- | --- |
 | `get_survivor` | `english_name: String` | `SurvivorData` | 按英文名获取求生者；不存在时 `push_error` 并返回 `null` |
 | `get_all_survivors` | — | `Array` | 全部求生者 |
-| `get_available_survivors` | — | `Array` | 可用求生者；开发模式返回全部，玩家模式仅返回消防员 |
+| `get_available_survivors` | — | `Array` | 可用求生者；开发模式返回全部。玩家模式返回消防员 / 枪手 / 猎人 / 外科医生 / 机械师。老兵正在重新设计，不进入玩家模式名单 |
 | `has_survivor` | `english_name: String` | `bool` | 是否存在该求生者 |
 | `get_variant` | `id: String` | `VariantData` | 按 id 获取变体 |
 | `get_all_variants` | — | `Array` | 全部变体 |
 | `get_mission` | `mission_id: int` | `MissionData` | 按编号获取任务；不存在时 `push_error` 并返回 `null` |
 | `get_all_missions` | — | `Array` | 全部任务，按 `mission_id` 升序 |
-| `get_available_missions` | — | `Array` | 可用任务；开发模式返回全部，玩家模式仅返回 0 号任务 |
+| `get_available_missions` | — | `Array` | 可用任务；开发模式返回全部，玩家模式按 [ArchiveManager](../GameSystem/System/ArchiveManager.md) 解锁过滤（任务 0 恒可用，任务 N 需 N-1 任意人数通关） |
 | `has_mission` | `mission_id: int` | `bool` | 是否存在该任务 |
 | `get_scavenge_pile` | `color: String` | `Array` | 按颜色获取拾荒牌堆；不存在返回空数组 |
 | `get_monster_pack` | `monster_type: String` | `Array` | 按怪物类型获取怪物包；不存在返回空数组 |
@@ -72,7 +72,7 @@
 | `get_map_block_def_by_name` | `block_name: String` | `MapBlockData` | 按中文名获取地图块定义 |
 | `get_common_skills` | — | `Array` | 全部通用主动技能 |
 
-> `get_available_survivors` 与 `get_available_missions` 的"开发模式 / 玩家模式"分支依赖 `Settings.dev_mode`。
+> `get_available_survivors` 与 `get_available_missions` 的开发 / 玩家分支依赖 `Settings.dev_mode`。成就定义不由 DataManager 加载，见 [ArchiveManager](../GameSystem/System/ArchiveManager.md)。游戏内 Wiki 规则页由 `WikiIndex` 直接读 `data/wiki/`，不进 DataManager 缓存。
 
 ---
 
@@ -235,7 +235,7 @@
 | `mission_name` | String | 是 | 任务中文名 |
 | `english_name` | String | 是 | 任务英文名 |
 | `difficulty` | String | 是 | 难度（`tutorial`/`very_easy`/`easy`/`normal`/`hard`/`very_hard`） |
-| `van_fuel_required` | Int | 是 | 启动面包车所需燃料；`-1` 表示不通过面包车胜利 |
+| `van_fuel_required` | Int / null | 是 | 启动面包车所需燃料；JSON 可用 `null`，运行时转为 `-1` 表示不通过面包车胜利 |
 | `no_initial_monster_draw` | Bool | 否 | 开局跳过每名玩家的初始抓怪（如任务 11）；缺省 `false` |
 | `intro_text` | String | 是 | 任务介绍 |
 | `objective_text` | String | 是 | 任务目标 |
@@ -291,7 +291,7 @@
 > **内置组件 id**（共 22 个，按声明位置分三类）：
 > - **判定类**（实现 `check_win` / `check_lose`，声明于 `win_conditions` / `lose_conditions`）：`collect_items`（收集指定物品，params：`items`、`mode` hold/submit）/ `all_players_at_block`（全员抵达指定地块，params：`block_name`、`no_monster`）/ `escort_equipment_at_block`（护送指定卡牌抵达地块，直接查持有者，params：`card_name`、`block_name`）/ `kill_monsters`（击杀各怪物计数达标，params：`counts`；**需 `triggers`+`win_conditions` 双声明共享 `kill_counts` 计数**）/ `all_blocks_revealed`（全部地块已翻开）/ `objective_marks_cleared`（场上目标标记清至指定数，params：`count`，0=全清）/ `state_flag`（指定 mission_state 键为真即满足，params：`key`）/ `action_win_only`（行动直胜占位，`check_win` 恒 false，防止 win_conditions 为空时的空真误判）
 > - **行动类**（实现 `get_action_options` 与 `get_action_skill_decl`，声明于 `actions`）：`spend_action_rescue`（花费行动解救目标卡并装备，params：`block_name`、`cost`、`card_name`、`skill_name` 可覆盖默认技能名）/ `destroy_current_mark`（花费行动摧毁当前地块目标标记，params：`cost`、`require_no_monster`）/ `submit_items`（在指定地块提交物品，params：`block_name`、`items`）/ `repair_van`（花费行动维修面包车累计次数，params：`block_name`、`card_name`、`times`）/ `defuse_bomb`（花费行动拆炸弹并可启动倒计时，params：`block_name`、`cost`、`card_name`、`countdown`）/ `upload_virus`（持指定装备在上传点花费行动直胜，params：`block_name`、`equipment`）/ `rescue_judge_win`（花费行动解救并潜行检定决胜，params：`card_name`）
-> - **触发类**（实现 `on_event`，声明于 `triggers`）：`turn_countdown`（轮数倒计时，归零判负，params：`rounds`、`expire_kill_outside`、`auto_activate`）/ `mark_enter_reward`（首次进入指定目标标记地块发放奖励，params：`rewards`，按 `mark_id` 配 `cards` / `draw_boss`）/ `first_enter_draw_boss`（全队首次抵达指定地块抽首领卡，params：`block_name`）/ `reveal_mark_draw_boss`（展示带目标标记的地块时展示者抽首领卡，每地块仅一次）/ `card_discard_watch`（监视卡被弃置时销毁或判负，params：`card_name`、`on_discard` destroy/lose；**lose 模式需 `triggers`+`lose_conditions` 双声明共享 `card_discard_failed` 标记**）/ `setup_equip_card`（开局给玩家装备指定卡，params：`card_name`）/ `spawn_dice_effect`（怪物出生检定投出指定点数时执行外围地块效果，params：`value`、`block_name`）
+> - **触发类**（实现 `on_event`，声明于 `triggers`）：`turn_countdown`（轮数倒计时；`expire_kill_outside` 时归零击杀该地块外玩家且 `check_lose` 恒 false，否则归零判负）/ `mark_enter_reward`（首次进入指定目标标记地块发放奖励）/ `first_enter_draw_boss`（全队首次抵达指定地块抽首领卡）/ `reveal_mark_draw_boss`（展示带目标标记的地块时抽首领）/ `card_discard_watch`（监视卡弃置/持有者死亡；`on_discard` 为 destroy/lose/ignore，`on_death` 可为 lose；lose 模式需 `triggers`+`lose_conditions` 双声明）/ `setup_equip_card`（开局装备指定卡）/ `spawn_dice_effect`（出生检定投出指定点数时处理外围地块）
 >
 > **行动组件技能化**：行动组件同时以 Skill 形式挂载技能栏——玩家进入匹配地块时，`MissionConfig.mount_action_skills(player, block)` 遍历行动组件的 `get_action_skill_decl()` 技能声明，`block_match` 匹配的组件构建为主动 Skill（`active="action"`、`skill_type="任务"`，技能栏金色按钮区分）挂到 `player.skills`；离开地块时 `unmount_action_skills(player)` 卸载（按 `english_name` 前缀 `mission_action_<组件索引>` 识别）。复用地块技能管线：filter 不满足时按钮灰化、confirm_prompt 确认门、use_active_skill 执行；技能栏为任务行动的唯一 UI 入口。地块匹配规则（`block_match`）：静态组件按 `params.block_name` 匹配地块名；动态组件（`destroy_current_mark` / `rescue_judge_win`）按地块存在未移除任务标记匹配。技能名默认表：`spend_action_rescue`→解救科学家（可用 `params.skill_name` 覆盖）、`destroy_current_mark`→摧毁目标、`submit_items`→提交物资、`repair_van`→维修面包车、`defuse_bomb`→解除炸弹、`upload_virus`→上传病毒、`rescue_judge_win`→解救科学家。
 >
@@ -387,6 +387,32 @@
 | `gamemark` | Array&lt;String&gt; | 游戏标记图片路径 |
 | `monster` | Object&lt;String, Array&lt;String&gt;&gt; | 键为怪物类型，值为该类型怪物图片路径数组 |
 | `scavenging` | Array&lt;String&gt; | 拾荒卡图片路径 |
+
+### 3.9 wiki/*.json
+
+游戏内百科规则页，**不由 DataManager 加载**。`WikiIndex` 扫描 `data/wiki/`，与 DataManager 图鉴（求生者 / 卡牌 / 地块 / 任务等）拼成 Wiki 树。每文件：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | String | 条目 id（如 `rules.overview`） |
+| `title` | String | 左栏标题 |
+| `order` | Int | 同层排序 |
+| `body` | String | BBCode 正文 |
+
+现有规则文件：`overview` / `setup_and_flow` / `turn_and_phases` / `checks` / `range` / `cards_and_actions` / `glossary`。
+
+### 3.10 achievements.json
+
+成就定义，**由 ArchiveManager 加载**（非 DataManager）。顶层为数组，每项：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | String | 成就 id |
+| `name` | String | 显示名 |
+| `description` | String | 说明 |
+| `condition` | Object | 声明式条件，见 [ArchiveManager.md](../GameSystem/System/ArchiveManager.md) |
+
+当前 11 条。条件类型：`win_total` / `stat_total` / `stat_best` / `survivor_wins_all` / `missions_complete_all`。
 
 ---
 

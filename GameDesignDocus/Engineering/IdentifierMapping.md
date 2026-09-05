@@ -25,7 +25,8 @@
 | 游戏操作门面 | `GameActions` | `src/core/game_actions.gd` | JSON 技能嵌套操作入口 |
 | 游戏状态机 | `GameStateMachine` | `src/core/game_state_machine.gd` | 游戏状态机与回合队列 |
 | 玩家统计 | `PlayerStats` | `src/core/player_stats.gd` | 单玩家统计数据 |
-| 统计跟踪器 | `StatsTracker` | `src/core/stats_tracker.gd` | 全局统计跟踪器 |
+| 档案管理器 | `ArchiveManager` | `src/core/archive_manager.gd` | 跨对局档案与成就（autoload） |
+| 实体标记 | `Mark` | `src/core/mark.gd` | 计数/集合标记对象 |
 
 ### 1.2 Common 通用结构
 
@@ -72,6 +73,9 @@
 | --- | --- | --- | --- |
 | 游戏 | `Game` | `src/game/game.gd` | 游戏全局类（autoload） |
 | 任务配置 | `MissionConfig` | `src/game/mission_config.gd` | 任务运行时配置 |
+| 任务组件 | `MissionComponent` | `src/game/mission/components/mission_component.gd` | 可复用任务组件基类 |
+| 任务组件注册表 | `MissionComponentRegistry` | `src/game/mission/components/mission_component_registry.gd` | id → 组件类 |
+| 任务脚本 | `MissionScript` | `src/game/mission/scripts/mission_script.gd` | 第三层脚本基类 |
 
 ### 1.6 UI 主要类
 
@@ -406,7 +410,7 @@ trigger 名在 JSON 数据中用英文 snake_case，技能 `trigger` 字段可�
 | `start_game()` | 启动游戏 |
 | `next_turn()` | 下一回合 |
 | `game_over(result)` | 游戏结束 |
-| `check_win_condition()` | 胜利判定（含面包车胜利） |
+| `check_win_condition()` | 回合结束胜负判定（先 check_lose 再 check_win，再面包车） |
 | `queue_extra_turn(player)` | 加入额外回合 |
 | `skip_next_turn(player)` | 跳过下回合 |
 | `get_current_player()` / `get_game_state()` / `get_game_result()` | 查询 |
@@ -428,6 +432,11 @@ trigger 名在 JSON 数据中用英文 snake_case，技能 `trigger` 字段可�
 
 | 方法 | 说明 |
 | --- | --- |
+| `setup_components(game)` | 初始化全部组件与脚本 |
+| `check_win(game)` | 全部胜利组件 AND（无组件时空真） |
+| `check_lose(game)` | 任一失败组件 OR |
+| `on_event(game, event_name, event)` | 转发给触发器组件与脚本 |
+| `get_action_options(game, player)` | 汇总任务行动选项 |
 | `mount_action_skills(player, block)` | 挂载任务行动技能：玩家进入地块时按行动组件 `get_action_skill_decl()` 声明构建 Skill（`english_name` 为 `mission_action_<组件索引>`）加入 `player.skills`，与地块技能获取并列 |
 | `unmount_action_skills(player)` | 卸载全部任务行动技能：按 `english_name` 前缀 `mission_action_` 识别并 `remove_skill`，与地块技能清理并列 |
 
@@ -475,6 +484,12 @@ trigger 名在 JSON 数据中用英文 snake_case，技能 `trigger` 字段可�
 | `hunger_reduced` | `(player, amount)` | 饥饿值减少 |
 | `skill_used` | `(player, skill)` | 使用主动技能 |
 | `player_turn_started` | `(player)` | 玩家回合开始 |
+| `card_settlement_started` | `(player, card)` | 卡牌开始结算 |
+| `card_settlement_finished` | `(player, card)` | 卡牌结算结束 |
+| `phase_event` | `(event)` | 正式阶段切换 |
+| `mark_added` | `(entity, mark)` | 新增 Mark |
+| `mark_changed` | `(entity, mark)` | Mark 变化 |
+| `mark_removed` | `(entity, mark_name)` | 移除 Mark |
 
 > `EventBus.publish_log(message)` 为日志发布的便捷方法，内部 `emit` `log_message` 信号。
 
@@ -527,9 +542,11 @@ trigger 名在 JSON 数据中用英文 snake_case，技能 `trigger` 字段可�
 | `countdown_remaining` | Int | `turn_countdown` | 倒计时剩余轮数 |
 | `countdown_expired` | Bool | `turn_countdown` | 倒计时是否已归零（`check_lose` 依据此键判定失败） |
 | `rescue_judge_done` | Bool | `rescue_judge_win`（读写） | 是否已执行过解救检定（任务 8，仅一次） |
-| `card_discard_failed` | Bool | `card_discard_watch`（`triggers` 声明的实例写、`lose_conditions` 声明的实例读） | 监视卡被弃置且 `on_discard: lose` 时置 true（双声明共享，`check_lose` 依据此键判定失败） |
+| `card_discard_failed` | Bool | `card_discard_watch`（`on_discard: lose`） | 监视卡被弃置且判负时置 true |
+| `card_death_failed` | Bool | `card_discard_watch`（`on_death: lose`） | 监视卡持有者死亡时置 true，`check_lose` 依据此键 |
+| `virus_uploaded` | Bool | `upload_virus`（写） | 任务 9 已执行上传病毒（进度面板 state_flag） |
 | `first_enter_done_<block_name>` | Bool | `first_enter_draw_boss`（读写） | 指定地块是否已有玩家首次抵达（全队共享一次，键名按 `block_name` 拼接） |
 | `scientist_rescued` | Bool | `spend_action_rescue`（写）、`escort_equipment_at_block`（读） | 科学家（或解救目标卡）是否已被解救 |
 | `scientist_holder` | Player | `spend_action_rescue`（写）、`escort_equipment_at_block`（读） | 解救目标的持有者玩家 |
 
-> 说明：新组件新增 `mission_state` 键时，须同步本表。`spend_action_rescue` 与 `escort_equipment_at_block` 的键名可通过 `params` 的 `rescued_key` / `holder_key` 改写，默认即上表键名。`kill_monsters` 与 `card_discard_watch` 需在 `triggers` 与 `win_conditions` / `lose_conditions` 两处声明（两个实例共享同一 `mission_state`）。
+> 说明：新组件新增 `mission_state` 键时，须同步本表。`spend_action_rescue` 与 `escort_equipment_at_block` 的键名可通过 `params` 的 `rescued_key` / `holder_key` 改写，默认即上表键名。`kill_monsters` 与 `card_discard_watch` 需在 `triggers` 与 `win_conditions` / `lose_conditions` 两处声明（两个实例共享同一 `mission_state`）。任务 1/3/9 的科学家监视为 `on_discard: ignore` + `on_death: lose`（弃置不判负，持有者死亡判负）。

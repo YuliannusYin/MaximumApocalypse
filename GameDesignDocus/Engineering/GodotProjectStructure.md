@@ -58,8 +58,10 @@
 | `turn_context.gd` | `TurnContext` | 正式回合阶段与行动点权威状态 |
 | `game_actions.gd` | `GameActions` | JSON 技能嵌套操作门面 |
 | `game_state_machine.gd` | `GameStateMachine` | 游戏状态机与回合队列 |
+| `mark.gd` | `Mark` | 实体标记对象 |
+| `archive_manager.gd` | `ArchiveManager` | 跨对局档案与成就（autoload） |
 | `player_stats.gd` | `PlayerStats` | 单玩家统计数据 |
-| `stats_tracker.gd` | `StatsTracker` | 全局统计跟踪器 |
+| `stats_tracker.gd` | `StatsTracker` | 本局统计跟踪器 |
 
 ### 2.3 src/data/
 
@@ -103,6 +105,12 @@
 | --- | --- | --- |
 | `game.gd` | `Game` | 游戏全局类（autoload），持全局牌堆/地图/玩家，承担状态机委托 |
 | `mission_config.gd` | `MissionConfig` | 任务运行时配置 |
+| `mission/components/mission_component.gd` | `MissionComponent` | 任务组件基类 |
+| `mission/components/mission_component_registry.gd` | `MissionComponentRegistry` | 组件 id 注册表（22 个内置） |
+| `mission/scripts/mission_script.gd` | `MissionScript` | 任务脚本基类 |
+| `mission/scripts/mission_script_registry.gd` | `MissionScriptRegistry` | 脚本 id 注册表（当前无内置） |
+
+`mission/components/` 下另有各具体组件（`collect_items`、`spend_action_rescue` 等），见 [MissionComponent.md](../GameSystem/Game/MissionComponent.md)。
 
 ### 2.6 src/ui/
 
@@ -136,7 +144,25 @@ UI 与输入层。全部 `.gd` 文件如下：
 | `settings_scene.gd` | `SettingsScene` | 设置场景 |
 | `table_map_controller.gd` | `TableMapController` | 桌面地图控制器 |
 | `tutorial_dialog.gd` | `TutorialDialog` | 教程对话框 |
-| `tutorial_manager.gd` | `TutorialManager` | 教程管理器 |
+| `tutorial_manager.gd` | `TutorialManager` | 教程管理器（任务 0 或 Settings.tutorial_mode） |
+| `wiki_index.gd` | `WikiIndex` | 游戏内百科目录 |
+| `wiki_overlay.gd` | `WikiOverlay` | 百科浮层 |
+| `cheat_menu.gd` | `CheatMenu` | 开发者模式作弊菜单（反引号呼出） |
+| `mission_progress_panel.gd` | `MissionProgressPanel` | 任务进度面板 |
+| `seat_hud.gd` / `seat_hud_manager.gd` | `SeatHud` / `SeatHudManager` | 座位 HUD |
+| `animation_controller.gd` | `AnimationController` | 动画总控 |
+| `dice_animation_view.gd` | `DiceAnimationView` | 骰子动画 |
+| `card_destroy_animation_view.gd` | `CardDestroyAnimationView` | 卡牌销毁动画 |
+| `skill_trigger_animation_view.gd` | `SkillTriggerAnimationView` | 技能触发动画 |
+| `monster_skill_trigger_animation_view.gd` | `MonsterSkillTriggerAnimationView` | 怪物技能触发动画 |
+| `monster_draw_animation_view.gd` | `MonsterDrawAnimationView` | 抓怪物动画 |
+| `monster_attack_animation_view.gd` | `MonsterAttackAnimationView` | 怪物攻击动画 |
+| `target_link_animation_view.gd` | `TargetLinkAnimationView` | 目标连线动画 |
+| `turn_banner_view.gd` | `TurnBannerView` | 回合横幅 |
+| `hud_theme.gd` | `HudTheme` | HUD 主题常量 |
+| `wasteland_backdrop.gd` | `WastelandBackdrop` | 废土背景 |
+| `monster_card_view.gd` | `MonsterCardView` | 怪物卡视图 |
+| `achievement_scene.gd` | `AchievementScene` | 成就 / 档案界面 |
 
 ### 2.7 src/tools/
 
@@ -152,7 +178,7 @@ UI 与输入层。全部 `.gd` 文件如下：
 
 ### 3.1 data/survivors/（6 文件）
 
-求生者数据：`firefighter.json`、`gunslinger.json`、`hunter.json`、`mechanic.json`、`surgeon.json`、`veteran.json`。
+求生者数据：`firefighter.json`、`gunslinger.json`、`hunter.json`、`mechanic.json`、`surgeon.json`、`veteran.json`（老兵正在重新设计，玩家模式不开放）。
 
 ### 3.2 data/scavenge/（4 文件）
 
@@ -180,22 +206,28 @@ UI 与输入层。全部 `.gd` 文件如下：
 | --- | --- |
 | `common_skills.json` | 通用主动技能数据（顶层为数组） |
 | `image_manifest.json` | 图片资源清单 |
+| `achievements.json` | 成就定义（由 ArchiveManager 加载） |
+
+### 3.8 data/wiki/
+
+游戏内百科规则页 JSON（`overview` / `setup_and_flow` / `turn_and_phases` / `checks` / `range` / `cards_and_actions` / `glossary`），由 `WikiIndex` 加载，不进 DataManager。
 
 ---
 
 ## 四、autoload 注册
 
-在 `project.godot` 的 `[autoload]` 段注册以下 5 个全局单例：
+在 `project.godot` 的 `[autoload]` 段注册以下 6 个全局单例：
 
 | Autoload 名 | 路径 | 说明 |
 | --- | --- | --- |
 | `DataManager` | `res://src/data/data_manager.gd` | 数据加载与管理 |
 | `EventBus` | `res://src/core/event_bus.gd` | 全局事件总线，供 UI 订阅 |
 | `Game` | `res://src/game/game.gd` | 游戏全局实例；持有每局 `event_scheduler`、全局区域、地图、任务配置、状态机委托 |
+| `ArchiveManager` | `res://src/core/archive_manager.gd` | 跨对局档案、成就求值、任务解锁查询 |
 | `RoomState` | `res://src/ui/room_state.gd` | 房间状态 |
-| `Settings` | `res://src/ui/settings.gd` | 全局设置（`dev_mode` 等开关） |
+| `Settings` | `res://src/ui/settings.gd` | 全局设置（`dev_mode` / `tutorial_mode` 等开关） |
 
-初始化顺序按注册顺序：`DataManager` → `EventBus` → `Game` → `RoomState` → `Settings`。`DataManager` 无依赖最先加载；`Game` 依赖 `DataManager` 提供的静态数据；`EventBus` 供 UI 层订阅游戏事件。
+初始化顺序按注册顺序：`DataManager` → `EventBus` → `Game` → `ArchiveManager` → `RoomState` → `Settings`。`DataManager` 无依赖最先加载；`Game` 依赖 `DataManager`；`ArchiveManager` 在运行期被 `get_available_missions` / 结算页查询（DataManager 注册更早，故查询不得发生在 `_ready` 链上）。`EventBus` 供 UI 与任务组件转发订阅。
 
 ---
 

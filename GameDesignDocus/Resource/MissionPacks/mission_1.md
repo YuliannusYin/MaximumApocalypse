@@ -34,7 +34,7 @@
     可用条件:场上没有"科学家"
     技能效果:生成一个"科学家"装备到玩家的装备区
 } 
-- 当"科学家"被弃置时，任务失败。
+- 当携带「科学家」的玩家死亡时，任务失败。
 
 ## 任务怪物包类型
 
@@ -74,11 +74,20 @@ zombie
 
 ### 胜利条件组件
 
-- escort_equipment_at_block：已解救的护送装备（科学家）持有者位于“面包车”
+- escort_equipment_at_block：携带「科学家」的玩家位于「面包车」
 
 ### 行动选项组件
 
-- spend_action_rescue：在“警察局”花费 2 行动解救“科学家”
+- spend_action_rescue：在「警察局」花费 2 行动解救「科学家」
+
+### 触发器组件
+
+- first_enter_draw_boss：全队首次进入「警察局」抽首领卡
+- card_discard_watch：监视「科学家」——弃置忽略，持有者死亡则失败
+
+### 失败条件组件
+
+- card_discard_watch：与触发器双声明，共享 `card_death_failed`
 
 ## 任务拾荒牌堆配置
 

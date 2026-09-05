@@ -92,7 +92,7 @@
 - **所有玩家死亡** → `all_players_dead()` 为真 → `game_over("lose")`（[Player.playerDeath](../Entities/Player.md) 末尾检查）
 - **怪物牌堆重洗后仍空**（所有怪物卡都在场上）→ `game_over("lose")`（见 [Player.drawMonster](../Entities/Player.md)）
 - **同生共死变体**：`coop_death_mode` 为真时，任一玩家死亡即 `game_over("lose")`（[Player.playerDeath](../Entities/Player.md) 末尾在全灭判定之前检查）
-- **任务特定失败**：任务系统检查后调用 `game_over("lose")`（如 `turn_countdown` 倒计时归零、`card_discard_watch` lose 模式监视卡被弃置、任务 8 `rescue_judge_win` 解救检定失败且未持有情报卡）
+- **任务特定失败**：回合结束 `check_lose`；或行动当场 `game_over("lose")`（任务 8 解救检定失败且未持有情报卡）
 
 ##### 游戏胜利条件
 
@@ -448,9 +448,11 @@
 | [GameStateMachine](../Core/GameStateMachine.md) | Game 持有 `state_machine` 实例；`start_game` / `game_over` / `get_current_player` / `next_turn` 委托给状态机 |
 | [EventScheduler](../Core/EventScheduler.md) | Game 持有每局唯一 `event_scheduler` |
 | [MissionConfig](./MissionConfig.md) | Game 持有 `mission_config`，由 `initialize_game` 从 MissionData 构造 |
+| [MissionComponent](./MissionComponent.md) | 任务 JSON 声明的组件；事件经 `_forward_mission_event` 转发 |
+| [ArchiveManager](../System/ArchiveManager.md) | 不由 Game 持有；结算页按本局 StatsTracker 归档 |
 | [StatsTracker](../System/StatsTracker.md) | Game 持有 `stats_tracker`，订阅 EventBus 信号聚合本局统计 |
 | [EventBus](../System/EventBus.md) | `log_message` 通过 `EventBus.publish_log` 推送 UI 日志面板 |
-| [CodeExecutor](../System/CodeExecutor.md) | 工厂方法编译 skill 代码字段 |
+| [CodeExecutor](../../Engineering/CodeExecutor.md) | 工厂方法编译 skill 代码字段 |
 | [LogColors](../System/LogColors.md) | 日志输出使用 `LogColors` 着色实体名 |
 | [DataManager](../../Engineering/DataFormat.md) | 工厂方法从 DataManager 加载 `*Data` 类（`MapBlockData` / `SurvivorData` / `ScavengeCardData` / `MonsterCardData` / `SkillData` / 通用技能等） |
 | [Player](../Entities/Player.md) | Game 管理所有玩家；玩家死亡触发全灭判定 |

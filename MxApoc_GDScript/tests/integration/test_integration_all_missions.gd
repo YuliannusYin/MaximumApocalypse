@@ -282,11 +282,13 @@ func test_mission_4_supplies_and_shelter_win() -> void:
 	var p2: Player = _make_player("P2")
 	p1.current_block = shelter
 	p2.current_block = shelter
-	# 物资分散在两名玩家：燃料3 + 脏毯子2 + 老报纸2
+	# 物资分散在两名玩家：燃料3 + 脏毯子2 + 食物5 + 老报纸2
 	for i in 3:
 		p1.hand.append(_make_card("燃料"))
 	for i in 2:
 		p1.hand.append(_make_card("脏毯子"))
+	for i in 5:
+		p1.hand.append(_make_card("食物"))
 	for i in 2:
 		p2.hand.append(_make_card("老报纸"))
 	p1.action_count = 1
@@ -294,7 +296,7 @@ func test_mission_4_supplies_and_shelter_win() -> void:
 	_setup_game_env([p1, p2], [shelter])
 	# 随身持有不再直接判胜（collect_items 提交模式）：须经避难所提交物资
 	assert_false(await Game.state_machine.check_win_condition(), "仅持有未提交不应胜利")
-	# P1 提交燃料+脏毯子
+	# P1 提交燃料+脏毯子+食物
 	var options1: Array = Game.mission_config.get_action_options(Game, p1)
 	assert_eq(options1.size(), 1, "在避难所持有清单物资应出现提交选项")
 	assert_eq(options1[0]["id"], "submit_items", "选项 id 应为 submit_items")
@@ -307,6 +309,7 @@ func test_mission_4_supplies_and_shelter_win() -> void:
 	assert_eq(int(submitted.get("燃料", 0)), 3, "燃料应提交 3 张")
 	assert_eq(int(submitted.get("脏毯子", 0)), 2, "脏毯子应提交 2 张")
 	assert_eq(int(submitted.get("老报纸", 0)), 2, "老报纸应提交 2 张")
+	assert_eq(int(submitted.get("食物", 0)), 5, "食物应提交 5 张")
 	assert_true(await Game.state_machine.check_win_condition(), "提交达标+全员避难所无怪应胜利")
 	assert_eq(Game.game_result, "win", "Game.game_result 应为 win")
 
@@ -319,7 +322,7 @@ func test_mission_4_monster_at_shelter_blocks_win() -> void:
 	p.action_count = 1
 	_setup_game_env([p], [shelter])
 	# 物资已全部提交（满足 collect_items submit 模式），但避难所条件不满足 → 不胜
-	mc.mission_state["submitted_items"] = {"燃料": 3, "脏毯子": 2, "老报纸": 2}
+	mc.mission_state["submitted_items"] = {"燃料": 3, "脏毯子": 2, "老报纸": 2, "食物": 5}
 	# 避难所有怪物标记 → 不胜
 	shelter.add_monster_mark(1)
 	assert_false(await Game.state_machine.check_win_condition(), "避难所有怪物标记不应胜利")

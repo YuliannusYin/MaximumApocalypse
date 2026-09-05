@@ -61,7 +61,7 @@
 
 | 字段 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `marks` | Dictionary\<String, int\> | `{}` | 标记字典。键 = 标记名，值 = 计数。如 `"poison"` / `"hunger_damage_level"` / `"moved_this_turn"` / `"shelter_disabled"` 等 |
+| `marks` | Dictionary\<String, Mark\> | `{}` | 标记字典。键 = 标记名，值 = [Mark](../Core/Mark.md) 对象。如 `"poison"` / `"hunger_damage_level"` / `"moved_this_turn"` |
 | `input` | IPlayerInput | 自动 `CliPlayerInput.new()` | 输入接口（选择器、确认对话框、目标选择等） |
 
 #### 常用标记
@@ -74,7 +74,7 @@
 | `moved_this_turn` | 本回合已移动标记。爆破机器人天赋 2 等技能依赖。回合开始时清除 |
 | 其他临时标记 | 各技能 / 地块添加的标记 |
 
-> 标记管理通过 `count_mark` / `add_mark` / `remove_mark` / `has_mark` / `add_mark_skill` / `has_mark_skill` 等方法。
+> 标记管理通过 Entity 的 `count_mark` / `add_mark` / `remove_mark` / `has_mark` / `add_mark_skill` 等方法，见 [Mark.md](../Core/Mark.md)。
 
 ---
 

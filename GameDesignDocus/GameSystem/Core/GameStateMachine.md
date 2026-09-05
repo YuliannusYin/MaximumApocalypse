@@ -297,30 +297,30 @@ WAITING ──start_game()──> PLAYING ──game_over(result)──> GAME_OV
 **执行步骤**：
 
 1. 前置守卫：`current_state != PLAYING` 或 `Game` 失效时返回 `false`
-2. 调用 `_check_mission_win_condition()` 委托给 `mission_config.check_win_condition`，未通过则返回 `false`
-3. **面包车胜利判断**：若 `Game.mission_config.van_fuel_required < 0`（`-1` 哨兵表示无面包车胜利），直接 `game_over(GameResult.WIN)` 并返回 `true`
-4. 查找名为"面包车"的地块：`Game.get_blocks_by_name("面包车")`，无则返回 `false`
-5. 检查面包车燃料：`van.van_fuel < Game.mission_config.van_fuel_required` 时返回 `false`
-6. 检查所有存活玩家位置：任一玩家不在面包车上时返回 `false`
-7. 检查面包车无怪物和怪物标记：`van.has_monster_mark()` 为真或 `van.count_monster() > 0` 时返回 `false`
-8. 所有胜利条件满足：`game_over(GameResult.WIN)` 并返回 `true`
+2. **任务失败优先**：若 `mission_config.check_lose(Game)` 为 true，则 `game_over(GameResult.LOSE, "任务目标失败，游戏结束。")` 并返回 `true`（表示本检查已结束对局）
+3. 调用 `_check_mission_win_condition()` 委托给 `mission_config.check_win(Game)`，未通过则返回 `false`
+4. **面包车胜利判断**：若 `mission_config` 为 null 或 `van_fuel_required < 0`（`-1` 哨兵表示无面包车胜利），直接 `game_over(GameResult.WIN)` 并返回 `true`
+5. 查找名为"面包车"的地块：`Game.get_blocks_by_name("面包车")`，无则返回 `false`
+6. 检查面包车燃料：`van.van_fuel < Game.mission_config.van_fuel_required` 时返回 `false`
+7. 检查所有存活玩家位置：任一存活玩家不在面包车上时返回 `false`
+8. 检查面包车无怪物和怪物标记：`van.has_monster_mark()` 为真或 `van.count_monster() > 0` 时返回 `false`
+9. 所有胜利条件满足：`game_over(GameResult.WIN)` 并返回 `true`
 
-> **`van_fuel_required < 0` 哨兵**：`-1` 表示该任务不通过启动面包车胜利（如任务 4/8/9/11），此时跳过面包车相关检查（步骤 4-7），仅依赖任务胜利条件。
-> **任务胜利条件**：`_check_mission_win_condition()` 委托给 `Game.mission_config.check_win_condition`（Callable），由任务包定义具体逻辑（如任务 5 检查"炸弹已拆除"、任务 8 检查"已记录科学家信息 + 所有玩家在军事基地"、任务 12 检查 3 个标记地块是否全部被摧毁等）。详见 [MissionConfig.md](../Game/MissionConfig.md)。
+> **`van_fuel_required < 0` 哨兵**：`-1` 表示该任务不通过启动面包车胜利（如任务 4/8/9/11），此时跳过面包车相关检查（步骤 5-8），仅依赖任务胜利条件。
+> **任务胜负**：`check_lose` / `check_win` 由胜利/失败组件 AND/OR 编排，见 [MissionConfig.md](../Game/MissionConfig.md) 与 [MissionComponent.md](../Game/MissionComponent.md)。无胜利组件时 `check_win` 为空真（任务 0）。部分行动会当场 `Game.game_over`（任务 8 检定、任务 9 上传病毒），不走到本方法。
 
 ---
 
 ### 5.12 _check_mission_win_condition()（内部方法）
 
-委托给 `mission_config.check_win_condition`。
+委托给 `mission_config.check_win`。
 
 | 签名 | 返回 |
 |------|------|
 | `_check_mission_win_condition() -> bool` | 任务胜利条件是否满足 |
 
 - 前置守卫：`Game` 失效或 `Game.mission_config` 为 `null` 时返回 `false`
-- 若 `Game.mission_config.check_win_condition` 为有效 Callable，返回其调用结果
-- 否则返回 `true`（无任务胜利条件，恒通过）
+- 返回 `Game.mission_config.check_win(Game)`
 
 ---
 
@@ -346,7 +346,7 @@ WAITING ──start_game()──> PLAYING ──game_over(result)──> GAME_OV
 | 所有玩家死亡 | [Player.md player_death](../Entities/Player.md) 末尾 | 所有玩家死亡 → `game_over(LOSE)` |
 | 怪物牌堆重洗后仍空 | [Player.md draw_monster](../Entities/Player.md) | 直接 `game_over(LOSE)` |
 | 同生共死变体：任一玩家死亡 | [Player.md player_death](../Entities/Player.md) 末尾 | 同生共死模式为真 → `game_over(LOSE)`（在全灭判定之前检查） |
-| 任务特定失败条件 | 任务系统定义 | 任务系统检查后调用 `game_over(LOSE)`（如任务 8 潜行失败且无日记本） |
+| 任务特定失败条件 | `check_win_condition()` 回合结束优先调用 `mission_config.check_lose`；或行动当场 `game_over(LOSE)` | 如监视卡持有者死亡、任务 8 潜行失败且无日记本 |
 
 ---
 
@@ -356,7 +356,7 @@ WAITING ──start_game()──> PLAYING ──game_over(result)──> GAME_OV
 
 | 胜利条件 | 检查方式 |
 |---------|---------|
-| 玩家完成了任务 | `_check_mission_win_condition()` 委托给 `mission_config.check_win_condition` |
+| 玩家完成了任务 | `_check_mission_win_condition()` 委托给 `mission_config.check_win` |
 | 面包车燃料足够 | `van.van_fuel >= mission_config.van_fuel_required`（`van_fuel_required < 0` 时跳过此条件及以下条件） |
 | 所有存活玩家在面包车 | 遍历 `Game.players` 检查位置（`van_fuel_required < 0` 时跳过） |
 | 面包车无怪物和怪物标记 | `!van.has_monster_mark() && van.count_monster() == 0`（`van_fuel_required < 0` 时跳过） |
@@ -375,5 +375,5 @@ WAITING ──start_game()──> PLAYING ──game_over(result)──> GAME_OV
 | [EventScheduler](EventScheduler.md) | `start_game` / `game_over` 走 `dispatch`；正式/额外回合排队在独立回合队列；输入与领域操作共用同一 `Game.event_scheduler` |
 | [EventSystem](EventSystem.md) | 状态机触发「游戏开始时」/「游戏结束时」trigger，用 `EventSystem.create_event()` 构建 Dictionary |
 | [EventBus](../System/EventBus.md) | 状态机发射 `game_started` / `game_over` / `turn_started` / `turn_ended` / `player_turn_started` / `log_message` 等信号 |
-| [MissionConfig](../Game/MissionConfig.md) | `check_win_condition` 委托给 `mission_config.check_win_condition`；`van_fuel_required` 字段决定是否检查面包车胜利 |
+| [MissionConfig](../Game/MissionConfig.md) | 回合结束先 `check_lose` 再 `check_win`；`van_fuel_required` 决定是否检查面包车胜利 |
 | [02_开局与流程.md](../../GameInstructions/02_开局与流程.md) | 开局与流程的规则定义 |
