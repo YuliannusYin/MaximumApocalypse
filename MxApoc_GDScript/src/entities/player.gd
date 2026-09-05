@@ -27,6 +27,7 @@ var _operation_context_stack: Array[Dictionary] = []
 var _operation_runtime_stack: Array = []
 var _turn_context: RefCounted = null
 var _turn_event: Variant = null  # TurnEvent，统一事件树的正式回合节点
+var _turn_scheduler: Variant = null  # 本回合 EventScheduler；省略时回落 Game.event_scheduler
 var _phase_sequence: int = 0
 
 # === 区域字段 ===
@@ -111,7 +112,7 @@ func recover(num: int, source: Variant = null, runtime: Variant = null) -> void:
 		return
 	var rt: Variant = runtime if runtime != null else Game.event_scheduler
 	await rt.dispatch("recover", func() -> void:
-		var event: Dictionary = EventSystem.create_recover_event(self, num, source)
+		var event: GameEvent = EventSystem.create_recover_event(self, num, source)
 		await trigger("before_recover", event)
 		if source != null and is_instance_valid(source) and source.has_method("trigger"):
 			await source.trigger("on_deal_recover", event)
@@ -181,7 +182,7 @@ func increase_hunger(num: int, runtime: Variant = null) -> void:
 func increase_hunger_evented(num: int, runtime: Variant = null) -> bool:
 	var rt: Variant = runtime if runtime != null else Game.event_scheduler
 	return await rt.dispatch("increase_hunger", func() -> bool:
-		var event: Dictionary = EventSystem.create_hunger_event(self, num, "increase")
+		var event: GameEvent = EventSystem.create_hunger_event(self, num, "increase")
 		await trigger("before_increase_hunger", event)
 		if EventSystem.is_cancelled(event):
 			return false
@@ -220,7 +221,7 @@ func decrease_hunger(num: int) -> void:
 func decrease_hunger_evented(num: int, runtime: Variant = null) -> bool:
 	var rt: Variant = runtime if runtime != null else Game.event_scheduler
 	return await rt.dispatch("decrease_hunger", func() -> bool:
-		var event: Dictionary = EventSystem.create_hunger_event(self, num, "decrease")
+		var event: GameEvent = EventSystem.create_hunger_event(self, num, "decrease")
 		await trigger("before_decrease_hunger", event)
 		if EventSystem.is_cancelled(event):
 			return false
@@ -244,7 +245,7 @@ func poison() -> void:
 func poison_evented(runtime: Variant = null) -> bool:
 	var rt: Variant = runtime if runtime != null else Game.event_scheduler
 	return await rt.dispatch("poison", func() -> bool:
-		var event: Dictionary = EventSystem.create_poison_event(self, count_mark("poison"))
+		var event: GameEvent = EventSystem.create_poison_event(self, count_mark("poison"))
 		await trigger("before_poison", event)
 		if EventSystem.is_cancelled(event):
 			return false
@@ -268,7 +269,7 @@ func draw(n: int, runtime: Variant = null) -> void:
 		return
 	var rt: Variant = runtime if runtime != null else Game.event_scheduler
 	await rt.dispatch("draw_game_card", func() -> void:
-		var event: Dictionary = EventSystem.create_draw_game_card_event(self, n)
+		var event: GameEvent = EventSystem.create_draw_game_card_event(self, n)
 		# 1. 抓取游戏牌前（取消点）
 		await trigger("before_draw_game_card", event)
 		if EventSystem.is_cancelled(event):
@@ -358,7 +359,7 @@ func draw_scavenge(n: int, pile: Pile, runtime: Variant = null) -> void:
 		return
 	var rt: Variant = runtime if runtime != null else Game.event_scheduler
 	await rt.dispatch("draw_scavenge_card", func() -> void:
-		var event: Dictionary = EventSystem.create_draw_scavenge_event(self, pile, n)
+		var event: GameEvent = EventSystem.create_draw_scavenge_event(self, pile, n)
 		# 1. 抓取拾荒牌前（取消点）
 		await trigger("before_draw_scavenge_card", event)
 		if EventSystem.is_cancelled(event):
@@ -378,7 +379,7 @@ func draw_scavenge(n: int, pile: Pile, runtime: Variant = null) -> void:
 ## 处理单张拾荒牌的抓取流程（加入手牌、日志、信号、触发抓取效果）。
 ## card 为已从 pile 取出的牌；pile 用于判断牌堆名称；event 为 draw_scavenge 事件。
 ## runtime 为可选的统一事件调度 runtime，见 Entity.damage 说明。
-func draw_scavenge_card(card: Card, pile: Pile, event: Dictionary, runtime: Variant = null) -> void:
+func draw_scavenge_card(card: Card, pile: Pile, event: Variant, runtime: Variant = null) -> void:
 	var rt: Variant = runtime if runtime != null else Game.event_scheduler
 	await rt.dispatch("draw_scavenge_card_single", func() -> void:
 		hand.append(card)
@@ -393,7 +394,9 @@ func draw_scavenge_card(card: Card, pile: Pile, event: Dictionary, runtime: Vari
 			Game.log_message(LogColors.player(player_name) + " 从 \"" + _pile_name + "\" 中抓取了拾荒牌 " + LogColors.card(card.card_name))
 		if EventBus != null and is_instance_valid(EventBus):
 			EventBus.scavenge_drawn.emit(self, card)
-		event["cards"].append(card)
+		var cards: Variant = EventSystem.get_field(event, "cards", [])
+		if cards is Array:
+			cards.append(card)
 		event["card"] = card
 		# 触发被抓取卡自身的 forced on_draw_scavenge_card 技能（避免已装备同名卡重复触发）
 		var mounted_skills: Array = []
@@ -418,7 +421,7 @@ func draw_monster(n: int, runtime: Variant = null) -> void:
 		return
 	var rt: Variant = runtime if runtime != null else Game.event_scheduler
 	await rt.dispatch("draw_monster_card", func() -> void:
-		var event: Dictionary = EventSystem.create_draw_monster_event(self, n)
+		var event: GameEvent = EventSystem.create_draw_monster_event(self, n)
 		# 1. 抓取怪物卡前（取消点）
 		await trigger("before_draw_monster_card", event)
 		if EventSystem.is_cancelled(event):
@@ -498,7 +501,7 @@ func discard(target: Variant, position: String = "", quantity: int = 1, type: St
 		return
 	var rt: Variant = runtime if runtime != null else Game.event_scheduler
 	await rt.dispatch("discard", func() -> void:
-		var event: Dictionary = EventSystem.create_discard_event(self, cards_to_discard, cards_to_discard.size())
+		var event: GameEvent = EventSystem.create_discard_event(self, cards_to_discard, cards_to_discard.size())
 		# 1. 弃置牌前（取消点）
 		await trigger("before_discard", event)
 		if EventSystem.is_cancelled(event):
@@ -562,7 +565,7 @@ func remove_card(target: Variant, position: String = "", quantity: int = 1, runt
 		return
 	var rt: Variant = runtime if runtime != null else Game.event_scheduler
 	await rt.dispatch("remove_card", func() -> void:
-		var event: Dictionary = EventSystem.create_event({
+		var event: GameEvent = EventSystem.create_event({
 			"player": self,
 			"card": null,
 			"cards": [],
@@ -600,7 +603,7 @@ func move_to(target: MapBlock, runtime: Variant = null) -> bool:
 	var rt: Variant = runtime if runtime != null else Game.event_scheduler
 	return await rt.dispatch("move", func() -> bool:
 		var source: MapBlock = current_block
-		var event: Dictionary = EventSystem.create_move_event(self, source, target)
+		var event: GameEvent = EventSystem.create_move_event(self, source, target)
 		# 1. 离开地块前
 		await trigger("before_leave_block", event)
 		# 2. 离开地块时
@@ -755,7 +758,7 @@ func sneak_judge(block_param: MapBlock = null) -> bool:
 		if block.has_method("count_monster_mark"):
 			mark_count = block.count_monster_mark()
 	var sneak_value: int = get_sneak() - (monster_count + mark_count)
-	var event: Dictionary = EventSystem.create_sneak_judge_event(self, sneak_value, block)
+	var event: GameEvent = EventSystem.create_sneak_judge_event(self, sneak_value, block)
 	# 1. 潜行检定前
 	await trigger("before_sneak_judge", event)
 	var abandoned: bool = false
@@ -788,7 +791,7 @@ func sneak_judge(block_param: MapBlock = null) -> bool:
 
 ## 怪物出生检定（5 节点，投骰前含确认门（仅确定），确认后播放骰子动画）。
 func monster_spawn_judge() -> void:
-	var event: Dictionary = EventSystem.create_spawn_judge_event(self)
+	var event: GameEvent = EventSystem.create_spawn_judge_event(self)
 	# 1. 怪物出生检定前
 	await trigger("before_spawn_judge", event)
 	# 2. 系统投骰
@@ -834,7 +837,7 @@ func death(source: Entity, runtime: Variant = null) -> void:
 			Game.log_message(LogColors.player(player_name) + " 死亡了")
 		if EventBus != null and is_instance_valid(EventBus):
 			EventBus.player_died.emit(self, source)
-		var event: Dictionary = EventSystem.create_player_death_event(self, source)
+		var event: GameEvent = EventSystem.create_player_death_event(self, source)
 		# 1. 玩家死亡前
 		await trigger("before_player_death", event)
 		# 2. 玩家死亡时
@@ -898,8 +901,8 @@ func death(source: Entity, runtime: Variant = null) -> void:
 
 ## 从手牌中使用一张卡牌（4 节点）。
 ## free_action=true 时仍走完整卡牌生命周期，但不消耗目标玩家正式行动点。
-## operation_runtime 用于让卡牌 content 的嵌套 actions 继续挂在同一操作事件栈，同时也是本次
-## use_card OperationEvent 的挂接 runtime。source 为发起者（例如强制目标使用卡牌的技能持有者），
+## operation_runtime 用于让卡牌 content 的嵌套 actions 继续挂在同一操作事件栈，
+## 同时也是本次 use_card 调度节点的挂接 scheduler。source 为发起者（例如强制目标使用卡牌的技能持有者），
 ## 省略时表示玩家自行使用（无发起者）。
 func use_card(card: Card, free_action: bool = false, operation_runtime: Variant = null, source: Variant = null) -> bool:
 	if card == null or not is_instance_valid(card) or not hand.has(card):
@@ -908,7 +911,7 @@ func use_card(card: Card, free_action: bool = false, operation_runtime: Variant 
 		return false
 	var rt: Variant = operation_runtime if operation_runtime != null else Game.event_scheduler
 	return await rt.dispatch("use_card", func() -> bool:
-		var event: Dictionary = EventSystem.create_event({
+		var event: GameEvent = EventSystem.create_event({
 			"player": self,
 			"card": card,
 			"target": null,
@@ -976,7 +979,7 @@ func use_card(card: Card, free_action: bool = false, operation_runtime: Variant 
 						return false  # 首次选牌取消：卡牌保留在手牌
 				# 输出使用日志（有非自身目标时输出"对目标使用了"，否则输出"使用了"）
 				if not use_logged and Game != null and is_instance_valid(Game):
-					var _target: Variant = event.get("target", null)
+					var _target: Variant = EventSystem.get_field(event, "target", null)
 					if _target != null and _target != self:
 						Game.log_message(LogColors.player(player_name) + " 对 " + _format_target_name(_target) + " 使用了 " + LogColors.card(card.card_name))
 					else:
@@ -1040,7 +1043,7 @@ func is_card_usable(card: Card) -> bool:
 		return false
 	if card.card_type == "equipment":
 		return true
-	var event: Dictionary = EventSystem.create_event({
+	var event: GameEvent = EventSystem.create_event({
 		"player": self,
 		"card": card,
 		"target": null,
@@ -1066,7 +1069,7 @@ func is_card_usable(card: Card) -> bool:
 func equip(card: Card, runtime: Variant = null) -> bool:
 	var rt: Variant = runtime if runtime != null else Game.event_scheduler
 	return await rt.dispatch("equip", func() -> bool:
-		var event: Dictionary = EventSystem.create_equip_event(self, card)
+		var event: GameEvent = EventSystem.create_equip_event(self, card)
 		# 1. 卡牌进入装备区前（取消点）
 		await trigger("before_equip", event)
 		if EventSystem.is_cancelled(event):
@@ -1147,7 +1150,7 @@ func unequip(card: Variant, runtime: Variant = null) -> bool:
 	var rt: Variant = runtime if runtime != null else Game.event_scheduler
 	return await rt.dispatch("unequip", func() -> bool:
 		var src_card: EquipmentCard = entity.equipment_card
-		var event: Dictionary = EventSystem.create_equip_event(self, src_card)
+		var event: GameEvent = EventSystem.create_equip_event(self, src_card)
 		# 1. 卡牌离开装备区前（取消点）
 		await trigger("before_unequip", event)
 		if EventSystem.is_cancelled(event):
@@ -1194,7 +1197,7 @@ func consume_charge(equipment: Variant, num: int, runtime: Variant = null) -> bo
 		var src_card: Variant = equipment
 		if equipment is Equipment and equipment.equipment_card != null:
 			src_card = equipment.equipment_card
-		var event: Dictionary = EventSystem.create_consume_charge_event(self, src_card, num)
+		var event: GameEvent = EventSystem.create_consume_charge_event(self, src_card, num)
 		# 1. 消耗填充物前（取消点）
 		await trigger("before_consume_charge", event)
 		if EventSystem.is_cancelled(event):
@@ -1270,7 +1273,7 @@ func clear_charge(charge_type: String, runtime: Variant = null) -> void:
 			var src_card: Variant = e
 			if e is Equipment and e.equipment_card != null:
 				src_card = e.equipment_card
-			var event: Dictionary = EventSystem.create_consume_charge_event(self, src_card, num)
+			var event: GameEvent = EventSystem.create_consume_charge_event(self, src_card, num)
 			# 清零填充物（直接设置，不经过 consume_charge 的 before/on_consume 取消点）
 			e.charge_current = 0
 			# 触发耗尽事件（可能触发 hollow_point_remove 等弃置武器技能）
@@ -1310,141 +1313,145 @@ func _format_target_name(target: Variant) -> String:
 # === 十、回合流程 ===
 
 ## 玩家回合完整流程（21 节点，节点 21 由状态机执行）。
-func start_turn() -> void:
+## 整段在 TurnEvent 上 run_event；各阶段为贯穿该阶段的 PhaseEvent。
+## runtime 省略时使用 Game.event_scheduler。
+func start_turn(runtime: Variant = null) -> void:
 	if is_match_over():
 		return
-	var scheduler: Variant = Game.event_scheduler if Game != null else null
-	var event: Dictionary = EventSystem.create_event({"player": self})
-	# 节点 1：进入玩家回合（非钩子节点）
+	var scheduler: Variant = runtime if runtime != null else (Game.event_scheduler if Game != null else null)
+	var event: GameEvent = EventSystem.create_event({"player": self})
 	var turn_number: int = 0
 	if Game != null and is_instance_valid(Game) and Game.state_machine != null:
 		turn_number = Game.state_machine.turn_number
-	var phase_event: Variant = begin_turn_context("turn_start", turn_number, max_action_count)
+	_create_turn_context(turn_number, max_action_count)
 	event["turn_context"] = _turn_context
-	event["phase_event"] = phase_event
-	clear_turn_marks()
-	# 重置主动技能使用次数
-	for skill in skills:
-		if skill is Skill and skill.active != "":
-			skill.reset_use_count()
-	# 节点 2：回合开始前
-	await trigger("before_turn_start", event)
-	if is_match_over():
+	if scheduler == null:
+		await _execute_official_turn(event)
 		return
-	# 节点 3：回合开始时
-	await trigger("on_turn_start", event)
-	if is_match_over():
+	_turn_scheduler = scheduler
+	await scheduler.run_event(_turn_event, func(_ev: Variant) -> void:
+		await _execute_official_turn(event)
+	)
+	_turn_scheduler = null
+
+
+func _execute_official_turn(event: GameEvent) -> void:
+	var scheduler: Variant = _resolve_turn_scheduler()
+	# 节点 1-3：回合开始
+	await run_turn_phase("turn_start", func() -> void:
+		clear_turn_marks()
+		for skill in skills:
+			if skill is Skill and skill.active != "":
+				skill.reset_use_count()
+		await trigger("before_turn_start", event)
+		if is_match_over():
+			return
+		await trigger("on_turn_start", event)
+	, "context_started", event)
+	if _abort_official_turn():
 		return
-	# 节点 4：怪物出生前
-	phase_event = _enter_turn_phase("monster_spawn")
-	event["phase_event"] = phase_event
-	await trigger("before_monster_spawn", event)
-	if is_match_over():
+	# 节点 4-5：怪物出生
+	await run_turn_phase("monster_spawn", func() -> void:
+		await trigger("before_monster_spawn", event)
+		if is_match_over():
+			return
+		await trigger("on_monster_spawn", event)
+		if is_match_over():
+			return
+		await monster_spawn_judge()
+	, "", event)
+	if _abort_official_turn():
 		return
-	# 节点 5：怪物出生时
-	await trigger("on_monster_spawn", event)
-	if is_match_over():
+	# 节点 6-7：摸牌
+	await run_turn_phase("draw", func() -> void:
+		await trigger("before_draw_phase", event)
+		if is_match_over():
+			return
+		await draw(1, scheduler)
+	, "", event)
+	if _abort_official_turn():
 		return
-	await monster_spawn_judge()
-	if is_match_over():
+	# 节点 8-11：行动
+	await run_turn_phase("action", func() -> void:
+		if current_block != null and current_block.has_method("has_monster_mark"):
+			if current_block.has_monster_mark():
+				if not await sneak_judge():
+					if is_match_over():
+						return
+					var num: int = current_block.count_monster_mark()
+					current_block.remove_monster_mark(num)
+					await draw_monster(num, scheduler)
+					if is_match_over():
+						return
+		await trigger("before_action_phase", event)
+		if is_match_over():
+			return
+		await wait_player_action()
+		if is_match_over():
+			return
+		await trigger("before_action_phase_end", event)
+		if is_match_over():
+			return
+		await trigger("on_action_phase_end", event)
+	, "", event)
+	if _abort_official_turn():
 		return
-	# 节点 6：摸牌阶段前
-	phase_event = _enter_turn_phase("draw")
-	event["phase_event"] = phase_event
-	await trigger("before_draw_phase", event)
-	if is_match_over():
-		return
-	# 节点 7：摸牌阶段（牌堆空 → 死亡；手牌超限时由 draw 内的 resolve_hand_overflow 弹窗弃牌）
-	await draw(1, scheduler)
-	if is_match_over() or not is_alive():
-		return
-	# 节点 8：行动阶段前（含潜行检定）
-	phase_event = _enter_turn_phase("action")
-	event["phase_event"] = phase_event
-	if current_block != null and current_block.has_method("has_monster_mark"):
-		if current_block.has_monster_mark():
-			if not await sneak_judge():
-				if is_match_over():
-					return
-				var num: int = current_block.count_monster_mark()
-				current_block.remove_monster_mark(num)
-				await draw_monster(num, scheduler)
-				if is_match_over():
-					return
-	await trigger("before_action_phase", event)
-	if is_match_over():
-		return
-	# 节点 9：行动阶段
-	await wait_player_action()
-	if is_match_over():
-		return
-	# 节点 10：行动阶段结束前
-	await trigger("before_action_phase_end", event)
-	if is_match_over():
-		return
-	# 节点 11：行动阶段结束时
-	await trigger("on_action_phase_end", event)
-	if is_match_over():
-		return
-	# 节点 12：求生者饥饿状态结算前
-	phase_event = _enter_turn_phase("hunger")
-	event["phase_event"] = phase_event
-	await trigger("before_hunger_settlement", event)
-	if is_match_over():
-		return
-	var hunger_cancelled: bool = EventSystem.is_cancelled(event)
-	if not hunger_cancelled:
-		# 节点 13：求生者饥饿状态结算时
+	# 节点 12-13：饥饿
+	await run_turn_phase("hunger", func() -> void:
+		await trigger("before_hunger_settlement", event)
+		if is_match_over():
+			return
+		if EventSystem.is_cancelled(event):
+			return
 		await trigger("on_hunger_settlement", event)
 		if is_match_over():
 			return
 		await increase_hunger_evented(1, scheduler)
-		if is_match_over() or not is_alive():
-			return
-	# 节点 14：求生者中毒状态结算前
-	phase_event = _enter_turn_phase("poison")
-	event["phase_event"] = phase_event
-	await trigger("before_poison_settlement", event)
-	if is_match_over():
+	, "", event)
+	if _abort_official_turn():
 		return
-	# 节点 15：求生者中毒状态结算时
-	await trigger("on_poison_settlement", event)
-	if is_match_over():
-		return
-	await poison_evented(scheduler)
-	if is_match_over() or not is_alive():
-		return
-	# 节点 16：面前怪物行动前
-	phase_event = _enter_turn_phase("monster_action")
-	event["phase_event"] = phase_event
-	await trigger("before_zone_monster_act", event)
-	if is_match_over():
-		return
-	# 节点 17：面前怪物行动时
-	await trigger("on_zone_monster_act", event)
-	if is_match_over():
-		return
-	var monsters_copy: Array = monster_zone.duplicate()
-	for monster in monsters_copy:
+	# 节点 14-15：中毒
+	await run_turn_phase("poison", func() -> void:
+		await trigger("before_poison_settlement", event)
 		if is_match_over():
 			return
-		if monster != null and is_instance_valid(monster):
-			await monster.act(scheduler)
-	if is_match_over() or not is_alive():
+		await trigger("on_poison_settlement", event)
+		if is_match_over():
+			return
+		await poison_evented(scheduler)
+	, "", event)
+	if _abort_official_turn():
 		return
-	# 节点 18：回合结束前
-	phase_event = _enter_turn_phase("turn_end")
-	event["phase_event"] = phase_event
-	await trigger("before_turn_end", event)
-	if is_match_over():
+	# 节点 16-17：面前怪物行动
+	await run_turn_phase("monster_action", func() -> void:
+		await trigger("before_zone_monster_act", event)
+		if is_match_over():
+			return
+		await trigger("on_zone_monster_act", event)
+		if is_match_over():
+			return
+		var monsters_copy: Array = monster_zone.duplicate()
+		for monster in monsters_copy:
+			if is_match_over():
+				return
+			if monster != null and is_instance_valid(monster):
+				await monster.act(scheduler)
+	, "", event)
+	if _abort_official_turn():
 		return
-	# 节点 19：回合结束时
-	await trigger("on_turn_end", event)
-	if is_match_over():
+	# 节点 18-19：回合结束
+	await run_turn_phase("turn_end", func() -> void:
+		await trigger("before_turn_end", event)
+		if is_match_over():
+			return
+		await trigger("on_turn_end", event)
+	, "", event)
+	if _abort_official_turn():
 		return
 	# 节点 20：退出玩家回合
-	phase_event = _enter_turn_phase("idle")
-	event["phase_event"] = phase_event
+	await run_turn_phase("idle", func() -> void:
+		pass
+	, "", event)
 	finish_turn_context()
 
 
@@ -1545,13 +1552,68 @@ func get_turn_event() -> Variant:
 	return _turn_event
 
 
-## 创建正式回合上下文并进入初始阶段。第零轮也通过此入口建立独立上下文。
-func begin_turn_context(initial_phase: String, turn_number: int = 0, action_limit: int = -1) -> Variant:
+func _create_turn_context(turn_number: int = 0, action_limit: int = -1) -> void:
 	var limit: int = max_action_count if action_limit < 0 else action_limit
 	_turn_context = TurnContextScript.new(self, turn_number, limit)
 	_turn_event = TurnEventScript.new(self, turn_number)
-	_turn_event.mark_running()
 	_phase_sequence = 0
+
+
+func _resolve_turn_scheduler() -> Variant:
+	if _turn_scheduler != null:
+		return _turn_scheduler
+	if Game != null and is_instance_valid(Game):
+		return Game.event_scheduler
+	return null
+
+
+func _turn_should_abort() -> bool:
+	return is_match_over() or not is_alive()
+
+
+## 死亡/对局结束时取消尚未终态的正式回合，避免被 run_event 标成 completed。
+func _abort_official_turn() -> bool:
+	if not _turn_should_abort():
+		return false
+	if _turn_event != null and not _turn_event.is_finished():
+		_turn_event.mark_cancelled()
+	return true
+
+
+## 在当前 TurnEvent 下以跨度运行一个阶段。executor 期间 get_current_event 为该 PhaseEvent。
+func run_turn_phase(new_phase: String, executor: Callable, reason: String = "", hook_event: Variant = null) -> Variant:
+	var phase_event: Variant = _enter_turn_phase(new_phase, reason)
+	if hook_event != null:
+		hook_event["phase_event"] = phase_event
+	var scheduler: Variant = _resolve_turn_scheduler()
+	if scheduler == null or not executor.is_valid():
+		if executor.is_valid():
+			await executor.call()
+		return phase_event
+	await scheduler.run_event(phase_event, func(_ev: Variant) -> Variant:
+		await executor.call()
+		if _turn_should_abort() and not phase_event.is_finished():
+			phase_event.mark_cancelled()
+		return null
+	)
+	return phase_event
+
+
+func execute_turn_event(scheduler: Variant, body: Callable) -> void:
+	if scheduler == null:
+		if body.is_valid():
+			await body.call(_turn_event)
+		return
+	_turn_scheduler = scheduler
+	await scheduler.run_event(_turn_event, body)
+	_turn_scheduler = null
+
+
+## 创建正式回合上下文并进入初始阶段。第零轮也通过此入口建立独立上下文。
+## 手动/测试路径：TurnEvent 立即 mark_running，阶段为快照。正式 start_turn 走 run_event 跨度。
+func begin_turn_context(initial_phase: String, turn_number: int = 0, action_limit: int = -1) -> Variant:
+	_create_turn_context(turn_number, action_limit)
+	_turn_event.mark_running()
 	return _enter_turn_phase(initial_phase, "context_started")
 
 
@@ -1667,8 +1729,8 @@ func consume_action(n: int) -> void:
 
 
 ## 事件化的行动次数消耗。新操作入口应使用本方法；保留 consume_action 兼容既有 JSON。
-## runtime 为可选的统一事件调度 runtime：调用方（如 GameActions/use_card）持有 runtime 时
-## 应传入以保持嵌套父子关系；省略时内部临时新建一个局部 runtime 承载本次 OperationEvent。
+## runtime 为可选的 EventScheduler：调用方（如 GameActions/use_card）持有时应传入
+## 以保持嵌套父子关系；省略时回落到 Game.event_scheduler。
 func consume_action_evented(n: int, runtime: Variant = null) -> bool:
 	if _pending_card_settlement != null:
 		var card: Card = _pending_card_settlement
@@ -1695,7 +1757,7 @@ func _consume_action_evented_internal(n: int, runtime: Variant = null) -> bool:
 		return false
 	var rt: Variant = runtime if runtime != null else Game.event_scheduler
 	return await rt.dispatch("consume_action", func() -> bool:
-		var event: Dictionary = EventSystem.create_consume_action_event(self, n)
+		var event: GameEvent = EventSystem.create_consume_action_event(self, n)
 		event["operation_context"] = get_operation_context()
 		await trigger("before_consume_action", event)
 		if EventSystem.is_cancelled(event):
@@ -1703,7 +1765,7 @@ func _consume_action_evented_internal(n: int, runtime: Variant = null) -> bool:
 		await trigger("on_consume_action", event)
 		if EventSystem.is_cancelled(event):
 			return false
-		var actual_num: int = maxi(int(event.get("num", n)), 0)
+		var actual_num: int = maxi(int(EventSystem.get_field(event, "num", n)), 0)
 		if get_effective_action_count() < actual_num:
 			return false
 		reduce_action_count(actual_num)
@@ -1884,7 +1946,7 @@ func _unequip(target: Variant, log_unequip: bool = false, event: Variant = null)
 	if entity == null:
 		return
 	var src_card: EquipmentCard = entity.equipment_card
-	var unequip_event: Dictionary = event if event is Dictionary else EventSystem.create_equip_event(self, src_card)
+	var unequip_event: Variant = event if event != null else EventSystem.create_equip_event(self, src_card)
 	# 2. 卡牌离开装备区时
 	equipment_zone.erase(entity)
 	entity.in_equipment_area = false
@@ -2324,7 +2386,7 @@ func use_active_skill(skill: Skill, operation_runtime: Variant = null) -> void:
 		return
 	if not skill.is_usable():
 		return
-	var event: Dictionary = EventSystem.create_active_skill_event(self, [])
+	var event: GameEvent = EventSystem.create_active_skill_event(self, [])
 	event["target"] = null
 	event["cards"] = []
 	event["skill"] = skill
@@ -2416,7 +2478,7 @@ func use_active_skill(skill: Skill, operation_runtime: Variant = null) -> void:
 	# 6. 输出使用日志（有 target 时输出"对目标使用了"，无 target 时输出"使用了"）
 	if Game != null and is_instance_valid(Game):
 		var _skill_name: String = skill.skill_name if skill.skill_name != "" else skill.english_name
-		var _target: Variant = event.get("target", null)
+		var _target: Variant = EventSystem.get_field(event, "target", null)
 		if _target != null:
 			Game.log_message(LogColors.player(player_name) + " 对 " + _format_target_name(_target) + " 使用了 " + LogColors.skill(_skill_name))
 		else:
@@ -2436,7 +2498,7 @@ func use_active_skill(skill: Skill, operation_runtime: Variant = null) -> void:
 
 
 ## 内部方法：用 skill.filter_target 过滤候选目标列表。
-func _filter_targets(skill: Skill, candidates: Array, event: Dictionary) -> Array:
+func _filter_targets(skill: Skill, candidates: Array, event: Variant) -> Array:
 	var filtered: Array = []
 	for candidate in candidates:
 		if skill.filter_target.is_valid():
@@ -2475,7 +2537,7 @@ func get_skill_valid_targets(skill: Variant) -> Array:
 	var filter_target_range: String = raw_filter_target_range
 	if filter_target_range == "":
 		filter_target_range = "short"
-	var event: Dictionary = EventSystem.create_event({
+	var event: GameEvent = EventSystem.create_event({
 		"player": self,
 		"target": null,
 		"card": null,
@@ -2535,7 +2597,7 @@ func can_use_active_skill(skill: Variant) -> bool:
 		return false
 	if not skill.is_usable():
 		return false
-	var event: Dictionary = EventSystem.create_event({
+	var event: GameEvent = EventSystem.create_event({
 		"player": self,
 		"target": null,
 		"targets": [],

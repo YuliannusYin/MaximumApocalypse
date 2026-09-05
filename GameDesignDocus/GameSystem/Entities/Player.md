@@ -4,6 +4,7 @@
 > 职责：玩家实体的状态、区域、行动与玩家专属流程方法。
 > 代码：`src/entities/player.gd`，`class_name Player extends Entity`。
 > trigger 机制与全 trigger 索引见 [EventSystem.md](../Core/EventSystem.md)。
+> 正式回合阶段、有限行动与调度器见 [EventScheduler.md](../Core/EventScheduler.md)。
 
 ---
 
@@ -17,9 +18,9 @@
 | `max_hp` | int | `0` | 生命值上限。恢复不超过此值 |
 | `hunger` | int | `1` | 饥饿值，范围 1-6。每回合 +1。达 6 后翻面角色卡并叠加饥饿伤害标记 |
 | `stealth` | int | `0` | 潜行值（不含角色卡修正）。基础潜行值 - (地块怪物数 + 怪物标记数) |
-| `action_count` | int | `0` | 行动次数。每回合 4 次。移动 / 抓牌 / 出牌 / 拾荒 / 执行卡牌行动各消耗 1 次 |
+| `action_count` | int | `0` | 正式行动次数的**兼容镜像**。权威状态在 `TurnContext.remaining_actions`；有限行动期间读 effective API |
 | `max_action_count` | int | `4` | 行动次数上限。部分技能可临时增加 |
-| `in_phase` | String | `"idle"` | 当前所处回合阶段，技能 filter 用。值见下表 |
+| `in_phase` | String | `"idle"` | 正式阶段的**兼容镜像**。权威状态在 `TurnContext.phase`；有限行动期间 `get_effective_phase()` 返回虚拟 `"action"` |
 | `_phase_end_requested` | String | `""` | 内部信号：`end_phase` 设置后 `wait_player_action` 循环跳出 |
 
 #### `in_phase` 中英映射
@@ -473,9 +474,13 @@
 
 ### 十、回合流程
 
-#### `start_turn()`
+#### `start_turn(runtime = null)`
 
-玩家回合完整流程（21 节点，节点 21 由状态机执行）。
+玩家回合完整流程（21 节点，节点 21 由状态机执行）。经 `scheduler.run_event(TurnEvent)` 贯穿整回合；各阶段为 `run_turn_phase` 的 `PhaseEvent` 跨度。回合内 `draw` / `monster.act` 等挂在当前阶段节点下。`runtime` 省略时用 `Game.event_scheduler`。
+
+死亡或对局结束提前返回时，当前阶段与 `TurnEvent` 为 `CANCELLED`，`TurnContext` 停在当前阶段。
+
+进入 `action` 时仍发射旧 `EventBus.phase_changed(self, "", "action")`。技能与 UI 判断「能否行动」应使用 `get_effective_phase()` / `get_effective_action_count()`，以便有限行动覆盖正式镜像。
 
 | 节点 | 操作 / trigger | in_phase |
 |------|---------------|----------|
@@ -530,8 +535,10 @@
 
 | 方法 | 说明 |
 |------|------|
-| `get_action_count() -> int` / `set_action_count(n)` | 读取 / 设置行动次数 |
-| `reduce_action_count(n)` | 扣减行动次数（不低于 0） |
+| `get_action_count() -> int` / `set_action_count(n)` | 读取 / 设置行动次数（转调 effective / TurnContext） |
+| `get_effective_phase() -> String` | 有限行动中返回 `"action"`，否则正式阶段 |
+| `get_effective_action_count() -> int` | 有限上下文优先，否则 TurnContext / 镜像 |
+| `reduce_action_count(n)` | 扣减有效行动次数（不低于 0） |
 | `consume_action(n)` | 扣除 n 点行动次数（content 代码字符串统一调用名，等价 `reduce_action_count`），输出"消耗了 X 点行动点数"日志 |
 | `add_action(n)` | 增加 n 点行动次数（不低于 0），输出"增加了 X 点行动点数"日志（野地夹克使用） |
 

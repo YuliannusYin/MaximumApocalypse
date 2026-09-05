@@ -131,7 +131,7 @@ func change_engaged_target(target: Player) -> void:
 
 ## 事件化的纠缠对象变更；保留旧方法兼容既有数据。
 func change_engaged_target_evented(target: Player) -> bool:
-	var event: Dictionary = EventSystem.create_engaged_target_event(self, target)
+	var event: GameEvent = EventSystem.create_engaged_target_event(self, target)
 	await trigger("before_change_engaged_target", event)
 	if EventSystem.is_cancelled(event):
 		return false
@@ -157,7 +157,7 @@ func stun(source: Variant, expire_trigger: String) -> void:
 func stun_evented(source: Variant, expire_trigger: String, runtime: Variant = null) -> bool:
 	var scheduler: Variant = runtime if runtime != null else Game.event_scheduler
 	return await scheduler.dispatch("stun", func() -> bool:
-		var event: Dictionary = EventSystem.create_stun_event(self, source, expire_trigger)
+		var event: GameEvent = EventSystem.create_stun_event(self, source, expire_trigger)
 		await trigger("before_stun", event)
 		if EventSystem.is_cancelled(event):
 			return false
@@ -182,7 +182,7 @@ func act(runtime: Variant = null) -> void:
 
 	var scheduler: Variant = runtime if runtime != null else Game.event_scheduler
 	await scheduler.dispatch("monster_act", func() -> void:
-		var event: Dictionary = EventSystem.create_monster_act_event(self)
+		var event: GameEvent = EventSystem.create_monster_act_event(self)
 
 		# 1. before_monster_act
 		await trigger("before_monster_act", event)
@@ -267,7 +267,7 @@ func death(source: Entity, runtime: Variant = null) -> void:
 				Game.log_message(LogColors.monster(monster_name) + " 被 " + LogColors.player(source.player_name) + " 击杀")
 			else:
 				Game.log_message(LogColors.monster(monster_name) + " 被击杀")
-		var event: Dictionary = EventSystem.create_monster_death_event(self, source)
+		var event: GameEvent = EventSystem.create_monster_death_event(self, source)
 
 		# 1. before_monster_death
 		await trigger("before_monster_death", event)

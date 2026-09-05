@@ -14,8 +14,15 @@
 | 设计文档类名 | GDScript 类名 | 文件 | 说明 |
 | --- | --- | --- | --- |
 | 实体 | `Entity` | `src/core/entity.gd` | 实体基类（技能挂载、伤害流程、触发） |
-| 事件总线 | `EventBus` | `src/core/event_bus.gd` | 全局事件总线（autoload） |
-| 事件系统 | `EventSystem` | `src/core/event_system.gd` | 事件工厂与取消机制（静态工具类） |
+| 事件总线 | `EventBus` | `src/core/event_bus.gd` | 全局事件总线（autoload），结算后只读通知 |
+| 事件系统 | `EventSystem` | `src/core/event_system.gd` | JSON/trigger 用 Dictionary 事件工厂（静态工具类） |
+| 统一事件调度器 | `EventScheduler` | `src/core/event_scheduler.gd` | 每局唯一调度器 |
+| 统一事件节点 | `GameEvent` | `src/core/game_event.gd` | 事件树生命周期节点 |
+| 输入请求 | `InputRequest` | `src/core/input_request.gd` | 外部输入等待节点 |
+| 回合事件 | `TurnEvent` | `src/core/turn_event.gd` | 正式回合观察节点 |
+| 阶段事件 | `PhaseEvent` | `src/core/phase_event.gd` | 正式阶段观察节点 |
+| 回合上下文 | `TurnContext` | `src/core/turn_context.gd` | 正式回合阶段与行动点 |
+| 游戏操作门面 | `GameActions` | `src/core/game_actions.gd` | JSON 技能嵌套操作入口 |
 | 游戏状态机 | `GameStateMachine` | `src/core/game_state_machine.gd` | 游戏状态机与回合队列 |
 | 玩家统计 | `PlayerStats` | `src/core/player_stats.gd` | 单玩家统计数据 |
 | 统计跟踪器 | `StatsTracker` | `src/core/stats_tracker.gd` | 全局统计跟踪器 |
@@ -258,13 +265,17 @@ trigger 名在 JSON 数据中用英文 snake_case，技能 `trigger` 字段可�
 
 ## 四、event schema 字段映射
 
-`event` 为 Dictionary 类型，由 `EventSystem.create_event` 创建并注入 `trigger_name` / `cancelled` / `cancel` 三个基础字段，各流程工厂方法在此基础上追加专属字段。所有键名均为 snake_case：
+`event` 为 `GameEvent`，由 `EventSystem.create_event` 创建。JSON 仍按 Dictionary 字段名读写。领域操作入栈见 [EventScheduler.md](../GameSystem/Core/EventScheduler.md)。所有键名均为 snake_case：
 
 | 中文 | event key | 类型 | 说明 |
 | --- | --- | --- | --- |
 | 当前触发名 | `trigger_name` | String | 由 `EventSystem.set_trigger_name` 写入 |
 | 是否已取消 | `cancelled` | bool | |
-| 取消函数 | `cancel` | Callable | 调用后置 `cancelled = true` |
+| 取消函数 | `cancel` | Callable | `event["cancel"].call()` 或 `EventSystem.cancel(event)` |
+| 事件节点 id | `id` | int | `GameEvent.id` |
+| 树根 id | `root` | int | |
+| 子事件 | `children` | Array | 子 `GameEvent` 列表 |
+| 操作门面 | `actions` | GameActions | content 执行期间注入 |
 | 受伤 / 死亡实体 | `target` | Entity | |
 | 伤害来源 | `source` | Entity / null | `null` 表示无来源（饥饿 / 中毒） |
 | 伤害 / 回复 / 抓牌数 | `num` | int | |
@@ -300,7 +311,7 @@ trigger 名在 JSON 数据中用英文 snake_case，技能 `trigger` 字段可�
 | `get_all_skills()` | 获取所有技能 |
 | `add_skill(skill)` | 挂载技能 |
 | `remove_skill(skill)` | 移除技能 |
-| `damage(num, source, type, card)` | 伤害流程（8 节点） |
+| `damage(num, source, type, card, runtime = null)` | 伤害流程（8 节点）；`runtime` 为 EventScheduler |
 | `get_hp()` / `get_max_hp()` | 生命值查询 |
 | `reduce_hp(n)` / `add_hp(n)` | 直接扣 / 加血（不触发钩子） |
 | `is_player()` / `is_monster()` | 类型判断 |
@@ -471,7 +482,7 @@ trigger 名在 JSON 数据中用英文 snake_case，技能 `trigger` 字段可�
 
 ## 七、EventSystem 工厂方法映射
 
-`EventSystem`（静态工具类）的全部 `create_*_event` 工厂方法。每个 event 均由 `create_event` 注入 `trigger_name` / `cancelled` / `cancel` 基础字段后追加流程专属字段：
+`EventSystem`（静态工具类）的全部 `create_*_event` 工厂方法。每个工厂返回 `GameEvent`，并写入 `trigger_name` / `cancelled` / `cancel` 与流程专属字段：
 
 | 工厂方法 | 签名 | 追加字段 |
 | --- | --- | --- |

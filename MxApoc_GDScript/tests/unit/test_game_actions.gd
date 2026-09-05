@@ -48,7 +48,7 @@ func test_evented_consume_action_can_be_cancelled() -> void:
 	var blocker := Skill.new()
 	blocker.trigger = "before_consume_action"
 	blocker.forced = true
-	blocker.content = func(_player, _target, event: Dictionary, _game) -> void:
+	blocker.content = func(_player, _target, event, _game) -> void:
 		EventSystem.cancel(event)
 	player.add_skill(blocker)
 

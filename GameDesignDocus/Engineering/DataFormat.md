@@ -418,7 +418,7 @@
 | `defer_action_cost` | Bool | 是否延迟消耗行动次数 |
 | `passive` | Bool | 是否为被动技能（可选；怪物技能使用） |
 
-> 代码字段（`filter` / `content` / `filter_target` / `filter_card` / `confirm_prompt`）均为 GDScript 代码字符串，由 `CodeExecutor` 在运行时懒编译为 `Callable`，签名统一为 `(player, target, event, game)`。编译机制见第五节与 [CodeExecutor.md](CodeExecutor.md)。
+> 代码字段（`filter` / `content` / `filter_target` / `filter_card` / `confirm_prompt`）均为 GDScript 代码字符串，由 `CodeExecutor` 在运行时懒编译为 `Callable`，签名统一为 `(player, target, event, game)`。`content` 额外注入 `actions`（`GameActions`），调用会自动 await。编译机制见第五节与 [CodeExecutor.md](CodeExecutor.md)；调度见 [EventScheduler.md](../GameSystem/Core/EventScheduler.md)。
 
 ---
 

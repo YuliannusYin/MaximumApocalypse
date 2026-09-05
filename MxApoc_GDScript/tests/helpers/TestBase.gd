@@ -29,6 +29,8 @@ func _clear_game() -> void:
 	Game.log_list = []
 	if Game.state_machine != null and is_instance_valid(Game.state_machine):
 		Game.state_machine.init()
+	if Game.event_scheduler != null:
+		Game.event_scheduler.reset()
 
 
 func before_each() -> void:

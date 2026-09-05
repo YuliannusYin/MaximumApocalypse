@@ -1,9 +1,10 @@
 # EventBus 事件总线
 
 > 以 `src/core/event_bus.gd` 为准。
-> 职责：全局事件总线，作为核心逻辑层与 UI 表现层之间的解耦通道。
+> 职责：全局事件总线，作为核心逻辑层与 UI 表现层之间的**只读**解耦通道。
 > 注册为 autoload，全局名 `EventBus`，无 `class_name`，继承 `Node`。
 > 核心逻辑层通过 `EventBus.<signal>.emit(...)` 通知；UI 层通过 `EventBus.<signal>.connect(...)` 订阅。
+> **不是规则调度器。** 对局操作入栈与输入等待见 [EventScheduler.md](../Core/EventScheduler.md)；技能 Dictionary 钩子见 [EventSystem.md](../Core/EventSystem.md)。
 
 ---
 
@@ -18,7 +19,7 @@
 
 ## 信号总览
 
-> 共 35 个 signal，按业务域分组。signal 名作为代码引用保留原样。
+> 信号以 `src/core/event_bus.gd` 声明为准，按业务域分组。signal 名作为代码引用保留原样。
 
 ### 玩家类
 
@@ -83,7 +84,8 @@
 
 | signal 名 | 参数 | 说明 |
 |-----------|------|------|
-| `phase_changed` | `(player, old_phase: String, new_phase: String)` | 玩家阶段变化 |
+| `phase_changed` | `(player, old_phase: String, new_phase: String)` | 兼容旧 UI/教程：仅在正式进入 `action` 时发射 `(player, "", "action")` |
+| `phase_event` | `(event: PhaseEvent)` | 全部正式阶段切换；`Player._enter_turn_phase` 发射 |
 | `action_consumed` | `(player, num: int)` | 玩家消耗行动次数。**审计发现**：声明但代码中无 `emit` 点（UI 已订阅但无发射方） |
 | `sneak_judge_triggered` | `(player, block)` | 玩家执行潜行检定时 |
 
@@ -128,4 +130,5 @@
 |------|------|
 | [Game](../Game/Game.md) | `Game.log_message` 通过 `EventBus.publish_log` 推送日志 |
 | [StatsTracker](./StatsTracker.md) | `_init` 时订阅 12 个统计相关 signal 聚合本局统计 |
-| [EventSystem](../Core/EventSystem.md) | 核心逻辑层封装事件并触发 emit；EventBus 提供信号通道 |
+| [EventSystem](../Core/EventSystem.md) | 核心逻辑层在 Dictionary 钩子结算后 emit；EventBus 提供信号通道 |
+| [EventScheduler](../Core/EventScheduler.md) | 调度器推进规则与输入；EventBus 只观测已发生的结果 |

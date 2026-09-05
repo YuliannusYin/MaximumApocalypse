@@ -18,7 +18,7 @@ GameStateMachine 负责：
 3. **第零轮重调阶段**：游戏开局后、第一玩家回合前提供一次性重调阶段
 4. **胜利/失败检查**：回合结束时检查胜利条件；失败条件由各流程即时触发
 
-> **设计原则**：Game 类持有状态机实例，状态相关字段（游戏阶段/游戏结果/当前回合玩家）由状态机管理，Game 方法委托给状态机。`Player.start_turn()` 由状态机调用。
+> **设计原则**：Game 类持有状态机实例，状态相关字段（游戏阶段/游戏结果/当前回合玩家）由状态机管理，Game 方法委托给状态机。`Player.start_turn()` 由状态机调用，并在 `TurnEvent` 上 `run_event`。开局/结束走 [EventScheduler](EventScheduler.md) 的 `dispatch`；玩家顺序走调度器**独立回合队列**（与领域操作 `enqueue`/`flush` 隔离）。跳过标记仍由状态机持有。
 
 ---
 
@@ -80,15 +80,16 @@ WAITING ──start_game()──> PLAYING ──game_over(result)──> GAME_OV
 |------|------|------|------|
 | `current_state` | int (GameState) | `GameState.WAITING` | 当前游戏状态 |
 | `game_result` | int (GameResult) | `-1` | 游戏结果。`-1` 表示未结束（NULL 哨兵） |
-| `current_player` | Variant | `null` | 当前回合玩家。`WAITING` / `GAME_OVER` 状态下为 `null` |
+| `current_player` | Variant | `null` | **真实回合玩家**。跨玩家有限行动时 UI 交互看 `InputRequest.owner`，不改本字段 |
 | `last_player` | Variant | `null` | 游戏结束时保存的最后回合玩家，供结算场景高亮 |
-| `turn_queue` | Array | `[]` | 待执行的回合队列。队首为下一个行动玩家。包含标准回合与额外回合 |
+| `turn_queue` | Array（门面） | `[]` | 读取/整体替换 [EventScheduler](EventScheduler.md) 的待执行回合。队首为下一个行动玩家。包含标准回合与额外回合 |
 | `skip_turn_marks` | Dictionary | `{}` | 跳过标记。键 = 玩家，值 = `true`。跳过是一次性的，执行后移除 |
 | `turn_number` | int | `0` | 当前轮数。所有玩家各执行一次为一轮。从 0 开始，首次填充队列时 +1 |
 
 > **回合队列说明**：
-> - 标准情况下，回合队列按座位顺序填充所有存活玩家
-> - 额外回合通过 `queue_extra_turn(player)` 插入队首（当前玩家之后立即执行）
+> - 实际队列在 `Game.event_scheduler`，不走领域操作 `_operations`
+> - 标准情况下，按座位顺序把存活玩家 `enqueue_turn` 到队尾
+> - 额外回合通过 `queue_extra_turn(player)` → `enqueue_turn(player, true)` 插入队首（当前玩家之后立即执行）
 > - 跳过回合通过 `skip_next_turn(player)` 加入跳过标记，轮到时跳过并移除标记
 
 ---
@@ -104,7 +105,7 @@ WAITING ──start_game()──> PLAYING ──game_over(result)──> GAME_OV
 | `init() -> void` | 无 |
 
 - 在游戏初始化完成后、`start_game()` 前调用
-- 重置所有字段：`current_state = WAITING`、`game_result = -1`、`current_player = null`、清空 `turn_queue` 与 `skip_turn_marks`、`turn_number = 0`
+- 重置所有字段：`current_state = WAITING`、`game_result = -1`、`current_player = null`、清空调度器回合队列与 `skip_turn_marks`、`turn_number = 0`
 
 ---
 
@@ -126,7 +127,7 @@ WAITING ──start_game()──> PLAYING ──game_over(result)──> GAME_OV
 
 ### 5.3 start_game()
 
-游戏开局流程：`WAITING → PLAYING` 转换 + 抓初始手牌 + 抓初始怪物卡 + 触发「游戏开始时」trigger + 第零轮重调阶段 + 进入第一玩家回合。
+游戏开局流程：`WAITING → PLAYING` 转换 + 抓初始手牌 + 抓初始怪物卡 + 触发「游戏开始时」trigger + 第零轮重调阶段 + 进入第一玩家回合。整段包在 `scheduler.dispatch("game_start", ...)` 内（`runtime` 缺省为 `Game.event_scheduler`）。
 
 | 签名 | 返回 |
 |------|------|
@@ -156,13 +157,13 @@ WAITING ──start_game()──> PLAYING ──game_over(result)──> GAME_OV
 - **流程**：
   1. 发射 `EventBus.log_message` 信号输出 "==== 第0轮（重调阶段）===="
   2. 对每个存活玩家：
-     - 设置 `current_player = player`、`player.in_phase = "round_zero"`
+     - 设置 `current_player = player`；`_create_turn_context` + `execute_turn_event`，阶段跨度为 `round_zero` → `idle`
      - 发射 `EventBus.turn_started` 与 `EventBus.player_turn_started` 信号
      - **循环等待玩家重调决策**（支持多次重调，直到玩家选择取消或超时）：
        - 调用 `player.wait_redraw_decision()` 等待玩家决策
        - 玩家选择不重调 → break 退出循环
        - 玩家选择重调：将全部手牌洗回 `player.game_deck` → 清空 `player.hand` → `player.game_deck.shuffle()` → `player.draw(count)` 抓等量牌 → 输出重调日志
-     - 结束第零轮回合：`player.in_phase = "idle"`，发射 `EventBus.turn_ended` 信号
+     - 结束第零轮回合：`finish_turn_context()`，发射 `EventBus.turn_ended` 信号
   3. 重置 `current_player = null`
 
 **与原伪代码差异**：原伪代码中重调在 `start_game()` 内一次性完成（每玩家仅一次），实际代码独立为 `_round_zero()` 方法，支持多次重调。
@@ -171,7 +172,7 @@ WAITING ──start_game()──> PLAYING ──game_over(result)──> GAME_OV
 
 ### 5.5 game_over(result)
 
-游戏结束流程：直接赋值 `GAME_OVER` + 设置结果 + 触发「游戏结束时」trigger。
+游戏结束流程：直接赋值 `GAME_OVER` + 设置结果 + 触发「游戏结束时」trigger。整段包在 `scheduler.dispatch("game_over", ...)` 内。**必须 await**，避免与当前操作栈并发。
 
 | 签名 | 参数 | 返回 |
 |------|------|------|
@@ -183,7 +184,7 @@ WAITING ──start_game()──> PLAYING ──game_over(result)──> GAME_OV
 2. **直接赋值** `current_state = GameState.GAME_OVER`（绕过 `transition_to`，允许从 `WAITING` 强制进入）
 3. 设置 `game_result = result`
 4. 停止 `Game.stats_tracker` 计时器
-5. 保存 `last_player = current_player`，置 `current_player = null`，清空 `turn_queue`
+5. 保存 `last_player = current_player`，置 `current_player = null`，清空调度器回合队列
 6. 输出日志：胜利输出"求生者成功逃离启示录的废土！"；失败输出"所有求生者死亡，游戏失败。"
 7. 触发「游戏结束时」trigger（`on_game_over`）：用 `EventSystem.create_event({"player": player, "result": result})` 构建 event，对所有 player 按座位顺序触发
 8. 设置 `Game.game_over_called = true`、`Game.game_result = "win" if result == WIN else "lose"`
@@ -199,7 +200,7 @@ WAITING ──start_game()──> PLAYING ──game_over(result)──> GAME_OV
 
 ### 5.6 next_turn()
 
-切换到下一个玩家并执行其回合。
+切换到下一个玩家并执行其回合。玩家顺序由调度器回合队列决定；每个 `start_turn` 在调度器上运行独立 `TurnEvent`。不能把整局一次性 `flush`：一轮结束后才填充下一轮，且每回合后检查胜利。
 
 | 签名 | 返回 |
 |------|------|
@@ -221,7 +222,7 @@ WAITING ──start_game()──> PLAYING ──game_over(result)──> GAME_OV
 
 ### 5.7 _get_next_player()（内部方法）
 
-从回合队列中取出下一个玩家，处理跳过标记与死亡玩家。
+从调度器回合队列中取出下一个玩家，处理跳过标记与死亡玩家。
 
 | 签名 | 返回 |
 |------|------|
@@ -229,9 +230,9 @@ WAITING ──start_game()──> PLAYING ──game_over(result)──> GAME_OV
 
 **流程**：
 
-1. 若 `turn_queue` 为空，调用 `_fill_new_turn_queue()` 填充新一轮
+1. 若调度器回合队列为空，调用 `_fill_new_turn_queue()` 填充新一轮
 2. 进入 `skipped_any` 外层循环：
-   - 内层循环从队列 `pop_front` 取玩家：
+   - 内层循环 `pop_turn` 取玩家：
      - 玩家已死亡或失效 → 标记 `skipped_any = true`，continue
      - 玩家在 `skip_turn_marks` 中 → 移除标记、输出"回合被跳过"日志、标记 `skipped_any = true`，continue
      - 否则返回该玩家
@@ -242,7 +243,7 @@ WAITING ──start_game()──> PLAYING ──game_over(result)──> GAME_OV
 
 ### 5.8 _fill_new_turn_queue()（内部方法）
 
-按座位顺序将所有存活玩家填入回合队列，开始新一轮。
+按座位顺序将所有存活玩家填入调度器回合队列，开始新一轮。
 
 | 签名 | 返回 |
 |------|------|
@@ -250,20 +251,20 @@ WAITING ──start_game()──> PLAYING ──game_over(result)──> GAME_OV
 
 - `turn_number += 1`
 - 输出 "==== 第 N 轮 ====" 日志
-- 遍历 `Game.players`，将存活玩家追加到 `turn_queue` 末尾
+- 遍历 `Game.players`，将存活玩家 `enqueue_turn` 到队尾
 
 ---
 
 ### 5.9 queue_extra_turn(player)
 
-插入额外回合。将指定玩家插入回合队列队首（当前玩家之后立即执行）。
+插入额外回合。将指定玩家插入调度器回合队列队首（当前玩家之后立即执行）。
 
 | 签名 | 参数 | 返回 |
 |------|------|------|
 | `queue_extra_turn(player: Variant) -> void` | `player` 获得额外回合的玩家 | 无 |
 
 - 前置守卫：`current_state != PLAYING` 时 return；玩家为 `null` / 失效 / 已死亡时 return
-- 调用 `turn_queue.push_front(player)` 插入队首
+- 调用 `enqueue_turn(player, true)` 插入队首
 - 输出日志：`"<玩家名> 获得了一个额外回合。"`
 
 ---
@@ -370,8 +371,9 @@ WAITING ──start_game()──> PLAYING ──game_over(result)──> GAME_OV
 | 关系 | 说明 |
 |------|------|
 | [Game](../Game/Game.md) | Game 持有 `state_machine: GameStateMachine` 字段；Game 的 `start_game()` / `game_over()` / `get_current_player()` / `next_turn()` 委托给状态机 |
-| [Player](../Entities/Player.md) | 状态机调用 `player.start_turn()` 执行回合流程；`Player.in_phase` 在回合流程中设置 |
-| [EventSystem](EventSystem.md) | 状态机触发「游戏开始时」/「游戏结束时」trigger，用 `EventSystem.create_event()` 构建 event |
+| [Player](../Entities/Player.md) | 状态机调用 `player.start_turn()` 执行回合流程；正式阶段由 `TurnContext` 管理，`in_phase` 为镜像 |
+| [EventScheduler](EventScheduler.md) | `start_game` / `game_over` 走 `dispatch`；正式/额外回合排队在独立回合队列；输入与领域操作共用同一 `Game.event_scheduler` |
+| [EventSystem](EventSystem.md) | 状态机触发「游戏开始时」/「游戏结束时」trigger，用 `EventSystem.create_event()` 构建 Dictionary |
 | [EventBus](../System/EventBus.md) | 状态机发射 `game_started` / `game_over` / `turn_started` / `turn_ended` / `player_turn_started` / `log_message` 等信号 |
 | [MissionConfig](../Game/MissionConfig.md) | `check_win_condition` 委托给 `mission_config.check_win_condition`；`van_fuel_required` 字段决定是否检查面包车胜利 |
 | [02_开局与流程.md](../../GameInstructions/02_开局与流程.md) | 开局与流程的规则定义 |

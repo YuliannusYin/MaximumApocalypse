@@ -5,7 +5,7 @@ extends RefCounted
 ## 一半职责是 InputRequest 的 LIFO 请求栈（抢占式插入结算，供 GUIPlayerInput 等
 ## 输入实现复用）；另一半职责是 GameEvent 的运行栈（run/current_event/current_owner，
 ## 供领域事件按父子关系顺序执行并在异常/取消时正确收束、恢复外层事件）。
-## 详见 .cursor/plan/plan.md 批次二。
+## 详见 GameDesignDocus/GameSystem/Core/EventScheduler.md。
 
 const InputRequestScript = preload("res://src/core/input_request.gd")
 const GameEventScript = preload("res://src/core/game_event.gd")
@@ -16,6 +16,7 @@ var _request_stack: Array = []  # Array[InputRequest]，被抢占的外层请求
 var _active_request: Variant = null  # InputRequest，当前活动请求；null = 无活动请求
 var _operations: Array[Dictionary] = []
 var _is_flushing: bool = false
+var _turn_queue: Array = []  # Array[Player]，队首为下一个正式/额外回合；与 _operations 隔离
 
 # === GameEvent 运行栈 ===
 
@@ -30,6 +31,7 @@ func enqueue_input(owner: Variant, emit_fn: Callable, preemptible: bool = false)
 		_request_stack.append(_active_request)
 		_active_request = null
 	_request_stack.append(request)
+	_attach_event(request)
 	_dispatch_next_if_idle()
 	return request
 
@@ -116,7 +118,7 @@ func run_event(event: Variant, executor: Callable) -> Variant:
 		return null
 	_attach_event(event)
 	if event.is_finished():
-		return event.result
+		return event.completion
 	if event.status == GameEventScript.Status.PENDING:
 		event.mark_running()
 	if not executor.is_valid():
@@ -238,7 +240,7 @@ func _run_operation(operation: Dictionary) -> Variant:
 	):
 		operation["status"] = "cancelled"
 		if event != null:
-			event.cancel()
+			event.mark_cancelled()
 		return null
 	if event == null or not (event is GameEventScript):
 		operation["status"] = "failed"
@@ -299,6 +301,44 @@ func has_pending_operations() -> bool:
 	return not _operations.is_empty()
 
 
+# === 回合队列 ===
+# 与领域操作 _operations 隔离：Skill / GameActions.flush() 不得执行或丢弃未开始的玩家回合。
+# 不把整局一次性 flush 完——一轮结束后才填充下一轮，且每回合后要检查胜利。
+
+func enqueue_turn(player: Variant, extra: bool = false) -> void:
+	if player == null:
+		return
+	if extra:
+		_turn_queue.push_front(player)
+	else:
+		_turn_queue.append(player)
+
+
+func pop_turn() -> Variant:
+	if _turn_queue.is_empty():
+		return null
+	return _turn_queue.pop_front()
+
+
+func has_pending_turns() -> bool:
+	return not _turn_queue.is_empty()
+
+
+func get_pending_turn_players() -> Array:
+	return _turn_queue.duplicate()
+
+
+func set_pending_turn_players(players: Array) -> void:
+	_turn_queue.clear()
+	for player in players:
+		if player != null:
+			_turn_queue.append(player)
+
+
+func clear_turn_queue() -> void:
+	_turn_queue.clear()
+
+
 func reset() -> void:
 	if _active_request != null:
 		_active_request.cancel_request("调度器已重置")
@@ -309,14 +349,15 @@ func reset() -> void:
 	_active_request = null
 	for event in _event_stack:
 		if event != null:
-			event.cancel()
+			event.mark_cancelled()
 	for operation in _operation_stack:
 		if operation is Dictionary:
 			operation["status"] = "cancelled"
 			var ev: Variant = operation.get("game_event", null)
 			if ev != null:
-				ev.cancel()
+				ev.mark_cancelled()
 	_operations.clear()
+	_turn_queue.clear()
 	_event_stack.clear()
 	_operation_stack.clear()
 	_is_flushing = false

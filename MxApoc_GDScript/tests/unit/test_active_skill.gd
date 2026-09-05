@@ -206,7 +206,7 @@ func test_use_active_skill_select_card() -> void:
 	s.target_type = ""
 	s.select_card = 2
 	s.position = "hand"
-	s.content = func(_pl, _t, ev: Dictionary, _g) -> void:
+	s.content = func(_pl, _t, ev, _g) -> void:
 		captured.append(ev["cards"])
 	await p.use_active_skill(s)
 	assert_eq(captured.size(), 1, "content 应执行一次")

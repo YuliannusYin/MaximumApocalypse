@@ -33,7 +33,7 @@ func _make_non_ammo_equipment(name: String = "test_armor") -> EquipmentCard:
 func _make_skill_with_trigger(trigger_name: String, called: Array) -> Skill:
 	var s: Skill = Skill.new()
 	s.trigger = trigger_name
-	s.content = func(_p, _t, _ev: Dictionary, _g) -> void:
+	s.content = func(_p, _t, _ev, _g) -> void:
 		called.append(trigger_name)
 	return s
 
@@ -41,7 +41,7 @@ func _make_skill_with_trigger(trigger_name: String, called: Array) -> Skill:
 func _make_cancel_skill(trigger_name: String) -> Skill:
 	var s: Skill = Skill.new()
 	s.trigger = trigger_name
-	s.content = func(_p, _t, ev: Dictionary, _g) -> void:
+	s.content = func(_p, _t, ev, _g) -> void:
 		EventSystem.cancel(ev)
 	return s
 
@@ -151,7 +151,7 @@ func test_on_deal_recover_modifies_num_from_source() -> void:
 	var bonus := Skill.new()
 	bonus.trigger = "on_deal_recover"
 	bonus.forced = true
-	bonus.content = func(_p, _t, ev: Dictionary, _g) -> void:
+	bonus.content = func(_p, _t, ev, _g) -> void:
 		ev["num"] += 1
 	healer.add_skill(bonus)
 	await target.recover(1, healer)
@@ -162,7 +162,7 @@ func test_on_deal_recover_skipped_when_source_null() -> void:
 	var p: Player = _make_combat_player(5, 10)
 	var bonus := Skill.new()
 	bonus.trigger = "on_deal_recover"
-	bonus.content = func(_p, _t, ev: Dictionary, _g) -> void:
+	bonus.content = func(_p, _t, ev, _g) -> void:
 		ev["num"] += 1
 	p.add_skill(bonus)
 	await p.recover(1)
@@ -174,7 +174,7 @@ func test_on_deal_recover_does_not_fire_on_heal_target() -> void:
 	var target: Player = _make_combat_player(5, 10)
 	var bonus := Skill.new()
 	bonus.trigger = "on_deal_recover"
-	bonus.content = func(_p, _t, ev: Dictionary, _g) -> void:
+	bonus.content = func(_p, _t, ev, _g) -> void:
 		ev["num"] += 1
 	target.add_skill(bonus)
 	await target.recover(1, healer)
@@ -200,7 +200,7 @@ func test_game_actions_recover_defaults_source_to_owner() -> void:
 	Game.players.append(target)
 	var bonus := Skill.new()
 	bonus.trigger = "on_deal_recover"
-	bonus.content = func(_p, _t, ev: Dictionary, _g) -> void:
+	bonus.content = func(_p, _t, ev, _g) -> void:
 		ev["num"] += 1
 	healer.add_skill(bonus)
 	var actions := GameActions.new(healer, Game)
@@ -214,7 +214,7 @@ func test_recover_block_source_skips_player_deal_recover() -> void:
 	block.block_name = "医院"
 	var bonus := Skill.new()
 	bonus.trigger = "on_deal_recover"
-	bonus.content = func(_p, _t, ev: Dictionary, _g) -> void:
+	bonus.content = func(_p, _t, ev, _g) -> void:
 		ev["num"] += 1
 	p.add_skill(bonus)
 	await p.recover(1, block)
@@ -609,7 +609,7 @@ func test_move_to_with_monster_mark_sneak_fail_draws_monster() -> void:
 	# 强制潜行检定失败：添加 on_sneak_judge 技能修改 result.success = false
 	var s: Skill = Skill.new()
 	s.trigger = "on_sneak_judge"
-	s.content = func(_p, _t, ev: Dictionary, _g) -> void:
+	s.content = func(_p, _t, ev, _g) -> void:
 		ev["result"] = {"value": 99, "success": false}
 	p.add_skill(s)
 	var src: MapBlock = _make_block("src", 0, 0)
@@ -711,7 +711,7 @@ func test_monster_spawn_judge_default_confirm_regression() -> void:
 	# 强制投骰结果为 7
 	var s: Skill = Skill.new()
 	s.trigger = "on_spawn_judge"
-	s.content = func(_p, _t, ev: Dictionary, _g) -> void:
+	s.content = func(_p, _t, ev, _g) -> void:
 		ev["result"] = {"value": 7, "success": true}
 	p.add_skill(s)
 	# 不注入确认队列：CLI 空队列默认确定，确认门不应阻断检定流程
@@ -739,7 +739,7 @@ func test_sneak_judge_skip_judge_flag() -> void:
 	p.current_block = block
 	var s: Skill = Skill.new()
 	s.trigger = "before_sneak_judge"
-	s.content = func(_p, _t, ev: Dictionary, _g) -> void:
+	s.content = func(_p, _t, ev, _g) -> void:
 		ev["skip_judge"] = true
 		ev["result"] = {"value": 0, "success": true}
 	p.add_skill(s)
@@ -783,7 +783,7 @@ func test_monster_spawn_judge_match_adds_mark() -> void:
 	# 强制投骰结果为 7
 	var s: Skill = Skill.new()
 	s.trigger = "on_spawn_judge"
-	s.content = func(_p, _t, ev: Dictionary, _g) -> void:
+	s.content = func(_p, _t, ev, _g) -> void:
 		ev["result"] = {"value": 7, "success": true}
 	p.add_skill(s)
 	p.monster_spawn_judge()
@@ -917,7 +917,7 @@ func test_use_card_action_routes_to_discard() -> void:
 	var called: Array = []
 	var s: Skill = Skill.new()
 	s.active = "action"
-	s.content = func(_pl, _t, _ev: Dictionary, _g) -> void:
+	s.content = func(_pl, _t, _ev, _g) -> void:
 		called.append(true)
 	c.add_skill(s)
 	p.hand.append(c)
@@ -1137,7 +1137,7 @@ func test_start_turn_phases_progression() -> void:
 	EventBus.phase_event.connect(phase_callback)
 	var s: Skill = Skill.new()
 	s.trigger = "on_turn_start、before_monster_spawn、before_draw_phase、before_action_phase、before_hunger_settlement、before_poison_settlement、before_zone_monster_act、before_turn_end"
-	s.content = func(_p, _t, _ev: Dictionary, _g) -> void:
+	s.content = func(_p, _t, _ev, _g) -> void:
 		phases.append(p.in_phase)
 	p.add_skill(s)
 	p.game_deck.add(_make_card("c1"))
@@ -1184,6 +1184,18 @@ func test_start_turn_builds_unified_turn_event_tree() -> void:
 	)
 	for phase in turn.children:
 		assert_eq(phase.parent, turn, "每个 PhaseEvent 都应挂接回同一个 TurnEvent")
+		assert_eq(phase.status, GameEventScript.Status.COMPLETED, "正常结束的阶段应为 completed")
+	var draw_phase: Variant = null
+	for phase in turn.children:
+		if phase.new_phase == "draw":
+			draw_phase = phase
+			break
+	assert_not_null(draw_phase, "应有 draw 阶段跨度")
+	var nested_types: Array = draw_phase.children.map(func(child: Variant) -> String: return str(child.type))
+	assert_true(
+		nested_types.has("draw_game_card"),
+		"摸牌操作（dispatch draw_game_card）应挂在 draw PhaseEvent 下，实际: %s" % str(nested_types)
+	)
 
 
 func test_start_turn_empty_deck_death_returns_early() -> void:
@@ -1218,9 +1230,16 @@ func test_start_turn_death_keeps_formal_context_at_current_phase() -> void:
 	const GameEventScript = preload("res://src/core/game_event.gd")
 	assert_eq(
 		p.get_turn_event().status,
-		GameEventScript.Status.RUNNING,
-		"回合因死亡提前返回时 TurnEvent 不应被标记为 completed"
+		GameEventScript.Status.CANCELLED,
+		"回合因死亡提前返回时 TurnEvent 应取消，不能标成 completed"
 	)
+	var draw_phase: Variant = null
+	for phase in p.get_turn_event().children:
+		if phase.new_phase == "draw":
+			draw_phase = phase
+			break
+	assert_not_null(draw_phase)
+	assert_eq(draw_phase.status, GameEventScript.Status.CANCELLED, "中断的摸牌阶段应取消")
 
 
 # === 12. 底层接口 ===
@@ -1359,11 +1378,11 @@ func test_play_card_immediately_uses_full_card_lifecycle_for_free_action() -> vo
 	var observed: Array = []
 	var skill := Skill.new()
 	skill.active = "action"
-	skill.content = func(player: Player, _target, event: Dictionary, _game) -> void:
+	skill.content = func(player: Player, _target, event, _game) -> void:
 		observed.append({
 			"player": player,
 			"in_settlement": player.card_settlement_zone.has(card),
-			"free_action": event.get("free_action", false),
+			"free_action": EventSystem.get_field(event, "free_action", false),
 		})
 	card.add_skill(skill)
 	p.hand.append(card)
@@ -1392,10 +1411,10 @@ func test_cross_player_card_operation_preserves_source_and_target_context() -> v
 	var observed: Array = []
 	var skill := Skill.new()
 	skill.active = "action"
-	skill.content = func(_player: Player, _target, event: Dictionary, _game) -> void:
-		var actions: GameActions = event.get("actions", null)
+	skill.content = func(_player: Player, _target, event, _game) -> void:
+		var actions: GameActions = EventSystem.get_field(event, "actions", null)
 		observed.append([
-			event.get("free_action", false),
+			EventSystem.get_field(event, "free_action", false),
 			actions.runtime.get_current_owner() if actions != null else null,
 			actions.runtime.get_current_source() if actions != null else null,
 		])
@@ -1519,7 +1538,7 @@ func test_limited_action_whitelist_nested_draw_from_card_still_works() -> void:
 	skill.active = "action"
 	skill.filter = func(player, _t, _e, _g) -> bool:
 		return player.get_effective_phase() == "action" and player.get_effective_action_count() > 0
-	skill.content = func(player, _t, event: Dictionary, _g) -> void:
+	skill.content = func(player, _t, event, _g) -> void:
 		var ga: GameActions = event.get("actions")
 		await ga.draw(player, 1)
 	card.add_skill(skill)

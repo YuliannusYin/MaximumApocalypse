@@ -69,27 +69,31 @@ func matches_trigger(trigger_name: String) -> bool:
 
 ## 执行 filter。无 filter 时返回 true（恒通过）。
 ## player 为触发技能的实体，event 中可能包含 target 字段。
-func execute_filter(player: Variant, event: Dictionary) -> bool:
+func execute_filter(player: Variant, event: Variant) -> bool:
 	if not filter.is_valid():
 		return true
-	return filter.call(player, event.get("target", null), event, Game)
+	var target: Variant = EventSystem.get_field(event, "target", null)
+	return filter.call(player, target, event, Game)
 
 
 ## 执行 content。
 ## player 为触发技能的实体，event 中可能包含 target 字段。
 ## content 代码可通过 EventSystem.cancel(event) 取消事件，调用方用 EventSystem.is_cancelled(event) 检查。
 ## 新内容可使用局部变量 actions 执行嵌套操作；CodeExecutor 会自动等待其完成。
-func execute_content(player: Variant, event: Dictionary) -> void:
+func execute_content(player: Variant, event: Variant) -> void:
 	if content.is_valid():
-		var actions: GameActions = event.get("actions", null)
+		var actions: GameActions = EventSystem.get_field(event, "actions", null)
 		var owns_actions: bool = actions == null
 		if owns_actions:
 			actions = GameActions.new(player, Game, Game.event_scheduler)
-			event["actions"] = actions
-		await content.call(player, event.get("target", null), event, Game)
+			if event != null:
+				event["actions"] = actions
+		var target: Variant = EventSystem.get_field(event, "target", null)
+		await content.call(player, target, event, Game)
 		if owns_actions:
 			await actions.flush()
-			event.erase("actions")
+			if event != null:
+				event.erase("actions")
 
 
 ## 执行 confirm_prompt，返回动态确认提示文本。无有效 Callable 时返回空字符串。

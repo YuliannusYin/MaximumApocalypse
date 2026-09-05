@@ -42,7 +42,7 @@ class MockPlayer extends RefCounted:
 	func start_turn() -> void:
 		turns_taken += 1
 
-	func trigger(trigger_name: String, event: Dictionary) -> void:
+	func trigger(trigger_name: String, event: Variant) -> void:
 		triggers_received.append(trigger_name)
 
 	func choose(options: Array) -> String:

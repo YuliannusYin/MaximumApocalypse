@@ -21,7 +21,7 @@ func _init(owner: Variant, game_instance: Variant, operation_runtime: Variant = 
 
 
 func damage(target: Entity, num: int, source: Entity = null, type: Variant = "", card: Card = null) -> Variant:
-	## damage() 内部已自行创建 OperationEvent（复用同一 runtime 以保持嵌套），
+	## damage() 内部已自行 dispatch 同名操作（复用同一 scheduler 以保持嵌套），
 	## 这里直接转发调用，避免重复包裹出两层同名 "damage" 节点。
 	return await target.damage(num, source, type, card, runtime)
 
@@ -39,7 +39,7 @@ func draw_scavenge(target: Variant, num: int, pile: Pile) -> Variant:
 	return await target.draw_scavenge(num, pile, runtime)
 
 
-func draw_scavenge_card(target: Variant, card: Variant, pile: Pile, event: Dictionary) -> Variant:
+func draw_scavenge_card(target: Variant, card: Variant, pile: Pile, event: Variant) -> Variant:
 	return await target.draw_scavenge_card(card, pile, event, runtime)
 
 
@@ -72,7 +72,7 @@ func use_card(target: Variant, card: Card) -> Variant:
 
 
 func consume_action(target: Variant, num: int = 1) -> Variant:
-	## consume_action_evented 内部已自行创建 OperationEvent（复用同一 runtime 以保持嵌套），
+	## consume_action_evented 内部已自行 dispatch 同名操作（复用同一 scheduler 以保持嵌套），
 	## 这里直接转发调用，避免重复包裹出两层同名 "consume_action" 节点。
 	return await target.consume_action_evented(num, runtime)
 

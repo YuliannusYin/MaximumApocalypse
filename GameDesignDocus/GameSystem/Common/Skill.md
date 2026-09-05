@@ -68,12 +68,14 @@
 | 参数 | 含义 |
 |------|------|
 | `player` | 触发技能的实体（主动技能与玩家侧触发技能为玩家；怪物侧为怪物） |
-| `target` | 当前事件的目标（取自 `event.get("target", null)`，无则 `null`） |
+| `target` | 当前事件的目标（取自 `EventSystem.get_field(event, "target", null)`，无则 `null`） |
 | `event` | 事件对象（结构随流程类型变化，见 [EventSystem.md](../Core/EventSystem.md)） |
 | `Game` | 全局 Game 单例（autoload） |
 
-- `execute_filter(player, event)` 内部以 `filter.call(player, event.get("target", null), event, Game)` 调用
-- `execute_content(player, event)` 内部以 `await content.call(player, event.get("target", null), event, Game)` 调用
+- `execute_filter(player, event)` 内部以 `filter.call(player, EventSystem.get_field(event, "target", null), event, Game)` 调用
+- `execute_content(player, event)` 内部以 `await content.call(player, EventSystem.get_field(event, "target", null), event, Game)` 调用
+- 执行前若 `event` 无 `actions`，注入 `GameActions.new(player, Game, Game.event_scheduler)`；结束后 `flush` 并擦除
+- `content` 代码可通过 `EventSystem.cancel(event)` 取消事件；新内容用 `actions.*` 做嵌套操作（CodeExecutor 自动 await）
 - `execute_confirm_prompt(player)` 内部以 `confirm_prompt.call(player, null, {}, Game)` 调用
 
 ### 1.5 复合触发
@@ -104,9 +106,9 @@
 
 | 签名 | 参数 | 返回 |
 |------|------|------|
-| `execute_filter(player: Variant, event: Dictionary) -> bool` | `player` 触发技能的实体；`event` 事件对象 | `filter` 返回值；`filter` 无效时返回 `true` |
+| `execute_filter(player: Variant, event: Variant) -> bool` | `player` 触发技能的实体；`event` 为 Dictionary 或 `GameEvent` | `filter` 返回值；`filter` 无效时返回 `true` |
 
-- 内部以四参调用 `filter.call(player, event.get("target", null), event, Game)`
+- 内部以四参调用 `filter.call(player, EventSystem.get_field(event, "target", null), event, Game)`
 
 ---
 
@@ -116,10 +118,11 @@
 
 | 签名 | 参数 | 返回 |
 |------|------|------|
-| `execute_content(player: Variant, event: Dictionary) -> void` | `player` 触发技能的实体；`event` 事件对象 | 无（异步 await） |
+| `execute_content(player: Variant, event: Variant) -> void` | `player` 触发技能的实体；`event` 为 Dictionary 或 `GameEvent` | 无（异步 await） |
 
-- 内部以四参调用 `await content.call(player, event.get("target", null), event, Game)`
+- 内部以四参调用 `await content.call(player, EventSystem.get_field(event, "target", null), event, Game)`
 - `content` 代码可通过 `EventSystem.cancel(event)` 取消事件，调用方用 `EventSystem.is_cancelled(event)` 检查
+- 新内容可使用局部变量 `actions`（`GameActions`）执行嵌套操作；见 [EventScheduler.md](../Core/EventScheduler.md)
 - 无有效 `content` 时跳过执行
 
 ---
@@ -285,5 +288,6 @@
 |------|------|
 | [Entity](../Core/Entity.md) | Skill 通过 `add_skill` 挂载到 Entity，由 `Entity.trigger` 遍历执行 |
 | [EventSystem](../Core/EventSystem.md) | `trigger` 字段引用 EventSystem 定义的 trigger 名 |
+| [EventScheduler](../Core/EventScheduler.md) | content 经 `GameActions` 进入统一调度栈 |
 | [Player](../Entities/Player.md) | 通用行动技能是 Player 的固有技能 |
 | [RoleCard](RoleCard.md) | 角色固有技能存储在 RoleCard 上 |

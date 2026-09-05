@@ -10,10 +10,10 @@ func test_card_can_mount_skill_and_trigger() -> void:
 	var called: Array = []
 	var s: Skill = Skill.new()
 	s.trigger = "on_take_damage"
-	s.content = func(_p, _t, _ev: Dictionary, _g) -> void:
+	s.content = func(_p, _t, _ev, _g) -> void:
 		called.append(true)
 	c.add_skill(s)
-	var event: Dictionary = EventSystem.create_event()
+	var event: GameEvent = EventSystem.create_event()
 	await c.trigger("on_take_damage", event)
 	assert_eq(called.size(), 1, "Card 应能挂载技能并触发")
 

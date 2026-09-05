@@ -43,7 +43,7 @@ func _make_combat_monster() -> Monster:
 func _make_skill_with_trigger(trigger_name: String, called: Array) -> Skill:
 	var s: Skill = Skill.new()
 	s.trigger = trigger_name
-	s.content = func(_p, _t, _ev: Dictionary, _g) -> void:
+	s.content = func(_p, _t, _ev, _g) -> void:
 		called.append(trigger_name)
 	return s
 

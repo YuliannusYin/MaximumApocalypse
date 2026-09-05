@@ -17,7 +17,7 @@ class MockPlayer extends RefCounted:
 	func get_current_block():
 		return current_block
 
-	func trigger(trigger_name: String, event: Dictionary) -> void:
+	func trigger(trigger_name: String, event: Variant) -> void:
 		triggers_received.append(trigger_name)
 
 

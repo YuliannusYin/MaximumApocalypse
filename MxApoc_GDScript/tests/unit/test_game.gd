@@ -448,7 +448,7 @@ func test_stale_player_draw_is_ignored_after_abort() -> void:
 func _make_skill_with_trigger(trigger_name: String, called: Array) -> Skill:
 	var s: Skill = Skill.new()
 	s.trigger = trigger_name
-	s.content = func(_p, _t, _ev: Dictionary, _g) -> void:
+	s.content = func(_p, _t, _ev, _g) -> void:
 		called.append(trigger_name)
 	return s
 
@@ -456,6 +456,6 @@ func _make_skill_with_trigger(trigger_name: String, called: Array) -> Skill:
 func _make_cancel_skill(trigger_name: String) -> Skill:
 	var s: Skill = Skill.new()
 	s.trigger = trigger_name
-	s.content = func(_p, _t, ev: Dictionary, _g) -> void:
+	s.content = func(_p, _t, ev, _g) -> void:
 		EventSystem.cancel(ev)
 	return s

@@ -48,8 +48,15 @@
 | 文件 | 类名 | 说明 |
 | --- | --- | --- |
 | `entity.gd` | `Entity` | 实体基类（技能挂载、伤害流程、触发） |
-| `event_bus.gd` | `EventBus` | 全局事件总线（autoload） |
-| `event_system.gd` | `EventSystem` | 事件工厂与取消机制（静态工具类） |
+| `event_bus.gd` | `EventBus` | 全局事件总线（autoload），结算后只读通知 |
+| `event_system.gd` | `EventSystem` | JSON/trigger 用 Dictionary 事件工厂（静态工具类） |
+| `event_scheduler.gd` | `EventScheduler` | 每局统一调度器：领域操作、输入请求、GameEvent 运行栈 |
+| `game_event.gd` | `GameEvent` | 统一事件树节点 |
+| `input_request.gd` | `InputRequest` | 外部输入等待节点（继承 GameEvent） |
+| `turn_event.gd` | `TurnEvent` | 正式回合观察节点（继承 GameEvent） |
+| `phase_event.gd` | `PhaseEvent` | 正式阶段观察节点（继承 GameEvent） |
+| `turn_context.gd` | `TurnContext` | 正式回合阶段与行动点权威状态 |
+| `game_actions.gd` | `GameActions` | JSON 技能嵌套操作门面 |
 | `game_state_machine.gd` | `GameStateMachine` | 游戏状态机与回合队列 |
 | `player_stats.gd` | `PlayerStats` | 单玩家统计数据 |
 | `stats_tracker.gd` | `StatsTracker` | 全局统计跟踪器 |
@@ -184,7 +191,7 @@ UI 与输入层。全部 `.gd` 文件如下：
 | --- | --- | --- |
 | `DataManager` | `res://src/data/data_manager.gd` | 数据加载与管理 |
 | `EventBus` | `res://src/core/event_bus.gd` | 全局事件总线，供 UI 订阅 |
-| `Game` | `res://src/game/game.gd` | 游戏全局实例，管理全局区域、地图、任务配置、状态机委托 |
+| `Game` | `res://src/game/game.gd` | 游戏全局实例；持有每局 `event_scheduler`、全局区域、地图、任务配置、状态机委托 |
 | `RoomState` | `res://src/ui/room_state.gd` | 房间状态 |
 | `Settings` | `res://src/ui/settings.gd` | 全局设置（`dev_mode` 等开关） |
 

@@ -5,6 +5,7 @@
 > 代码：`src/entities/monster.gd`，`class_name Monster extends Entity`。
 > 实体化由 [MonsterCard.instantiate](Card.md#monstercard-怪物卡) 完成（复制卡面数据到 Monster 实例）。
 > trigger 机制与全 trigger 索引见 [EventSystem.md](../Core/EventSystem.md)。
+> `act` / `death` / `stun` 等流程经 `Game.event_scheduler.dispatch` 入栈，见 [EventScheduler.md](../Core/EventScheduler.md)。
 
 ---
 

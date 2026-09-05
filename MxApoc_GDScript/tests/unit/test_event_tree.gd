@@ -20,7 +20,7 @@ func test_operation_handle_and_game_event_share_lifecycle() -> void:
 	assert_eq(handle["status"], "completed")
 	assert_eq(handle["result"], "done")
 	assert_eq(handle["game_event"].status, GameEventScript.Status.COMPLETED)
-	assert_eq(handle["game_event"].result, "done")
+	assert_eq(handle["game_event"].completion, "done")
 
 
 func test_cancelled_operation_cancels_game_event_too() -> void:

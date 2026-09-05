@@ -10,7 +10,7 @@ extends IPlayerInput
 ## respond_* 方法写入当前活动请求的响应；已响应的请求忽略重复响应（防双击）。
 ##
 ## 请求栈的 LIFO 抢占/身份匹配逻辑已下沉到 EventScheduler/InputRequest（统一事件调度，
-## 见 .cursor/plan/plan.md 批次二）；本类只是保留旧 signal/respond_* API 的兼容外观。
+## 见 EventScheduler.md）；本类只是保留旧 signal/respond_* API 的兼容外观。
 
 # === 请求信号（GameScene2D 订阅） ===
 

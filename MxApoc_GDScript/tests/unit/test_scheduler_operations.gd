@@ -1,5 +1,8 @@
 extends TestBase
 
+## EventScheduler 操作栈（dispatch / enqueue / flush / 上下文继承）测试。
+## 输入请求栈测试见 test_event_scheduler.gd。
+
 const EventSchedulerScript = preload("res://src/core/event_scheduler.gd")
 
 func test_flushes_operations_in_registration_order() -> void:

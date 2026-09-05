@@ -1,7 +1,8 @@
 class_name PhaseEvent
 extends "res://src/core/game_event.gd"
 
-## 正式阶段切换事件。与可取消的技能 event 分离，专门供 UI、教程和测试观察。
+## 正式阶段切换事件。作为贯穿该阶段的运行节点挂在 TurnEvent 下；
+## 阶段内的领域操作与 InputRequest 挂到本节点的 children。
 
 const TurnContextScript = preload("res://src/core/turn_context.gd")
 const GameEventScript = preload("res://src/core/game_event.gd")

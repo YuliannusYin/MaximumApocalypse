@@ -66,7 +66,7 @@ func _find_mission_skill(p: Player, skill_name: String) -> Skill:
 func _make_cancel_skill(trigger_name: String) -> Skill:
 	var s: Skill = Skill.new()
 	s.trigger = trigger_name
-	s.content = func(_p, _t, ev: Dictionary, _g) -> void:
+	s.content = func(_p, _t, ev, _g) -> void:
 		EventSystem.cancel(ev)
 	return s
 
@@ -226,8 +226,8 @@ func test_mission_9_marked_block_mounts_destroy_skill() -> void:
 	assert_true(skills[0].execute_filter(p, {}), "有标记且行动足够时 filter 应通过")
 
 
-func test_mission_9_monster_marks_do_not_block_destroy() -> void:
-	# 任务 9 真实配置 require_no_monster=false：地块怪物标记不阻断摧毁
+func test_mission_9_monster_marks_block_destroy() -> void:
+	# 任务 9 JSON：require_no_monster=true，地块怪物标记阻断摧毁
 	_mount_mission(9)
 	var marked: MapBlock = _make_block("军事基地", 0, 0)
 	marked.add_objective_mark({"mark_id": "mark_1"})
@@ -241,8 +241,8 @@ func test_mission_9_monster_marks_do_not_block_destroy() -> void:
 	assert_not_null(skill, "应已挂载摧毁目标技能")
 	# 进入后追加怪物标记（进入时无怪物标记，避开潜行检定消耗）
 	marked.add_monster_mark(2)
-	assert_true(skill.execute_filter(p, {}),
-		"任务 9（require_no_monster=false）地块有怪物标记时 filter 仍应通过")
+	assert_false(skill.execute_filter(p, {}),
+		"任务 9（require_no_monster=true）地块有怪物标记时 filter 应失败")
 
 
 func test_mission_9_destroy_execution_removes_mark() -> void:

@@ -22,10 +22,10 @@
 | 常量名 | 类型 | 值 |
 |--------|------|----|
 | `_FILTER_PREFIX` | String | `"extends RefCounted\nfunc _fn(player, target, event, game) -> bool:\n"` |
-| `_CONTENT_PREFIX` | String | `"extends RefCounted\nfunc _fn(player, target, event, game) -> void:\n"` |
+| `_CONTENT_PREFIX` | String | `"extends RefCounted\nfunc _fn(player, target, event, game) -> void:\n\tvar actions = event.get(\"actions\", null)\n"` |
 | `_CONFIRM_PROMPT_PREFIX` | String | `"extends RefCounted\nfunc _fn(player, target, event, game) -> String:\n"` |
 
-> 三个 prefix 均定义 `_fn(player, target, event, game)` 四参签名；区别仅在返回类型（bool / void / String）。
+> 三个 prefix 均定义 `_fn(player, target, event, game)` 四参签名。`content` 额外注入 `var actions = event.get("actions", null)`，供 JSON 调用 `GameActions`。
 
 ---
 
@@ -56,6 +56,7 @@
 
 > 编译 content 代码字符串为 Callable。
 > **返回的 Callable 签名**：`(player, target, event, game) -> void`。
+> 编译前 `_add_implicit_action_awaits` 把 `actions.` 与 `game.game_over(` 补成 `await`。
 > 空字符串返回空 Callable（调用方视为无操作）。
 > 编译失败时 `push_warning` 并降级为 `_create_noop_content()`（无操作）。
 

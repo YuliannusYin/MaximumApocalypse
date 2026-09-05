@@ -51,7 +51,7 @@ func reveal(trigger_effect: bool, player: Variant) -> void:
 	if EventBus != null and is_instance_valid(EventBus):
 		EventBus.block_revealed.emit(self, player)
 	if trigger_effect:
-		var event: Dictionary = EventSystem.create_event({
+		var event: GameEvent = EventSystem.create_event({
 			"player": player,
 			"block": self,
 		})
@@ -341,7 +341,7 @@ func trigger_objective_marks(player: Variant) -> void:
 		if EventBus != null and is_instance_valid(EventBus):
 			EventBus.objective_mark_triggered.emit(player, self, mark)
 		# 2. 触发 on_objective_mark_triggered
-		var event: Dictionary = EventSystem.create_objective_mark_event(player, self, mark)
+		var event: GameEvent = EventSystem.create_objective_mark_event(player, self, mark)
 		await player.trigger("on_objective_mark_triggered", event)
 
 

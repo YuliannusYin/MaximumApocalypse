@@ -67,7 +67,7 @@ func test_move_to_cancel_before_enter_rolls_back() -> void:
 	# 添加取消技能：进入地块前取消
 	var cancel_skill: Skill = Skill.new()
 	cancel_skill.trigger = "before_enter_block"
-	cancel_skill.content = func(_p, _t, ev: Dictionary, _g) -> void:
+	cancel_skill.content = func(_p, _t, ev, _g) -> void:
 		EventSystem.cancel(ev)
 	p.add_skill(cancel_skill)
 	# 移动应被取消

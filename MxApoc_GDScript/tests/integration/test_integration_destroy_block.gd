@@ -62,7 +62,7 @@ func test_destroy_block_cancel_prevents_destruction() -> void:
 	# 添加取消技能
 	var cancel_skill: Skill = Skill.new()
 	cancel_skill.trigger = "before_destroy_block"
-	cancel_skill.content = func(_p, _t, ev: Dictionary, _g) -> void:
+	cancel_skill.content = func(_p, _t, ev, _g) -> void:
 		EventSystem.cancel(ev)
 	p.add_skill(cancel_skill)
 	var ok: bool = await Game.destroy_map_block(b, null)

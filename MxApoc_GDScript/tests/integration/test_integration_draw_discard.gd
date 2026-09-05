@@ -50,7 +50,7 @@ func test_discard_equipment_triggers_unequip() -> void:
 	var called: Array = []
 	var s_unequip: Skill = Skill.new()
 	s_unequip.trigger = "on_unequip"
-	s_unequip.content = func(_p, _t, _ev: Dictionary, _g) -> void:
+	s_unequip.content = func(_p, _t, _ev, _g) -> void:
 		called.append("on_unequip")
 	e.add_skill(s_unequip)
 	await p.equip(e)

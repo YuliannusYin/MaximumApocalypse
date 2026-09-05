@@ -4,7 +4,7 @@
 > 类名 `Entity`，继承 `RefCounted`。
 > 所有可挂载技能、可触发事件的实体的基类。
 > 继承关系：Entity ← Player / Monster / Card / MapBlock。
-> 事件触发机制详见 [EventSystem.md](EventSystem.md)；**EventBus 信号总线详见 [System/EventBus.md](../System/EventBus.md)**（不在本章展开）。
+> 事件触发机制详见 [EventSystem.md](EventSystem.md)；**统一调度见 [EventScheduler.md](EventScheduler.md)**；**EventBus 信号总线详见 [System/EventBus.md](../System/EventBus.md)**（不在本章展开）。
 
 ---
 
@@ -39,7 +39,7 @@ Entity 基类负责：
 
 | 签名 | 参数 | 返回 |
 |------|------|------|
-| `trigger(trigger_name: String, event: Dictionary) -> void` | `trigger_name` 触发名（英文键名）；`event` 事件对象 | 无（异步 await） |
+| `trigger(trigger_name: String, event: Variant) -> void` | `trigger_name` 触发名（英文键名）；`event` 为 Dictionary 或 `GameEvent` | 无（异步 await） |
 
 **执行步骤**：
 
@@ -51,6 +51,8 @@ Entity 基类负责：
    - **输出触发日志**：`"<触发者名> 触发了 <技能名>"`
    - `await s.execute_content(self, event)`
    - 若 `EventSystem.is_cancelled(event)` 为 `true`，break 跳出循环
+
+同一 `GameEvent` 会在一条领域流程里被多次 `trigger()`（如伤害 `before_take_damage` → `on_take_damage`）。每次 `trigger` 结束只同步取消态，**不得**把节点标成 completed，否则后续取消点无法 `cancel`。
 
 **触发者名解析规则**：
 
@@ -70,7 +72,7 @@ Entity 基类负责：
 
 | 签名 | 参数 | 返回 |
 |------|------|------|
-| `trigger_only(trigger_name: String, event: Dictionary, skill_list: Array) -> void` | `trigger_name` 触发名；`event` 事件对象；`skill_list` 限定技能列表 | 无（异步 await） |
+| `trigger_only(trigger_name: String, event: Variant, skill_list: Array) -> void` | `trigger_name` 触发名；`event` 为 Dictionary 或 `GameEvent`；`skill_list` 限定技能列表 | 无（异步 await） |
 
 **与 `trigger` 的差异**：
 
@@ -123,17 +125,18 @@ Entity 基类负责：
 
 ### 3. 伤害流程（通用，8 节点）
 
-#### 3.1 damage(num, source, type = "", card = null)
+#### 3.1 damage(num, source, type = "", card = null, runtime = null)
 
-「target 受到来自于 source 的 num 点类型为 type 的伤害」的流程方法。
+「target 受到来自于 source 的 num 点类型为 type 的伤害」的流程方法。整段包在 `scheduler.dispatch("damage", ...)` 内。
 
 | 签名 | 参数 | 返回 |
 |------|------|------|
-| `damage(num: int, source: Entity, type: Variant = "", card: Card = null) -> void` | `num` 伤害值；`source` 伤害来源（`null` 表示无来源）；`type` 伤害类型标识（可为 String 如 `"monster_attack"` / `"poison"` / `"hunger"`，或 int，**默认空字符串**）；`card` 武器牌（`null` 表示非武器伤害） | 无（异步 await） |
+| `damage(num: int, source: Entity, type: Variant = "", card: Card = null, runtime: Variant = null) -> void` | `num` 伤害值；`source` 伤害来源（`null` 表示无来源）；`type` 伤害类型标识（可为 String 如 `"monster_attack"` / `"poison"` / `"hunger"`，或 int，**默认空字符串**）；`card` 武器牌（`null` 表示非武器伤害）；`runtime` 可选 `EventScheduler`，省略时用 `Game.event_scheduler` | 无（异步 await） |
 
 > **偏差修正**：`type` 默认值为**空字符串 `""`**（非 NULL）。
 > `source = null` 时表示无来源伤害（饥饿/中毒），跳过所有 source 侧钩子。
 > `card = null` 时表示非武器伤害；`card` 为武器牌时供「造成伤害时」filter 判断（如 gunslinger 空尖弹、mechanic 升级）。
+> 调用方已在某次 `dispatch` 内时应传入同一 `runtime`，以保持嵌套父子关系。
 
 **事件钩子顺序（8 节点 + 5.5/5.6 系统节点）**：
 
@@ -248,5 +251,6 @@ Entity 基类负责：
 | Card | 继承 Entity，卡牌自带技能（装备技能、行动牌效果、怪物卡技能） |
 | MapBlock | 继承 Entity，地块技能挂载到进入的 Player 身上由 Player.trigger 触发 |
 | Skill | 通过 `add_skill` / `remove_skill` 挂载到 Entity，见 [Skill.md](../Common/Skill.md) |
-| EventSystem | 提供 event schema 与取消机制，见 [EventSystem.md](EventSystem.md) |
+| EventSystem | 提供 Dictionary event schema 与取消机制，见 [EventSystem.md](EventSystem.md) |
+| EventScheduler | `damage` 等流程经 `dispatch` 入栈，见 [EventScheduler.md](EventScheduler.md) |
 | EventBus | damage 流程 5.5 节点发射统计信号，详见 [System/EventBus.md](../System/EventBus.md) |

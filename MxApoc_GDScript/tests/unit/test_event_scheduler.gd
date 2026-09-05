@@ -117,7 +117,7 @@ func test_cancelled_event_is_not_completed() -> void:
 	var scheduler: Variant = EventSchedulerScript.new()
 	var event: Variant = scheduler.create_event("cancelled")
 	var called: bool = false
-	event.cancel()
+	event.mark_cancelled()
 
 	await scheduler.run_event(event, func(_event: Variant) -> void:
 		called = true
@@ -170,6 +170,28 @@ func test_scheduler_rejects_wrong_owner() -> void:
 	assert_true(await scheduler.wait_request(request))
 
 
+func test_enqueue_input_attaches_to_current_event() -> void:
+	var scheduler: Variant = EventSchedulerScript.new()
+	var owner := Player.new()
+	var parent: Variant = scheduler.create_event("action", owner, null)
+	var captured: Array = []
+	await scheduler.run_event(parent, func(_event: Variant) -> Variant:
+		var request: Variant = scheduler.enqueue_input(owner, func() -> void:
+			pass
+		)
+		captured.append(request)
+		assert_eq(request.parent, parent, "输入请求应挂到当前 GameEvent")
+		assert_true(parent.children.has(request))
+		scheduler.respond(true, request.id, owner)
+		await scheduler.wait_request(request)
+		assert_eq(request.status, GameEventScript.Status.COMPLETED)
+		return null
+	)
+	assert_eq(captured.size(), 1, "run_event 期间应发出一次输入请求")
+	assert_eq(captured[0].parent, parent)
+	assert_eq(captured[0].status, GameEventScript.Status.COMPLETED)
+
+
 func test_reset_cancels_active_input_and_unblocks_wait() -> void:
 	var scheduler: Variant = EventSchedulerScript.new()
 	var owner := Player.new()
@@ -179,3 +201,40 @@ func test_reset_cancels_active_input_and_unblocks_wait() -> void:
 	scheduler.reset()
 	assert_true(request.received, "reset 应取消活动输入请求")
 	assert_null(await scheduler.wait_request(request), "取消后 wait_request 应返回 null")
+
+
+func test_enqueue_turn_keeps_seat_order_and_extra_at_front() -> void:
+	var scheduler: Variant = EventSchedulerScript.new()
+	var p1 := Player.new()
+	var p2 := Player.new()
+	var p3 := Player.new()
+	scheduler.enqueue_turn(p1)
+	scheduler.enqueue_turn(p2)
+	scheduler.enqueue_turn(p3, true)
+	assert_eq(scheduler.get_pending_turn_players(), [p3, p1, p2])
+	assert_eq(scheduler.pop_turn(), p3)
+	assert_eq(scheduler.pop_turn(), p1)
+	assert_eq(scheduler.pop_turn(), p2)
+	assert_false(scheduler.has_pending_turns())
+	assert_null(scheduler.pop_turn())
+
+
+func test_flush_domain_operations_does_not_consume_turns() -> void:
+	var scheduler: Variant = EventSchedulerScript.new()
+	var player := Player.new()
+	scheduler.enqueue_turn(player)
+	var ran: Array = []
+	scheduler.enqueue("side", func() -> void:
+		ran.append(true)
+	)
+	await scheduler.flush()
+	assert_eq(ran, [true])
+	assert_true(scheduler.has_pending_turns(), "领域 flush 不得冲掉未开始的回合")
+	assert_eq(scheduler.pop_turn(), player)
+
+
+func test_reset_clears_turn_queue() -> void:
+	var scheduler: Variant = EventSchedulerScript.new()
+	scheduler.enqueue_turn(Player.new())
+	scheduler.reset()
+	assert_false(scheduler.has_pending_turns())

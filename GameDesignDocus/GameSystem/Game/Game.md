@@ -5,7 +5,7 @@
 > Game 类**不继承** Entity（无技能、无 trigger），是全局管理器。
 > 注册为 autoload，全局名 `Game`，无 `class_name`，继承 `Node`。
 > 游戏初始化与开局流程见 [GameInstructions/02_开局与流程.md](../../GameInstructions/02_开局与流程.md)。
-> 状态管理（游戏阶段/游戏结果/当前回合玩家/回合队列）委托给 [GameStateMachine](../Core/GameStateMachine.md)。
+> 状态管理（游戏阶段/游戏结果/当前回合玩家）委托给 [GameStateMachine](../Core/GameStateMachine.md)；回合排队在 [EventScheduler](../Core/EventScheduler.md)。
 
 ---
 
@@ -31,9 +31,10 @@
 
 | 字段名 | 类型 | 默认 | 说明 |
 |--------|------|------|------|
-| `state_machine` | GameStateMachine | null | 游戏状态机实例。`_ready()` 中创建并 `init()`。管理游戏阶段、游戏结果、当前回合玩家、回合队列等。详见 [GameStateMachine.md](../Core/GameStateMachine.md) |
+| `state_machine` | GameStateMachine | null | 游戏状态机实例。`_ready()` 中创建并 `init()`。管理游戏阶段、游戏结果、当前回合玩家等；回合排队在 `event_scheduler`。详见 [GameStateMachine.md](../Core/GameStateMachine.md) |
 | `mission_config` | MissionConfig | null | 本局任务配置。由 `initialize_game` 从 MissionData 构造。详见 [MissionConfig.md](./MissionConfig.md) |
 | `stats_tracker` | StatsTracker | null | 本局统计聚合器。`_ready()` 中创建。详见 [StatsTracker.md](../System/StatsTracker.md) |
+| `event_scheduler` | EventScheduler | 每局新建 | 本局唯一事件调度器。`_ready()` 与新对局重置时 `new()`，旧实例 `reset()`。详见 [EventScheduler.md](../Core/EventScheduler.md) |
 | `coop_death_mode` | bool | false | 同生共死变体。开启后任一玩家死亡即所有求生者输掉游戏。默认 false |
 | `current_mission` | Variant | null | 本局任务的 MissionData 引用（可能为 Dictionary 或 Resource） |
 | `removed_cards` | Array | [] | 移出游戏的卡牌列表（区别于进入弃牌堆的卡牌） |
@@ -54,7 +55,7 @@
 
 ### _ready()
 
-> autoload 初始化钩子。创建 `state_machine`（并调用 `init()`）与 `stats_tracker`。
+> autoload 初始化钩子。创建 `event_scheduler`、`state_machine`（并调用 `init()`）与 `stats_tracker`。
 
 ### 日志
 
@@ -73,16 +74,16 @@
 
 #### start_game()
 
-> 游戏开局流程。**委托给** [GameStateMachine.start_game()](../Core/GameStateMachine.md)，使用 `await` 等待完成。
+> 游戏开局流程。**委托给** [GameStateMachine.start_game()](../Core/GameStateMachine.md)，使用 `await` 等待完成。可选 `runtime` 传入调度器，默认 `Game.event_scheduler`。
 > 在 `initialize_game` 之后调用。依次执行：状态转换 setup → playing → 抓初始手牌（含可选重调）→ 抓初始怪物卡（任务声明 `no_initial_monster_draw` 时跳过，如任务 11）→ 触发「游戏开始时」trigger → 进入第一玩家回合。
-> 落地 [EventSystem §4.12](../Core/EventSystem.md) 的「游戏开始时」trigger。
+> 开局整段包在 `scheduler.dispatch("game_start", ...)` 内。钩子 Dictionary 仍见 [EventSystem §4.12](../Core/EventSystem.md)；调度见 [EventScheduler.md](../Core/EventScheduler.md)。
 
 #### game_over(result)
 
-> 游戏结束流程。接受 String 参数 "win" / "lose"，转换为 `GameStateMachine.GameResult` 枚举后委托给 [GameStateMachine.game_over()](../Core/GameStateMachine.md)。
+> 游戏结束流程。接受 String 参数 "win" / "lose"，转换为 `GameStateMachine.GameResult` 枚举后委托给 [GameStateMachine.game_over()](../Core/GameStateMachine.md)。**调用方必须 await**，避免结束事件并发插入当前调度栈。可选 `runtime` 默认 `Game.event_scheduler`。
 > 若 `state_machine` 无效，则直接设置 `game_over_called = true`、`game_result = result`（向后兼容路径）。
 > 触发场景：所有玩家死亡（lose）；或胜利条件达成（win）。
-> 落地 [EventSystem §4.12](../Core/EventSystem.md) 的「游戏结束时」trigger。
+> 整段包在 `scheduler.dispatch("game_over", ...)` 内。钩子 Dictionary 见 [EventSystem §4.12](../Core/EventSystem.md)。
 
 ##### 游戏失败条件
 
@@ -169,7 +170,7 @@
 #### destroy_map_block(block, source)
 
 > 摧毁地块流程。触发场景：[blue.md 大炸药](../../Resource/ScavengePacks/blue.md)「行动：摧毁一个地图板块」。
-> 落地 [EventSystem §4.13](../Core/EventSystem.md) 的「摧毁地块前/时/后」trigger。
+> 整段包在 `scheduler.dispatch("destroy_block", ...)` 内（可选 `runtime`）。钩子 Dictionary 见 [EventSystem §4.13](../Core/EventSystem.md)。
 >
 > **6 节点处理逻辑**：
 > 1. 构造 `event = EventSystem.create_destroy_block_event(source, block)`
@@ -445,6 +446,7 @@
 | 关系 | 说明 |
 |------|------|
 | [GameStateMachine](../Core/GameStateMachine.md) | Game 持有 `state_machine` 实例；`start_game` / `game_over` / `get_current_player` / `next_turn` 委托给状态机 |
+| [EventScheduler](../Core/EventScheduler.md) | Game 持有每局唯一 `event_scheduler` |
 | [MissionConfig](./MissionConfig.md) | Game 持有 `mission_config`，由 `initialize_game` 从 MissionData 构造 |
 | [StatsTracker](../System/StatsTracker.md) | Game 持有 `stats_tracker`，订阅 EventBus 信号聚合本局统计 |
 | [EventBus](../System/EventBus.md) | `log_message` 通过 `EventBus.publish_log` 推送 UI 日志面板 |

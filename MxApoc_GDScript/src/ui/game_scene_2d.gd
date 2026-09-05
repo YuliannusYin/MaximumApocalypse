@@ -919,7 +919,7 @@ func _on_choose_target_requested(n: int, skill: Variant, prompt: String, min_n: 
 ## 判断 target 是否通过 skill.filter_target 过滤。
 ## skill 为 null 时视为无过滤（恒通过）；filter_target 为空 Callable 时亦恒通过。
 ## filter_target 的 Callable 签名为 (player, target, event, game) -> bool。
-func _is_valid_target(skill: Variant, target: Variant, event: Dictionary, player: Variant) -> bool:
+func _is_valid_target(skill: Variant, target: Variant, event: Variant, player: Variant) -> bool:
 	if skill == null:
 		return true
 	# Dictionary 类型：filter_target 为 String，需编译

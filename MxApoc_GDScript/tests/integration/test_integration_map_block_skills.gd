@@ -115,7 +115,7 @@ func test_shelter_turn_start_adds_disabled_mark() -> void:
 	Game.map_area = [start, shelter]
 	await p.move_to(shelter)
 	# 手动触发 on_turn_start
-	var event: Dictionary = EventSystem.create_event({"player": p})
+	var event: GameEvent = EventSystem.create_event({"player": p})
 	await p.trigger("on_turn_start", event)
 	assert_true(p.has_mark_skill("shelter_disabled"), "避难所 on_turn_start 应添加 shelter_disabled 标记")
 
@@ -189,7 +189,7 @@ func test_amusement_park_turn_end_choose_to_discard() -> void:
 	Game.players = [p]
 	Game.map_area = [park]
 	p.input.queue_choose_card([c1])
-	var event: Dictionary = EventSystem.create_event({"player": p, "block": park})
+	var event: GameEvent = EventSystem.create_event({"player": p, "block": park})
 	await p.trigger("on_turn_end", event)
 	assert_false(p.hand.has(c1), "回合结束应弃置所选牌")
 	assert_true(p.hand.has(c2), "未选中的牌应留下")

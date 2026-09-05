@@ -279,7 +279,7 @@ func test_draw_scavenge_at_hand_full_popup_after_draw_skill() -> void:
 	draw_skill.skill_name = "抓取顺序探针"
 	draw_skill.trigger = "on_draw_scavenge_card"
 	draw_skill.forced = true
-	draw_skill.content = func(_pl, _tg, _ev: Dictionary, _g) -> void:
+	draw_skill.content = func(_pl, _tg, _ev, _g) -> void:
 		order.append("skill")
 	s1.skills.append(draw_skill)
 	var spy: _ChooseCardSpyInput = _ChooseCardSpyInput.new()

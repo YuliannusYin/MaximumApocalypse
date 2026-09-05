@@ -51,7 +51,7 @@ func test_use_card_consume_action() -> void:
 	var card: Card = _make_card("action1", "action")
 	var s: Skill = Skill.new()
 	s.active = "action"
-	s.content = func(player: Player, _t, _ev: Dictionary, _g) -> void:
+	s.content = func(player: Player, _t, _ev, _g) -> void:
 		player.consume_action(1)
 	card.add_skill(s)
 	p.hand.append(card)
@@ -69,7 +69,7 @@ func test_action_card_moves_to_settlement_during_content() -> void:
 	var observed: Array = []
 	var s: Skill = Skill.new()
 	s.active = "action"
-	s.content = func(player: Player, _t, _ev: Dictionary, _g) -> void:
+	s.content = func(player: Player, _t, _ev, _g) -> void:
 		observed.append({
 			"in_hand": player.hand.has(card),
 			"in_settlement": player.card_settlement_zone.has(card),
@@ -96,14 +96,14 @@ func test_action_card_settlement_rolls_back_when_cost_cancelled() -> void:
 	var hook: Skill = Skill.new()
 	hook.trigger = "before_consume_action"
 	hook.forced = true
-	hook.content = func(_player: Player, _target, event: Dictionary, _game) -> void:
+	hook.content = func(_player: Player, _target, event, _game) -> void:
 		EventSystem.cancel(event)
 	p.add_skill(hook)
 	var card: Card = _make_card("rollback_card", "action")
 	var content_called: Array = []
 	var s: Skill = Skill.new()
 	s.active = "action"
-	s.content = func(_player: Player, _target, _event: Dictionary, _game) -> void:
+	s.content = func(_player: Player, _target, _event, _game) -> void:
 		content_called.append(true)
 	card.add_skill(s)
 	p.hand.append(card)
@@ -126,7 +126,7 @@ func test_deferred_card_enters_settlement_at_content_cost() -> void:
 	var s: Skill = Skill.new()
 	s.active = "action"
 	s.defer_action_cost = true
-	s.content = func(player: Player, _target, _event: Dictionary, _game) -> void:
+	s.content = func(player: Player, _target, _event, _game) -> void:
 		observed.append({
 			"before_cost_in_hand": player.hand.has(card),
 			"before_cost_in_settlement": player.card_settlement_zone.has(card),
@@ -163,7 +163,7 @@ func test_deferred_card_target_cancel_keeps_card_in_hand() -> void:
 	s.active = "action"
 	s.defer_action_cost = true
 	s.select_target = 1
-	s.content = func(_player: Player, _target, _event: Dictionary, _game) -> void:
+	s.content = func(_player: Player, _target, _event, _game) -> void:
 		assert_true(false, "取消首次目标选择后不应执行 content")
 	card.add_skill(s)
 	p.hand.append(card)

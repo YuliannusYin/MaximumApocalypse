@@ -10,7 +10,7 @@
 
 JSON 数据中的 `filter` / `content` / `filter_target` / `filter_card` / `confirm_prompt` 等"代码字段"是 GDScript 代码字符串，并非普通文本。`CodeExecutor` 负责在运行时将这些字符串懒编译为 `Callable`，供 `Skill` 在触发时机执行。
 
-`Skill` 实例在首次需要执行某代码字段时调用对应的 `compile_*` 接口，编译产物被缓存复用。代码字符串内可直接访问形参 `player` / `target` / `event` / `game`，调用其公开方法完成判定或效果。
+`Skill` 实例在首次需要执行某代码字段时调用对应的 `compile_*` 接口，编译产物被缓存复用。代码字符串内可直接访问形参 `player` / `target` / `event` / `game`。运行时 `event` 为 `GameEvent`（兼容 Dictionary 的 `get` / `event.num` / `EventSystem.cancel`）。`content` 模板额外注入 `var actions = event.get("actions", null)`（`GameActions` 门面，见 [EventScheduler.md](../GameSystem/Core/EventScheduler.md)）。
 
 ---
 
@@ -31,7 +31,7 @@ func _fn(player, target, event, game) -> bool:
 | 常量 | 模板 | 用途 |
 | --- | --- | --- |
 | `_FILTER_PREFIX` | `extends RefCounted\nfunc _fn(player, target, event, game) -> bool:\n` | `filter` / `filter_target` / `filter_card` |
-| `_CONTENT_PREFIX` | `extends RefCounted\nfunc _fn(player, target, event, game) -> void:\n` | `content` |
+| `_CONTENT_PREFIX` | `extends RefCounted\nfunc _fn(player, target, event, game) -> void:\n\tvar actions = event.get("actions", null)\n` | `content` |
 | `_CONFIRM_PROMPT_PREFIX` | `extends RefCounted\nfunc _fn(player, target, event, game) -> String:\n` | `confirm_prompt` |
 
 **关键实现要点：**
@@ -122,7 +122,8 @@ func _fn(game) -> bool:
 
 - 为多语句块，可包含 `\n` 换行、`\t` 缩进、`await` 异步调用、`for` / `while` / `if` 控制流。
 - 可读写 `event` 字典（如 `event.num -= 1` 修改伤害值、`event["cancel"].call()` 取消事件、`event.targets` 访问目标列表）。
-- 可调用 `player` / `target` / `game` 的公开方法（如 `player.consume_action(1)`、`target.damage(2, player)`、`game.get_target(...)`）。
+- 可调用 `player` / `target` / `game` 的公开方法（如 `player.consume_action(1)`、`target.damage(2, player)`、`game.get_target(...)`）。旧路径仍可用；新内容优先 `actions.*`。
+- `content` 中可直接写 `actions.damage(...)` 等；编译期 `_add_implicit_action_awaits` 会把 `actions.` 与 `game.game_over(` 补成 `await`，数据里不必手写 await。
 - 可调用 `EventSystem.cancel(event)` 取消事件、`EventSystem` 静态方法。
 - 可使用 `await player.confirm(...)` / `await player.choose_card(...)` 等异步 UI 交互。
 

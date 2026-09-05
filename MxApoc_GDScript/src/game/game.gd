@@ -384,7 +384,7 @@ func destroy_map_block(block: MapBlock, source: Variant, runtime: Variant = null
 		return false
 	var scheduler: Variant = event_scheduler if runtime == null else runtime
 	return await scheduler.dispatch("destroy_block", func() -> bool:
-		var event: Dictionary = EventSystem.create_destroy_block_event(source, block)
+		var event: GameEvent = EventSystem.create_destroy_block_event(source, block)
 		# 1. 摧毁地块前（取消点）
 		for player in players:
 			if player != null and is_instance_valid(player):

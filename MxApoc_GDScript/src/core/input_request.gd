@@ -41,7 +41,7 @@ func cancel_request(reason: String = "") -> void:
 	received = true
 	response = null
 	error = reason
-	cancel()
+	mark_cancelled()
 
 
 ## 派发：调用注册的 emit_fn（通常用于发射 UI 请求信号）。

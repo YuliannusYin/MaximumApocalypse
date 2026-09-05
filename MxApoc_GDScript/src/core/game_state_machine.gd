@@ -4,6 +4,7 @@ extends RefCounted
 ## 游戏状态机。
 ## 职责：游戏级状态管理、回合队列管理、胜利/失败条件检查。
 ## 独立类，不继承 Entity（无技能、无 trigger），由 Game 持有。
+## 正式/额外回合排队在 Game.event_scheduler，不走领域操作 enqueue/flush。
 ## 设计文档：GameDesignDocus/GameSystem/Core/GameStateMachine.md
 
 # === 枚举 ===
@@ -25,8 +26,19 @@ var current_player: Variant = null
 ## 游戏结束时保存的最后回合玩家，供结算场景高亮。
 var last_player: Variant = null
 
-## 回合队列。队首为下一个行动玩家。包含标准回合与额外回合。
-var turn_queue: Array = []
+## 回合队列门面：实际队列在 Game.event_scheduler._turn_queue。
+## 赋值会整体替换调度器中尚未执行的回合；读取返回副本。
+var turn_queue: Array:
+	get:
+		var scheduler: Variant = _turn_scheduler()
+		if scheduler == null:
+			return []
+		return scheduler.get_pending_turn_players()
+	set(value):
+		var scheduler: Variant = _turn_scheduler()
+		if scheduler == null:
+			return
+		scheduler.set_pending_turn_players(value if value is Array else [])
 
 ## 跳过标记。键 = 玩家，值 = true。跳过是一次性的，执行后移除。
 var skip_turn_marks: Dictionary = {}
@@ -42,7 +54,7 @@ func init() -> void:
 	current_state = GameState.WAITING
 	game_result = -1
 	current_player = null
-	turn_queue.clear()
+	_clear_pending_turns()
 	skip_turn_marks.clear()
 	turn_number = 0
 
@@ -86,7 +98,7 @@ func start_game(runtime: Variant = null) -> void:
 				return
 			if player == null or not is_instance_valid(player):
 				continue
-			var event: Dictionary = EventSystem.create_event({"player": player})
+			var event: GameEvent = EventSystem.create_event({"player": player})
 			await player.trigger("on_game_start", event)
 		if _session_aborted(session_id):
 			return
@@ -139,35 +151,45 @@ func _round_zero(session_id: int = -1) -> void:
 			continue
 		# 设置当前回合玩家
 		current_player = player
-		player.begin_turn_context("round_zero", turn_number, 0)
+		player._create_turn_context(turn_number, 0)
 		if EventBus != null and is_instance_valid(EventBus):
 			EventBus.turn_started.emit(player)
 			EventBus.player_turn_started.emit(player)
-		# 循环等待玩家重调决策（支持多次重调，直到取消或超时）
-		while true:
+		var scheduler: Variant = Game.event_scheduler
+		await player.execute_turn_event(scheduler, func(_ev: Variant) -> void:
+			await player.run_turn_phase("round_zero", func() -> void:
+				while true:
+					if _session_aborted(session_id):
+						return
+					var redraw: bool = await player.wait_redraw_decision()
+					if _session_aborted(session_id):
+						return
+					if not redraw:
+						break
+					var count: int = player.hand.size()
+					for card in player.hand:
+						player.game_deck.add(card)
+					player.hand.clear()
+					player.game_deck.shuffle()
+					await player.draw(count, scheduler)
+					if _session_aborted(session_id):
+						return
+					if EventBus != null and is_instance_valid(EventBus):
+						EventBus.log_message.emit(LogColors.player(player.player_name) + " 执行了重调。")
+			, "context_started")
 			if _session_aborted(session_id):
+				if player.get_turn_event() != null and not player.get_turn_event().is_finished():
+					player.get_turn_event().mark_cancelled()
 				return
-			var redraw: bool = await player.wait_redraw_decision()
-			if _session_aborted(session_id):
-				return
-			if not redraw:
-				break
-			# 返回全部手牌 → 洗牌 → 重抓等量
-			var count: int = player.hand.size()
-			for card in player.hand:
-				player.game_deck.add(card)
-			player.hand.clear()
-			player.game_deck.shuffle()
-			await player.draw(count, Game.event_scheduler)
-			if _session_aborted(session_id):
-				return
-			if EventBus != null and is_instance_valid(EventBus):
-				EventBus.log_message.emit(LogColors.player(player.player_name) + " 执行了重调。")
-		# 结束第零轮回合
-		player._enter_turn_phase("idle", "round_zero_finished")
+			await player.run_turn_phase("idle", func() -> void:
+				pass
+			, "round_zero_finished")
+		)
 		player.finish_turn_context()
 		if EventBus != null and is_instance_valid(EventBus):
 			EventBus.turn_ended.emit(player)
+		if _session_aborted(session_id):
+			return
 	current_player = null
 
 
@@ -185,7 +207,7 @@ func game_over(result: int, reason: String = "", runtime: Variant = null) -> voi
 	game_result = result
 	last_player = current_player
 	current_player = null
-	turn_queue.clear()
+	_clear_pending_turns()
 	var scheduler: Variant = runtime if runtime != null else Game.event_scheduler
 	await scheduler.dispatch("game_over", func() -> void:
 		if Game != null and is_instance_valid(Game) and Game.stats_tracker != null:
@@ -198,7 +220,7 @@ func game_over(result: int, reason: String = "", runtime: Variant = null) -> voi
 			for player in Game.players:
 				if player == null or not is_instance_valid(player):
 					continue
-				var event: Dictionary = EventSystem.create_event({
+				var event: GameEvent = EventSystem.create_event({
 					"player": player,
 					"result": result,
 				})
@@ -213,6 +235,7 @@ func game_over(result: int, reason: String = "", runtime: Variant = null) -> voi
 # === 回合循环 ===
 
 ## 切换到下一个玩家并执行其回合。用 while 循环避免递归栈溢出。
+## 玩家顺序来自调度器回合队列；每回合仍 `start_turn` → TurnEvent。
 func next_turn() -> void:
 	var session_id: int = Game.get_session_id() if Game != null else 0
 	while current_state == GameState.PLAYING:
@@ -232,7 +255,7 @@ func next_turn() -> void:
 			if current_player != null:
 				EventBus.player_turn_started.emit(current_player)
 		# 3. 执行玩家回合
-		await player.start_turn()
+		await player.start_turn(Game.event_scheduler if Game != null else null)
 		if _session_aborted(session_id):
 			return
 		if current_state != GameState.PLAYING:
@@ -245,15 +268,18 @@ func next_turn() -> void:
 		# 5. 若游戏未结束，循环继续下一个回合
 
 
-## 内部方法：从回合队列中取出下一个玩家，处理跳过标记与死亡玩家。
+## 内部方法：从调度器回合队列中取出下一个玩家，处理跳过标记与死亡玩家。
 func _get_next_player() -> Variant:
-	if turn_queue.is_empty():
+	var scheduler: Variant = _turn_scheduler()
+	if scheduler == null:
+		return null
+	if not scheduler.has_pending_turns():
 		_fill_new_turn_queue()
 	var skipped_any: bool = true
 	while skipped_any:
 		skipped_any = false
-		while not turn_queue.is_empty():
-			var player: Variant = turn_queue.pop_front()
+		while scheduler.has_pending_turns():
+			var player: Variant = scheduler.pop_turn()
 			# 跳过已死亡玩家
 			if player == null or not is_instance_valid(player) or not player.is_alive():
 				skipped_any = true
@@ -279,26 +305,32 @@ func _get_next_player() -> Variant:
 	return null
 
 
-## 内部方法：按座位顺序将所有存活玩家填入回合队列，开始新一轮。
+## 内部方法：按座位顺序将所有存活玩家填入调度器回合队列，开始新一轮。
 func _fill_new_turn_queue() -> void:
 	turn_number += 1
 	if Game == null or not is_instance_valid(Game):
 		return
 	Game.log_message("==== 第%d轮 ====" % turn_number)
+	var scheduler: Variant = _turn_scheduler()
+	if scheduler == null:
+		return
 	for player in Game.players:
 		if player != null and is_instance_valid(player) and player.is_alive():
-			turn_queue.append(player)
+			scheduler.enqueue_turn(player)
 
 
 # === 额外回合与跳过 ===
 
-## 插入额外回合。将指定玩家插入回合队列队首。
+## 插入额外回合。将指定玩家插入调度器回合队列队首。
 func queue_extra_turn(player: Variant) -> void:
 	if current_state != GameState.PLAYING:
 		return
 	if player == null or not is_instance_valid(player) or not player.is_alive():
 		return
-	turn_queue.push_front(player)
+	var scheduler: Variant = _turn_scheduler()
+	if scheduler == null:
+		return
+	scheduler.enqueue_turn(player, true)
 	if Game != null and is_instance_valid(Game):
 		Game.log_message(LogColors.player(player.player_name) + " 获得了一个额外回合。")
 
@@ -392,3 +424,15 @@ func get_turn_number() -> int:
 
 func _session_aborted(session_id: int) -> bool:
 	return Game == null or not is_instance_valid(Game) or not Game.is_session(session_id)
+
+
+func _turn_scheduler() -> Variant:
+	if Game != null and is_instance_valid(Game):
+		return Game.event_scheduler
+	return null
+
+
+func _clear_pending_turns() -> void:
+	var scheduler: Variant = _turn_scheduler()
+	if scheduler != null:
+		scheduler.clear_turn_queue()

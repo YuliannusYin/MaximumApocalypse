@@ -591,15 +591,21 @@ func test_mission_9_destroy_marks_and_upload_virus_win() -> void:
 		if block != null and is_instance_valid(block) and block.has_objective_mark():
 			marked_blocks.append(block)
 	assert_eq(marked_blocks.size(), 2, "任务 9 地图应有 2 个任务标记地块")
-	# 摧毁第一个发射器（require_no_monster=false，怪物标记不阻断）
+	# 摧毁前须清怪物标记（require_no_monster=true；地图格 4 开局带 2 个怪物标记）
 	p.current_block = marked_blocks[0]
+	assert_eq(Game.mission_config.get_action_options(Game, p).size(), 0,
+		"标记地块仍有怪物标记时不应出现摧毁选项")
+	marked_blocks[0].remove_all_monster_marks()
 	var options: Array = Game.mission_config.get_action_options(Game, p)
-	assert_eq(options.size(), 1, "标记未清空前在标记地块应仅有摧毁选项")
+	assert_eq(options.size(), 1, "清怪物标记后在标记地块应仅有摧毁选项")
 	assert_eq(options[0]["id"], "destroy_mark", "选项 id 应为 destroy_mark")
 	await options[0]["execute"].call()
 	assert_false(marked_blocks[0].has_objective_mark(), "第一个发射器标记应被移除")
 	# 摧毁第二个发射器
 	p.current_block = marked_blocks[1]
+	assert_eq(Game.mission_config.get_action_options(Game, p).size(), 0,
+		"第二块仍有怪物标记时不应出现摧毁选项")
+	marked_blocks[1].remove_all_monster_marks()
 	options = Game.mission_config.get_action_options(Game, p)
 	assert_eq(options.size(), 1, "仍剩标记时在标记地块应仅有摧毁选项")
 	await options[0]["execute"].call()
