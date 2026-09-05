@@ -2262,26 +2262,57 @@ func end_phase(phase: String) -> void:
 	_phase_end_requested = phase
 
 
-## 选择并弃置 n 张牌（可选类型过滤）。
+## 选择并弃置最多 n 张牌（手牌区 + 装备区，可选类型过滤）。
+## 可弃张数多于 n：弹窗精确选 n 张；取消则从候选中随机弃 n 张。
+## 可弃张数不超过 n：不弹窗，全部弃置。
 ## runtime 为可选的统一事件调度 runtime，见 Entity.damage 说明。
-func choose_to_discard(n: int, type: String = "", runtime: Variant = null) -> void:
+## prompt 为空时使用默认「请弃置 n 张牌（取消则随机弃置）」。
+func choose_to_discard(n: int, type: String = "", runtime: Variant = null, prompt: String = "") -> void:
+	if n <= 0:
+		return
 	var candidates: Array = []
 	if type == "":
 		candidates = hand.duplicate()
+		for e in equipment_zone:
+			if e != null and is_instance_valid(e):
+				candidates.append(e)
 	else:
 		for c in hand:
 			if c.card_type == type:
 				candidates.append(c)
+		for e in equipment_zone:
+			if e != null and is_instance_valid(e) and e.card_type == type:
+				candidates.append(e)
 	candidates = _filter_discardable_cards(candidates)
 	if candidates.is_empty():
 		return
 	var rt: Variant = runtime if runtime != null else Game.event_scheduler
+	var window_prompt: String = prompt if prompt != "" else "请弃置 %d 张牌（取消则随机弃置）" % n
 	await rt.dispatch("choose_to_discard", func() -> void:
-		var chosen: Variant = await choose_card(n, candidates)
-		if chosen == null:
+		var cards_to_discard: Array = []
+		var silent_discard: bool = false
+		if candidates.size() <= n:
+			cards_to_discard = candidates.duplicate()
+			if candidates.size() < n and Game != null and is_instance_valid(Game):
+				Game.log_message(LogColors.player(player_name) + " 可弃牌不足，弃置了全部")
+		else:
+			var chosen: Array = await choose_card(n, candidates, null, window_prompt)
+			chosen = _filter_discardable_cards(chosen)
+			if chosen.size() == n:
+				cards_to_discard = chosen
+			else:
+				var pool: Array = candidates.duplicate()
+				pool.shuffle()
+				cards_to_discard = pool.slice(0, n)
+				silent_discard = true
+				if Game != null and is_instance_valid(Game):
+					var auto_names: Array = []
+					for c in cards_to_discard:
+						auto_names.append(LogColors.card(str(c.card_name)))
+					Game.log_message(LogColors.player(player_name) + " 取消选择，随机弃置了 " + ", ".join(auto_names))
+		if cards_to_discard.is_empty():
 			return
-		var cards_to_discard: Array = chosen if chosen is Array else [chosen]
-		await discard(cards_to_discard, "", 1, "", false, rt),
+		await discard(cards_to_discard, "", 1, "", silent_discard, rt),
 		{"target": self, "n": n, "type": type})
 
 

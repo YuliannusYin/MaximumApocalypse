@@ -445,7 +445,69 @@ func test_choose_to_discard_filters_hand_scientist() -> void:
 	p.input = spy
 	spy.queue_choose_card([normal])
 	await p.choose_to_discard(1)
-	assert_eq(spy.calls.size(), 1, "选择弃牌应弹窗一次")
-	assert_false(spy.calls[0]["param"].has(scientist), "手牌中的科学家不应出现在弃牌候选中")
+	assert_eq(spy.calls.size(), 0, "可弃牌恰好 1 张时不应弹窗，直接全弃")
 	assert_true(p.game_discard_pile.get_all().has(normal), "普通牌应正常被弃置")
 	assert_true(p.hand.has(scientist), "科学家应继续留在手牌")
+
+
+func test_choose_to_discard_popup_excludes_scientist_includes_equipment() -> void:
+	var p: Player = _make_overflow_player()
+	_setup_game_for_player(p)
+	p.role_card = _make_role(10, 5)
+	var scientist: EquipmentCard = _make_overflow_equipment("科学家", 1)
+	scientist.english_name = "scientist"
+	var n1: Card = _make_card("n1")
+	var n2: Card = _make_card("n2")
+	p.hand.append(scientist)
+	p.hand.append(n1)
+	p.hand.append(n2)
+	var knife: EquipmentCard = _make_overflow_equipment("knife", 1)
+	await p.equip(knife)
+	var knife_entity: Variant = p.get_equipment("knife")
+	var spy: _ChooseCardSpyInput = _ChooseCardSpyInput.new()
+	p.input = spy
+	spy.queue_choose_card([n1])
+	await p.choose_to_discard(1)
+	assert_eq(spy.calls.size(), 1, "可弃牌多于 1 张时应弹窗")
+	var param: Array = spy.calls[0]["param"]
+	assert_false(param.has(scientist), "手牌中的科学家不应出现在弃牌候选中")
+	assert_true(param.has(n1), "手牌应进入弃牌候选")
+	assert_true(param.has(n2), "手牌应进入弃牌候选")
+	assert_true(param.has(knife_entity), "装备区应进入弃牌候选")
+	assert_true(p.game_discard_pile.get_all().has(n1), "所选牌应被弃置")
+	assert_true(p.hand.has(scientist), "科学家应继续留在手牌")
+	assert_true(p.hand.has(n2), "未选中的手牌应留下")
+	assert_eq(p.equipment_zone.size(), 1, "未选中的装备应留下")
+
+
+func test_choose_to_discard_cancel_randomly_discards_n() -> void:
+	var p: Player = _make_overflow_player()
+	_setup_game_for_player(p)
+	p.role_card = _make_role(10, 5)
+	var c1: Card = _make_card("c1")
+	var c2: Card = _make_card("c2")
+	var c3: Card = _make_card("c3")
+	var c4: Card = _make_card("c4")
+	p.hand.append_array([c1, c2, c3, c4])
+	var spy: _ChooseCardSpyInput = _ChooseCardSpyInput.new()
+	p.input = spy
+	spy.queue_choose_card([])
+	await p.choose_to_discard(2)
+	assert_eq(spy.calls.size(), 1, "可弃牌多于 2 张时应弹窗")
+	assert_eq(p.hand.size(), 2, "取消后应随机弃置 2 张，手牌剩 2")
+	assert_eq(p.game_discard_pile.size(), 2, "弃牌堆应有 2 张")
+
+
+func test_choose_to_discard_not_enough_discards_all_without_popup() -> void:
+	var p: Player = _make_overflow_player()
+	_setup_game_for_player(p)
+	p.role_card = _make_role(10, 5)
+	var c1: Card = _make_card("c1")
+	var c2: Card = _make_card("c2")
+	p.hand.append_array([c1, c2])
+	var spy: _ChooseCardSpyInput = _ChooseCardSpyInput.new()
+	p.input = spy
+	await p.choose_to_discard(3)
+	assert_eq(spy.calls.size(), 0, "可弃牌不足时不应弹窗")
+	assert_eq(p.hand.size(), 0, "不足 3 张时应全部弃置")
+	assert_eq(p.game_discard_pile.size(), 2)

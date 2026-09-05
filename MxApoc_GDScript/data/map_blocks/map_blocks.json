@@ -456,7 +456,7 @@
           "trigger": "on_reveal_block、on_turn_end",
           "filter": "return true",
           "forced": true,
-          "content": "if event.trigger_name == \"on_reveal_block\":\n\tactions.choose_to_discard(player, 3)\nelif event.trigger_name == \"on_turn_end\":\n\tactions.choose_to_discard(player, 1)"
+          "content": "if event.trigger_name == \"on_reveal_block\":\n\tactions.choose_to_discard(player, 3, \"\", \"\\\"游乐园\\\": 请弃置 3 张牌（取消则随机弃置）\")\nelif event.trigger_name == \"on_turn_end\":\n\tactions.choose_to_discard(player, 1, \"\", \"\\\"游乐园\\\": 请弃置 1 张牌（取消则随机弃置）\")"
         }
       ]
     },

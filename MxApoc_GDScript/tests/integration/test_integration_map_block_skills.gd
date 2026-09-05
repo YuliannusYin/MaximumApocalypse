@@ -134,3 +134,63 @@ func test_shelter_immune_damage_when_not_started_here() -> void:
 	p.hp = 10
 	await p.damage(5, null)
 	assert_eq(p.hp, 10, "避难所应免疫伤害（on_take_damage 被 cancel）")
+
+
+## 游乐园展示：手牌多于 3 张时弹窗精确弃 3 张
+func test_reveal_amusement_park_choose_to_discard() -> void:
+	var p: Player = _make_player("A")
+	var park: MapBlock = Game._create_map_block("游乐园")
+	park.set_coordinate(0, 0)
+	park.revealed = false
+	var c1: Card = _make_card("c1")
+	var c2: Card = _make_card("c2")
+	var c3: Card = _make_card("c3")
+	var c4: Card = _make_card("c4")
+	p.hand.append_array([c1, c2, c3, c4])
+	p.current_block = park
+	park._acquire_skills_for_player(p)
+	Game.players = [p]
+	Game.map_area = [park]
+	p.input.queue_choose_card([c1, c2, c3])
+	await park.reveal(true, p)
+	assert_eq(p.hand.size(), 1, "展示游乐园应弃置 3 张，剩 1 张")
+	assert_true(p.hand.has(c4), "未选中的牌应留下")
+	assert_eq(p.game_discard_pile.size(), 3, "弃牌堆应有 3 张")
+
+
+## 游乐园展示：点取消则随机弃 3 张
+func test_reveal_amusement_park_cancel_random_discard() -> void:
+	var p: Player = _make_player("A")
+	var park: MapBlock = Game._create_map_block("游乐园")
+	park.set_coordinate(0, 0)
+	park.revealed = false
+	p.hand.append_array([_make_card("c1"), _make_card("c2"), _make_card("c3"), _make_card("c4")])
+	p.current_block = park
+	park._acquire_skills_for_player(p)
+	Game.players = [p]
+	Game.map_area = [park]
+	p.input.queue_choose_card([])
+	await park.reveal(true, p)
+	assert_eq(p.hand.size(), 1, "取消后应随机弃置 3 张，剩 1 张")
+	assert_eq(p.game_discard_pile.size(), 3)
+
+
+## 游乐园回合结束：弃 1 张
+func test_amusement_park_turn_end_choose_to_discard() -> void:
+	var p: Player = _make_player("A")
+	var park: MapBlock = Game._create_map_block("游乐园")
+	park.set_coordinate(0, 0)
+	park.revealed = true
+	var c1: Card = _make_card("c1")
+	var c2: Card = _make_card("c2")
+	p.hand.append_array([c1, c2])
+	p.current_block = park
+	park._acquire_skills_for_player(p)
+	Game.players = [p]
+	Game.map_area = [park]
+	p.input.queue_choose_card([c1])
+	var event: Dictionary = EventSystem.create_event({"player": p, "block": park})
+	await p.trigger("on_turn_end", event)
+	assert_false(p.hand.has(c1), "回合结束应弃置所选牌")
+	assert_true(p.hand.has(c2), "未选中的牌应留下")
+	assert_eq(p.game_discard_pile.size(), 1)
