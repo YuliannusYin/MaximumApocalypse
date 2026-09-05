@@ -500,6 +500,22 @@ func get_engaged_monsters(player: Variant) -> Array:
 	return []
 
 
+## 向所有玩家怪物区中除 except 外的存活怪物广播 trigger。
+## 用于跨怪物监听技能（如僵尸女王 on_monster_death、外星科学家 on_deal_damage、方阵机器人 on_take_damage）。
+func trigger_other_zone_monsters(trigger_name: String, event: Variant, except: Variant = null) -> void:
+	for _p in players:
+		if _p == null or not is_instance_valid(_p):
+			continue
+		if not "monster_zone" in _p:
+			continue
+		for _m in _p.monster_zone:
+			if _m == null or not is_instance_valid(_m) or _m == except:
+				continue
+			if _m.has_method("get_hp") and _m.get_hp() <= 0:
+				continue
+			await _m.trigger(trigger_name, event)
+
+
 ## 从玩家指定区域随机返回一张牌；无牌返回 null。
 ## 装备区持有 Equipment 实体，返回时映射为来源 EquipmentCard，保持"返回卡"语义。
 func get_random_card(player: Variant, areas: Array) -> Variant:

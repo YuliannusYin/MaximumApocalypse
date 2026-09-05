@@ -154,7 +154,7 @@
 
 #### 跨怪物广播 `on_monster_death`
 
-`on_monster_death` 节点执行后，遍历 `Game.players` 中每个玩家 `_p` 的 `monster_zone`，对每只非自身且存活的怪物 `_m` 调用 `await _m.trigger("on_monster_death", event)`。
+`on_monster_death` 节点执行后，调用 `Game.trigger_other_zone_monsters("on_monster_death", event, self)`，向所有玩家怪物区中除自身外的存活怪物广播同一事件。
 
 > **设计原因**：使跨怪物监听技能（如僵尸女王）能感知到其他怪物的死亡。事件载荷与死亡怪物自身触发的 `on_monster_death` 相同，包含 `target` / `source` 等字段。
 

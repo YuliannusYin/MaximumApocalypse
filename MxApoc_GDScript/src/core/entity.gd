@@ -390,11 +390,17 @@ func damage(num: int, source: Entity, type: Variant = "", card: Card = null, run
 			await trigger("before_take_damage", event)
 
 		# 3. on_deal_damage（可修改 event.num）
+		# source 为怪物时向其他有场怪物广播，使跨怪物监听技能（如外星科学家-协同强化）能触发
 		if source != null:
 			await source.trigger("on_deal_damage", event)
+			if source.has_method("is_monster") and source.is_monster() and Game != null and is_instance_valid(Game):
+				await Game.trigger_other_zone_monsters("on_deal_damage", event, source)
 
 		# 4. on_take_damage（取消点：可修改 event.num 或 EventSystem.cancel(event)）
+		# 目标为怪物时向其他有场怪物广播，使跨怪物监听技能（如方阵机器人）能触发
 		await trigger("on_take_damage", event)
+		if is_monster() and Game != null and is_instance_valid(Game):
+			await Game.trigger_other_zone_monsters("on_take_damage", event, self)
 
 		if EventSystem.is_cancelled(event):
 			return

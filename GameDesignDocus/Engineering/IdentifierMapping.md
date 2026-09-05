@@ -399,6 +399,7 @@ trigger 名在 JSON 数据中用英文 snake_case，技能 `trigger` 字段可�
 | `create_scavenge_card(card_name)` | 创建拾荒卡实例 |
 | `get_all_players()` / `get_alive_players()` | 玩家查询 |
 | `get_engaged_monsters(player)` | 玩家面前怪物 |
+| `trigger_other_zone_monsters(trigger_name, event, except)` | 向其他有场存活怪物广播 trigger |
 | `check_mission_win_condition()` | 任务胜利判定 |
 | `log_message(message)` | 输出日志 |
 

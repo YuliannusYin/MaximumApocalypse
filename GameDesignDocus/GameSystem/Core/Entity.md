@@ -146,8 +146,8 @@ Entity 基类负责：
 |------|------------------------|---------|------|
 | 1 | `before_deal_damage` | source | source != null 时触发 |
 | 2 | `before_take_damage` | target | 始终触发（含无来源伤害） |
-| 3 | `on_deal_damage` | source | source != null 时触发；可修改 `event.num`（伤害加成）；可通过 `event.card` 判断武器 |
-| 4 | `on_take_damage` | target | **取消点**；可修改 `event.num`（伤害减免）或调用 `event.cancel()` |
+| 3 | `on_deal_damage` | source；source 为怪物时另广播其他有场存活怪物（跳过 source 自身） | source != null 时触发；可修改 `event.num`（伤害加成）；可通过 `event.card` 判断武器；跨怪物广播经 `Game.trigger_other_zone_monsters`（如外星科学家-协同强化） |
+| 4 | `on_take_damage` | target；target 为怪物时另广播其他有场存活怪物（跳过 target 自身） | **取消点**；可修改 `event.num`（伤害减免）或调用 `event.cancel()`；跨怪物广播经 `Game.trigger_other_zone_monsters`（如方阵机器人） |
 | 5 | （系统扣血） | — | `reduce_hp(event.num)`，非钩子节点 |
 | 5.5 | （EventBus 信号） | — | 实际扣血量大于 0 时发射 `damage_taken` / `damage_dealt` 信号，非钩子节点 |
 | 5.6 | （日志记录） | — | 玩家/怪物受伤时输出区分来源的伤害日志，非钩子节点 |

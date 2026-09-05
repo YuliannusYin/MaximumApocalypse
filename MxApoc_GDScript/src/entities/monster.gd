@@ -276,13 +276,7 @@ func death(source: Entity, runtime: Variant = null) -> void:
 		await trigger("on_monster_death", event)
 		# 向所有玩家怪物区中的其他存活怪物广播，使跨怪物监听技能（如僵尸女王）能触发
 		if Game != null and is_instance_valid(Game):
-			for _p in Game.players:
-				if _p == null or not is_instance_valid(_p):
-					continue
-				for _m in _p.monster_zone:
-					if _m == null or not is_instance_valid(_m) or _m == self:
-						continue
-					await _m.trigger("on_monster_death", event)
+			await Game.trigger_other_zone_monsters("on_monster_death", event, self)
 
 		# 向击杀者（玩家）触发，使玩家身上的 on_monster_death 技能（如搜索尸体）能触发
 		if source != null and is_instance_valid(source) and source.has_method("is_player") and source.is_player():

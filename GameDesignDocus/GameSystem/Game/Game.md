@@ -227,6 +227,11 @@
 
 > 返回玩家面前纠缠的怪物列表。若 `player` 无效或不含 `monster_zone` 字段返回空数组；否则返回 `player.monster_zone`。
 
+#### trigger_other_zone_monsters(trigger_name, event, except)
+
+> 向所有玩家怪物区中除 `except` 外的存活怪物广播 `trigger_name`。跳过无效实体、`except` 自身，以及 `get_hp() <= 0` 的怪物。
+> 用于跨怪物监听技能：伤害流程节点 3 在 source 为怪物时广播 `on_deal_damage`（如外星科学家-协同强化）；节点 4 在 target 为怪物时广播 `on_take_damage`（如方阵机器人）；怪物死亡流程节点 2 广播 `on_monster_death`（如僵尸女王）。
+
 ---
 
 ### 卡牌与目标查询
