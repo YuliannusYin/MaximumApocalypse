@@ -27,6 +27,9 @@ var charge_current: int = 0
 ## 装备区标记：是否在玩家装备区内
 var in_equipment_area: bool = false
 
+## 是否为武器牌（会造成伤害的装备）。由 JSON `weapon` 字段声明，缺省 false。
+var weapon: bool = false
+
 
 ## 消耗 n 个填充物。成功返回 true，不足返回 false。
 func consume_charge(n: int) -> bool:
@@ -71,9 +74,9 @@ func change_charge_type(type: String) -> void:
 	charge_type = type
 
 
-## 是否为武器牌（用于 damage 流程的 card 参数判断）。
+## 是否为武器牌（用于 damage 流程的 card 参数判断与升级目标过滤）。
 func is_weapon_card() -> bool:
-	return range != "none" and card_subtype == "equipment"
+	return weapon
 
 
 ## 实体化：复制卡面数据到 Equipment 实例，并把来源卡重置为全新填充物状态。
@@ -91,8 +94,10 @@ func instantiate(player: Player = null) -> Equipment:
 	eq.range = range
 	eq.charge_type = charge_type
 	eq.charge_max = charge_max
+	eq.weapon = weapon
 	eq.in_equipment_area = true
 	eq.equipment_card = self
+	eq.equipped_player = player
 	for s in skills:
 		eq.add_skill(s)
 	return eq

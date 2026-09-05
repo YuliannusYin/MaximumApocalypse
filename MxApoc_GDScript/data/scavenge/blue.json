@@ -155,6 +155,7 @@
       "english_name": "pistol",
       "card_type": "equipment",
       "range": "medium",
+      "weapon": true,
       "size": 1,
       "charge_type": "ammo",
       "charge_max": 4,

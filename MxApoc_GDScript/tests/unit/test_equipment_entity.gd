@@ -249,3 +249,37 @@ func test_homemade_bullets_filter_excludes_empty_charge_type() -> void:
 	torch_card.charge_type = "fuel"
 	var torch: Equipment = torch_card.instantiate(null)
 	assert_true(filter_callable.call(p, torch, event, Game), "有燃料的喷灯应被自制子弹选中")
+
+
+func test_instantiate_copies_weapon_and_equipped_player() -> void:
+	var p: Player = _make_combat_player()
+	var card: EquipmentCard = _make_equipment("wrench")
+	card.weapon = true
+	var entity: Equipment = card.instantiate(p)
+	assert_true(entity.weapon, "实体化应复制 weapon")
+	assert_true(entity.is_weapon_card(), "weapon=true 的实体应是武器")
+	assert_eq(entity.equipped_player, p, "实体化应记下 equipped_player")
+
+
+func test_unequip_clears_equipped_player() -> void:
+	var p: Player = _make_combat_player()
+	_setup_game_for_player(p)
+	var card: EquipmentCard = _make_equipment("wrench")
+	card.weapon = true
+	await p.equip(card)
+	var entity: Equipment = p.get_equipment("wrench")
+	assert_eq(entity.equipped_player, p, "装备后 equipped_player 应为持有者")
+	await p.unequip(entity)
+	assert_null(entity.equipped_player, "卸下后 equipped_player 应清空")
+
+
+func test_get_equipment_candidates_empty_range_is_own_zone() -> void:
+	var p: Player = _make_combat_player()
+	_setup_game_for_player(p)
+	var card: EquipmentCard = _make_equipment("wrench")
+	await p.equip(card)
+	var own: Array = p.get_equipment_candidates("")
+	assert_eq(own.size(), 1, "空射程应只返回自己的装备区")
+	assert_eq(own[0], p.equipment_zone[0])
+	var fallback: Array = p.get_equipment_candidates("medium")
+	assert_eq(fallback.size(), 1, "无当前地块时声明射程应回退到自己的装备区")

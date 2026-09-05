@@ -75,12 +75,13 @@ func test_equipment_card_is_weapon_card() -> void:
 	var ec: EquipmentCard = EquipmentCard.new()
 	ec.card_subtype = "equipment"
 	ec.range = "short"
-	assert_true(ec.is_weapon_card(), "有射程的装备牌应是武器")
+	assert_false(ec.is_weapon_card(), "未声明 weapon 的装备不是武器")
+	ec.weapon = true
+	assert_true(ec.is_weapon_card(), "weapon=true 的装备牌应是武器")
 	ec.range = "none"
-	assert_false(ec.is_weapon_card(), "无射程的装备牌不是武器")
-	ec.range = "short"
-	ec.card_subtype = "action"
-	assert_false(ec.is_weapon_card(), "行动牌不是武器")
+	assert_true(ec.is_weapon_card(), "武器判定以 weapon 字段为准，不依赖射程")
+	ec.weapon = false
+	assert_false(ec.is_weapon_card(), "weapon=false 的装备不是武器")
 
 
 # === MonsterCard ===

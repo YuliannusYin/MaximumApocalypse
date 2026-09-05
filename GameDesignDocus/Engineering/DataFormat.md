@@ -129,6 +129,7 @@
 | `charge_max` | Int | 否 | 填充物上限（带填充物装备） |
 | `charge_initial` | Int | 否 | 初始填充数（带填充物装备） |
 | `range` | String | 否 | 射程（有射程的装备或行动牌） |
+| `weapon` | Bool | 否 | 是否为武器牌（会造成伤害的装备）。缺省 `false`。用于「升级」等按武器筛选目标 |
 | `skills` | Array | 否 | 卡牌技能列表（结构见第四节） |
 
 ### 3.2 scavenge/*.json
@@ -155,6 +156,8 @@
 | `charge_type` | String | 否 | 填充物类型（带填充物装备） |
 | `charge_max` | Int | 否 | 填充物上限（带填充物装备） |
 | `charge_initial` | Int | 否 | 初始填充数（带填充物装备） |
+| `range` | String | 否 | 射程（有射程的装备） |
+| `weapon` | Bool | 否 | 是否为武器牌（会造成伤害的装备）。缺省 `false` |
 | `skills` | Array | 否 | 技能列表 |
 
 **`cards[].skills[]` 字段：**

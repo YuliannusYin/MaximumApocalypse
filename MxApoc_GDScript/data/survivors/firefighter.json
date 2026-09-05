@@ -50,6 +50,7 @@
       "card_type": "equipment",
       "size": 1,
       "range": "short",
+      "weapon": true,
       "charge_type": "fuel",
       "charge_max": 2,
       "charge_initial": 2,
@@ -102,6 +103,7 @@
       "card_type": "equipment",
       "size": 1,
       "range": "medium",
+      "weapon": true,
       "charge_type": "ammo",
       "charge_max": 4,
       "charge_initial": 4,
@@ -294,6 +296,7 @@
       "count": 2,
       "card_type": "equipment",
       "range": "short",
+      "weapon": true,
       "size": 2,
       "skills": [
         {

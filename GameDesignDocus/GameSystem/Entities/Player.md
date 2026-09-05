@@ -621,9 +621,13 @@
 
 用 `skill.filter_target` 过滤候选目标列表。`filter_target` 为空 Callable 时全保留。
 
+#### `get_equipment_candidates(range_str) -> Array`
+
+构建装备目标候选。`range_str` 为空时只返回自己的装备区（弹药、空尖弹等未声明射程的技能）；否则返回射程内所有玩家装备区中的装备（含自己）。无当前地块时回退到自己的装备区。
+
 #### `get_skill_valid_targets(skill) -> Array`
 
-构建技能的合法目标候选列表（按 `target_type` 与 `filter_target_range` 构建并经 `_filter_targets` 过滤）。逻辑与 UI 层 `_on_choose_target_requested` 保持一致，供可用性判断复用。
+构建技能的合法目标候选列表（按 `target_type` 与 `filter_target_range` 构建并经 `_filter_targets` 过滤）。`target_type == "equipment"` 时走 `get_equipment_candidates`（空射程不默认成短距离）。逻辑与 UI 层 `_on_choose_target_requested` 保持一致，供可用性判断复用。
 
 #### `can_use_active_skill(skill) -> bool`
 

@@ -28,6 +28,7 @@
       "card_type": "equipment",
       "size": 1,
       "range": "short",
+      "weapon": true,
       "skills": [
         {
           "skill_name": "扳手",
@@ -74,6 +75,7 @@
       "count": 3,
       "card_type": "equipment",
       "size": 1,
+      "weapon": true,
       "skills": [
         {
           "skill_name": "感应地雷",
@@ -120,7 +122,7 @@
           "active": "action",
           "filter": "return player.get_effective_phase() == \"action\"",
           "defer_action_cost": true,
-          "content": "actions.consume_action(player, 1)\nvar list = game.get_all_players()\nfor i in list:\n\tactions.mount_sub_skill(i, \"check_weapon_damage\")\n\tactions.add_temp_skill(i, \"check_weapon_clear\", \"before_turn_end\")",
+          "content": "actions.consume_action(player, 1)\nvar list = game.get_all_players()\nfor i in list:\n\tactions.add_mark(i, \"check_weapon\", 1, \"检查武器\", \"造成的伤害+1\", true)\n\tactions.mount_sub_skill(i, \"check_weapon_damage\")\n\tactions.mount_sub_skill(i, \"check_weapon_clear\")",
           "sub_skills": {
             "damage": {
               "skill_name": "检查武器_伤害",
@@ -128,14 +130,14 @@
               "trigger": "on_deal_damage",
               "forced": true,
               "filter": "return true",
-              "content": "event.num += 1"
+              "content": "event.num += player.count_mark(\"check_weapon\")"
             },
             "clear": {
               "skill_name": "检查武器_清除",
               "english_name": "check_weapon_clear",
               "trigger": "before_turn_end",
               "forced": true,
-              "content": "for s in player.get_all_skills():\n\tif s.english_name == \"check_weapon_damage\":\n\t\tplayer.remove_skill(s)\n\t\tbreak"
+              "content": "actions.remove_mark(player, \"check_weapon\")\nfor s in player.get_all_skills().duplicate():\n\tif s.english_name == \"check_weapon_damage\" or s.english_name == \"check_weapon_clear\":\n\t\tplayer.remove_skill(s)"
             }
           }
         }
@@ -148,6 +150,7 @@
       "card_type": "equipment",
       "size": 2,
       "range": "short",
+      "weapon": true,
       "charge_type": "fuel",
       "charge_max": 3,
       "charge_initial": 3,
@@ -207,11 +210,11 @@
           "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0",
           "target_type": "equipment",
           "select_target": 1,
-          "filter_target": "return target.in_equipment_area",
+          "filter_target": "return target.in_equipment_area && target.is_weapon_card()",
           "window_prompt": "\"升级\": 选择目标武器",
           "filter_target_range": "medium",
           "defer_action_cost": true,
-          "content": "actions.consume_action(player, 1)\nactions.add_mark_skill(target.equipment_card, \"upgrade_damage_plus_1\", 1, \"\", \"升级\", \"该武器额外造成1点伤害\", true)\nactions.mount_sub_skill(player, \"upgrade_damage\")\nactions.mount_sub_skill(player, \"upgrade_clear_mark_discard\")\nactions.mount_sub_skill(player, \"upgrade_clear_mark_unequip\")",
+          "content": "var owner = target.equipped_player\nif owner == null:\n\tEventSystem.cancel(event)\n\treturn\nactions.consume_action(player, 1)\nactions.add_mark_skill(target.equipment_card, \"upgrade_damage_plus_1\", 1, \"\", \"升级\", \"该武器额外造成1点伤害\", true)\nactions.mount_sub_skill(owner, \"upgrade_damage\")\nactions.mount_sub_skill(owner, \"upgrade_clear_mark_discard\")\nactions.mount_sub_skill(owner, \"upgrade_clear_mark_unequip\")",
           "sub_skills": {
             "damage": {
               "skill_name": "升级_伤害",
@@ -248,6 +251,7 @@
       "card_type": "equipment",
       "size": 1,
       "range": "medium",
+      "weapon": true,
       "charge_type": "ammo",
       "charge_max": 4,
       "charge_initial": 4,
@@ -280,9 +284,9 @@
           "skill_description": "行动：从1个地图块上移除所有怪物标记。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0",
+          "filter": "var _has = false\nif player.get_current_block() != null:\n\tfor _b in player.get_current_block().get_blocks_in_range(\"infinity\"):\n\t\tif _b.has_monster_mark():\n\t\t\t_has = true\n\t\t\tbreak\nreturn player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0 && _has",
           "defer_action_cost": true,
-          "content": "var _candidates = player.get_current_block().get_blocks_in_range(\"infinity\")\nvar _valid = []\nfor _b in _candidates:\n\tif _b.is_revealed():\n\t\t_valid.append(_b)\nif _valid.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar _blocks = await player.choose_block_inline(_valid, \"\\\"无人机攻击\\\": 选择目标地块\", 1)\ntarget = _blocks[0] if _blocks.size() > 0 else null\nif target == null:\n\tEventSystem.cancel(event)\n\treturn\nactions.consume_action(player, 1)\nactions.remove_all_monster_marks(target)"
+          "content": "var _block = player.get_current_block()\nif _block == null:\n\tEventSystem.cancel(event)\n\treturn\nvar _candidates = _block.get_blocks_in_range(\"infinity\")\nvar _valid = []\nfor _b in _candidates:\n\tif _b.has_monster_mark():\n\t\t_valid.append(_b)\nif _valid.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar _blocks = await player.choose_block_inline(_valid, \"\\\"无人机攻击\\\": 选择目标地块\", 1)\ntarget = _blocks[0] if _blocks.size() > 0 else null\nif target == null:\n\tEventSystem.cancel(event)\n\treturn\nactions.consume_action(player, 1)\nactions.remove_all_monster_marks(target)"
         }
       ]
     },
@@ -296,7 +300,7 @@
         {
           "skill_name": "阅读使用说明",
           "english_name": "read_manual",
-          "skill_description": "行动：将一张装备牌装备给另一名玩家，然后你抓取一张牌。",
+          "skill_description": "行动：将射程内的一张装备牌装备给一名玩家（不可装回原持有者），然后你抓取一张牌。",
           "range": "medium",
           "skill_type": "action",
           "active": "action",
@@ -307,7 +311,7 @@
           "window_prompt": "\"阅读使用说明\": 选择要给出的装备",
           "filter_target_range": "medium",
           "defer_action_cost": true,
-          "content": "var _selected = await player.choose_target(1, {\"filter_target\": \"return target.is_player() && target != player\", \"filter_target_range\": \"medium\"}, \"\\\"阅读使用说明\\\": 选择装备目标玩家\")\nif _selected.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar target2 = _selected[0]\nactions.consume_action(player, 1)\nvar _card = target.equipment_card\nawait player.unequip(target)\nawait target2.equip(_card)\nactions.draw(player, 1)"
+          "content": "var owner = target.equipped_player\nif owner == null:\n\tEventSystem.cancel(event)\n\treturn\nvar _selected = await player.choose_target(1, {\"filter_target\": func(_pl, t, _ev, _gm): return t != null and t.is_player() and t != owner, \"filter_target_range\": \"medium\"}, \"\\\"阅读使用说明\\\": 选择装备目标玩家\")\nif _selected.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar target2 = _selected[0]\nactions.consume_action(player, 1)\nvar _card = target.equipment_card\nawait owner.unequip(target)\nawait target2.equip(_card)\nactions.draw(player, 1)"
         }
       ]
     },
@@ -317,6 +321,7 @@
       "count": 2,
       "card_type": "equipment",
       "size": 2,
+      "weapon": true,
       "charge_type": "ammo",
       "charge_max": 4,
       "charge_initial": 4,

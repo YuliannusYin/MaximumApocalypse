@@ -904,6 +904,7 @@ func _create_game_card_from_dict(card_dict: Dictionary) -> Card:
 		(card as EquipmentCard).size = int(card_dict.get("size", 1))
 		var range_str: String = card_dict.get("range", "none")
 		(card as EquipmentCard).range = range_str
+		(card as EquipmentCard).weapon = bool(card_dict.get("weapon", false))
 		(card as EquipmentCard).card_subtype = "equipment"
 	elif card_type == "action":
 		card = SurvivorGameCard.new()
@@ -944,6 +945,7 @@ func _create_scavenge_card_from_data(card_data: ScavengeCardData, color: String)
 	# 非装备类拾荒卡（食物/弹药/医疗用品等）的 charge 字段保持默认 0/空，无害。
 	card.size = card_data.size
 	card.range = card_data.range
+	card.weapon = card_data.weapon
 	card.charge_type = card_data.charge_type
 	card.charge_max = card_data.charge_max
 	card.charge_current = card_data.charge_initial

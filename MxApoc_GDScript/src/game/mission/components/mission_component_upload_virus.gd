@@ -8,15 +8,24 @@ extends MissionComponent
 ## - equipment: String（默认 "科学家"）——上传所需的装备名（须在玩家装备区）
 ## 行动选项仅在玩家位于上传地点、装备区持有指定装备、行动数充足
 ## 且场上存活地块已无任何未移除的任务标记时出现；
-## 执行后扣减 1 行动并直接判定胜利（game_over("win")）。
+## 执行后扣减 1 行动，写入 mission_state["virus_uploaded"] = true
+## 并直接判定胜利（game_over("win")）。
+## mission_state 键：
+## - "virus_uploaded"：bool——已执行上传病毒（progress_conditions state_flag 求值用）
 ## 服务任务 9。
 
 ## 游戏实例引用。setup 时注入，供行动技能 filter 扫描场上标记与执行体调用 _do_upload。
 var _game: Game = null
 
+## 任务配置引用。setup 时注入，用于读写 mission_state。
+var _mission_config: MissionConfig = null
+
 
 func setup(game: Game, mission_config: MissionConfig) -> void:
 	_game = game
+	_mission_config = mission_config
+	if _mission_config != null and not _mission_config.mission_state.has("virus_uploaded"):
+		_mission_config.mission_state["virus_uploaded"] = false
 	if not params.has("block_name"):
 		params["block_name"] = "坠毁点"
 	if not params.has("equipment"):
@@ -86,7 +95,7 @@ func _any_objective_mark_on_map(game: Game) -> bool:
 	return false
 
 
-## 上传执行：扣减 1 行动并直接判定胜利。
+## 上传执行：扣减 1 行动，写入 virus_uploaded 旗标并直接判定胜利。
 func _do_upload(game: Game, player: Player) -> void:
 	if game == null or not is_instance_valid(game):
 		return
@@ -94,5 +103,7 @@ func _do_upload(game: Game, player: Player) -> void:
 		return
 	if not await player.consume_action_evented(1):
 		return
+	if _mission_config != null:
+		_mission_config.mission_state["virus_uploaded"] = true
 	game.log_message(LogColors.player(player.player_name) + " 上传了病毒！")
 	await game.game_over("win")
