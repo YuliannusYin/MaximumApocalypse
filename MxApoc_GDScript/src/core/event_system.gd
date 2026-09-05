@@ -96,10 +96,11 @@ static func create_damage_event(target: Entity, source: Entity, num: int, type: 
 
 
 # === 回复生命 event ===
-static func create_recover_event(player: Variant, num: int) -> Dictionary:
+static func create_recover_event(player: Variant, num: int, source: Variant = null) -> Dictionary:
 	return create_event({
 		"player": player,
 		"num": num,
+		"source": source,
 	})
 
 

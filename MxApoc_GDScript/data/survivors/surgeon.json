@@ -102,9 +102,9 @@
         {
           "skill_name": "手术刀_回复",
           "english_name": "scalpel_recover",
-          "skill_description": "被动：回复生命时，额外回复1点。行动：对1个目标造成2点伤害。",
+          "skill_description": "被动：来源于你的回复效果额外增加1点。行动：对1个目标造成2点伤害。",
           "skill_type": "equipment",
-          "trigger": "on_recover",
+          "trigger": "on_deal_recover",
           "filter": "return true",
           "forced": true,
           "content": "event.num += 1"
@@ -135,9 +135,9 @@
         {
           "skill_name": "手套",
           "english_name": "gloves",
-          "skill_description": "被动：回复生命时，额外回复1点。",
+          "skill_description": "被动：来源于你的回复效果额外增加1点。",
           "skill_type": "equipment",
-          "trigger": "on_recover",
+          "trigger": "on_deal_recover",
           "filter": "return true",
           "forced": true,
           "content": "event.num += 1"
@@ -223,7 +223,7 @@
         {
           "skill_name": "注射类固醇",
           "english_name": "steroid_injection",
-          "skill_description": "行动：选择一名玩家，该玩家可以立即使用2张牌。",
+          "skill_description": "行动：选择一名玩家，该玩家立即执行2个仅能使用手牌的行动。",
           "skill_type": "action",
           "active": "action",
           "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0",
@@ -232,7 +232,7 @@
           "window_prompt": "\"注射类固醇\": 选择目标玩家",
           "filter_target_range": "infinity",
           "defer_action_cost": true,
-          "content": "actions.consume_action(player, 1)\nactions.play_card_immediately(target)\nactions.play_card_immediately(target)"
+          "content": "actions.consume_action(player, 1)\nactions.execute_action_immediately(target, 2, [\"card\"])"
         }
       ]
     },

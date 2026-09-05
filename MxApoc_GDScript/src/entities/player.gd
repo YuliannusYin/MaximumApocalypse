@@ -102,16 +102,19 @@ func is_match_over() -> bool:
 
 # === 一、状态管理 ===
 
-## 回复生命值（4 节点：前/时/系统加血/后）。
-## source 为治疗来源（默认 null 表示自行回复）；source != self 时额外发射 healing_done。
+## 回复生命值（5 节点：前 / 造成回复时 / 回复时 / 系统加血 / 后）。
+## source 为治疗来源（默认 null 表示无来源，跳过来源侧 on_deal_recover）；
+## source != self 时额外发射 healing_done。
 ## runtime 为可选的统一事件调度 runtime，见 Entity.damage 说明。
 func recover(num: int, source: Variant = null, runtime: Variant = null) -> void:
 	if num <= 0:
 		return
 	var rt: Variant = runtime if runtime != null else Game.event_scheduler
 	await rt.dispatch("recover", func() -> void:
-		var event: Dictionary = EventSystem.create_recover_event(self, num)
+		var event: Dictionary = EventSystem.create_recover_event(self, num, source)
 		await trigger("before_recover", event)
+		if source != null and is_instance_valid(source) and source.has_method("trigger"):
+			await source.trigger("on_deal_recover", event)
 		await trigger("on_recover", event)
 		if EventSystem.is_cancelled(event):
 			return
@@ -1506,6 +1509,17 @@ func reduce_sneak(n: int) -> void:
 	stealth = maxi(stealth - n, 0)
 
 
+## 当前有限行动是否允许该行动类型。空白名单表示不限制（正式回合或肾上腺素类迷你回合）。
+func is_action_type_allowed(action_type: String) -> bool:
+	var context: Dictionary = get_operation_context()
+	if context.is_empty():
+		return true
+	var allowed: Variant = context.get("allowed_action_types", [])
+	if not allowed is Array or allowed.is_empty():
+		return true
+	return allowed.has(action_type)
+
+
 ## 当前玩家的最内层有限操作上下文。正式回合没有该上下文。
 func get_operation_context() -> Dictionary:
 	if _operation_context_stack.is_empty():
@@ -2185,6 +2199,8 @@ func wait_player_action(_operation_context: Dictionary = {}) -> Dictionary:
 ## 所有 UI/CLI 玩家意图的统一领域分发入口。
 func dispatch_player_action(choice: Dictionary) -> void:
 	var action_type: String = choice.get("type", "")
+	if not is_action_type_allowed(action_type):
+		return
 	var operation_runtime: Variant = get_operation_runtime()
 	if action_type == "skill":
 		var skill: Skill = choice.get("skill", null)

@@ -27,7 +27,8 @@ func damage(target: Entity, num: int, source: Entity = null, type: Variant = "",
 
 
 func recover(target: Variant, num: int, source: Variant = null) -> Variant:
-	return await target.recover(num, source, runtime)
+	var resolved: Variant = source if source != null else player
+	return await target.recover(num, resolved, runtime)
 
 
 func draw(target: Variant, num: int) -> Variant:
@@ -163,8 +164,9 @@ func restore_full_health(target: Variant) -> Variant:
 	return await target.restore_full_health(runtime)
 
 
-func execute_action_immediately(target: Variant, num: int) -> Variant:
-	var context: Dictionary = runtime.create_limited_action_context(target, player, num)
+func execute_action_immediately(target: Variant, num: int, allowed_action_types: Variant = null) -> Variant:
+	var types: Array = allowed_action_types if allowed_action_types is Array else []
+	var context: Dictionary = runtime.create_limited_action_context(target, player, num, types)
 	return await runtime.dispatch(
 		"execute_action_immediately",
 		func() -> Variant:

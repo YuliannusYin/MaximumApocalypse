@@ -26,6 +26,8 @@ func refresh(player: Variant) -> void:
 	var in_action: bool = player.get_effective_phase() == "action" if player.has_method("get_effective_phase") else player.get("in_phase") == "action"
 	if not in_action:
 		return
+	if player.has_method("is_action_type_allowed") and not player.is_action_type_allowed("skill"):
+		return
 	var has_action: bool = player.is_action_available(1) if player.has_method("is_action_available") else player.get("action_count") > 0
 
 	var seen_names: Dictionary = {}

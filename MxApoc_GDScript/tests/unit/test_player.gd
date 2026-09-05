@@ -145,6 +145,82 @@ func test_recover_hooks_and_cancel() -> void:
 	assert_eq(p.hp, 5, "on_recover 取消后不应加血")
 
 
+func test_on_deal_recover_modifies_num_from_source() -> void:
+	var healer: Player = _make_combat_player(10, 10)
+	var target: Player = _make_combat_player(5, 10)
+	var bonus := Skill.new()
+	bonus.trigger = "on_deal_recover"
+	bonus.forced = true
+	bonus.content = func(_p, _t, ev: Dictionary, _g) -> void:
+		ev["num"] += 1
+	healer.add_skill(bonus)
+	await target.recover(1, healer)
+	assert_eq(target.hp, 7, "来源侧 on_deal_recover 应使回复量 +1")
+
+
+func test_on_deal_recover_skipped_when_source_null() -> void:
+	var p: Player = _make_combat_player(5, 10)
+	var bonus := Skill.new()
+	bonus.trigger = "on_deal_recover"
+	bonus.content = func(_p, _t, ev: Dictionary, _g) -> void:
+		ev["num"] += 1
+	p.add_skill(bonus)
+	await p.recover(1)
+	assert_eq(p.hp, 6, "无来源时不应触发 on_deal_recover")
+
+
+func test_on_deal_recover_does_not_fire_on_heal_target() -> void:
+	var healer: Player = _make_combat_player(10, 10)
+	var target: Player = _make_combat_player(5, 10)
+	var bonus := Skill.new()
+	bonus.trigger = "on_deal_recover"
+	bonus.content = func(_p, _t, ev: Dictionary, _g) -> void:
+		ev["num"] += 1
+	target.add_skill(bonus)
+	await target.recover(1, healer)
+	assert_eq(target.hp, 6, "被治疗者的 on_deal_recover 不应在其作为目标时触发")
+
+
+func test_recover_hook_order_includes_deal_recover() -> void:
+	var healer: Player = _make_combat_player(10, 10)
+	var target: Player = _make_combat_player(5, 10)
+	var called: Array = []
+	target.add_skill(_make_skill_with_trigger("before_recover", called))
+	healer.add_skill(_make_skill_with_trigger("on_deal_recover", called))
+	target.add_skill(_make_skill_with_trigger("on_recover", called))
+	target.add_skill(_make_skill_with_trigger("after_recover", called))
+	await target.recover(1, healer)
+	assert_eq(called, ["before_recover", "on_deal_recover", "on_recover", "after_recover"])
+
+
+func test_game_actions_recover_defaults_source_to_owner() -> void:
+	var healer: Player = _make_combat_player(10, 10)
+	var target: Player = _make_combat_player(5, 10)
+	_setup_game_for_player(healer)
+	Game.players.append(target)
+	var bonus := Skill.new()
+	bonus.trigger = "on_deal_recover"
+	bonus.content = func(_p, _t, ev: Dictionary, _g) -> void:
+		ev["num"] += 1
+	healer.add_skill(bonus)
+	var actions := GameActions.new(healer, Game)
+	await actions.recover(target, 1)
+	assert_eq(target.hp, 7, "GameActions.recover 未传 source 时应归因为发动者")
+
+
+func test_recover_block_source_skips_player_deal_recover() -> void:
+	var p: Player = _make_combat_player(5, 10)
+	var block := MapBlock.new()
+	block.block_name = "医院"
+	var bonus := Skill.new()
+	bonus.trigger = "on_deal_recover"
+	bonus.content = func(_p, _t, ev: Dictionary, _g) -> void:
+		ev["num"] += 1
+	p.add_skill(bonus)
+	await p.recover(1, block)
+	assert_eq(p.hp, 6, "地块作为 source 时玩家手术刀/手套不应加成")
+
+
 func test_increase_hunger_normal() -> void:
 	var p: Player = _make_combat_player(10, 10)
 	await p.increase_hunger(2)
@@ -1359,6 +1435,102 @@ func test_limited_action_operation_does_not_overwrite_formal_player_state() -> v
 	assert_eq(target.action_count, 4, "有限行动不应消耗目标正式行动点")
 	assert_eq(target.hand, [card], "有限行动仍应执行牌堆行动")
 	assert_eq(actions.runtime.get_current_context(), {}, "有限操作完成后上下文应释放")
+
+
+func _make_spend_ap_card(card_name: String) -> Card:
+	var card: Card = _make_card(card_name, "action")
+	var skill := Skill.new()
+	skill.active = "action"
+	skill.filter = func(player, _t, _e, _g) -> bool:
+		return player.get_effective_phase() == "action" and player.get_effective_action_count() > 0
+	skill.content = func(_p, _t, _e, _g) -> void:
+		return
+	card.add_skill(skill)
+	return card
+
+
+func test_limited_action_whitelist_rejects_non_card_actions() -> void:
+	var source: Player = _make_combat_player()
+	var target: Player = _make_combat_player()
+	_setup_game_for_player(source)
+	Game.players.append(target)
+	target.game_deck = Pile.new()
+	target.game_discard_pile = Pile.new()
+	target.in_phase = "idle"
+	target.action_count = 4
+	var drawn := _make_card("drawn")
+	target.game_deck.add(drawn)
+	target.input.queue_action({"type": "move", "target": null})
+	target.input.queue_action({"type": "pile_draw", "pile_key": "game_deck"})
+	target.input.queue_action({"type": "skill", "skill": Skill.new()})
+	target.input.queue_action({"type": "mission_action", "option_id": "x"})
+	target.input.queue_action(null)
+
+	var actions := GameActions.new(source, Game)
+	var result: Dictionary = await actions.execute_action_immediately(target, 2, ["card"])
+
+	assert_eq(result["consumed_actions"], 0, "白名单外行动不应消耗有限预算")
+	assert_eq(result["remaining_actions"], 2)
+	assert_eq(target.in_phase, "idle")
+	assert_eq(target.action_count, 4)
+	assert_eq(target.hand.size(), 0, "被拒绝的摸牌不应把牌加入手牌")
+
+
+func test_limited_action_whitelist_allows_hand_cards() -> void:
+	var source: Player = _make_combat_player()
+	var target: Player = _make_combat_player()
+	_setup_game_for_player(source)
+	Game.players.append(target)
+	target.game_deck = Pile.new()
+	target.game_discard_pile = Pile.new()
+	target.in_phase = "idle"
+	target.action_count = 4
+	var first: Card = _make_spend_ap_card("first")
+	var second: Card = _make_spend_ap_card("second")
+	target.hand.append_array([first, second])
+	target.input.queue_action({"type": "card", "card": first})
+	target.input.queue_action({"type": "card", "card": second})
+
+	var actions := GameActions.new(source, Game)
+	var result: Dictionary = await actions.execute_action_immediately(target, 2, ["card"])
+
+	assert_eq(result["consumed_actions"], 2)
+	assert_eq(result["remaining_actions"], 0)
+	assert_eq(result["reason"], "budget_exhausted")
+	assert_eq(target.in_phase, "idle")
+	assert_eq(target.action_count, 4, "打出手牌只扣迷你回合预算")
+	assert_eq(target.hand.size(), 0)
+	assert_eq(target.game_discard_pile.size(), 2)
+
+
+func test_limited_action_whitelist_nested_draw_from_card_still_works() -> void:
+	var source: Player = _make_combat_player()
+	var target: Player = _make_combat_player()
+	_setup_game_for_player(source)
+	Game.players.append(target)
+	target.game_deck = Pile.new()
+	target.game_discard_pile = Pile.new()
+	target.in_phase = "idle"
+	target.action_count = 4
+	var drawn := _make_card("drawn")
+	target.game_deck.add(drawn)
+	var card: Card = _make_card("quick_think", "action")
+	var skill := Skill.new()
+	skill.active = "action"
+	skill.filter = func(player, _t, _e, _g) -> bool:
+		return player.get_effective_phase() == "action" and player.get_effective_action_count() > 0
+	skill.content = func(player, _t, event: Dictionary, _g) -> void:
+		var ga: GameActions = event.get("actions")
+		await ga.draw(player, 1)
+	card.add_skill(skill)
+	target.hand.append(card)
+	target.input.queue_action({"type": "card", "card": card})
+
+	var actions := GameActions.new(source, Game)
+	await actions.execute_action_immediately(target, 1, ["card"])
+
+	assert_true(target.hand.has(drawn), "手牌效果内的摸牌仍应生效")
+	assert_eq(target.action_count, 4)
 
 
 # === 14. 任务系统方法 ===

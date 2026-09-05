@@ -20,7 +20,7 @@
           "trigger": "after_monster_enter_zone",
           "forced": true,
           "filter": "return true",
-          "content": "var drawer = event.player\nvar hand_cards = game.get_cards(drawer, \"hand\")\nfor c in hand_cards:\n\tactions.discard(drawer, c)\nvar list = game.get_target_in_range(self.engaged_player, \"medium\")\nfor p in list:\n\tactions.damage(p, 4, self)"
+          "content": "var drawer = event.player\nvar hand_cards = drawer.get_cards(\"hand\")\nfor c in hand_cards:\n\tactions.discard(drawer, c)\nvar _engaged = player.attack_target\nif _engaged == null:\n\treturn\nvar _block = _engaged.get_current_block()\nif _block == null:\n\treturn\nvar list = _block.get_players_in_range(\"medium\", true)\nfor p in list:\n\tactions.damage(p, 4, player)"
         }
       ]
     },
@@ -42,7 +42,7 @@
           "trigger": "after_monster_enter_zone",
           "forced": true,
           "filter": "return true",
-          "content": "var drawer = event.player\nvar equipment = game.get_cards(drawer, \"equipment\")\nfor c in equipment:\n\tactions.discard(drawer, c)\nvar list = game.get_target_in_range(self.engaged_player, \"medium\")\nfor p in list:\n\tactions.damage(p, 6, self)"
+          "content": "var drawer = event.player\nvar equipment = drawer.get_cards(\"equipment\")\nfor c in equipment:\n\tactions.discard(drawer, c)\nvar _engaged = player.attack_target\nif _engaged == null:\n\treturn\nvar _block = _engaged.get_current_block()\nif _block == null:\n\treturn\nvar list = _block.get_players_in_range(\"medium\", true)\nfor p in list:\n\tactions.damage(p, 6, player)"
         }
       ]
     },
@@ -63,7 +63,7 @@
           "skill_type": "monster",
           "trigger": "before_sneak_judge",
           "forced": true,
-          "filter": "return event.player == self.engaged_player",
+          "filter": "return event.player == player.attack_target",
           "content": "event.skip_judge = true\nevent.result = {\"value\": 999, \"success\": false}"
         }
       ]
@@ -107,8 +107,8 @@
           "skill_type": "monster",
           "trigger": "on_monster_death",
           "forced": true,
-          "filter": "return event.target == self",
-          "content": "var list = game.get_target_in_range(self.engaged_player, \"medium\")\nfor p in list:\n\tactions.damage(p, 4, self)"
+          "filter": "return event.target == player",
+          "content": "var _engaged = player.attack_target\nif _engaged == null:\n\treturn\nvar _block = _engaged.get_current_block()\nif _block == null:\n\treturn\nvar list = _block.get_players_in_range(\"medium\", true)\nfor p in list:\n\tactions.damage(p, 4, player)"
         }
       ]
     },
@@ -129,8 +129,8 @@
           "skill_type": "monster",
           "trigger": "on_monster_death",
           "forced": true,
-          "filter": "return event.target == self",
-          "content": "actions.damage(self.engaged_player, 2, self)"
+          "filter": "return event.target == player",
+          "content": "if player.attack_target != null:\n\tactions.damage(player.attack_target, 2, player)"
         },
         {
           "skill_name": "爆破机器人-定点爆破",
@@ -139,7 +139,7 @@
           "skill_type": "monster",
           "trigger": "on_deal_damage",
           "forced": true,
-          "filter": "return event.source == self && event.target.count_mark(\"moved_this_turn\") == 0",
+          "filter": "return event.source == player && event.target.count_mark(\"moved_this_turn\") == 0",
           "content": "event.num *= 2"
         }
       ]
@@ -161,7 +161,7 @@
           "skill_type": "monster",
           "trigger": "on_take_damage",
           "forced": true,
-          "filter": "return event.target.monster_type == \"robot\" && event.target in game.get_target_in_range(self.engaged_player, \"medium\")",
+          "filter": "return event.target.monster_type == \"robot\" && player.attack_target != null && player.attack_target.get_current_block() != null && event.target.get_current_block() in player.attack_target.get_current_block().get_blocks_in_range(\"medium\", true)",
           "content": "event.num -= 1"
         }
       ]
