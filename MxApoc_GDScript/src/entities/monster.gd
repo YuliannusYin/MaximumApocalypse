@@ -58,6 +58,13 @@ func add_hp(n: int) -> void:
 	hp = mini(hp + n, max_hp)
 
 
+## 恢复满生命值。runtime 为可选的统一事件调度 runtime，见 Entity.damage 说明。
+func restore_full_health(runtime: Variant = null) -> void:
+	await (runtime if runtime != null else Game.event_scheduler).dispatch("restore_full_health", func() -> void:
+		hp = max_hp,
+		{"target": self})
+
+
 func is_monster() -> bool:
 	return true
 

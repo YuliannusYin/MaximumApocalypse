@@ -156,6 +156,14 @@ func test_add_hp_capped_at_max() -> void:
 	assert_eq(m.hp, 5, "生命值上限为 max_hp")
 
 
+func test_restore_full_health() -> void:
+	var m: Monster = _make_combat_monster()
+	m.reduce_hp(3)
+	assert_eq(m.hp, 2)
+	await m.restore_full_health()
+	assert_eq(m.hp, 5, "restore_full_health 应将生命值回复至上限")
+
+
 func test_is_monster_returns_true() -> void:
 	var m: Monster = Monster.new()
 	assert_true(m.is_monster())
