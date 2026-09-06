@@ -22,8 +22,19 @@ func _init(
 
 
 ## 请求身份匹配：request_id 与 owner 都一致才算匹配同一次请求。
+## owner 可能是 Player 或 GUI 的系统占位字符串；类型不同时视为不匹配，不能直接 `==`。
 func matches(request_id: int, request_owner: Variant) -> bool:
-	return id == request_id and owner == request_owner
+	return id == request_id and _owners_equal(owner, request_owner)
+
+
+static func _owners_equal(left: Variant, right: Variant) -> bool:
+	if left == null:
+		return right == null
+	if right == null:
+		return false
+	if typeof(left) != typeof(right):
+		return false
+	return left == right
 
 
 ## 写入响应；已响应的请求忽略后续响应（防重复/防双击）。

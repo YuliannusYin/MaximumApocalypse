@@ -36,6 +36,9 @@
 | `confirm_prompt` | Callable | `Callable()` | 动态确认提示函数，返回 String。`Callable()` 表示使用默认格式 |
 | `defer_action_cost` | bool | `false` | 是否延迟结算行动消耗 |
 | `used_count` | int | `0` | 运行时：本回合已使用次数（用于 `usable` 限制） |
+| `ai` | Dictionary | `{}` | AI 评分（`order` / `useful` / `tags` / `effect`；可选 `result` / `check` 代码字符串） |
+| `ai_result` | Callable | `Callable()` | 可选：覆盖对该目标的效果分。签名 `(player, target, event, game) -> float` |
+| `ai_check` | Callable | `Callable()` | 可选：覆盖选牌 / 选目标单项分。签名同上 |
 
 > 字段完整清单与命名规范见 [IdentifierMapping.md](../../Engineering/IdentifierMapping.md)。
 
@@ -291,3 +294,4 @@
 | [EventScheduler](../Core/EventScheduler.md) | content 经 `GameActions` 进入统一调度栈 |
 | [Player](../Entities/Player.md) | 通用行动技能是 Player 的固有技能 |
 | [RoleCard](RoleCard.md) | 角色固有技能存储在 RoleCard 上 |
+| [AI](../AI/AI.md) | 玩家侧技能带 `ai`；`ai_result` / `ai_check` 由 `compile_score` 编译 |

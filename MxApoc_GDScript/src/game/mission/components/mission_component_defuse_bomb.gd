@@ -84,6 +84,7 @@ func get_action_skill_decl() -> Variant:
 		await _do_defuse(_game, player)
 	decl["confirm"] = func(player: Player) -> String:
 		return "确定消耗 %d 行动解除炸弹？" % int(params.get("cost", 2))
+	decl["ai"] = _mission_action_ai()
 	return decl
 
 

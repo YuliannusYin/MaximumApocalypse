@@ -49,6 +49,12 @@ var confirm_prompt: Callable = Callable()
 ## 是否延迟结算行动消耗
 var defer_action_cost: bool = false
 var window_prompt: String = ""
+## AI 评分数据（order / useful / tags / effect）。
+var ai: Dictionary = {}
+## 可选：覆盖对该目标的效果分。签名 (player, target, event, game) -> float。
+var ai_result: Callable = Callable()
+## 可选：覆盖选牌/选目标单项分。签名 (player, target, event, game) -> float。
+var ai_check: Callable = Callable()
 
 ## 运行时：本回合已使用次数（用于 usable 限制）
 var used_count: int = 0

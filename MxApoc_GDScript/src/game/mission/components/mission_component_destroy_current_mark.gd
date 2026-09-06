@@ -75,6 +75,7 @@ func get_action_skill_decl() -> Variant:
 		await _do_destroy(_game, player)
 	decl["confirm"] = func(player: Player) -> String:
 		return "确定消耗 %d 行动摧毁此目标？" % int(params.get("cost", 1))
+	decl["ai"] = _mission_action_ai()
 	return decl
 
 

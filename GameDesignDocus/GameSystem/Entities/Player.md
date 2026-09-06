@@ -56,13 +56,14 @@
 | `current_block` | MapBlock | `null` | 当前所在地块 |
 | `seat_number` | int | `0` | 座位号（游戏房间中的座位次序） |
 | `player_name` | String | `""` | 玩家名（用于日志输出与 EventBus 信号载荷） |
+| `is_ai` | bool | `false` | 是否由 AI 控制。开局由座位 `type == "ai"` 写入 |
 
 ### 标记与输入
 
 | 字段 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `marks` | Dictionary\<String, Mark\> | `{}` | 标记字典。键 = 标记名，值 = [Mark](../Core/Mark.md) 对象。如 `"poison"` / `"hunger_damage_level"` / `"moved_this_turn"` |
-| `input` | IPlayerInput | 自动 `CliPlayerInput.new()` | 输入接口（选择器、确认对话框、目标选择等） |
+| `input` | IPlayerInput | 自动 `CliPlayerInput.new()` | 输入接口。测试默认 CLI；对局场景真人用 `GUIPlayerInput`，AI 用 `AIPlayerInput` |
 
 #### 常用标记
 

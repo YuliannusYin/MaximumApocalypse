@@ -33,6 +33,7 @@ Card（卡牌基类，继承 Entity）
 | `card_type` | String | `""` | 卡牌类型（如"行动"、"装备"、"食物"等） |
 | `source` | String | `""` | 卡牌来源：`"scavenge"`（拾荒牌堆）/ `"game"`（游戏牌堆）/ `"monster"`（怪物牌堆） |
 | `skills` | List\<Skill\> | — | 卡牌自带技能（继承自 Entity） |
+| `ai` | Dictionary | `{}` | 卡级 AI 评分（`order` / `useful` / `tags` / `effect`） |
 
 ### 方法
 

@@ -112,7 +112,18 @@
 
 `mission/components/` 下另有各具体组件（`collect_items`、`spend_action_rescue` 等），见 [MissionComponent.md](../GameSystem/Game/MissionComponent.md)。
 
-### 2.6 src/ui/
+### 2.6 src/ai/
+
+合作 AI（无名杀式贪心评分，详见 [AI.md](../GameSystem/AI/AI.md)）：
+
+| 文件 | 类名 | 说明 |
+| --- | --- | --- |
+| `legal_actions.gd` | `LegalActions` | 从规则层枚举行动阶段可选项 |
+| `ai_scorer.gd` | `AiScorer` | 态度 / order / useful / effect |
+| `ai_mission_hints.gd` | `AiMissionHints` | 从任务组件推导目标地块与应留物资 |
+| `ai_player_input.gd` | `AIPlayerInput` | AI 座位输入实现（动画可委托 GUI） |
+
+### 2.7 src/ui/
 
 UI 与输入层。全部 `.gd` 文件如下：
 
@@ -164,7 +175,7 @@ UI 与输入层。全部 `.gd` 文件如下：
 | `monster_card_view.gd` | `MonsterCardView` | 怪物卡视图 |
 | `achievement_scene.gd` | `AchievementScene` | 成就 / 档案界面 |
 
-### 2.7 src/tools/
+### 2.8 src/tools/
 
 工具脚本：
 

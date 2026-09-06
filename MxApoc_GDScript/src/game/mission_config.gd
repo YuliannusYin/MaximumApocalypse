@@ -132,6 +132,8 @@ func mount_action_skills(player: Variant, block: MapBlock) -> void:
 			var execute_ref: Callable = decl_execute
 			skill.content = func(p, _t, _e, _g) -> void:
 				await execute_ref.call(p)
+		var decl_ai: Variant = decl.get("ai", {})
+		skill.ai = decl_ai.duplicate(true) if decl_ai is Dictionary else {}
 		player.add_skill(skill)
 
 

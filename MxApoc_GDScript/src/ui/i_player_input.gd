@@ -3,8 +3,7 @@ extends RefCounted
 
 ## 玩家输入接口（抽象基类模拟）。
 ## GDScript 无 interface 关键字，用抽象基类 + push_error 强制子类 override。
-## 阶段 1 用 CliPlayerInput；阶段 2+ 用 GUIPlayerInput/AIPlayerInput。
-## 设计文档：docs/design-gaps.md §2.2
+## 阶段 1 用 CliPlayerInput；图形对局用 GUIPlayerInput；AI 座位用 AIPlayerInput。
 
 ## 设置下一次输入请求的所属玩家。
 ## GUI 使用该上下文在共享热座输入实例中区分实际操作玩家；

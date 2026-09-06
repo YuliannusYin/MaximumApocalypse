@@ -113,8 +113,9 @@
 | `filter_target_range` | String | 否 | 目标范围 |
 | `select_target` | Int / Array&lt;Int&gt; | 否 | 目标选择数量 |
 | `content` | String | 否 | 效果代码 |
+| `ai` | Object | 是（玩家侧） | AI 评分，见第四节 `ai` |
 
-> 固有技能还可携带 `sub_skills` 子技能对象（如能量饮料的饱腹子技能、老兵免疫子技能），供 `add_temp_skill` 临时挂载使用。
+> 固有技能还可携带 `sub_skills` 子技能对象（如能量饮料的饱腹子技能、老兵免疫子技能），供 `add_temp_skill` 临时挂载使用。子技能同样必须带 `ai`。
 
 **`deck[]` 字段：**
 
@@ -131,6 +132,7 @@
 | `range` | String | 否 | 射程（有射程的装备或行动牌） |
 | `weapon` | Bool | 否 | 是否为武器牌（会造成伤害的装备）。缺省 `false`。用于「升级」等按武器筛选目标 |
 | `skills` | Array | 否 | 卡牌技能列表（结构见第四节） |
+| `ai` | Object | 是（玩家侧） | AI 评分，见第四节 `ai` |
 
 ### 3.2 scavenge/*.json
 
@@ -159,6 +161,7 @@
 | `range` | String | 否 | 射程（有射程的装备） |
 | `weapon` | Bool | 否 | 是否为武器牌（会造成伤害的装备）。缺省 `false` |
 | `skills` | Array | 否 | 技能列表 |
+| `ai` | Object | 是 | AI 评分，见第四节 `ai` |
 
 **`cards[].skills[]` 字段：**
 
@@ -333,7 +336,7 @@
 | `scavenge_colors` | Array&lt;String&gt; | 是 | 可拾荒颜色集合 |
 | `monster_spawn_value` | Int | 是 | 怪物生成值 |
 | `variants` | Array | 否 | 变体配置（同地块不同生成值/颜色） |
-| `skills` | Array | 否 | 地块技能列表 |
+| `skills` | Array | 否 | 地块技能列表（玩家侧技能须带 `ai`） |
 
 **`variants[]` 字段：**
 
@@ -372,6 +375,7 @@
 | `usable` | Int | 否 | 每回合可用次数（`-1` 表示不限） |
 | `filter` | String | 否 | 可用条件代码 |
 | `content` | String | 否 | 效果代码 |
+| `ai` | Object | 是 | AI 评分，见第四节 `ai` |
 
 ### 3.8 image_manifest.json
 
@@ -440,8 +444,22 @@
 | `confirm_prompt` | String | 确认提示代码 |
 | `defer_action_cost` | Bool | 是否延迟消耗行动次数 |
 | `passive` | Bool | 是否为被动技能（可选；怪物技能使用） |
+| `ai` | Object | 玩家侧必填。见下方 `ai` 对象；怪物包技能不写 |
 
 > 代码字段（`filter` / `content` / `filter_target` / `filter_card` / `confirm_prompt`）均为 GDScript 代码字符串，由 `CodeExecutor` 在运行时懒编译为 `Callable`，签名统一为 `(player, target, event, game)`。`content` 额外注入 `actions`（`GameActions`），调用会自动 await。编译机制见第五节与 [CodeExecutor.md](CodeExecutor.md)；调度见 [EventScheduler.md](../GameSystem/Core/EventScheduler.md)。
+
+**`ai` 对象（玩家侧卡牌与技能）：**
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `order` | Number | 行动优先级，越大越先打。被动写 `0` |
+| `useful` | Number | 留牌价值（弃牌 / 选牌） |
+| `tags` | Array&lt;String&gt; | 局势标签：`damage` `heal` `food` `fuel` `ammo` `equip` `move` `draw` `stealth` `mission` `aoe` `weapon` |
+| `effect` | Object | `{player, target}` 数值。`damage`/`heal` 的 `target` 写正数幅度 |
+| `result` | String | 可选。覆盖效果分，由 `compile_score` 编译 |
+| `check` | String | 可选。覆盖选牌 / 选目标单项分，由 `compile_score` 编译 |
+
+完整约定与 order 档位见 [AI.md](../GameSystem/AI/AI.md)。任务行动技能的 `ai` 写在组件 `get_action_skill_decl()`，不写进任务 JSON。
 
 ---
 
@@ -451,7 +469,7 @@ JSON 中的 `filter` / `content` / `filter_target` / `filter_card` / `confirm_pr
 
 **编译机制：** 通过 `GDScript.new()` 创建脚本对象，将代码字符串包装为 `extends RefCounted\nfunc _fn(player, target, event, game):\n    <代码>` 形式的源码后调用 `script.reload()` 编译。编译产物（脚本与实例）存入静态数组 `_scripts` 与 `_instances` 防止被垃圾回收。**本工程不使用 `Expression` 类，也不使用 `eval()`**——以此支持 `for` / `if` / `await` 等多语句结构。
 
-**5 个 compile_* 接口：**
+**6 个 compile_* 接口：**
 
 | 接口 | 入参 | 返回 Callable 签名 |
 | --- | --- | --- |
@@ -460,8 +478,9 @@ JSON 中的 `filter` / `content` / `filter_target` / `filter_card` / `confirm_pr
 | `compile_filter_target` | `code: String` | `(player, target, event, game) -> bool` |
 | `compile_filter_card` | `code: String` | `(player, target, event, game) -> bool`（直接转调 `compile_filter_target`） |
 | `compile_confirm_prompt` | `code: String` | `(player, target, event, game) -> String` |
+| `compile_score` | `code: String` | `(player, target, event, game) -> float` |
 
-**降级行为：** 编译失败时降级为 no-op——`filter` / `filter_target` / `filter_card` 恒真（返回 `true`），`content` 无操作，`confirm_prompt` 返回空字符串。空字符串代码同样视为 no-op。
+**降级行为：** 编译失败时降级为 no-op——`filter` / `filter_target` / `filter_card` 恒真（返回 `true`），`content` 无操作，`confirm_prompt` 返回空字符串，`compile_score` 返回 `0.0`。空字符串代码同样视为 no-op（`compile_score` 返回空 Callable，调用方改用静态 `effect` / `useful`）。
 
 **任务逻辑不走代码编译：** 任务胜利/失败条件与行动选项已改为三层架构的声明式组件/脚本配置（见 §3.4），不再使用代码字符串字段，与 `CodeExecutor` 的 `compile_*` 接口无关。
 

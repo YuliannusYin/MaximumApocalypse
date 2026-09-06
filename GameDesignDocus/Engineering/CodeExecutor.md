@@ -8,9 +8,9 @@
 
 ## 一、职责
 
-JSON 数据中的 `filter` / `content` / `filter_target` / `filter_card` / `confirm_prompt` 等"代码字段"是 GDScript 代码字符串，并非普通文本。`CodeExecutor` 负责在运行时将这些字符串懒编译为 `Callable`，供 `Skill` 在触发时机执行。
+JSON 数据中的 `filter` / `content` / `filter_target` / `filter_card` / `confirm_prompt` / `ai.result` / `ai.check` 等"代码字段"是 GDScript 代码字符串，并非普通文本。`CodeExecutor` 负责在运行时将这些字符串懒编译为 `Callable`，供 `Skill` 在触发时机或 AI 评分时执行。
 
-`Skill` 实例在首次需要执行某代码字段时调用对应的 `compile_*` 接口，编译产物被缓存复用。代码字符串内可直接访问形参 `player` / `target` / `event` / `game`。运行时 `event` 为 `GameEvent`（兼容 Dictionary 的 `get` / `event.num` / `EventSystem.cancel`）。`content` 模板额外注入 `var actions = event.get("actions", null)`（`GameActions` 门面，见 [EventScheduler.md](../GameSystem/Core/EventScheduler.md)）。
+`Skill` 实例在首次需要执行某代码字段时调用对应的 `compile_*` 接口，编译产物被缓存复用。代码字符串内可直接访问形参 `player` / `target` / `event` / `game`。运行时传入的 `event` 若是 `GameEvent`，模板开头会 `event = CodeExecutor.json_event(event)` 换成其 `data` 字典（Dictionary 允许 `event.card` 为 `null`；直接对 `GameEvent` 点号取 null 会 Invalid access）。`content` 模板额外注入 `var actions = event.get("actions", null)`（`GameActions` 门面，见 [EventScheduler.md](../GameSystem/Core/EventScheduler.md)）。
 
 ---
 
@@ -26,17 +26,19 @@ func _fn(player, target, event, game) -> bool:
     <代码字符串（整段缩进一级）>
 ```
 
-三类前缀常量分别对应不同返回类型：
+四类前缀常量分别对应不同返回类型：
 
 | 常量 | 模板 | 用途 |
 | --- | --- | --- |
-| `_FILTER_PREFIX` | `extends RefCounted\nfunc _fn(player, target, event, game) -> bool:\n` | `filter` / `filter_target` / `filter_card` |
-| `_CONTENT_PREFIX` | `extends RefCounted\nfunc _fn(player, target, event, game) -> void:\n\tvar actions = event.get("actions", null)\n` | `content` |
-| `_CONFIRM_PROMPT_PREFIX` | `extends RefCounted\nfunc _fn(player, target, event, game) -> String:\n` | `confirm_prompt` |
+| `_FILTER_PREFIX` | `... -> bool:` 后立刻 `event = CodeExecutor.json_event(event)` | `filter` / `filter_target` / `filter_card` |
+| `_CONTENT_PREFIX` | 同上，再 `var actions = event.get("actions", null)` | `content` |
+| `_CONFIRM_PROMPT_PREFIX` | 同上，返回 `String` | `confirm_prompt` |
+| `_SCORE_PREFIX` | 同上，返回 `float` | `ai.result` / `ai.check` |
 
 **关键实现要点：**
 
 - 代码字符串通过 `code.indent("\t")` 整体缩进一级后嵌入模板，保证函数体缩进合法。
+- 四个模板都会先 `event = CodeExecutor.json_event(event)`：`GameEvent` 换成其 `data` 字典（并补上 `cancel` Callable），这样 `event.card != null` 在非武器伤害时不会 Invalid access；`EventSystem.cancel(event)` / `event["cancel"].call()` 仍写回原节点。
 - 编译前由 `_next_path` 生成唯一 `resource_path`（形如 `res://addons/gut/not_a_real_file/ce_<n>.gd`）并自增 `_path_counter`，规避 Godot issue #65263（循环资源包含）。**必须在 `reload()` 前设置路径**，即便编译失败路径也不复用。
 - 编译产物（`GDScript` 脚本对象与 `Object` 实例）分别存入静态数组 `_scripts` 与 `_instances`，**防止被垃圾回收**——因为 `Callable` 仅弱引用实例，若无强引用持有，实例会被回收导致调用失效。
 - 参考实现：`addons/gut/dynamic_gdscript.gd`。
@@ -45,7 +47,7 @@ func _fn(player, target, event, game) -> bool:
 
 ---
 
-## 三、5 个 compile_* 接口
+## 三、6 个 compile_* 接口
 
 全部为静态方法，入参为代码字符串，返回 `Callable`。
 
@@ -56,10 +58,11 @@ func _fn(player, target, event, game) -> bool:
 | `compile_filter_target` | `compile_filter_target(code: String) -> Callable` | `(player, target, event, game) -> bool` | 编译目标筛选代码 |
 | `compile_filter_card` | `compile_filter_card(code: String) -> Callable` | `(player, target, event, game) -> bool` | 直接转调 `compile_filter_target` |
 | `compile_confirm_prompt` | `compile_confirm_prompt(code: String) -> Callable` | `(player, target, event, game) -> String` | 编译确认提示代码 |
+| `compile_score` | `compile_score(code: String) -> Callable` | `(player, target, event, game) -> float` | 编译 AI 评分覆盖（`ai.result` / `ai.check`） |
 
 **空字符串处理：**
 
-- `compile_filter` / `compile_content` / `compile_confirm_prompt`：空字符串直接返回空 `Callable`（调用方视为恒真 / 无操作 / 默认格式）。
+- `compile_filter` / `compile_content` / `compile_confirm_prompt` / `compile_score`：空字符串直接返回空 `Callable`（调用方视为恒真 / 无操作 / 默认格式 / 改用静态 effect）。
 - `compile_filter_target`：空字符串或字符串 `"true"` 均返回空 `Callable`（调用方视为无过滤）。
 - `compile_filter_card`：行为同 `compile_filter_target`。
 
@@ -76,6 +79,7 @@ func _fn(player, target, event, game) -> bool:
 | `compile_filter_target` | 恒真（返回 `true`） |
 | `compile_filter_card` | 恒真（返回 `true`） |
 | `compile_confirm_prompt` | 返回空 `Callable`（调用方视为使用默认格式） |
+| `compile_score` | 恒返回 `0.0`，由 `_create_noop_score` 生成 |
 
 > no-op `Callable` 同样通过 `GDScript.new()` + `reload()` 编译一段固定源码生成（如 filter 的 no-op 源码为 `extends RefCounted\nfunc _fn(_p, _t, _e, _g) -> bool:\n\treturn true`），并将其脚本与实例存入 `_scripts` / `_instances` 防回收。
 

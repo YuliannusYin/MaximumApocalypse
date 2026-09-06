@@ -75,6 +75,7 @@ func get_action_skill_decl() -> Variant:
 		await _do_submit(_game, player)
 	decl["confirm"] = func(player: Player) -> String:
 		return "确定消耗 1 行动提交物资？"
+	decl["ai"] = _mission_action_ai()
 	return decl
 
 

@@ -7,9 +7,32 @@ extends RefCounted
 ## 编译失败时降级为 no-op Callable（filter 返回 true，content 无操作）。
 ## 参考模式：addons/gut/dynamic_gdscript.gd
 
-const _FILTER_PREFIX := "extends RefCounted\nfunc _fn(player, target, event, game) -> bool:\n"
-const _CONTENT_PREFIX := "extends RefCounted\nfunc _fn(player, target, event, game) -> void:\n\tvar actions = event.get(\"actions\", null)\n"
-const _CONFIRM_PROMPT_PREFIX := "extends RefCounted\nfunc _fn(player, target, event, game) -> String:\n"
+const _EVENT_UNWRAP := "\tevent = CodeExecutor.json_event(event)\n"
+const _FILTER_PREFIX := "extends RefCounted\nfunc _fn(player, target, event, game) -> bool:\n" + _EVENT_UNWRAP
+const _CONTENT_PREFIX := "extends RefCounted\nfunc _fn(player, target, event, game) -> void:\n" + _EVENT_UNWRAP + "\tvar actions = event.get(\"actions\", null)\n"
+const _CONFIRM_PROMPT_PREFIX := "extends RefCounted\nfunc _fn(player, target, event, game) -> String:\n" + _EVENT_UNWRAP
+const _SCORE_PREFIX := "extends RefCounted\nfunc _fn(player, target, event, game) -> float:\n" + _EVENT_UNWRAP
+
+
+## JSON 四参里的 event 若是 GameEvent，改用其 data 字典。
+## Godot 4 对 Object 点号取值：`_get` 返回 null 会报 Invalid access；
+## Dictionary 对已有键（值可为 null）的点号访问合法，故 `event.card != null` 才能成立。
+static func json_event(event: Variant) -> Variant:
+	if event == null:
+		return {}
+	if event is Dictionary:
+		return event
+	if event is GameEvent:
+		var payload: Dictionary = event.data
+		if not payload.has("cancel"):
+			var weak: WeakRef = weakref(event)
+			payload["cancel"] = func() -> void:
+				var node: Variant = weak.get_ref()
+				if node != null:
+					node.mark_cancelled()
+					node.data["cancelled"] = true
+		return payload
+	return event
 
 
 ## 编译 filter 代码字符串为 Callable。
@@ -88,6 +111,21 @@ static func compile_confirm_prompt(code: String) -> Callable:
 	return Callable(instance, "_fn")
 
 
+## 编译 AI 评分代码字符串为 Callable。
+## 返回的 Callable 签名: (player, target, event, game) -> float
+## 空字符串返回空 Callable（调用方改用静态 effect / useful）。
+static func compile_score(code: String) -> Callable:
+	if code.strip_edges().is_empty():
+		return Callable()
+	var indented: String = code.indent("\t")
+	var full_code: String = _SCORE_PREFIX + indented
+	var instance: Object = _compile(full_code)
+	if instance == null:
+		push_warning("CodeExecutor: score 编译失败，降级为 0: " + code)
+		return _create_noop_score()
+	return Callable(instance, "_fn")
+
+
 static var _scripts: Array[GDScript] = []
 static var _instances: Array = []
 static var _path_counter: int = 0
@@ -141,6 +179,22 @@ static func _create_noop_content() -> Callable:
 	var script: GDScript = GDScript.new()
 	script.source_code = "extends RefCounted\nfunc _fn(_p, _t, _e, _g) -> void:\n\tpass"
 	script.resource_path = _next_path("ce_noop_c")
+	var result: int = script.reload()
+	if result != OK:
+		return Callable()
+	_scripts.append(script)
+	var instance: Object = script.new()
+	if instance == null:
+		return Callable()
+	_instances.append(instance)
+	return Callable(instance, "_fn")
+
+
+## 创建 no-op score Callable（恒返回 0.0）。
+static func _create_noop_score() -> Callable:
+	var script: GDScript = GDScript.new()
+	script.source_code = "extends RefCounted\nfunc _fn(_p, _t, _e, _g) -> float:\n\treturn 0.0"
+	script.resource_path = _next_path("ce_noop_s")
 	var result: int = script.reload()
 	if result != OK:
 		return Callable()

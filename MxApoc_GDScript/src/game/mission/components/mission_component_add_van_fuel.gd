@@ -74,6 +74,7 @@ func get_action_skill_decl() -> Variant:
 		await _do_add_fuel(_game, player)
 	decl["confirm"] = func(player: Player) -> String:
 		return "确定消耗 1 行动添加燃料？"
+	decl["ai"] = _mission_action_ai()
 	return decl
 
 

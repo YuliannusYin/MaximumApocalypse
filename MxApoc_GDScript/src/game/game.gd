@@ -1,6 +1,7 @@
 extends Node
 
 const EventSchedulerScript = preload("res://src/core/event_scheduler.gd")
+const AIPlayerInputScript = preload("res://src/ai/ai_player_input.gd")
 
 ## Game 游戏全局类（autoload）。
 ## 全局区域 + build_map + destroy_map_block + 状态机委托。
@@ -636,7 +637,7 @@ func initialize_game(mission: MissionData, variants: Dictionary, seats: Array) -
 	players.clear()
 	for i in range(seats.size()):
 		var seat: Dictionary = seats[i]
-		if seat.type == "empty" or seat.type == "ai":
+		if String(seat.get("type", "")) == "empty":
 			continue
 		var survivor: SurvivorData = seat.survivor
 		if survivor == null:
@@ -645,6 +646,9 @@ func initialize_game(mission: MissionData, variants: Dictionary, seats: Array) -
 		player.session_id = _session_id
 		player.seat_number = i
 		player.player_name = survivor.character_name
+		player.is_ai = String(seat.get("type", "")) == "ai"
+		if player.is_ai:
+			player.input = AIPlayerInputScript.new()
 		player.max_hp = survivor.max_hp
 		player.hp = survivor.initial_hp
 		player.hunger = 1
@@ -860,6 +864,9 @@ func _create_skill_from_data(skill_data: SkillData) -> Skill:
 	skill.confirm_prompt = CodeExecutor.compile_confirm_prompt(skill_data.confirm_prompt)
 	skill.defer_action_cost = skill_data.defer_action_cost
 	skill.window_prompt = skill_data.window_prompt
+	skill.ai = skill_data.ai.duplicate(true)
+	skill.ai_result = CodeExecutor.compile_score(str(skill.ai.get("result", "")))
+	skill.ai_check = CodeExecutor.compile_score(str(skill.ai.get("check", "")))
 	# 递归编译子技能
 	for sub_key in skill_data.sub_skills.keys():
 		var sub_skill_data: SkillData = skill_data.sub_skills[sub_key]
@@ -933,6 +940,8 @@ func _create_game_card_from_dict(card_dict: Dictionary) -> Card:
 	card.english_name = card_dict.get("english_name", "")
 	card.card_type = card_type
 	card.source = "game"
+	var raw_card_ai: Variant = card_dict.get("ai", {})
+	card.ai = raw_card_ai.duplicate(true) if raw_card_ai is Dictionary else {}
 	# 加载技能
 	var raw_skills: Array = card_dict.get("skills", [])
 	for raw in raw_skills:
@@ -964,6 +973,7 @@ func _create_scavenge_card_from_data(card_data: ScavengeCardData, color: String)
 	card.charge_type = card_data.charge_type
 	card.charge_max = card_data.charge_max
 	card.charge_current = card_data.charge_initial
+	card.ai = card_data.ai.duplicate(true)
 	for skill_data in card_data.skills:
 		card.add_skill(_create_skill_from_data(skill_data))
 	return card

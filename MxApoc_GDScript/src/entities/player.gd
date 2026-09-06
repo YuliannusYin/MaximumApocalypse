@@ -43,6 +43,8 @@ var role_card: RoleCard = null
 var current_block = null  # MapBlock
 var seat_number: int = 0
 var player_name: String = ""
+## 是否由 AI 控制本座位。开局由座位 type == "ai" 写入。
+var is_ai: bool = false
 
 # === 输入接口 ===
 var input: IPlayerInput = null

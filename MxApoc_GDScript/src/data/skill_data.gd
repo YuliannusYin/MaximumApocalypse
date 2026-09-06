@@ -27,6 +27,8 @@ var target_type: String = ""
 var confirm_prompt: String = ""
 var defer_action_cost: bool = false
 var window_prompt: String = ""
+## AI 评分数据（order / useful / tags / effect；可选 result / check 代码字符串）。
+var ai: Dictionary = {}
 
 ## 子技能：键为本地短名（如 "satiety"），值为 SkillData 实例。
 ## 由 _init 递归解析 JSON 中的 sub_skills 对象。
@@ -71,6 +73,8 @@ func _init(data: Dictionary = {}) -> void:
 	confirm_prompt = data.get("confirm_prompt", "")
 	defer_action_cost = data.get("defer_action_cost", false)
 	window_prompt = data.get("window_prompt", "")
+	var raw_ai: Variant = data.get("ai", {})
+	ai = raw_ai.duplicate(true) if raw_ai is Dictionary else {}
 	# 递归解析 sub_skills
 	var raw_sub: Dictionary = data.get("sub_skills", {})
 	for sub_key in raw_sub.keys():

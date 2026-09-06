@@ -167,3 +167,12 @@ func test_game_event_json_style_access() -> void:
 	assert_eq(event["result"]["value"], 7)
 	event["cancel"].call()
 	assert_true(EventSystem.is_cancelled(event))
+
+
+func test_json_filter_allows_null_event_card() -> void:
+	var event: GameEvent = EventSystem.create_damage_event(Entity.new(), null, 4, "weapon_attack", null)
+	assert_eq(event.get_or("card", "missing"), null)
+	var cb: Callable = CodeExecutor.compile_filter("return event.card != null && event.card.has_mark_skill(\"upgrade_damage_plus_1\")")
+	assert_true(cb.is_valid())
+	assert_false(cb.call(null, null, event, null), "无武器牌时升级伤害 filter 应跳过")
+	assert_engine_error_count(0, "JSON 读 event.card 为 null 时不应 Invalid access")

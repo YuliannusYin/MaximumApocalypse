@@ -93,7 +93,18 @@
 | 事件日志面板 | `EventLogPanel` | `src/ui/event_log_panel.gd` |
 | 弹窗管理器 | `PopupManager` | `src/ui/popup_manager.gd` |
 
-> UI 层其余类见 [GodotProjectStructure.md §2.6](GodotProjectStructure.md)。
+> UI 层其余类见 [GodotProjectStructure.md §2.7](GodotProjectStructure.md)。
+
+### 1.7 AI 合作评分
+
+| 设计文档类名 | GDScript 类名 | 文件 | 说明 |
+| --- | --- | --- | --- |
+| AI 玩家输入 | `AIPlayerInput` | `src/ai/ai_player_input.gd` | 电脑座位输入；决策直接返回 |
+| AI 评分器 | `AiScorer` | `src/ai/ai_scorer.gd` | 态度 / order / useful / effect |
+| 合法行动枚举 | `LegalActions` | `src/ai/legal_actions.gd` | 行动阶段可选项 |
+| 任务提示 | `AiMissionHints` | `src/ai/ai_mission_hints.gd` | 目标地块与应留物资族 |
+
+详见 [AI.md](../GameSystem/AI/AI.md)。
 
 ---
 

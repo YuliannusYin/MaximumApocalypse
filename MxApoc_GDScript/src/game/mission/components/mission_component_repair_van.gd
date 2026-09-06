@@ -82,6 +82,7 @@ func get_action_skill_decl() -> Variant:
 		await _do_repair(_game, player)
 	decl["confirm"] = func(player: Player) -> String:
 		return "确定消耗 1 行动维修面包车（弃置 1 张%s）？" % params.get("card_name", "多余配件")
+	decl["ai"] = _mission_action_ai()
 	return decl
 
 

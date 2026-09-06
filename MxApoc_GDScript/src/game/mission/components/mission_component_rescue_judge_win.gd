@@ -72,6 +72,7 @@ func get_action_skill_decl() -> Variant:
 		await _do_rescue(_game, player)
 	decl["confirm"] = func(player: Player) -> String:
 		return "确定消耗 1 行动解救科学家？"
+	decl["ai"] = _mission_action_ai()
 	return decl
 
 

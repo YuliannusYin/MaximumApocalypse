@@ -138,7 +138,7 @@ Player 的 **effective API**（`get_effective_phase` / `get_effective_action_cou
 - 只有 `wait_action` 一类请求标 `preemptible`。选牌/确认等插入结算会盖住它，结算后 LIFO 恢复。
 - `show_card` / `set_prompt` 仍是 fire-and-forget，不创建等待节点。
 - [GUIPlayerInput](../../Engineering/GodotProjectStructure.md) 保留旧 signal / `respond_*` API，内部全部委托本调度器。
-- 系统级请求也必须有明确 owner，不能用 `null` 表示「任意 owner」。
+- 系统级请求也必须有明确 owner，不能用 `null` 表示「任意 owner」。GUI 占位 owner 是字符串 `"__system__"`；`matches` 在 owner 类型不同时视为不匹配，不能把字符串与 Player 直接 `==`。
 - `enqueue_input` 会把 `InputRequest` `add_child` 到 `get_current_event()`（无当前事件则为根）。
 
 **与领域 owner 分离**：`GameEvent.owner` 是规则执行者；`InputRequest.owner` 是当前需要输入的玩家；`GameStateMachine.current_player` 是真实回合玩家。UI 高亮真实回合，交互路由看当前 `InputRequest`。

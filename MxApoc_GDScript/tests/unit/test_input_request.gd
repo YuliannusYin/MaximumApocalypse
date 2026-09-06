@@ -14,3 +14,9 @@ func test_input_request_matches_identity() -> void:
 	request.respond("ignored")
 	assert_true(request.received)
 	assert_eq(request.response, "ok")
+
+
+func test_input_request_matches_rejects_mismatched_owner_types() -> void:
+	var request: RefCounted = InputRequestScript.new("__system__", Callable(), false)
+	assert_true(request.matches(request.id, "__system__"))
+	assert_false(request.matches(request.id, Player.new()), "字符串 owner 与 Player 不能用 == 比较")

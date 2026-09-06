@@ -18,6 +18,8 @@ var charge_max: int = 0
 var charge_initial: int = 0
 var value: int = 0
 var skills: Array = []  # Array[SkillData]
+## AI 评分数据（卡级）。
+var ai: Dictionary = {}
 
 
 func _init(data: Dictionary = {}) -> void:
@@ -31,6 +33,8 @@ func _init(data: Dictionary = {}) -> void:
 	charge_max = int(data.get("charge_max", 0))
 	charge_initial = int(data.get("charge_initial", 0))
 	value = int(data.get("value", 0))
+	var raw_ai: Variant = data.get("ai", {})
+	ai = raw_ai.duplicate(true) if raw_ai is Dictionary else {}
 	var raw_skills: Array = data.get("skills", [])
 	for raw in raw_skills:
 		if raw is Dictionary:

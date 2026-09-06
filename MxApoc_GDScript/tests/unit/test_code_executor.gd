@@ -163,6 +163,24 @@ func test_skill_filter_and_content_combined() -> void:
 	assert_eq(target["hp"], 8, "目标 hp 应减 2")
 
 
+func test_compile_score_returns_float() -> void:
+	var cb: Callable = CodeExecutor.compile_score("return 3.5")
+	assert_true(cb.is_valid(), "score 应返回有效 Callable")
+	assert_eq(cb.call(null, null, {}, null), 3.5)
+
+
+func test_compile_score_empty_string() -> void:
+	var cb: Callable = CodeExecutor.compile_score("")
+	assert_false(cb.is_valid(), "空字符串应返回空 Callable")
+
+
+func test_compile_score_invalid_code_returns_zero() -> void:
+	var cb: Callable = CodeExecutor.compile_score("this is !!! not valid")
+	assert_engine_error_count(1, "无效 score 应产生 1 个编译错误")
+	assert_true(cb.is_valid(), "降级后应返回有效 Callable")
+	assert_eq(cb.call(null, null, {}, null), 0.0, "no-op score 应返回 0")
+
+
 # === 5. 全牌堆编译（模拟进入游戏编译牌堆的场景）===
 
 func test_gunslinger_full_deck_compiles_without_error() -> void:

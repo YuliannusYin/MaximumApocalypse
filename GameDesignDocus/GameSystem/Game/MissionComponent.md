@@ -41,6 +41,7 @@
 | `filter` | Callable(player) -> bool | 可用性（false 时按钮灰化；不含地块匹配） |
 | `execute` | Callable(player) | 执行体（可协程，内部扣行动） |
 | `confirm` | Callable(player) -> String | 确认门文案 |
+| `ai` | Dictionary | AI 评分；缺省 `order: 12`、`tags: ["mission"]`（见 `_mission_action_ai`） |
 
 地块匹配：静态组件按 `params.block_name`；动态组件（`destroy_current_mark` / `rescue_judge_win`）按地块是否仍有未移除任务标记。
 

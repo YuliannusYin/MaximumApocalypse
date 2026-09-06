@@ -16,3 +16,6 @@ var card_type: String = ""
 
 ## 卡牌来源："scavenge"（拾荒牌堆）/ "game"（游戏牌堆）/ "monster"（怪物牌堆）
 var source: String = ""
+
+## AI 评分数据（卡级 order / useful / tags / effect，弃牌与出牌共用）。
+var ai: Dictionary = {}

@@ -44,5 +44,16 @@ func get_action_options(game: Game, player: Player) -> Array:
 ## - filter: Callable(player: Player) -> bool——可用性（false 时技能栏灰化；不含地块匹配）
 ## - execute: Callable(player: Player)——执行体（协程可，内部含行动扣减与效果）
 ## - confirm: Callable(player: Player) -> String——确认门文案
+## - ai: Dictionary——AI 评分（缺省见 `_mission_action_ai`）
 func get_action_skill_decl() -> Variant:
 	return null
+
+
+## 任务行动技能默认 AI 分：可用时优先于普通战斗/移动。
+func _mission_action_ai() -> Dictionary:
+	return {
+		"order": 12,
+		"useful": 0,
+		"tags": ["mission"],
+		"effect": {"player": 4, "target": 0},
+	}

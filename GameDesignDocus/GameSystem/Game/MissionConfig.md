@@ -61,7 +61,7 @@
 
 ### mount_action_skills(player, block) / unmount_action_skills(player)
 
-玩家进入地块时挂载、离开时卸载任务行动技能。遍历行动组件 `get_action_skill_decl()`：`block_match` 命中则构建主动 Skill（`active="action"`、`skill_type="任务"`、`english_name="mission_action_<索引>"`）加入 `player.skills`。离开时按此前缀卸载。复用地块技能管线（灰化、确认门、`use_active_skill`）。每次挂载先卸载旧技能，重复调用不累积。
+玩家进入地块时挂载、离开时卸载任务行动技能。遍历行动组件 `get_action_skill_decl()`：`block_match` 命中则构建主动 Skill（`active="action"`、`skill_type="任务"`、`english_name="mission_action_<索引>"`，并把 `decl.ai` 拷到 `Skill.ai`）加入 `player.skills`。离开时按此前缀卸载。复用地块技能管线（灰化、确认门、`use_active_skill`）。每次挂载先卸载旧技能，重复调用不累积。
 
 ---
 

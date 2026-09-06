@@ -9,7 +9,7 @@
 
 > 对齐代码：`MxApoc_GDScript/src/core/event_system.gd`
 
-`EventSystem.create_*` 返回 `GameEvent`。JSON 仍按 Dictionary 语法写（`event.num` / `event.get()` / `EventSystem.cancel(event)` / `event["cancel"].call()`）。引擎静态脚本读字段用 `EventSystem.get_field` 或 `event["key"]`。任务 `on_event` 仍用 EventBus 临时 Dictionary，与流程事件分开。
+`EventSystem.create_*` 返回 `GameEvent`。JSON 仍按 Dictionary 语法写（`event.num` / `event.card` / `event.get()` / `EventSystem.cancel(event)` / `event["cancel"].call()`）。CodeExecutor 编译时把传入的 `GameEvent` 换成其 `data` 字典，因此 `event.card` 为 `null`（非武器伤害）时不会触发 Godot 4 的 Object 点号 Invalid access。引擎静态脚本读字段用 `EventSystem.get_field` 或 `event["key"]`。任务 `on_event` 仍用 EventBus 临时 Dictionary，与流程事件分开。
 
 ---
 

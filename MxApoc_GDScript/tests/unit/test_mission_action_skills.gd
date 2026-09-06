@@ -66,9 +66,10 @@ func test_decl_complete_for_all_eight_components() -> void:
 		var decl: Variant = component.get_action_skill_decl()
 		assert_not_null(decl, id + " 应返回 decl")
 		assert_true(decl is Dictionary, id + " 的 decl 应为 Dictionary")
-		for key in ["skill_name", "block_match", "filter", "execute", "confirm"]:
+		for key in ["skill_name", "block_match", "filter", "execute", "confirm", "ai"]:
 			assert_true(decl.has(key), id + " 的 decl 应含键 " + key)
 		assert_eq(decl["skill_name"], expectations[id], id + " 的默认技能名应为 " + expectations[id])
+		assert_eq(int(decl["ai"].get("order", 0)), 12, id + " 的 ai.order 应为 12")
 		for key in ["block_match", "filter", "execute", "confirm"]:
 			assert_true(decl[key].is_valid(), id + " 的 " + key + " 应为有效 Callable")
 
@@ -269,6 +270,7 @@ func test_mount_adds_mission_skill() -> void:
 	assert_eq(skill.active, "action", "应为主动技能（active=action）")
 	assert_true(skill.english_name.begins_with("mission_action_"), "english_name 应带 mission_action_ 前缀")
 	assert_true(skill.skill_description.length() > 0, "技能描述应为确认文案（非空）")
+	assert_eq(int(skill.ai.get("order", 0)), 12, "挂载技能应带任务行动 ai.order")
 
 
 func test_mount_non_matching_block_no_skill() -> void:

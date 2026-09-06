@@ -76,6 +76,7 @@ func get_action_skill_decl() -> Variant:
 		await _do_upload(_game, player)
 	decl["confirm"] = func(player: Player) -> String:
 		return "确定消耗 1 行动上传病毒？"
+	decl["ai"] = _mission_action_ai()
 	return decl
 
 

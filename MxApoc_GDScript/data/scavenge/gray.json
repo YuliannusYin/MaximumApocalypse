@@ -15,9 +15,17 @@
           "trigger": "on_draw_scavenge_card",
           "forced": true,
           "filter": "return event.card.english_name == \"nothing_found\"",
-          "content": "actions.discard(player, event.card)"
+          "content": "actions.discard(player, event.card)",
+          "ai": {
+            "order": 0,
+            "useful": 0
+          }
         }
-      ]
+      ],
+      "ai": {
+        "order": 0,
+        "useful": 0
+      }
     },
     {
       "card_name": "伏击！",
@@ -32,9 +40,17 @@
           "trigger": "on_draw_scavenge_card",
           "forced": true,
           "filter": "return event.card.english_name == \"ambush\"",
-          "content": "actions.draw_monster(player, 1)\nactions.discard(player, event.card)"
+          "content": "actions.draw_monster(player, 1)\nactions.discard(player, event.card)",
+          "ai": {
+            "order": 0,
+            "useful": 0
+          }
         }
-      ]
+      ],
+      "ai": {
+        "order": 0,
+        "useful": 0
+      }
     },
     {
       "card_name": "多余配件",
@@ -49,27 +65,51 @@
           "active": "action",
           "defer_action_cost": true,
           "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0 && player.get_discard_pile().size() > 0",
-          "content": "var list = player.get_discard_pile().get_all()\nif list.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar card = await player.choose_card(1, list)\nif card.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nplayer.get_discard_pile().cards.erase(card[0])\nactions.consume_action(player, 1)\nactions.gain(player, card[0])"
+          "content": "var list = player.get_discard_pile().get_all()\nif list.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar card = await player.choose_card(1, list)\nif card.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nplayer.get_discard_pile().cards.erase(card[0])\nactions.consume_action(player, 1)\nactions.gain(player, card[0])",
+          "ai": {
+            "order": 5,
+            "useful": 0,
+            "effect": {
+              "player": 1,
+              "target": 0
+            }
+          }
         }
-      ]
+      ],
+      "ai": {
+        "order": 0,
+        "useful": 8
+      }
     },
     {
       "card_name": "脏毯子",
       "english_name": "dirty_blanket",
       "card_type": "item",
-      "skills": []
+      "skills": [],
+      "ai": {
+        "order": 0,
+        "useful": 8
+      }
     },
     {
       "card_name": "老报纸",
       "english_name": "old_newspaper",
       "card_type": "item",
-      "skills": []
+      "skills": [],
+      "ai": {
+        "order": 0,
+        "useful": 8
+      }
     },
     {
       "card_name": "满是灰尘的日记本",
       "english_name": "dusty_diary",
       "card_type": "item",
-      "skills": []
+      "skills": [],
+      "ai": {
+        "order": 0,
+        "useful": 8
+      }
     },
     {
       "card_name": "科学家",
@@ -85,9 +125,17 @@
           "trigger": "on_sneak_judge",
           "forced": true,
           "filter": "return player.has_equipment(\"scientist\")",
-          "content": "event.result = {\"value\": 999, \"success\": false}"
+          "content": "event.result = {\"value\": 999, \"success\": false}",
+          "ai": {
+            "order": 0,
+            "useful": 0
+          }
         }
-      ]
+      ],
+      "ai": {
+        "order": 0,
+        "useful": 8
+      }
     }
   ]
 }

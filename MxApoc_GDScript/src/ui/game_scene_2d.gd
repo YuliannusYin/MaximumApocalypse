@@ -10,6 +10,7 @@ const WIKI_OVERLAY_SCENE := preload("res://scenes/WikiOverlay.tscn")
 const TutorialManager = preload("res://src/ui/tutorial_manager.gd")
 const SeatHudManagerScript = preload("res://src/ui/seat_hud_manager.gd")
 const LoadingScreenScript = preload("res://src/ui/loading_screen.gd")
+const AIPlayerInputScript = preload("res://src/ai/ai_player_input.gd")
 
 # === 层节点（来自 .tscn）===
 @onready var _table_layer: CanvasLayer = $TableLayer
@@ -206,7 +207,13 @@ func _start_game_flow() -> void:
 	_seat_hud_manager.judge_confirm_responded.connect(_on_judge_confirm_responded)
 	for player in Game.players:
 		if player != null and is_instance_valid(player):
-			player.input = _gui_input
+			if player.is_ai:
+				var ai_input = AIPlayerInputScript.new()
+				ai_input.animation_input = _gui_input
+				ai_input.think_seconds = 0.4
+				player.input = ai_input
+			else:
+				player.input = _gui_input
 
 	if EventBus != null and is_instance_valid(EventBus):
 		EventBus.turn_started.connect(_on_turn_started)
@@ -989,12 +996,13 @@ func _on_dice_animation_requested(d1: int, d2: int, label: String, outcome: Stri
 # 面板不存在或按钮无效时终点为 Vector2.ZERO（视图原地淡出）；播放完毕后结算响应，阻塞后续请求派发
 func _on_monster_draw_animation_requested(player: Variant, card: Variant) -> void:
 	var request_id: int = _gui_input.get_active_request_id()
+	var owner: Variant = _gui_input.get_active_request_owner()
 	var target_position: Vector2 = Vector2.ZERO
 	var panel: PlayerPanel = _get_panel_for_player(player)
 	if panel != null:
 		target_position = panel.get_monster_zone_button_global_position()
 	await _animation_controller.play_monster_draw(card, target_position)
-	_gui_input.respond_monster_draw_animation(request_id, player)
+	_gui_input.respond_monster_draw_animation(request_id, owner)
 
 
 # 拾荒牌"抓取时"技能触发动画：原地放大淡出（无飞行终点）；播放完毕后结算响应，阻塞后续请求派发

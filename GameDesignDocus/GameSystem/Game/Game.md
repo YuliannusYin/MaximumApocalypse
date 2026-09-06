@@ -298,7 +298,7 @@
 > 参数：
 > - `mission: MissionData`：本局任务。为 null 时从 `DataManager.get_all_missions()` 随机抽取一个
 > - `variants: Dictionary`：变体配置（如同生共死模式等）
-> - `seats: Array`：座位列表，每项为 `{type, survivor}` 字典；`type == "empty"` 或 `"ai"` 的座位跳过
+> - `seats: Array`：座位列表，每项为 `{type, survivor}` 字典；只跳过 `type == "empty"`（或 `survivor == null`）。`type == "ai"` 与 `"human"` 一样创建玩家
 
 > **执行步骤**：
 > 1. **确定任务**：mission 为 null 时随机抽取；赋值给 `current_mission`
@@ -307,8 +307,9 @@
 >    - `mission_config.mission_state = {}`
 >    - 调用 `_mount_mission_components(mission)` 按任务 JSON 声明挂载组件与脚本实例（三层架构第二/三层）
 > 3. **创建玩家**：清空 `players`，遍历 `seats`：
->    - 跳过 `type == "empty"` 或 `"ai"` 的座位，或 `survivor == null` 的座位
->    - 创建 `Player`，设置 `seat_number`、`player_name = survivor.character_name`、`max_hp`、`hp = survivor.initial_hp`、`hunger = 1`
+>    - 跳过 `type == "empty"` 或 `survivor == null` 的座位（AI 座位入局）
+>    - 创建 `Player`，设置 `seat_number`、`player_name = survivor.character_name`、`is_ai = (type == "ai")`、`max_hp`、`hp = survivor.initial_hp`、`hunger = 1`
+>    - AI 座位此时 `input = AIPlayerInput.new()`；对局场景再按 `is_ai` 换成带动画委托的实例（真人共用 `GUIPlayerInput`）
 >    - `role_card = _create_role_card_from_survivor(survivor)`
 >    - `game_deck = _create_player_deck(survivor)`、`game_discard_pile = Pile.new()`
 >    - 挂载通用主动技能：遍历 `DataManager.get_common_skills()` 调用 `_create_skill_from_data` 后 `player.add_skill`
@@ -387,6 +388,7 @@
 > - `filter_target = CodeExecutor.compile_filter_target(skill_data.filter_target)`
 > - `filter_card = CodeExecutor.compile_filter_card(skill_data.filter_card)`
 > - `confirm_prompt = CodeExecutor.compile_confirm_prompt(skill_data.confirm_prompt)`
+> - 复制 `skill.ai`；`ai_result = CodeExecutor.compile_score(ai.result)`，`ai_check = CodeExecutor.compile_score(ai.check)`
 
 #### _create_role_card_from_survivor(survivor)
 
@@ -455,6 +457,7 @@
 | [LogColors](../System/LogColors.md) | 日志输出使用 `LogColors` 着色实体名 |
 | [DataManager](../../Engineering/DataFormat.md) | 工厂方法从 DataManager 加载 `*Data` 类（`MapBlockData` / `SurvivorData` / `ScavengeCardData` / `MonsterCardData` / `SkillData` / 通用技能等） |
 | [Player](../Entities/Player.md) | Game 管理所有玩家；玩家死亡触发全灭判定 |
+| [AI](../AI/AI.md) | `initialize_game` 为 AI 座位创建玩家并挂 `AIPlayerInput` |
 | [Monster](../Entities/Monster.md) | Game 管理怪物牌堆 / 弃牌堆 |
 | [Card](../Entities/Card.md) | Game 管理各类牌堆；`remove_card` 移出游戏 |
 | [MapBlock](../Entities/MapBlock.md) | Game 管理地图区域；`build_map` / `destroy_map_block` / `_create_map_block` 维护地块生命周期 |

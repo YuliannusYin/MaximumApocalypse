@@ -17,9 +17,24 @@
           "filter": "return player.get_effective_phase() == \"action\" && player.get_hp() < player.get_max_hp()",
           "select_target": 1,
           "filter_target": "return target == player",
-          "content": "actions.recover(player, 2)"
+          "content": "actions.recover(player, 2)",
+          "ai": {
+            "order": 6,
+            "useful": 0,
+            "tags": [
+              "heal"
+            ],
+            "effect": {
+              "player": 1,
+              "target": 2
+            }
+          }
         }
-      ]
+      ],
+      "ai": {
+        "order": 0,
+        "useful": 8
+      }
     },
     {
       "card_name": "医疗用品（小型）",
@@ -36,9 +51,24 @@
           "filter": "return player.get_effective_phase() == \"action\" && player.get_hp() < player.get_max_hp()",
           "select_target": 1,
           "filter_target": "return target == player",
-          "content": "actions.recover(player, 4)"
+          "content": "actions.recover(player, 4)",
+          "ai": {
+            "order": 6,
+            "useful": 0,
+            "tags": [
+              "heal"
+            ],
+            "effect": {
+              "player": 1,
+              "target": 2
+            }
+          }
         }
-      ]
+      ],
+      "ai": {
+        "order": 0,
+        "useful": 8
+      }
     },
     {
       "card_name": "医疗用品（大型）",
@@ -55,9 +85,24 @@
           "filter": "return player.get_effective_phase() == \"action\" && player.get_hp() < player.get_max_hp()",
           "select_target": 1,
           "filter_target": "return target == player",
-          "content": "actions.recover(player, 6)"
+          "content": "actions.recover(player, 6)",
+          "ai": {
+            "order": 6,
+            "useful": 0,
+            "tags": [
+              "heal"
+            ],
+            "effect": {
+              "player": 1,
+              "target": 2
+            }
+          }
         }
-      ]
+      ],
+      "ai": {
+        "order": 0,
+        "useful": 8
+      }
     },
     {
       "card_name": "解毒剂",
@@ -73,9 +118,31 @@
           "filter": "return player.get_effective_phase() == \"action\"",
           "select_target": 1,
           "filter_target": "return target == player",
-          "content": "actions.heal_all_status(player)"
+          "content": "actions.heal_all_status(player)",
+          "ai": {
+            "order": 6,
+            "useful": 0,
+            "tags": [
+              "heal"
+            ],
+            "effect": {
+              "player": 1,
+              "target": 2
+            }
+          }
         }
-      ]
+      ],
+      "ai": {
+        "order": 6,
+        "useful": 5,
+        "tags": [
+          "heal"
+        ],
+        "effect": {
+          "player": 1,
+          "target": 2
+        }
+      }
     },
     {
       "card_name": "燃料",
@@ -94,7 +161,11 @@
           "trigger": "on_draw_scavenge_card",
           "forced": true,
           "filter": "return event.card.english_name == \"fuel\"",
-          "content": "var card = event.card\nvar ok = await player.confirm('是否立即装备 \"燃料\", 否则立即弃置')\nif ok:\n\tvar equipped = await player.equip(card)\n\tif not equipped:\n\t\tactions.discard(player, card)\nelse:\n\tactions.discard(player, card)"
+          "content": "var card = event.card\nvar ok = await player.confirm('是否立即装备 \"燃料\", 否则立即弃置')\nif ok:\n\tvar equipped = await player.equip(card)\n\tif not equipped:\n\t\tactions.discard(player, card)\nelse:\n\tactions.discard(player, card)",
+          "ai": {
+            "order": 0,
+            "useful": 0
+          }
         },
         {
           "skill_name": "加油",
@@ -108,9 +179,24 @@
           "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0",
           "filter_target": "return target.in_equipment_area && target.charge_type == \"fuel\" && target.charge_current < target.charge_max",
           "window_prompt": "\"加油\": 选择未满的燃料装备",
-          "content": "actions.consume_action(player, 1)\nactions.fill_charge_to(player, target)\nvar fuel_to_discard = null\nfor e in player.equipment_zone:\n\tif e.get(\"english_name\") == \"fuel\":\n\t\tfuel_to_discard = e\n\t\tbreak\nif fuel_to_discard != null:\n\tactions.discard(player, fuel_to_discard)"
+          "content": "actions.consume_action(player, 1)\nactions.fill_charge_to(player, target)\nvar fuel_to_discard = null\nfor e in player.equipment_zone:\n\tif e.get(\"english_name\") == \"fuel\":\n\t\tfuel_to_discard = e\n\t\tbreak\nif fuel_to_discard != null:\n\tactions.discard(player, fuel_to_discard)",
+          "ai": {
+            "order": 5,
+            "useful": 0,
+            "effect": {
+              "player": 1,
+              "target": 0
+            }
+          }
         }
-      ]
+      ],
+      "ai": {
+        "order": 0,
+        "useful": 8,
+        "tags": [
+          "fuel"
+        ]
+      }
     }
   ]
 }
