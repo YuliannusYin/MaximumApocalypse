@@ -5,8 +5,7 @@ extends TestBase
 ##   （_mount_mission 轻量挂载真实 JSON 组件 + 手动构造玩家/地块），
 ##   仅开局装备（setup_equip_card）与 no_initial_monster_draw 类验证走真实 initialize_game。
 ## 判定链（回合结束 check_win_condition）：先 lose（任一组件 true）→ game_over(LOSE)；
-##   再 win（全部组件 true）→ van_fuel_required<0 直接 WIN，否则面包车判定
-##   （燃料 + 全员上车 + 无怪无标记）。潜行检定分支用 stealth=12（必成功）/0（必失败）控制。
+##   再 win（全部组件 true）→ WIN。潜行检定分支用 stealth=12（必成功）/0（必失败）控制。
 
 
 # === 辅助方法 ===
@@ -15,7 +14,7 @@ func _make_block(block_name: String = "B", x: int = 0, y: int = 0, revealed: boo
 	return super._make_block(block_name, x, y, revealed)
 
 
-## 轻量挂载：真实任务 JSON 组件 → MissionConfig（补齐 van_fuel_required / 旗标解析，
+## 轻量挂载：真实任务 JSON 组件 → MissionConfig（补齐旗标解析，
 ## 与 initialize_game 一致），并执行 setup_components（此时玩家列表为空，
 ## setup_equip_card 等依赖玩家的组件安全跳过）。B 部分手动搭建用例的主力入口。
 func _mount_mission(mission_id: int) -> MissionConfig:
@@ -24,7 +23,6 @@ func _mount_mission(mission_id: int) -> MissionConfig:
 		assert_not_null(mission, "任务 %d 数据应已加载" % mission_id)
 		return null
 	var mc: MissionConfig = MissionConfig.new()
-	mc.van_fuel_required = int(mission.van_fuel_required) if mission.van_fuel_required != null else -1
 	mc.no_initial_monster_draw = mission.no_initial_monster_draw
 	Game.mission_config = mc
 	Game._mount_mission_components(mission)
@@ -55,6 +53,12 @@ func _setup_game_env(players: Array, map_blocks: Array = []) -> void:
 	Game.green_scavenge_pile = Pile.new()
 	Game.blue_scavenge_pile = Pile.new()
 	Game.state_machine.transition_to(GameStateMachine.GameState.PLAYING)
+
+
+## 写入 add_van_fuel 进度：累计桶数与满额旗标。
+func _set_van_fueled(mc: MissionConfig, fuel: int, target: int) -> void:
+	mc.mission_state["van_fuel"] = fuel
+	mc.mission_state["van_fueled"] = fuel >= target
 
 
 ## 轮询等待条件成立（fire-and-forget 协程时序兜底），超时返回最后一次求值。
@@ -111,17 +115,17 @@ func after_each() -> void:
 # 关键路径（手动搭建为主）
 # ============================================================
 
-# === 任务 0：教程 —— 面包车燃料引擎路径（回归） ===
+# === 任务 0：教程 —— add_van_fuel + 全员登车组件路径 ===
 
 func test_mission_0_van_fuel_engine_win_path() -> void:
-	_mount_mission(0)
+	var mc: MissionConfig = _mount_mission(0)
 	var van: MapBlock = _make_block("面包车", 0, 0)
 	var other: MapBlock = _make_block("加油站", 1, 0)
 	var p: Player = _make_player("P")
 	p.current_block = van
 	_setup_game_env([p], [van, other])
 	assert_false(await Game.state_machine.check_win_condition(), "燃料 0/4 不应胜利")
-	van.van_fuel = 4
+	_set_van_fueled(mc, 4, 4)
 	p.current_block = other
 	assert_false(await Game.state_machine.check_win_condition(), "玩家不在面包车不应胜利")
 	p.current_block = van
@@ -152,10 +156,10 @@ func test_mission_1_rescue_via_input_then_van_win() -> void:
 	assert_eq(p.action_count, 2, "解救应消耗 2 点行动（4 → 2）")
 	assert_true(p.has_equipment("科学家"), "科学家应装备到玩家装备区")
 	assert_eq(Game.mission_config.get_action_options(Game, p).size(), 0, "解救后选项应消失")
-	# 护送：到面包车 + 燃料 4 → WIN
+	# 护送：到面包车 + 燃料满额 → WIN
 	p.current_block = van
-	van.van_fuel = 4
-	assert_true(await Game.state_machine.check_win_condition(), "解救+持有者在面包车+燃料4应胜利")
+	_set_van_fueled(Game.mission_config, 4, 4)
+	assert_true(await Game.state_machine.check_win_condition(), "解救+持有者在面包车+燃料满额应胜利")
 	assert_eq(Game.game_result, "win", "Game.game_result 应为 win")
 
 
@@ -202,10 +206,10 @@ func test_mission_2_kill_monsters_event_chain_then_van_win() -> void:
 	assert_eq(int(kill_counts.get("僵尸狗", 0)), 2, "僵尸狗应累计 2 次")
 	assert_eq(int(kill_counts.get("僵尸士兵", 0)), 2, "僵尸士兵应累计 2 次")
 	assert_true(mc.win_condition_components[0].check_win(Game), "四种僵尸各杀 2 只应满足胜利组件")
-	# 叠加面包车判定：燃料不足 → 不胜；加满 → WIN
+	# 叠加燃料与登车：燃料不足 → 不胜；加满 → WIN
 	assert_false(await Game.state_machine.check_win_condition(), "燃料 0/4 不应胜利")
-	van.van_fuel = 4
-	assert_true(await Game.state_machine.check_win_condition(), "击杀达标+面包车条件应胜利")
+	_set_van_fueled(mc, 4, 4)
+	assert_true(await Game.state_machine.check_win_condition(), "击杀达标+燃料满额+全员面包车应胜利")
 	assert_eq(Game.game_result, "win", "Game.game_result 应为 win")
 
 
@@ -370,7 +374,7 @@ func test_mission_5_defuse_countdown_kill_outside_win() -> void:
 	assert_eq(mc.mission_state.get("bomb_defused"), true, "解除后应标记 bomb_defused")
 	assert_eq(mc.mission_state.get("countdown_activate"), true, "解除后应写入倒计时激活标记")
 	assert_eq(p_out.action_count, 2, "解除应消耗 2 点行动（4 → 2）")
-	assert_false(await Game.state_machine.check_win_condition(), "燃料 0/3 不应胜利")
+	assert_false(await Game.state_machine.check_win_condition(), "燃料未满不应胜利")
 	# 倒计时激活：下一个转发事件消费 countdown_activate 标记
 	Game.mission_config.on_event(Game, "turn_ended", {"player": p_out})
 	assert_eq(mc.mission_state.get("countdown_active"), true, "倒计时应已激活")
@@ -387,9 +391,9 @@ func test_mission_5_defuse_countdown_kill_outside_win() -> void:
 	# 归零击杀车外玩家，车内存活
 	assert_false(p_out.is_alive(), "车外玩家应被倒计时击杀")
 	assert_true(p_in.is_alive(), "车内玩家应存活")
-	# 车内玩家 + 燃料 3 → WIN
-	van.van_fuel = 3
-	assert_true(await Game.state_machine.check_win_condition(), "炸弹解除+车内玩家+燃料3应胜利")
+	# 车内玩家 + 燃料满额 → WIN
+	_set_van_fueled(mc, 3, 3)
+	assert_true(await Game.state_machine.check_win_condition(), "炸弹解除+车内玩家+燃料满额应胜利")
 	assert_eq(Game.game_result, "win", "Game.game_result 应为 win")
 
 
@@ -414,9 +418,9 @@ func test_mission_6_repair_three_times_van_win() -> void:
 	assert_eq(p.hand.size(), 0, "三次维修应共弃置 3 张配件")
 	assert_eq(p.action_count, 6, "三次维修应共消耗 3 点行动（9 → 6）")
 	assert_eq(component.get_action_options(Game, p).size(), 0, "修满后不应再出现维修选项")
-	# 修满 + 燃料 3 + 全员面包车 → WIN
-	van.van_fuel = 3
-	assert_true(await Game.state_machine.check_win_condition(), "修满+燃料3+全员面包车应胜利")
+	# 修满 + 燃料满额 + 全员面包车 → WIN
+	_set_van_fueled(mc, 3, 3)
+	assert_true(await Game.state_machine.check_win_condition(), "修满+燃料满额+全员面包车应胜利")
 	assert_eq(Game.game_result, "win", "Game.game_result 应为 win")
 
 
@@ -501,7 +505,7 @@ func test_mission_7_all_blocks_revealed_van_win() -> void:
 	var p: Player = _make_player("P")
 	p.current_block = van
 	_setup_game_env([p], [wild, van])
-	van.van_fuel = 4
+	_set_van_fueled(Game.mission_config, 4, 4)
 	assert_false(await Game.state_machine.check_win_condition(), "有未展示地块不应胜利")
 	wild.revealed = true
 	assert_true(await Game.state_machine.check_win_condition(), "全部地块展示+面包车条件应胜利")
@@ -686,7 +690,11 @@ func test_mission_11_no_initial_monster_draw_flag() -> void:
 	if mc == null:
 		return
 	assert_true(mc.no_initial_monster_draw, "任务 11 应声明 no_initial_monster_draw")
-	assert_eq(mc.van_fuel_required, -1, "任务 11 不通过面包车胜利")
+	var has_add_fuel: bool = false
+	for c in mc.action_components:
+		if c is MissionComponentAddVanFuel:
+			has_add_fuel = true
+	assert_false(has_add_fuel, "任务 11 不声明 add_van_fuel")
 	# 3 个标记地块各带 3 个怪物标记（destroy_current_mark require_no_monster 的门槛）
 	var marked_blocks: Array = []
 	for block in Game.map_area:
@@ -767,7 +775,7 @@ func test_mission_12_destroy_marks_van_win() -> void:
 		b.add_objective_mark({"mark_id": "mark_%d" % (i + 1)})
 		marked_blocks.append(b)
 		Game.map_area.append(b)
-	van.van_fuel = 3
+	_set_van_fueled(mc, 3, 3)
 	# 摧毁 2 个目标 → 未达标
 	for i in 2:
 		p.current_block = marked_blocks[i]

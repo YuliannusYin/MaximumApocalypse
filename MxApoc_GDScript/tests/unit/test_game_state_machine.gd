@@ -316,12 +316,11 @@ func test_check_win_condition_mission_returns_false() -> void:
 	assert_false(await gsm.check_win_condition())
 
 
-func test_check_win_condition_null_fuel_wins() -> void:
+func test_check_win_condition_mission_true_wins() -> void:
 	var gsm: GameStateMachine = _make_gsm()
 	_setup_game()
 	gsm.transition_to(GameStateMachine.GameState.PLAYING)
 	var mc: MissionConfig = MissionConfig.new()
-	mc.van_fuel_required = -1  # NULL
 	var wc := WinComponent.new()
 	wc.win_value = true
 	mc.win_condition_components.append(wc)

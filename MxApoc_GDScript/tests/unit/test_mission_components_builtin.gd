@@ -213,6 +213,22 @@ func test_escort_holder_cases() -> void:
 	assert_false(ctx["mc"].check_win(Game), "持有者死亡应判定失败")
 
 
+func test_escort_no_monster_blocks_when_mark_or_zone() -> void:
+	var ctx: Dictionary = _setup_escort("面包车")
+	var p1: Player = ctx["p1"]
+	p1.equipment_zone.append(_make_card("科学家", "equipment"))
+	var component: MissionComponent = MissionComponentRegistry.create(
+		"escort_equipment_at_block",
+		{"card_name": "科学家", "block_name": "面包车", "no_monster": true})
+	component.setup(Game, ctx["mc"])
+	assert_true(component.check_win(Game), "无怪时护送应判定胜利")
+	p1.current_block.add_monster_mark(1)
+	assert_false(component.check_win(Game), "目标地块有怪物标记时不应胜利")
+	p1.current_block.remove_monster_mark(1)
+	p1.monster_zone.append(Monster.new())
+	assert_false(component.check_win(Game), "持有者面前有怪物时不应胜利")
+
+
 # === 4. spend_action_rescue ===
 
 func _setup_rescue(params: Dictionary, action_count: int = 3) -> Dictionary:

@@ -235,7 +235,6 @@
 | `mission_name` | String | 是 | 任务中文名 |
 | `english_name` | String | 是 | 任务英文名 |
 | `difficulty` | String | 是 | 难度（`tutorial`/`very_easy`/`easy`/`normal`/`hard`/`very_hard`） |
-| `van_fuel_required` | Int / null | 是 | 启动面包车所需燃料；JSON 可用 `null`，运行时转为 `-1` 表示不通过面包车胜利 |
 | `no_initial_monster_draw` | Bool | 否 | 开局跳过每名玩家的初始抓怪（如任务 11）；缺省 `false` |
 | `intro_text` | String | 是 | 任务介绍 |
 | `objective_text` | String | 是 | 任务目标 |
@@ -288,25 +287,23 @@
 >
 > 组件按声明位置区分职责：`win_conditions` 实现 `check_win`、`lose_conditions` 实现 `check_lose`、`triggers` 实现 `on_event`、`actions` 实现 `get_action_options`；脚本与组件共用同一套注入通道。
 >
-> **内置组件 id**（共 22 个，按声明位置分三类）：
-> - **判定类**（实现 `check_win` / `check_lose`，声明于 `win_conditions` / `lose_conditions`）：`collect_items`（收集指定物品，params：`items`、`mode` hold/submit）/ `all_players_at_block`（全员抵达指定地块，params：`block_name`、`no_monster`）/ `escort_equipment_at_block`（护送指定卡牌抵达地块，直接查持有者，params：`card_name`、`block_name`）/ `kill_monsters`（击杀各怪物计数达标，params：`counts`；**需 `triggers`+`win_conditions` 双声明共享 `kill_counts` 计数**）/ `all_blocks_revealed`（全部地块已翻开）/ `objective_marks_cleared`（场上目标标记清至指定数，params：`count`，0=全清）/ `state_flag`（指定 mission_state 键为真即满足，params：`key`）/ `action_win_only`（行动直胜占位，`check_win` 恒 false，防止 win_conditions 为空时的空真误判）
-> - **行动类**（实现 `get_action_options` 与 `get_action_skill_decl`，声明于 `actions`）：`spend_action_rescue`（花费行动解救目标卡并装备，params：`block_name`、`cost`、`card_name`、`skill_name` 可覆盖默认技能名）/ `destroy_current_mark`（花费行动摧毁当前地块目标标记，params：`cost`、`require_no_monster`）/ `submit_items`（在指定地块提交物品，params：`block_name`、`items`）/ `repair_van`（花费行动维修面包车累计次数，params：`block_name`、`card_name`、`times`）/ `defuse_bomb`（花费行动拆炸弹并可启动倒计时，params：`block_name`、`cost`、`card_name`、`countdown`）/ `upload_virus`（持指定装备在上传点花费行动直胜，params：`block_name`、`equipment`）/ `rescue_judge_win`（花费行动解救并潜行检定决胜，params：`card_name`）
+> **内置组件 id**（共 23 个，按声明位置分三类）：
+> - **判定类**（实现 `check_win` / `check_lose`，声明于 `win_conditions` / `lose_conditions`）：`collect_items`（收集指定物品，params：`items`、`mode` hold/submit）/ `all_players_at_block`（全员抵达指定地块，params：`block_name`、`no_monster`）/ `escort_equipment_at_block`（护送指定卡牌抵达地块，直接查持有者，params：`card_name`、`block_name`、`no_monster`）/ `kill_monsters`（击杀各怪物计数达标，params：`counts`；**需 `triggers`+`win_conditions` 双声明共享 `kill_counts` 计数**）/ `all_blocks_revealed`（全部地块已翻开）/ `objective_marks_cleared`（场上目标标记清至指定数，params：`count`，0=全清）/ `state_flag`（指定 mission_state 键为真即满足，params：`key`）/ `action_win_only`（行动直胜占位，`check_win` 恒 false，防止 win_conditions 为空时的空真误判）
+> - **行动类**（实现 `get_action_options` 与 `get_action_skill_decl`，声明于 `actions`）：`spend_action_rescue`（花费行动解救目标卡并装备，params：`block_name`、`cost`、`card_name`、`skill_name` 可覆盖默认技能名）/ `destroy_current_mark`（花费行动摧毁当前地块目标标记，params：`cost`、`require_no_monster`）/ `submit_items`（在指定地块提交物品，params：`block_name`、`items`）/ `add_van_fuel`（在指定地块一次交清全部燃料并累计，params：`block_name`、`card_name`、`count`；满额置 `van_fueled`）/ `repair_van`（花费行动维修面包车累计次数，params：`block_name`、`card_name`、`times`）/ `defuse_bomb`（花费行动拆炸弹并可启动倒计时，params：`block_name`、`cost`、`card_name`、`countdown`）/ `upload_virus`（持指定装备在上传点花费行动直胜，params：`block_name`、`equipment`）/ `rescue_judge_win`（花费行动解救并潜行检定决胜，params：`card_name`）
 > - **触发类**（实现 `on_event`，声明于 `triggers`）：`turn_countdown`（轮数倒计时；`expire_kill_outside` 时归零击杀该地块外玩家且 `check_lose` 恒 false，否则归零判负）/ `mark_enter_reward`（首次进入指定目标标记地块发放奖励）/ `first_enter_draw_boss`（全队首次抵达指定地块抽首领卡）/ `reveal_mark_draw_boss`（展示带目标标记的地块时抽首领）/ `card_discard_watch`（监视卡弃置/持有者死亡；`on_discard` 为 destroy/lose/ignore，`on_death` 可为 lose；lose 模式需 `triggers`+`lose_conditions` 双声明）/ `setup_equip_card`（开局装备指定卡）/ `spawn_dice_effect`（出生检定投出指定点数时处理外围地块）
 >
-> **行动组件技能化**：行动组件同时以 Skill 形式挂载技能栏——玩家进入匹配地块时，`MissionConfig.mount_action_skills(player, block)` 遍历行动组件的 `get_action_skill_decl()` 技能声明，`block_match` 匹配的组件构建为主动 Skill（`active="action"`、`skill_type="任务"`，技能栏金色按钮区分）挂到 `player.skills`；离开地块时 `unmount_action_skills(player)` 卸载（按 `english_name` 前缀 `mission_action_<组件索引>` 识别）。复用地块技能管线：filter 不满足时按钮灰化、confirm_prompt 确认门、use_active_skill 执行；技能栏为任务行动的唯一 UI 入口。地块匹配规则（`block_match`）：静态组件按 `params.block_name` 匹配地块名；动态组件（`destroy_current_mark` / `rescue_judge_win`）按地块存在未移除任务标记匹配。技能名默认表：`spend_action_rescue`→解救科学家（可用 `params.skill_name` 覆盖）、`destroy_current_mark`→摧毁目标、`submit_items`→提交物资、`repair_van`→维修面包车、`defuse_bomb`→解除炸弹、`upload_virus`→上传病毒、`rescue_judge_win`→解救科学家。
+> **行动组件技能化**：行动组件同时以 Skill 形式挂载技能栏——玩家进入匹配地块时，`MissionConfig.mount_action_skills(player, block)` 遍历行动组件的 `get_action_skill_decl()` 技能声明，`block_match` 匹配的组件构建为主动 Skill（`active="action"`、`skill_type="任务"`，技能栏金色按钮区分）挂到 `player.skills`；离开地块时 `unmount_action_skills(player)` 卸载（按 `english_name` 前缀 `mission_action_<组件索引>` 识别）。复用地块技能管线：filter 不满足时按钮灰化、confirm_prompt 确认门、use_active_skill 执行；技能栏为任务行动的唯一 UI 入口。地块匹配规则（`block_match`）：静态组件按 `params.block_name` 匹配地块名；动态组件（`destroy_current_mark` / `rescue_judge_win`）按地块存在未移除任务标记匹配。技能名默认表：`spend_action_rescue`→解救科学家（可用 `params.skill_name` 覆盖）、`destroy_current_mark`→摧毁目标、`submit_items`→提交物资、`add_van_fuel`→添加燃料、`repair_van`→维修面包车、`defuse_bomb`→解除炸弹、`upload_virus`→上传病毒、`rescue_judge_win`→解救科学家。
 >
 > **内置脚本 id**：当前无内置脚本（`MissionScriptRegistry` 内置注册为空；脚本通道保留给组件无法表达的极特殊任务逻辑）。
 >
 > 各组件 `params` 键名见组件类头注释；运行时写入的 `mission_state` 键名详见 `IdentifierMapping.md` §八。
 
-**`progress_conditions[]` 进度类型（共 10 个 `type`）：**
+**`progress_conditions[]` 进度类型（共 8 个 `type`）：**
 
-`progress_conditions` 由任务进度面板读取显示。面板 `MissionProgressPanel`（`src/ui/mission_progress_panel.gd`）为常驻 UI 层右侧的固定尺寸滚动面板（200×150 @(1210,300)），每帧重算条件并做文本变更检测后刷新；条件行按序号自动编号，完成加 `✔` 前缀，计数型追加 `(x/n)` 后缀；未知 `type` 时 `push_error` 并跳过该行（不显示、不占序号）。面板判定语义与任务组件对齐：`all_at_block` ↔ `all_players_at_block` 组件、`escort_at_block` ↔ `escort_equipment_at_block` 组件、`hold_items` 变体族匹配 ↔ `collect_items` 组件、`van_boarding` ↔ 引擎面包车判定（`GameStateMachine.check_win_condition` 面包车段）。
+`progress_conditions` 由任务进度面板读取显示。面板 `MissionProgressPanel`（`src/ui/mission_progress_panel.gd`）为常驻 UI 层右侧的固定尺寸滚动面板（200×150 @(1210,300)），每帧重算条件并做文本变更检测后刷新；条件行按序号自动编号，完成加 `✔` 前缀，计数型追加 `(x/n)` 后缀；未知 `type` 时 `push_error` 并跳过该行（不显示、不占序号）。面板判定语义与任务组件对齐：`all_at_block` ↔ `all_players_at_block` 组件、`escort_at_block` ↔ `escort_equipment_at_block` 组件、`hold_items` 变体族匹配 ↔ `collect_items` 组件、`state_count`（`key: van_fuel`）↔ `add_van_fuel` 累计。
 
 | type | params | 显示形式 | 数据来源 |
 | --- | --- | --- | --- |
-| `van_fuel` | — | (x/n) | 面包车地块当前燃料 / `van_fuel_required`；无面包车地块或需求 ≤ 0 时容错为未完成（无后缀） |
-| `van_boarding` | — | ✔ | 全部存活玩家在面包车地块（首块）且该地块无怪（无怪物标记、同地块玩家怪物卡之和为 0） |
 | `state_flag` | `key` | ✔ | `mission_state[key]` 为真 |
 | `state_count` | `key`、`name`（可选）、`target` | (x/n) | `name` 为空读 `mission_state[key]`，非空读 `mission_state[key][name]`；显示值钳制到 `target` |
 | `hold_items` | `card_name`、`count` | (x/n) | 存活玩家手牌 + 装备区中该牌计数（变体族匹配：精确匹配或 `名（` 前缀，如"医疗用品"匹配"医疗用品（便携）"） |
@@ -492,5 +489,5 @@ JSON 中的 `filter` / `content` / `filter_target` / `filter_card` / `confirm_pr
 | `_load_all` 调用数 | 5 个 | 7 个（补 `_load_variants` / `_load_common_skills`） | 补齐 |
 | 缓存字段数 | 5 个 Dictionary | 7 个 Dictionary + 1 个 Array | 补 `_variants` / `_map_blocks_by_name` / `_common_skills` |
 | 代码字段编译方式 | `Expression` / `eval()` | `GDScript.new()` + `script.reload()` | 改为 `GDScript.new()` |
-| `van_fuel_required` | `null` 表示无面包车胜利 | `-1` 哨兵值表示无面包车胜利 | 改为 `-1` |
+| `van_fuel_required` | JSON 字段，`null` 表示无面包车胜利 | 字段已删除；加油与登车由任务组件 `add_van_fuel` / `all_players_at_block` / `escort_equipment_at_block` 声明 | 删除字段 |
 | 查询接口 | 仅列 3 个 | 15 个 | 补全 `get_available_*` / `has_*` / `get_map_block_def_by_name` / `get_common_skills` 等 |

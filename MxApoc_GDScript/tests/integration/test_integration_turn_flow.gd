@@ -41,7 +41,6 @@ func _make_player(player_name: String = "TestPlayer", hp: int = 10, max_hp: int 
 func _make_winning_mission_config() -> MissionConfig:
 	# 设置一个第一回合后立即胜利的任务配置
 	var mc: MissionConfig = MissionConfig.new()
-	mc.van_fuel_required = -1  # NULL 燃料，不检查面包车
 	mc.win_condition_components.append(AlwaysWinComponent.new())
 	return mc
 
@@ -85,7 +84,6 @@ func test_next_turn_advances_to_next_player() -> void:
 		Game.monster_pile.add(_make_monster_card("z" + str(i)))
 	# 用计数胜利组件追踪检查次数，第二次调用返回 true
 	var mc: MissionConfig = MissionConfig.new()
-	mc.van_fuel_required = -1
 	mc.win_condition_components.append(CountingWinComponent.new())
 	Game.mission_config = mc
 	await Game.state_machine.start_game()
@@ -106,7 +104,6 @@ func test_next_turn_builds_fresh_turn_event_per_player() -> void:
 	for i in 4:
 		Game.monster_pile.add(_make_monster_card("z" + str(i)))
 	var mc: MissionConfig = MissionConfig.new()
-	mc.van_fuel_required = -1
 	mc.win_condition_components.append(CountingWinComponent.new())
 	Game.mission_config = mc
 	await Game.state_machine.start_game()

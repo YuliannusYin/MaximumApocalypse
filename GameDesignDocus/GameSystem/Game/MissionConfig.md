@@ -11,15 +11,12 @@
 
 任务 JSON 只做声明，不写胜利代码字符串。`Game.initialize_game` 从 `MissionData` 构造本对象：
 
-1. `van_fuel_required`：`mission.van_fuel_required` 为 `null` 时置 `-1`，否则转 `int`
-2. `no_initial_monster_draw`：复制任务同名字段（如任务 11）
-3. `_mount_mission_components(mission)`：按 `win_conditions` / `lose_conditions` / `triggers` / `actions` / `mission_script` 实例化组件与脚本
-4. `build_map` 之后统计 `initial_objective_mark_count`
-5. `setup_components(Game)`：向全部组件与脚本注入 `game` 与本配置
+1. `no_initial_monster_draw`：复制任务同名字段（如任务 11）
+2. `_mount_mission_components(mission)`：按 `win_conditions` / `lose_conditions` / `triggers` / `actions` / `mission_script` 实例化组件与脚本
+3. `build_map` 之后统计 `initial_objective_mark_count`
+4. `setup_components(Game)`：向全部组件与脚本注入 `game` 与本配置
 
-`van_fuel_required == -1` 表示该任务不通过启动面包车胜利（如任务 4/8/9/11）。此时 [GameStateMachine.check_win_condition](../Core/GameStateMachine.md) 跳过面包车燃料/全员上车/车上无怪三项，仅依赖 `check_win()`。
-
-无胜利组件且无脚本时 `check_win()` 返回 **true**（空真）。任务 0 教程即此：任务目标恒通过，胜负完全由面包车判定承担。`action_win_only` 组件的 `check_win` 恒为 false，防止「行动直胜」任务在回合结束时被空真误判（任务 8/9）。
+无胜利组件且无脚本时 `check_win()` 返回 **true**（空真）。需要加油逃离的任务须显式声明 `add_van_fuel` 与对应胜利组件（如任务 0 的 `van_fueled` + 全员登车），否则空真会在回合结束立刻判胜。`action_win_only` 组件的 `check_win` 恒为 false，防止「行动直胜」任务在回合结束时被空真误判（任务 8/9）。
 
 ---
 
@@ -27,7 +24,6 @@
 
 | 字段名 | 类型 | 默认 | 说明 |
 |--------|------|------|------|
-| `van_fuel_required` | int | -1 | 启动面包车所需燃料。-1 表不通过面包车胜利 |
 | `no_initial_monster_draw` | bool | false | 开局跳过每名玩家的初始抓怪 |
 | `initial_objective_mark_count` | int | 0 | 开局场上目标标记总数（`build_map` 后写入） |
 | `win_condition_components` | Array | [] | 胜利条件组件。全部 `check_win` 为 true 才满足任务目标 |
@@ -74,7 +70,7 @@
 | 关系 | 说明 |
 |------|------|
 | [Game](./Game.md) | 持有本实例；初始化、事件转发、`setup_components` |
-| [GameStateMachine](../Core/GameStateMachine.md) | `check_win_condition` 调用 `check_lose` / `check_win`，再按 `van_fuel_required` 做面包车判定 |
+| [GameStateMachine](../Core/GameStateMachine.md) | `check_win_condition` 调用 `check_lose` / `check_win`，通过即结算 |
 | [MissionComponent](./MissionComponent.md) | 四类组件的基类与注册表 |
 | [MissionData](../../Engineering/DataFormat.md) | 静态声明来源 |
 | [Player](../Entities/Player.md) | 进入/离开地块时挂载任务行动技能 |

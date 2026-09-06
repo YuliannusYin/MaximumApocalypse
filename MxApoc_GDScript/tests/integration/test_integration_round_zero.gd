@@ -38,7 +38,6 @@ func _make_player(player_name: String = "TestPlayer", hp: int = 10, max_hp: int 
 
 func _make_winning_mission_config() -> MissionConfig:
 	var mc: MissionConfig = MissionConfig.new()
-	mc.van_fuel_required = -1
 	mc.win_condition_components.append(AlwaysWinComponent.new())
 	return mc
 

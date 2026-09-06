@@ -380,7 +380,6 @@ trigger 名在 JSON 数据中用英文 snake_case，技能 `trigger` 字段可�
 | `get_players_in_range(range)` / `get_players()` | 玩家查询 |
 | `has_monster_mark()` / `count_monster_marks()` | 怪物标记 |
 | `add_monster_mark(n)` / `remove_monster_mark()` | 怪物标记增减 |
-| `get_van_fuel()` / `get_van_fuel_max()` / `add_van_fuel(n)` | 面包车燃料 |
 | `has_skill(name)` | 是否含某技能 |
 | `is_map_block()` | 是否为地图块（供 `filter_target` 区分） |
 
@@ -411,7 +410,7 @@ trigger 名在 JSON 数据中用英文 snake_case，技能 `trigger` 字段可�
 | `start_game()` | 启动游戏 |
 | `next_turn()` | 下一回合 |
 | `game_over(result)` | 游戏结束 |
-| `check_win_condition()` | 回合结束胜负判定（先 check_lose 再 check_win，再面包车） |
+| `check_win_condition()` | 回合结束胜负判定（先 check_lose 再 check_win） |
 | `queue_extra_turn(player)` | 加入额外回合 |
 | `skip_next_turn(player)` | 跳过下回合 |
 | `get_current_player()` / `get_game_state()` / `get_game_result()` | 查询 |
@@ -537,6 +536,8 @@ trigger 名在 JSON 数据中用英文 snake_case，技能 `trigger` 字段可�
 | `submitted_items` | Dictionary{物品名: Int} | `submit_items`（写）、`collect_items`（`mode: submit` 时读） | 已在目标地块提交的物品计数 |
 | `van_repair_count` | Int | `repair_van`（读写） | 面包车已维修次数 |
 | `van_repaired` | Bool | `repair_van`（写） | 面包车是否已维修完成（达到 `times` 次后置 true） |
+| `van_fuel` | Int | `add_van_fuel`（写） | 已添加燃料累计桶数 |
+| `van_fueled` | Bool | `add_van_fuel`（写）、`state_flag`（读） | 燃料是否达到 `count` |
 | `bomb_defused` | Bool | `defuse_bomb`（写） | 炸弹是否已被拆除 |
 | `countdown_activate` | Bool | 外部组件（写）、`turn_countdown`（读） | 置 true 时在下一个 `on_event` 中激活倒计时，激活后清除该键 |
 | `countdown_active` | Bool | `turn_countdown` | 倒计时是否已激活 |

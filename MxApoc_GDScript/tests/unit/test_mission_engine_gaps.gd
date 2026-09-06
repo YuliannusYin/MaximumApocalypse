@@ -103,7 +103,6 @@ func test_start_game_skips_initial_monster_draw_when_flag_set() -> void:
 	Game.monster_pile = Pile.new()
 	Game.monster_pile.add(_make_monster_card("z1"))
 	var mc: MissionConfig = MissionConfig.new()
-	mc.van_fuel_required = -1
 	mc.no_initial_monster_draw = true
 	mc.win_condition_components.append(AlwaysWinComponent.new())
 	Game.mission_config = mc
@@ -118,7 +117,6 @@ func test_start_game_draws_initial_monster_when_flag_false() -> void:
 	Game.monster_pile = Pile.new()
 	Game.monster_pile.add(_make_monster_card("z1"))
 	var mc: MissionConfig = MissionConfig.new()
-	mc.van_fuel_required = -1
 	mc.no_initial_monster_draw = false
 	mc.win_condition_components.append(AlwaysWinComponent.new())
 	Game.mission_config = mc

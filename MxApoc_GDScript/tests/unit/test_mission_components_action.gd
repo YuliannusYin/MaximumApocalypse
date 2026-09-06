@@ -1,7 +1,7 @@
 extends TestBase
 
-## 行动类任务组件单元测试（Task 5：6 个行动选项组件）。
-## 覆盖：destroy_current_mark / submit_items / repair_van / defuse_bomb /
+## 行动类任务组件单元测试。
+## 覆盖：destroy_current_mark / submit_items / add_van_fuel / repair_van / defuse_bomb /
 ## upload_virus / rescue_judge_win 的注册表映射、行动选项条件、
 ## 执行扣减行动与 mission_state 写入。
 ## 潜行检定分支用 stealth 值控制确定性（两骰和 2~12：
@@ -39,12 +39,14 @@ func after_each() -> void:
 func test_registry_action_components_registered() -> void:
 	assert_true(MissionComponentRegistry.has("destroy_current_mark"), "destroy_current_mark 应已注册")
 	assert_true(MissionComponentRegistry.has("submit_items"), "submit_items 应已注册")
+	assert_true(MissionComponentRegistry.has("add_van_fuel"), "add_van_fuel 应已注册")
 	assert_true(MissionComponentRegistry.has("repair_van"), "repair_van 应已注册")
 	assert_true(MissionComponentRegistry.has("defuse_bomb"), "defuse_bomb 应已注册")
 	assert_true(MissionComponentRegistry.has("upload_virus"), "upload_virus 应已注册")
 	assert_true(MissionComponentRegistry.has("rescue_judge_win"), "rescue_judge_win 应已注册")
 	assert_true(MissionComponentRegistry.create("destroy_current_mark") is MissionComponentDestroyCurrentMark, "destroy_current_mark 应映射到正确类")
 	assert_true(MissionComponentRegistry.create("submit_items") is MissionComponentSubmitItems, "submit_items 应映射到正确类")
+	assert_true(MissionComponentRegistry.create("add_van_fuel") is MissionComponentAddVanFuel, "add_van_fuel 应映射到正确类")
 	assert_true(MissionComponentRegistry.create("repair_van") is MissionComponentRepairVan, "repair_van 应映射到正确类")
 	assert_true(MissionComponentRegistry.create("defuse_bomb") is MissionComponentDefuseBomb, "defuse_bomb 应映射到正确类")
 	assert_true(MissionComponentRegistry.create("upload_virus") is MissionComponentUploadVirus, "upload_virus 应映射到正确类")
@@ -198,6 +200,81 @@ func test_submit_execute_from_equipment_zone() -> void:
 	var submitted: Dictionary = ctx["mc"].mission_state.get("submitted_items", {})
 	assert_eq(int(submitted.get("燃料", 0)), 2, "装备区与手牌的燃料均应计入提交进度")
 	assert_eq(p.action_count, 2, "提交应消耗 1 点行动（3 → 2）")
+
+
+# === 2.1 add_van_fuel ===
+
+func test_add_van_fuel_option_available() -> void:
+	var ctx: Dictionary = _setup_component("add_van_fuel", {"count": 4})
+	var p: Player = ctx["p"]
+	p.current_block = _make_block("面包车", 0, 0)
+	p.hand.append(_make_card("燃料"))
+	var options: Array = ctx["component"].get_action_options(Game, p)
+	assert_eq(options.size(), 1, "在面包车持有燃料且行动足够时应出现添加燃料选项")
+	assert_eq(options[0]["id"], "add_van_fuel", "选项 id 应为 add_van_fuel")
+	assert_eq(options[0]["label"], "消耗 1 行动添加燃料", "选项 label 应为固定文案")
+	assert_true(options[0]["execute"].is_valid(), "选项 execute 应为有效 Callable")
+
+
+func test_add_van_fuel_option_conditions() -> void:
+	var ctx: Dictionary = _setup_component("add_van_fuel", {"count": 4})
+	var p: Player = ctx["p"]
+	p.current_block = _make_block("加油站", 0, 0)
+	p.hand.append(_make_card("燃料"))
+	assert_eq(ctx["component"].get_action_options(Game, p).size(), 0, "不在面包车不应出现选项")
+	p.current_block = _make_block("面包车", 1, 0)
+	p.hand.clear()
+	p.hand.append(_make_card("步枪"))
+	assert_eq(ctx["component"].get_action_options(Game, p).size(), 0, "未持有燃料不应出现选项")
+	p.hand.append(_make_card("燃料"))
+	p.action_count = 0
+	assert_eq(ctx["component"].get_action_options(Game, p).size(), 0, "行动数不足不应出现选项")
+
+
+func test_add_van_fuel_execute_discards_all_held_fuel() -> void:
+	var ctx: Dictionary = _setup_component("add_van_fuel", {"count": 4}, 3)
+	var p: Player = ctx["p"]
+	p.current_block = _make_block("面包车", 0, 0)
+	p.hand.append(_make_card("燃料"))
+	p.hand.append(_make_card("燃料"))
+	p.hand.append(_make_card("步枪"))
+	var options: Array = ctx["component"].get_action_options(Game, p)
+	assert_eq(options.size(), 1, "执行前应出现添加燃料选项")
+	await options[0]["execute"].call()
+	assert_eq(p.action_count, 2, "添加燃料应消耗 1 点行动（3 → 2）")
+	assert_eq(p.hand.size(), 1, "应一次交清全部燃料，仅剩非燃料卡")
+	assert_eq(p.hand[0].card_name, "步枪", "非燃料卡不应被弃置")
+	assert_eq(int(ctx["mc"].mission_state.get("van_fuel", 0)), 2, "应累计 2 桶燃料")
+	assert_false(ctx["mc"].mission_state.get("van_fueled", false), "未达需求 4 不应置 van_fueled")
+
+
+func test_add_van_fuel_sets_flag_when_count_reached() -> void:
+	var ctx: Dictionary = _setup_component("add_van_fuel", {"count": 3}, 3)
+	var p: Player = ctx["p"]
+	p.current_block = _make_block("面包车", 0, 0)
+	p.hand.append(_make_card("燃料"))
+	p.hand.append(_make_card("燃料"))
+	p.hand.append(_make_card("燃料"))
+	await ctx["component"].get_action_options(Game, p)[0]["execute"].call()
+	assert_eq(int(ctx["mc"].mission_state.get("van_fuel", 0)), 3, "应交清 3 张燃料")
+	assert_true(ctx["mc"].mission_state.get("van_fueled", false), "达到需求应置 van_fueled")
+	assert_eq(ctx["component"].get_action_options(Game, p).size(), 0, "满额后不应再出现添加燃料选项")
+
+
+func test_add_van_fuel_execute_from_equipment_zone() -> void:
+	var ctx: Dictionary = _setup_component("add_van_fuel", {"count": 4}, 3)
+	var p: Player = ctx["p"]
+	p.current_block = _make_block("面包车", 0, 0)
+	var ec: EquipmentCard = EquipmentCard.new()
+	ec.card_name = "燃料"
+	ec.source = "scavenge"
+	p.equipment_zone.append(ec.instantiate(p))
+	p.hand.append(_make_card("燃料"))
+	await ctx["component"].get_action_options(Game, p)[0]["execute"].call()
+	assert_eq(p.hand.size(), 0, "手牌中的燃料应被弃置")
+	assert_eq(p.equipment_zone.size(), 0, "装备区中的燃料应被弃置")
+	assert_eq(int(ctx["mc"].mission_state.get("van_fuel", 0)), 2, "装备区与手牌的燃料均应计入")
+	assert_eq(p.action_count, 2, "添加燃料应消耗 1 点行动（3 → 2）")
 
 
 # === 3. repair_van ===

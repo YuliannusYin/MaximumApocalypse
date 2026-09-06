@@ -1,7 +1,7 @@
 # MapBlock 地图块类
 
 > 继承：[Entity](../Core/Entity.md)
-> 职责：地图块属性、坐标定位、展示机制、怪物标记管理、地块技能挂载、目标标记管理、面包车燃料管理与摧毁机制。
+> 职责：地图块属性、坐标定位、展示机制、怪物标记管理、地块技能挂载、目标标记管理与摧毁机制。
 > 代码：`src/entities/map_block.gd`，`class_name MapBlock extends Entity`。
 > trigger 机制与全 trigger 索引见 [EventSystem.md](../Core/EventSystem.md)。
 
@@ -29,10 +29,6 @@
 
 部分任务（如任务 10、12）在地图上放置目标标记。目标标记挂载到地块上，玩家进入地块时触发效果（一次性）。标记效果由任务包定义。
 
-### 5. 面包车燃料
-
-「面包车」地块持有 `van_fuel` 字段表示当前燃料值。燃料上限取自 `Game.mission_config.van_fuel_required`（≤ 0 时表示无面包车胜利，上限为 0）。
-
 ---
 
 ## 字段
@@ -49,7 +45,6 @@
 | `monster_marks` | int | `0` | 怪物标记数（上限 3） |
 | `block_state` | String | `"alive"` | 地块状态：`"alive"`（存活）/ `"destroyed"`（已摧毁）。摧毁后从 `Game.map_area` 移除 |
 | `objective_marks` | Array | `[]` | 目标标记列表。空表示无标记。玩家进入时触发未触发的标记 |
-| `van_fuel` | int | `0` | 面包车当前燃料值（仅"面包车"地块使用） |
 | `skills` | List\<Skill\> | — | 地块技能（继承自 Entity 的 skills） |
 
 ### 目标标记结构（ObjectiveMark）
@@ -199,14 +194,6 @@
 | `get_players() -> Array` | 返回该地块上的所有存活玩家（遍历 `Game.players`，匹配 `current_block == self`） |
 | `has_player() -> bool` | 是否有存活玩家在此地块（`get_players().size() > 0`） |
 
-### 面包车燃料管理
-
-| 方法 | 说明 |
-|------|------|
-| `get_van_fuel() -> int` | 返回面包车当前燃料值 |
-| `get_van_fuel_max() -> int` | 返回面包车油箱容量（取自 `Game.mission_config.van_fuel_required`）。`mission_config` 不存在或 `van_fuel_required <= 0` 时返回 0（即无面包车胜利任务） |
-| `add_van_fuel(n=1)` | 增加面包车燃料（不超过 max），输出"添加了 X 桶燃料 (当前: a/b)"日志 |
-
 ### 目标标记管理
 
 | 方法 | 说明 |
@@ -243,7 +230,7 @@
 
 | 地块名 | 拾荒颜色 | 刷怪点数 | 关键效果 |
 |--------|---------|---------|---------|
-| 面包车 | — | 6 | 多数任务的出生点与结束点；持有 `van_fuel` 字段 |
+| 面包车 | — | 6 | 多数任务的出生点与结束点 |
 | 避难所 | — | 12/2 | 回合开始时不在则本回合受击免疫 |
 | 军事基地 | 红、蓝 | 0 | 进入时造成伤害 |
 | 监狱 | 红、绿、蓝 | 9 | 进入时减行动次数 |

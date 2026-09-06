@@ -439,18 +439,26 @@ func _build_mission_section() -> void:
 	_add_row([_mission_value_edit, _make_button("设置任务标记", _on_set_mission_state_pressed)])
 
 
+func _get_van_fuel_target() -> int:
+	if Game == null or not is_instance_valid(Game) or Game.mission_config == null:
+		return 0
+	for component in Game.mission_config.action_components:
+		if component is MissionComponentAddVanFuel:
+			return int(component.params.get("count", 0))
+	return 0
+
+
 func _on_set_van_fuel_pressed() -> void:
-	if Game == null or not is_instance_valid(Game):
+	if Game == null or not is_instance_valid(Game) or Game.mission_config == null:
+		_log("当前没有任务配置")
 		return
-	var van_blocks: Array = Game.get_blocks_by_name("面包车")
-	if van_blocks.is_empty():
-		_log("当前地图上没有面包车地块")
+	var max_fuel: int = _get_van_fuel_target()
+	if max_fuel <= 0:
+		_log("当前任务不需要添加燃料")
 		return
-	var van: MapBlock = van_blocks[0]
-	var max_fuel: int = van.get_van_fuel_max()
-	var value: int = clampi(_van_fuel_edit.text.to_int(), 0, maxi(max_fuel, 0))
-	van.van_fuel = value
-	# 无需手动刷新：MissionProgressPanel._process 每帧自读 van_fuel 刷新显示。
+	var value: int = clampi(_van_fuel_edit.text.to_int(), 0, max_fuel)
+	Game.mission_config.mission_state["van_fuel"] = value
+	Game.mission_config.mission_state["van_fueled"] = value >= max_fuel
 	_log("将面包车燃料设为 " + str(value) + "/" + str(max_fuel))
 
 
@@ -531,10 +539,10 @@ func _on_dump_state_pressed() -> void:
 		])
 	if Game.mission_config != null:
 		lines.append("任务标记：" + str(Game.mission_config.mission_state))
-	var van_blocks: Array = Game.get_blocks_by_name("面包车")
-	if not van_blocks.is_empty():
-		var van: MapBlock = van_blocks[0]
-		lines.append("面包车燃料：%d/%d" % [van.get_van_fuel(), van.get_van_fuel_max()])
+		var max_fuel: int = _get_van_fuel_target()
+		if max_fuel > 0:
+			var cur_fuel: int = int(Game.mission_config.mission_state.get("van_fuel", 0))
+			lines.append("面包车燃料：%d/%d" % [cur_fuel, max_fuel])
 	print("\n".join(lines))
 	for line in lines:
 		_log(line)

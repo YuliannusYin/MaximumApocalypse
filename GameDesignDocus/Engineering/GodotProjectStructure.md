@@ -106,7 +106,7 @@
 | `game.gd` | `Game` | 游戏全局类（autoload），持全局牌堆/地图/玩家，承担状态机委托 |
 | `mission_config.gd` | `MissionConfig` | 任务运行时配置 |
 | `mission/components/mission_component.gd` | `MissionComponent` | 任务组件基类 |
-| `mission/components/mission_component_registry.gd` | `MissionComponentRegistry` | 组件 id 注册表（22 个内置） |
+| `mission/components/mission_component_registry.gd` | `MissionComponentRegistry` | 组件 id 注册表（23 个内置） |
 | `mission/scripts/mission_script.gd` | `MissionScript` | 任务脚本基类 |
 | `mission/scripts/mission_script_registry.gd` | `MissionScriptRegistry` | 脚本 id 注册表（当前无内置） |
 

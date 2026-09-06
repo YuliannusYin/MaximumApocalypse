@@ -12,7 +12,7 @@ const RANDOM_MISSION_IDX := 0
 @onready var _variant_list: VBoxContainer = $MissionSelectArea/ScrollContainer/VBoxContainer/VariantSection/VariantList
 @onready var _mission_name_label: Label = $MissionDetailArea/VBoxContainer/MissionNameLabel
 @onready var _difficulty_label: Label = $MissionDetailArea/VBoxContainer/DifficultyLabel
-@onready var _detail_rich: RichTextLabel = $MissionDetailArea/VBoxContainer/ScrollContainer/DetailRich
+@onready var _detail_view: MissionDetailView = $MissionDetailArea/VBoxContainer/ScrollContainer/DetailView
 @onready var _start_game_button: Button = $BottomBar/StartGameButton
 @onready var _add_seat_button: Button = $PlayerSettingArea/VBoxContainer/SeatsHeader/AddSeatButton
 @onready var _remove_seat_button: Button = $PlayerSettingArea/VBoxContainer/SeatsHeader/RemoveSeatButton
@@ -28,6 +28,12 @@ func _ready() -> void:
 	HudTheme.apply_title(_title_label, 26)
 	HudTheme.apply_section_panel($MissionSelectArea, Color("#211f1a"))
 	HudTheme.apply_section_panel($MissionDetailArea, Color("#1d1c19"))
+	var detail_style := $MissionDetailArea.get_theme_stylebox("panel") as StyleBoxFlat
+	if detail_style != null:
+		detail_style.content_margin_left = 12
+		detail_style.content_margin_right = 12
+		detail_style.content_margin_top = 10
+		detail_style.content_margin_bottom = 10
 	HudTheme.apply_section_panel($PlayerSettingArea, Color("#211f1a"))
 	HudTheme.apply_slot_button(_mission_option, 14, HudTheme.GOLD_BORDER, HudTheme.GOLD_TEXT)
 	HudTheme.apply_slot_button(_add_seat_button, 14, HudTheme.SLOT_BORDER, HudTheme.TEXT_MAIN)
@@ -217,38 +223,17 @@ func _refresh_detail_panel() -> void:
 	if RoomState.selected_mission_is_random:
 		_mission_name_label.text = "随机任务"
 		_difficulty_label.text = ""
-		_detail_rich.text = "[i]随机任务（开局时抽取）[/i]"
+		_detail_view.populate(null, MissionDetailView.PLACEHOLDER_RANDOM)
 		return
 	var mission = RoomState.selected_mission
 	if mission == null:
 		_mission_name_label.text = "未选择"
 		_difficulty_label.text = ""
-		_detail_rich.text = ""
+		_detail_view.populate(null)
 		return
 	_mission_name_label.text = mission.mission_name
 	_difficulty_label.text = "难度：%s" % mission.difficulty_display
-	var fuel_text = str(mission.van_fuel_required) if mission.van_fuel_required != null else "(未指定)"
-	var bbcode := ""
-	bbcode += "[b]燃料：[/b]%s\n" % fuel_text
-	bbcode += "[b]怪物包：[/b]%s\n\n" % mission.monster_pack_type
-	bbcode += "[b]任务介绍：[/b]\n%s\n\n" % mission.intro_text
-	bbcode += "[b]任务目标：[/b]\n%s\n\n" % mission.objective_text
-	bbcode += "[b]特殊设置：[/b]%s" % mission.special_setup
-	# 地图块配置
-	var block_parts: PackedStringArray = []
-	for block_name in mission.map_blocks_config:
-		block_parts.append("%s×%d" % [block_name, mission.map_blocks_config[block_name]])
-	bbcode += "\n\n[b]地图块配置：[/b]\n%s" % ", ".join(block_parts)
-	# 拾荒牌堆配置
-	var color_names: Dictionary = {"red": "红色", "green": "绿色", "blue": "蓝色"}
-	bbcode += "\n\n[b]拾荒牌堆配置：[/b]"
-	for color in ["red", "green", "blue"]:
-		var card_entries: Array = mission.scavenge_config.get(color, [])
-		var card_parts: PackedStringArray = []
-		for entry in card_entries:
-			card_parts.append("%s×%d" % [entry.get("card_name", ""), int(entry.get("count", 0))])
-		bbcode += "\n%s：%s" % [color_names[color], ", ".join(card_parts)]
-	_detail_rich.text = bbcode
+	_detail_view.populate(mission)
 
 func _update_start_button() -> void:
 	_start_game_button.disabled = not RoomState.is_ready_to_start()

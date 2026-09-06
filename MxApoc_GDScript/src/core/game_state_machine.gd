@@ -359,30 +359,6 @@ func check_win_condition() -> bool:
 	# 1. 玩家完成了任务（由任务系统检查）
 	if not _check_mission_win_condition():
 		return false
-	# 若该任务不通过面包车胜利（燃料值为 NULL/-1），直接胜利
-	if Game.mission_config == null or Game.mission_config.van_fuel_required < 0:
-		await game_over(GameResult.WIN)
-		return true
-	# 2. 往面包车添加了所需要的燃料值
-	var van_blocks: Array = Game.get_blocks_by_name("面包车")
-	if van_blocks.is_empty():
-		return false
-	var van: MapBlock = van_blocks[0]
-	if van == null:
-		return false
-	if van.van_fuel < Game.mission_config.van_fuel_required:
-		return false
-	# 3. 所有存活玩家都返回到了面包车
-	for player in Game.players:
-		if player != null and is_instance_valid(player) and player.is_alive():
-			if player.get_current_block() != van:
-				return false
-	# 4. 面包车无怪物和怪物标记
-	if van.has_method("has_monster_mark") and van.has_monster_mark():
-		return false
-	if van.has_method("count_monster") and van.count_monster() > 0:
-		return false
-	# 所有胜利条件满足
 	await game_over(GameResult.WIN)
 	return true
 

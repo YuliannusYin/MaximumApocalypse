@@ -101,11 +101,8 @@
 > 在玩家的回合结束时，胜利条件才触发（玩家依然会在回合结束前受到伤害）。
 
 - 玩家完成了任务（`check_mission_win_condition()` 委托给 `mission_config.check_win`，由胜利条件组件 AND + 专用脚本编排）
-- 往「面包车」添加了所需要的燃料值（`mission_config.van_fuel_required`；为 -1 时跳过此条件及以下条件）
-- 所有存活玩家都返回到了地图块「面包车」上
-- 地图块「面包车」内没有任何怪物和怪物标记
 
-> **燃料值为 -1（NULL）**：表示该任务不通过启动面包车胜利（如任务 4/8/9/11），此时仅检查任务胜利条件。详见 [MissionConfig.md](./MissionConfig.md)。
+> 加油、登车、护送等条件由任务 JSON 组件声明，引擎不再硬编码面包车链。详见 [MissionConfig.md](./MissionConfig.md)。
 
 #### next_turn()
 
@@ -121,7 +118,6 @@
 > 若 `mission_config` 为 null 返回 false。由 [GameStateMachine.check_win_condition()](../Core/GameStateMachine.md) 调用，作为胜利判定的第一项条件。
 
 > **任务配置结构 MissionConfig（三层架构运行时容器）**：
-> - `van_fuel_required`：启动面包车所需燃料；-1 表 NULL（该任务不通过面包车胜利，如任务 4/8/9/11）
 > - `no_initial_monster_draw`：开局跳过每名玩家的初始抓怪（来自任务 JSON 同名字段，如任务 11）
 > - `initial_objective_mark_count`：开局时场上任务标记总数，由 `initialize_game` 在 `build_map` 之后遍历 `map_area` 累加各地块 `objective_marks.size()` 统计写入，供 `objective_marks_cleared` 等组件计算已移除数
 > - `win_condition_components` / `lose_condition_components` / `trigger_components` / `action_components`：按任务 JSON 声明（`win_conditions` / `lose_conditions` / `triggers` / `actions` 字段）挂载的四类可复用组件实例数组（`src/game/mission/components/`，经 `MissionComponentRegistry` 实例化）
@@ -133,7 +129,6 @@
 > 1. **先失败后胜利**：先查 `mission_config.check_lose`（任一失败组件或脚本为 true 即 `game_over(LOSE)`），再查 `check_win`
 > 2. **组件 AND**：`check_win` 要求所有胜利组件为 true 且（无脚本或脚本为 true）；无组件且无脚本时空真（视为任务条件满足）
 > 3. **脚本共用通道**：脚本与组件共用 `check_win` / `check_lose` / `on_event` / `get_action_options` 注入通道，由 `MissionConfig` 统一编排
-> 4. **面包车判定**：`van_fuel_required < 0` 时任务胜利即直接胜利；否则还需满足面包车燃料达标、全员上车、面包车无怪物及怪物标记
 
 > **事件转发与行动选项**：`Game` 将 EventBus 的 10 个信号（`turn_started` / `turn_ended` / `player_moved` / `block_revealed` / `block_destroyed` / `monster_died` / `objective_mark_triggered` / `equipment_equipped` / `card_discarded` / `monster_spawn_judged`）转发到 `mission_config.on_event`（触发器组件与脚本共用）；行动组件同时以 Skill 形式挂载技能栏：玩家进出地块时由 `mission_config.mount_action_skills` / `unmount_action_skills` 挂载/卸载到 `player.skills`（`active="action"`、`skill_type="任务"`，金色按钮区分），经 `use_active_skill` 执行，技能栏为任务行动的唯一 UI 入口；`mission_config.get_action_options` 汇总行动组件与脚本的选项（接口与 `{"type": "mission_action", "option_id": ...}` 执行通道保留，见 [Player.wait_player_action](../Entities/Player.md)）。
 
@@ -308,7 +303,6 @@
 > **执行步骤**：
 > 1. **确定任务**：mission 为 null 时随机抽取；赋值给 `current_mission`
 > 2. **设置任务配置**：创建 `MissionConfig` 实例
->    - `van_fuel_required = int(mission.van_fuel_required)`（mission 字段为 null 时置 -1）
 >    - `no_initial_monster_draw = mission.no_initial_monster_draw`（开局跳过每名玩家的初始抓怪，如任务 11）
 >    - `mission_config.mission_state = {}`
 >    - 调用 `_mount_mission_components(mission)` 按任务 JSON 声明挂载组件与脚本实例（三层架构第二/三层）

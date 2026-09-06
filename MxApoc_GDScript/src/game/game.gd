@@ -628,7 +628,6 @@ func initialize_game(mission: MissionData, variants: Dictionary, seats: Array) -
 
 	# 2. 设置任务配置
 	mission_config = MissionConfig.new()
-	mission_config.van_fuel_required = int(mission.van_fuel_required) if mission.van_fuel_required != null else -1
 	mission_config.no_initial_monster_draw = mission.no_initial_monster_draw
 	mission_config.mission_state = {}
 	_mount_mission_components(mission)

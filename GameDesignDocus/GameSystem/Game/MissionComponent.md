@@ -44,13 +44,13 @@
 
 地块匹配：静态组件按 `params.block_name`；动态组件（`destroy_current_mark` / `rescue_judge_win`）按地块是否仍有未移除任务标记。
 
-技能名默认：`spend_action_rescue`→解救科学家（可用 `params.skill_name` 覆盖）、`destroy_current_mark`→摧毁目标、`submit_items`→提交物资、`repair_van`→维修面包车、`defuse_bomb`→解除炸弹、`upload_virus`→上传病毒、`rescue_judge_win`→解救科学家。
+技能名默认：`spend_action_rescue`→解救科学家（可用 `params.skill_name` 覆盖）、`destroy_current_mark`→摧毁目标、`submit_items`→提交物资、`add_van_fuel`→添加燃料、`repair_van`→维修面包车、`defuse_bomb`→解除炸弹、`upload_virus`→上传病毒、`rescue_judge_win`→解救科学家。
 
 ---
 
 ## 注册表
 
-`MissionComponentRegistry`（`mission_component_registry.gd`）静态映射 `id → 组件类`。`create(id, params)` 实例化并写入 `params`；未知 id `push_error` 并返回 null。内置 22 个 id（判定 / 行动 / 触发三类）见 DataFormat §3.4。`reset()` 仅测试用。
+`MissionComponentRegistry`（`mission_component_registry.gd`）静态映射 `id → 组件类`。`create(id, params)` 实例化并写入 `params`；未知 id `push_error` 并返回 null。内置 23 个 id（判定 / 行动 / 触发三类）见 DataFormat §3.4。`reset()` 仅测试用。
 
 `MissionScriptRegistry` 同模式；当前无内置脚本。`MissionScript` 与组件共用 `setup` / `on_event` / `check_win` / `check_lose` / `get_action_options`。
 
@@ -58,7 +58,7 @@
 
 ## 胜负与即时结束
 
-- **回合结束判定**：`GameStateMachine.check_win_condition` 先 `check_lose()`，再 `check_win()`，再面包车三项（若 `van_fuel_required >= 0`）。
+- **回合结束判定**：`GameStateMachine.check_win_condition` 先 `check_lose()`，再 `check_win()`。加油、登车等由任务组件声明。
 - **行动直胜/直负**：`rescue_judge_win`、`upload_virus` 在执行体内 `await game.game_over("win"|"lose")`，不依赖回合结束。此类任务须挂 `action_win_only`，避免空真。
 - **倒计时**：`turn_countdown` 配置 `expire_kill_outside` 时归零击杀该地块外玩家，`check_lose` 恒 false，由全灭判定接管（任务 5）；未配置时归零置 `countdown_expired`，由 `check_lose` 判负。
 

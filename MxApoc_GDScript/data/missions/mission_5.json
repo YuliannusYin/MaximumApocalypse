@@ -4,10 +4,9 @@
   "mission_name": "5. 拆除炸弹",
   "english_name": "defuse_bomb",
   "difficulty": "normal",
-  "van_fuel_required": 3,
-  "intro_text": "有传闻说，一枚锁在电厂里的炸弹即将爆炸，这将使整个反应堆燃烧。很明显，它被锁在一处只有高级人员才能出入的地方。一名老员工写的满是灰尘的日记本应该能帮我们进去。",
-  "objective_text": "找到“满是灰尘的日记本”；解除“电厂”上的炸弹；给“面包车”添加“燃料”(0/3)；回合结束时，所有存活玩家在“面包车”上且“面包车”上没有任何怪物，获得胜利。",
-  "special_setup": "将怪物牌堆中的首领级怪物牌随机分布到怪物牌堆中的下半部分。\n有玩家进入带有“任务标记”的地块时，移除该地块上的“任务标记”，该玩家获得“满是灰尘的日记本”并抓取一张首领牌。\n游戏倒计时结束时，消灭所有不在地图块“面包车”上的玩家。",
+  "intro_text": "有传闻说，一枚锁在电厂里的炸弹即将爆炸，这将使整个反应堆燃烧。很明显，它被锁在一处只有高级人员才能出入的地方。一名老员工写的满是灰尘的日记本应该能帮我们进去。\n目标：找到满是灰尘的日记本然后前往电厂。花费 2 个行动来解除炸弹。在解除炸弹后，你们只有 3 个回合来返回面包车上。",
+  "objective_text": "找到“满是灰尘的日记本”；解除“电厂”上的炸弹；给“面包车”添加“燃料”(0/3)；回合结束时，所有存活玩家在地图块“面包车”上，且“面包车”上没有任何怪物，就获得胜利。",
+  "special_setup": "将怪物牌堆中的首领级怪物牌随机分布到怪物牌堆中的下半部分。\n有玩家进入带有“任务标记”的地块时，移除该地块上的“任务标记”，该玩家获得“满是灰尘的日记本”并抓取一张首领牌。\n地图块“电厂”添加主动技能“解除炸弹”：消耗 2 点行动，解除炸弹（需手牌区有“满是灰尘的日记本”）；解除后开始 3 回合倒计时。\n游戏倒计时结束时，消灭所有不在地图块“面包车”上的玩家。",
   "monster_pack_type": "mutant",
   "map_blocks_config": {
     "面包车": 1,
@@ -84,10 +83,13 @@
     ]
   },
   "win_conditions": [
-    { "component": "state_flag", "params": { "key": "bomb_defused" } }
+    { "component": "state_flag", "params": { "key": "bomb_defused" } },
+    { "component": "state_flag", "params": { "key": "van_fueled" } },
+    { "component": "all_players_at_block", "params": { "block_name": "面包车", "no_monster": true } }
   ],
   "actions": [
-    { "component": "defuse_bomb", "params": { "block_name": "电厂", "cost": 2, "card_name": "满是灰尘的日记本" } }
+    { "component": "defuse_bomb", "params": { "block_name": "电厂", "cost": 2, "card_name": "满是灰尘的日记本" } },
+    { "component": "add_van_fuel", "params": { "block_name": "面包车", "card_name": "燃料", "count": 3 } }
   ],
   "triggers": [
     { "component": "mark_enter_reward", "params": { "rewards": { "mark_1": { "cards": { "满是灰尘的日记本": 1 }, "draw_boss": true } } } },
@@ -96,7 +98,7 @@
   "progress_conditions": [
     { "text": "找到\"满是灰尘的日记本\"", "type": "hold_items", "params": { "card_name": "满是灰尘的日记本", "count": 1 } },
     { "text": "解除\"电厂\"上的炸弹", "type": "state_flag", "params": { "key": "bomb_defused" } },
-    { "text": "给\"面包车\"添加\"燃料\"", "type": "van_fuel" },
-    { "text": "回合结束时，所有存活玩家在地图块\"面包车\"上，且\"面包车\"上没有任何怪物，就获得胜利", "type": "van_boarding" }
+    { "text": "给\"面包车\"添加\"燃料\"", "type": "state_count", "params": { "key": "van_fuel", "target": 3 } },
+    { "text": "回合结束时，所有存活玩家在地图块\"面包车\"上，且\"面包车\"上没有任何怪物，就获得胜利", "type": "all_at_block", "params": { "block_name": "面包车", "no_monster": true } }
   ]
 }

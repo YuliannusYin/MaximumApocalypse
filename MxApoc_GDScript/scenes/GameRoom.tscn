@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3 uid="uid://b2g4m3r0om00bbb"]
+[gd_scene load_steps=3 format=3 uid="uid://b2g4m3r0om00bbb"]
 
 [ext_resource type="Script" path="res://src/ui/game_room.gd" id="1_grm"]
+[ext_resource type="Script" path="res://src/ui/mission_detail_view.gd" id="2_mdv"]
 
 [node name="GameRoom" type="Control"]
 layout_mode = 3
@@ -95,13 +96,12 @@ text = "难度"
 [node name="ScrollContainer" type="ScrollContainer" parent="MissionDetailArea/VBoxContainer"]
 layout_mode = 2
 size_flags_vertical = 3
+horizontal_scroll_mode = 0
 
-[node name="DetailRich" type="RichTextLabel" parent="MissionDetailArea/VBoxContainer/ScrollContainer"]
+[node name="DetailView" type="VBoxContainer" parent="MissionDetailArea/VBoxContainer/ScrollContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
-size_flags_vertical = 3
-bbcode_enabled = true
-text = "任务详情"
+script = ExtResource("2_mdv")
 
 [node name="PlayerSettingArea" type="PanelContainer" parent="."]
 layout_mode = 1

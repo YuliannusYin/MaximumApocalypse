@@ -24,7 +24,6 @@ func _mount_mission(mission_id: int) -> MissionConfig:
 		assert_not_null(mission, "任务 %d 数据应已加载" % mission_id)
 		return null
 	var mc: MissionConfig = MissionConfig.new()
-	mc.van_fuel_required = int(mission.van_fuel_required) if mission.van_fuel_required != null else -1
 	mc.no_initial_monster_draw = mission.no_initial_monster_draw
 	Game.mission_config = mc
 	Game._mount_mission_components(mission)

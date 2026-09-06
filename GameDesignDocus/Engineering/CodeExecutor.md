@@ -122,7 +122,7 @@ func _fn(player, target, event, game) -> bool:
 ### 6.5 confirm_prompt
 
 - 为 `return` 字符串表达式，根据 `player` / `target` / `event` / `game` 状态返回不同的确认提示文案。
-- 示例：面包车技能根据燃料是否满返回"添加燃料"或"启动面包车"两种提示。
+- 示例：确认提示可根据 `player` / `target` / `event` / `game` 状态返回不同文案。
 
 ---
 

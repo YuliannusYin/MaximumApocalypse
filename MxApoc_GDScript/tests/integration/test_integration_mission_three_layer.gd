@@ -85,16 +85,20 @@ func _setup_game_env(players: Array, map_blocks: Array = []) -> void:
 	Game.state_machine.transition_to(GameStateMachine.GameState.PLAYING)
 
 
-## 构造任务 1 风格 MissionConfig（escort + spend_action_rescue + 面包车燃料），挂到 Game。
+## 构造任务 1 风格 MissionConfig（escort + spend_action_rescue + add_van_fuel），挂到 Game。
 func _make_mission_1_config() -> MissionConfig:
 	var mc: MissionConfig = MissionConfig.new()
-	mc.van_fuel_required = 4
 	mc.win_condition_components.append(MissionComponentRegistry.create(
 		"escort_equipment_at_block",
-		{"card_name": "科学家", "block_name": "面包车"}))
+		{"card_name": "科学家", "block_name": "面包车", "no_monster": true}))
+	mc.win_condition_components.append(MissionComponentRegistry.create(
+		"state_flag", {"key": "van_fueled"}))
 	mc.action_components.append(MissionComponentRegistry.create(
 		"spend_action_rescue",
 		{"block_name": "警察局", "cost": 2, "card_name": "科学家"}))
+	mc.action_components.append(MissionComponentRegistry.create(
+		"add_van_fuel",
+		{"block_name": "面包车", "card_name": "燃料", "count": 4}))
 	mc.setup_components(Game)
 	Game.mission_config = mc
 	return mc
@@ -103,7 +107,6 @@ func _make_mission_1_config() -> MissionConfig:
 ## 构造挂载临时脚本的 MissionConfig（不通过面包车胜利），挂到 Game。
 func _make_script_config() -> MissionConfig:
 	var mc: MissionConfig = MissionConfig.new()
-	mc.van_fuel_required = -1
 	mc.mission_script_instance = StubMissionScript.new()
 	mc.setup_components(Game)
 	Game.mission_config = mc
@@ -113,7 +116,6 @@ func _make_script_config() -> MissionConfig:
 ## 构造任务 10 风格 MissionConfig（collect_items + all_players_at_block），挂到 Game。
 func _make_mission_10_config() -> MissionConfig:
 	var mc: MissionConfig = MissionConfig.new()
-	mc.van_fuel_required = -1
 	mc.win_condition_components.append(MissionComponentRegistry.create(
 		"collect_items", {"items": {"燃料": 2, "医疗用品": 1}}))
 	mc.win_condition_components.append(MissionComponentRegistry.create(
@@ -138,17 +140,24 @@ func test_mission_1_json_mounts_rescue_and_escort_components() -> void:
 		return
 	Game.mission_config = MissionConfig.new()
 	Game._mount_mission_components(mission)
-	assert_eq(Game.mission_config.win_condition_components.size(), 1, "任务 1 应挂载 1 个胜利组件")
+	assert_eq(Game.mission_config.win_condition_components.size(), 2, "任务 1 应挂载 2 个胜利组件")
 	var win_c: MissionComponent = Game.mission_config.win_condition_components[0]
 	assert_true(win_c is MissionComponentEscortEquipmentAtBlock, "胜利组件应为 escort_equipment_at_block")
 	assert_eq(win_c.params.get("card_name"), "科学家", "护送卡牌应为科学家")
 	assert_eq(win_c.params.get("block_name"), "面包车", "护送目标应为面包车")
-	assert_eq(Game.mission_config.action_components.size(), 1, "任务 1 应挂载 1 个行动选项组件")
+	assert_eq(win_c.params.get("no_monster"), true, "护送应要求面包车无怪")
+	var flag_c: MissionComponent = Game.mission_config.win_condition_components[1]
+	assert_true(flag_c is MissionComponentStateFlag, "第二胜利组件应为 state_flag")
+	assert_eq(flag_c.params.get("key"), "van_fueled", "旗标键应为 van_fueled")
+	assert_eq(Game.mission_config.action_components.size(), 2, "任务 1 应挂载 2 个行动选项组件")
 	var act_c: MissionComponent = Game.mission_config.action_components[0]
 	assert_true(act_c is MissionComponentSpendActionRescue, "行动组件应为 spend_action_rescue")
 	assert_eq(act_c.params.get("block_name"), "警察局", "解救地点应为警察局")
 	assert_eq(int(act_c.params.get("cost")), 2, "解救消耗应为 2 行动")
 	assert_eq(act_c.params.get("card_name"), "科学家", "解救卡牌应为科学家")
+	var fuel_c: MissionComponent = Game.mission_config.action_components[1]
+	assert_true(fuel_c is MissionComponentAddVanFuel, "第二行动组件应为 add_van_fuel")
+	assert_eq(int(fuel_c.params.get("count")), 4, "添加燃料需求应为 4")
 	assert_eq(Game.mission_config.lose_condition_components.size(), 1, "任务 1 应挂载 1 个失败组件")
 	assert_true(Game.mission_config.lose_condition_components[0] is MissionComponentCardDiscardWatch,
 		"失败组件应为 card_discard_watch")
@@ -283,7 +292,8 @@ func test_mission_1_rescue_then_escort_to_van_wins() -> void:
 	assert_true(Game.mission_config.mission_state.get("scientist_rescued"), "解救应完成")
 	# 护送：移动到面包车并加满燃料
 	p.current_block = van
-	van.van_fuel = 4
+	Game.mission_config.mission_state["van_fuel"] = 4
+	Game.mission_config.mission_state["van_fueled"] = true
 	assert_true(await Game.state_machine.check_win_condition(), "解救+持有者在面包车+燃料足够应胜利")
 	assert_eq(Game.state_machine.get_game_result(), GameStateMachine.GameResult.WIN, "结果应为 WIN")
 	assert_eq(Game.game_result, "win", "Game.game_result 应为 win")
@@ -297,8 +307,9 @@ func test_mission_1_van_conditions_without_rescue_no_win() -> void:
 	p.action_count = 4
 	p.current_block = van
 	_setup_game_env([p], [police, van])
-	van.van_fuel = 4
-	assert_false(await Game.state_machine.check_win_condition(), "科学家未解救时即使面包车条件满足也不应胜利")
+	Game.mission_config.mission_state["van_fuel"] = 4
+	Game.mission_config.mission_state["van_fueled"] = true
+	assert_false(await Game.state_machine.check_win_condition(), "科学家未解救时即使燃料满额也不应胜利")
 	assert_false(Game.state_machine.is_game_over(), "不应进入 GAME_OVER")
 
 
@@ -336,7 +347,7 @@ func test_script_action_options_aggregate_and_execute() -> void:
 	# 判定链：脚本 check_win 为 false 时阻断胜利
 	assert_false(await Game.state_machine.check_win_condition(), "脚本 check_win 为 false 时不应胜利")
 	assert_false(Game.state_machine.is_game_over(), "不应进入 GAME_OVER")
-	# 判定链：脚本 check_win 为 true 时参与胜利判定（van_fuel_required=-1 直接胜利）
+	# 判定链：脚本 check_win 为 true 时参与胜利判定
 	state["stub_win"] = true
 	assert_true(await Game.state_machine.check_win_condition(), "脚本 check_win 为 true 时应胜利")
 	assert_eq(Game.state_machine.get_game_result(), GameStateMachine.GameResult.WIN, "结果应为 WIN")

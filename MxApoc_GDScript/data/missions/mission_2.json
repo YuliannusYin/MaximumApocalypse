@@ -4,9 +4,8 @@
   "mission_name": "2. 收集样本",
   "english_name": "collect_samples",
   "difficulty": "very_easy",
-  "van_fuel_required": 4,
-  "intro_text": "科学家说他需要一些样本来研制解药，所以我们要去那边杀死一些僵尸。",
-  "objective_text": "杀死僵尸以收集样本：击杀僵尸步行者(0/2)、僵尸喷吐者(0/2)、僵尸狗(0/2)、僵尸士兵(0/2)；给“面包车”添加“燃料”(0/4)；回合结束时，所有存活玩家在“面包车”上且“面包车”上没有任何怪物，获得胜利。",
+  "intro_text": "科学家说他需要一些样本来研制解药，所以我们要去那边杀死一些僵尸。\n目标：杀死 8 个僵尸并收集样本。每次 1 个僵尸被杀死，就把那张牌加入到本目标。收集下列怪物各 2 个：僵尸步行者、僵尸喷吐者、僵尸狗和僵尸士兵来完成本目标。\n收集到所有样本和燃料后，返回面包车里逃离。",
+  "objective_text": "杀死僵尸以收集样本：击杀僵尸步行者(0/2)、击杀僵尸喷吐者(0/2)、击杀僵尸狗(0/2)、击杀僵尸士兵(0/2)；给“面包车”添加“燃料”(0/4)；回合结束时，所有存活玩家在地图块“面包车”上，且“面包车”上没有任何怪物，就获得胜利。",
   "special_setup": "将怪物牌堆中的首领级怪物牌随机分布到怪物牌堆中的下半部分。",
   "monster_pack_type": "zombie",
   "map_blocks_config": {
@@ -77,7 +76,12 @@
     ]
   },
   "win_conditions": [
-    { "component": "kill_monsters", "params": { "counts": { "僵尸步行者": 2, "僵尸喷吐者": 2, "僵尸狗": 2, "僵尸士兵": 2 } } }
+    { "component": "kill_monsters", "params": { "counts": { "僵尸步行者": 2, "僵尸喷吐者": 2, "僵尸狗": 2, "僵尸士兵": 2 } } },
+    { "component": "state_flag", "params": { "key": "van_fueled" } },
+    { "component": "all_players_at_block", "params": { "block_name": "面包车", "no_monster": true } }
+  ],
+  "actions": [
+    { "component": "add_van_fuel", "params": { "block_name": "面包车", "card_name": "燃料", "count": 4 } }
   ],
   "triggers": [
     { "component": "kill_monsters", "params": { "counts": { "僵尸步行者": 2, "僵尸喷吐者": 2, "僵尸狗": 2, "僵尸士兵": 2 } } }
@@ -87,7 +91,7 @@
     { "text": "击杀僵尸喷吐者", "type": "state_count", "params": { "key": "kill_counts", "name": "僵尸喷吐者", "target": 2 } },
     { "text": "击杀僵尸狗", "type": "state_count", "params": { "key": "kill_counts", "name": "僵尸狗", "target": 2 } },
     { "text": "击杀僵尸士兵", "type": "state_count", "params": { "key": "kill_counts", "name": "僵尸士兵", "target": 2 } },
-    { "text": "给\"面包车\"添加\"燃料\"", "type": "van_fuel" },
-    { "text": "回合结束时，所有存活玩家在地图块\"面包车\"上，且\"面包车\"上没有任何怪物，就获得胜利", "type": "van_boarding" }
+    { "text": "给\"面包车\"添加\"燃料\"", "type": "state_count", "params": { "key": "van_fuel", "target": 4 } },
+    { "text": "回合结束时，所有存活玩家在地图块\"面包车\"上，且\"面包车\"上没有任何怪物，就获得胜利", "type": "all_at_block", "params": { "block_name": "面包车", "no_monster": true } }
   ]
 }

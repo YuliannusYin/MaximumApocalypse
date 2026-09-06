@@ -4,8 +4,8 @@ extends Panel
 ## 任务进度面板。
 ## 常驻 UI 层右侧固定位置：实时显示当前任务全部进度条件的求值结果。
 ## 条件数据源为 Game.current_mission.progress_conditions（每项 {text, type, params?}），
-## 支持类型：van_fuel / van_boarding / state_flag / state_count / hold_items /
-## submitted_count / all_at_block / escort_at_block / marks_cleared / all_revealed。
+## 支持类型：state_flag / state_count / hold_items / submitted_count /
+## all_at_block / escort_at_block / marks_cleared / all_revealed。
 ## 求值核心（build_lines / build_lines_from / _eval_condition）为纯数据方法，
 ## 不依赖节点树与渲染，可被单元测试直接调用（headless 下 _process 不会自动运行）。
 
@@ -133,10 +133,6 @@ func _eval_condition(cond: Dictionary) -> Dictionary:
 	if not (params is Dictionary):
 		params = {}
 	match cond_type:
-		"van_fuel":
-			return _eval_van_fuel()
-		"van_boarding":
-			return _eval_van_boarding()
 		"state_flag":
 			return _eval_state_flag(params)
 		"state_count":
@@ -158,32 +154,6 @@ func _eval_condition(cond: Dictionary) -> Dictionary:
 
 
 # === 各类型求值实现 ===
-
-## van_fuel：面包车燃料 (当前/需求)。需求值 <= 0 或无面包车地块时容错为未完成（无后缀）。
-func _eval_van_fuel() -> Dictionary:
-	if Game == null or not is_instance_valid(Game):
-		return _result_binary(false)
-	if Game.mission_config == null or Game.mission_config.van_fuel_required <= 0:
-		return _result_binary(false)
-	var van: Variant = _get_first_block("面包车")
-	if van == null:
-		return _result_binary(false)
-	return _result_count(van.get_van_fuel(), Game.mission_config.van_fuel_required)
-
-
-## van_boarding：全员登车二态。与 GameStateMachine.check_win_condition 面包车段一致：
-## 所有存活玩家都在面包车地块（首块）、面包车无怪物标记且同地块玩家怪物卡之和为 0。
-func _eval_van_boarding() -> Dictionary:
-	var van: Variant = _get_first_block("面包车")
-	if van == null:
-		return _result_binary(false)
-	for player in _get_alive_players():
-		if player.current_block != van:
-			return _result_binary(false)
-	if not _is_block_clear(van):
-		return _result_binary(false)
-	return _result_binary(true)
-
 
 ## state_flag：mission_state 布尔标记二态。
 func _eval_state_flag(params: Dictionary) -> Dictionary:
@@ -325,16 +295,6 @@ func _get_mission_state() -> Dictionary:
 	if Game == null or not is_instance_valid(Game) or Game.mission_config == null:
 		return {}
 	return Game.mission_config.mission_state
-
-
-## 按地块名取第一块存活地块（无则返回 null）。
-func _get_first_block(block_name: String) -> Variant:
-	if Game == null or not is_instance_valid(Game):
-		return null
-	var blocks: Array = Game.get_blocks_by_name(block_name)
-	if blocks.is_empty():
-		return null
-	return blocks[0]
 
 
 ## 存活玩家列表（Game 无效时返回空数组）。
