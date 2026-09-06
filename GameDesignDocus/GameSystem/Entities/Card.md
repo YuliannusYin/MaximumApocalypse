@@ -33,7 +33,7 @@ Card（卡牌基类，继承 Entity）
 | `card_type` | String | `""` | 卡牌类型（如"行动"、"装备"、"食物"等） |
 | `source` | String | `""` | 卡牌来源：`"scavenge"`（拾荒牌堆）/ `"game"`（游戏牌堆）/ `"monster"`（怪物牌堆） |
 | `skills` | List\<Skill\> | — | 卡牌自带技能（继承自 Entity） |
-| `ai` | Dictionary | `{}` | 卡级 AI 评分（`order` / `useful` / `tags` / `effect`） |
+| `ai` | Dictionary | `{}` | 卡级 AI 评分（`order` / `useful`∈[0,100] / `tags` / `effect`；怪物卡为 `threat`） |
 
 ### 方法
 
@@ -168,6 +168,7 @@ ScavengeCard 直接继承 EquipmentCard，是为了让拾荒包中的装备类�
 - `monster.max_hp = max_hp`
 - `monster.hp = max_hp`（初始化当前生命值为上限）
 - `monster.damage_value = damage_value`
+- `monster.ai_threat = ai.threat`（缺省 0）
 - `monster.range = range`
 - `monster.attack_target = player`（设置纠缠对象为抓取玩家）
 - `monster.monster_card = self`（回引来源怪物卡，死亡后入怪物弃牌堆用）

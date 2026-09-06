@@ -6,6 +6,8 @@ extends IPlayerInput
 
 const AiScorerScript = preload("res://src/ai/ai_scorer.gd")
 const LegalActionsScript = preload("res://src/ai/legal_actions.gd")
+const REDRAW_AVG_THRESHOLD := 70.0
+const REDRAW_MAX_COUNT := 20
 
 var scorer = AiScorerScript.new()
 var animation_input: IPlayerInput = null
@@ -13,6 +15,7 @@ var think_seconds: float = 0.0
 var _owner: Variant = null
 var _repeat_key: String = ""
 var _repeat_count: int = 0
+var _redraw_count: int = 0
 
 
 func set_request_owner(player: Variant) -> void:
@@ -107,11 +110,17 @@ func choose_target(n: int, skill: Variant, prompt: String = "", min_n: int = -1)
 	var candidates: Array = player.get_skill_valid_targets(skill)
 	if candidates.is_empty():
 		return []
+	var damage: bool = scorer.is_damage_obj(skill)
+	if damage:
+		var non_players: Array = scorer.non_player_targets(candidates)
+		if not non_players.is_empty():
+			candidates = non_players
 	if n < 0:
 		return candidates.duplicate()
 	var scored: Array = []
 	for target in candidates:
-		scored.append({"target": target, "score": scorer.effect(player, skill, target)})
+		var score: float = scorer.score_damage_target(player, skill, target) if damage else scorer.effect(player, skill, target)
+		scored.append({"target": target, "score": score})
 	scored.sort_custom(func(a, b): return float(a["score"]) > float(b["score"]))
 	var exact: bool = min_n < 0
 	var need: int = n
@@ -188,7 +197,12 @@ func wait_redraw_decision(player: Variant) -> bool:
 	for card in player.hand:
 		total += scorer.useful(player, card)
 	var avg: float = total / float(player.hand.size())
-	return avg < 4.0
+	if avg >= REDRAW_AVG_THRESHOLD:
+		return false
+	if _redraw_count >= REDRAW_MAX_COUNT:
+		return false
+	_redraw_count += 1
+	return true
 
 
 func wait_judge_confirm(player: Variant, prompt: String, allow_cancel: bool) -> bool:

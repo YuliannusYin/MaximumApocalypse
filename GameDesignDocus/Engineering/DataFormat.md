@@ -208,6 +208,7 @@
 | `attack_damage` | Int | 是 | 攻击伤害 |
 | `range` | String | 是 | 射程（`none`/`short`/`medium`/`long`/`infinity`） |
 | `skills` | Array | 否 | 技能列表 |
+| `ai` | Object | 是 | `{ "threat": Number }`，威胁值 ∈ [0, 100]，供 AI 选择攻击目标 |
 
 **`cards[].skills[]` 字段：**
 
@@ -453,7 +454,7 @@
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | `order` | Number | 行动优先级，越大越先打。被动写 `0` |
-| `useful` | Number | 留牌价值（弃牌 / 选牌） |
+| `useful` | Number | 留牌价值 ∈ [0, 100]（弃牌 / 选牌 / 重调均分） |
 | `tags` | Array&lt;String&gt; | 局势标签：`damage` `heal` `food` `fuel` `ammo` `equip` `move` `draw` `stealth` `mission` `aoe` `weapon` |
 | `effect` | Object | `{player, target}` 数值。`damage`/`heal` 的 `target` 写正数幅度 |
 | `result` | String | 可选。覆盖效果分，由 `compile_score` 编译 |

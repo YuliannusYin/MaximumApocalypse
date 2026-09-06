@@ -11,6 +11,7 @@
       "initial_hp": 25,
       "attack_damage": 5,
       "range": "none",
+      "ai": { "threat": 90 },
       "skills": [
         {
           "skill_name": "外星收割者-摧毁装备",
@@ -43,6 +44,7 @@
       "initial_hp": 22,
       "attack_damage": 4,
       "range": "none",
+      "ai": { "threat": 85 },
       "skills": [
         {
           "skill_name": "外星指挥官-集结修复",
@@ -75,6 +77,7 @@
       "initial_hp": 9,
       "attack_damage": 1,
       "range": "none",
+      "ai": { "threat": 46 },
       "skills": [
         {
           "skill_name": "外星科学家-勒索装备",
@@ -107,6 +110,7 @@
       "initial_hp": 18,
       "attack_damage": 4,
       "range": "none",
+      "ai": { "threat": 61 },
       "skills": [
         {
           "skill_name": "外星机械",
@@ -129,6 +133,7 @@
       "initial_hp": 7,
       "attack_damage": 3,
       "range": "none",
+      "ai": { "threat": 48 },
       "skills": [
         {
           "skill_name": "外星入侵者",
@@ -151,6 +156,7 @@
       "initial_hp": 10,
       "attack_damage": 6,
       "range": "none",
+      "ai": { "threat": 57 },
       "skills": [
         {
           "skill_name": "外星飞船-烧毁",
@@ -181,6 +187,7 @@
       "initial_hp": 15,
       "attack_damage": 3,
       "range": "long",
+      "ai": { "threat": 56 },
       "skills": []
     }
   ]

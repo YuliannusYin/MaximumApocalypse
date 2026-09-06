@@ -7,6 +7,8 @@ func _assert_ai(ai: Variant, label: String) -> void:
 	assert_true(ai is Dictionary, "%s 应有 ai 对象" % label)
 	assert_true((ai as Dictionary).has("order"), "%s.ai 应有 order" % label)
 	assert_true((ai as Dictionary).has("useful"), "%s.ai 应有 useful" % label)
+	var useful: float = float((ai as Dictionary).get("useful", -1))
+	assert_true(useful >= 0.0 and useful <= 100.0, "%s.ai.useful 应在 [0, 100]" % label)
 
 
 func _assert_skill_tree(skill_data: SkillData, label: String) -> void:
@@ -54,3 +56,13 @@ func test_map_block_skills_have_ai() -> void:
 	for block in DataManager.get_all_map_blocks():
 		for skill_data in block.skills:
 			_assert_skill_tree(skill_data, "%s/%s" % [block.english_name, skill_data.english_name])
+
+
+func test_monster_cards_have_threat() -> void:
+	for pack_type in DataManager.get_monster_pack_types():
+		for card_data in DataManager.get_monster_pack(pack_type):
+			var label: String = "%s/%s" % [pack_type, card_data.english_name]
+			assert_true(card_data.ai is Dictionary, "%s 应有 ai 对象" % label)
+			assert_true((card_data.ai as Dictionary).has("threat"), "%s.ai 应有 threat" % label)
+			var threat: int = int((card_data.ai as Dictionary).get("threat", -1))
+			assert_true(threat >= 0 and threat <= 100, "%s.ai.threat 应在 [0, 100]" % label)

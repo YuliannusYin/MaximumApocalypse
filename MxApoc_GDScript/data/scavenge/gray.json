@@ -78,7 +78,7 @@
       ],
       "ai": {
         "order": 0,
-        "useful": 8
+        "useful": 90
       }
     },
     {
@@ -88,7 +88,7 @@
       "skills": [],
       "ai": {
         "order": 0,
-        "useful": 8
+        "useful": 90
       }
     },
     {
@@ -98,7 +98,7 @@
       "skills": [],
       "ai": {
         "order": 0,
-        "useful": 8
+        "useful": 90
       }
     },
     {
@@ -108,7 +108,7 @@
       "skills": [],
       "ai": {
         "order": 0,
-        "useful": 8
+        "useful": 90
       }
     },
     {
@@ -134,7 +134,7 @@
       ],
       "ai": {
         "order": 0,
-        "useful": 8
+        "useful": 90
       }
     }
   ]

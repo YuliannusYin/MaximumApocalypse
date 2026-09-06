@@ -11,6 +11,7 @@
       "initial_hp": 19,
       "attack_damage": 4,
       "range": "medium",
+      "ai": { "threat": 82 },
       "skills": [
         {
           "skill_name": "人工智能核心领袖",
@@ -33,6 +34,7 @@
       "initial_hp": 22,
       "attack_damage": 6,
       "range": "medium",
+      "ai": { "threat": 89 },
       "skills": [
         {
           "skill_name": "导弹坦克",
@@ -55,6 +57,7 @@
       "initial_hp": 10,
       "attack_damage": 2,
       "range": "none",
+      "ai": { "threat": 49 },
       "skills": [
         {
           "skill_name": "激光无人机",
@@ -77,6 +80,7 @@
       "initial_hp": 12,
       "attack_damage": 3,
       "range": "none",
+      "ai": { "threat": 53 },
       "skills": [
         {
           "skill_name": "机器人侦察兵",
@@ -99,6 +103,7 @@
       "initial_hp": 20,
       "attack_damage": 3,
       "range": "medium",
+      "ai": { "threat": 61 },
       "skills": [
         {
           "skill_name": "全能机器人",
@@ -121,6 +126,7 @@
       "initial_hp": 15,
       "attack_damage": 4,
       "range": "none",
+      "ai": { "threat": 58 },
       "skills": [
         {
           "skill_name": "爆破机器人-殉爆",
@@ -153,6 +159,7 @@
       "initial_hp": 11,
       "attack_damage": 4,
       "range": "medium",
+      "ai": { "threat": 54 },
       "skills": [
         {
           "skill_name": "方阵机器人",

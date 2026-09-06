@@ -59,3 +59,34 @@ func test_legal_actions_no_move_without_actions() -> void:
 		types.append(action.get("type"))
 	assert_false(types.has("move"), "无行动点不应枚举移动")
 	assert_false(types.has("pile_draw"), "无行动点不应枚举抓牌")
+
+
+func test_legal_actions_no_move_when_monster_zone_not_empty() -> void:
+	var p: Player = _ready_combat_player()
+	var here: MapBlock = p.current_block
+	var there: MapBlock = _make_block("邻格", 1, 0, true)
+	Game.map_area = [here, there]
+	var actions: Array = LegalActionsScript.enumerate(p)
+	var types: Array = []
+	for action in actions:
+		types.append(action.get("type"))
+	assert_false(types.has("move"), "怪物区有怪不应枚举主动移动")
+
+
+func test_legal_actions_skips_damage_when_only_survivors() -> void:
+	var p: Player = _make_player("AI")
+	p.in_phase = "action"
+	p.action_count = 4
+	var ally: Player = _make_player("Ally")
+	var block: MapBlock = _make_block("旷野", 0, 0, true)
+	Game.map_area = [block]
+	Game.players = [p, ally]
+	p.current_block = block
+	ally.current_block = block
+	p.add_skill(_punch_skill())
+	var actions: Array = LegalActionsScript.enumerate(p)
+	var has_punch := false
+	for action in actions:
+		if action.get("type") == "skill" and action.get("skill") != null and action["skill"].english_name == "punch":
+			has_punch = true
+	assert_false(has_punch, "只有求生者可打时不应枚举拳打")

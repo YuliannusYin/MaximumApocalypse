@@ -44,3 +44,33 @@ func test_needed_mission_item_boosts_useful() -> void:
 	component.params = {"card_name": "燃料"}
 	Game.mission_config.action_components.append(component)
 	assert_gt(scorer.useful(p, card), 2.0, "任务需求物资 useful 应加权")
+	assert_eq(scorer.useful(p, card), 17.0, "任务加成应为 +15")
+
+
+func test_prefer_high_threat_and_lethal_targets() -> void:
+	var scorer = AiScorerScript.new()
+	var p: Player = _make_player("A")
+	var high: Monster = Monster.new()
+	high.hp = 10
+	high.max_hp = 10
+	high.ai_threat = 80
+	var lethal: Monster = Monster.new()
+	lethal.hp = 2
+	lethal.max_hp = 2
+	lethal.ai_threat = 30
+	var skill := Skill.new()
+	skill.ai = {"order": 9, "useful": 0, "tags": ["damage"], "effect": {"player": 0, "target": 2}}
+	assert_gt(scorer.score_damage_target(p, skill, high), scorer.score_damage_target(p, skill, lethal) - 50.0, "高威胁应高于同条件低威胁")
+	var low_unlethal: Monster = Monster.new()
+	low_unlethal.hp = 10
+	low_unlethal.max_hp = 10
+	low_unlethal.ai_threat = 30
+	assert_gt(scorer.score_damage_target(p, skill, lethal), scorer.score_damage_target(p, skill, high), "一击毙命可压过不能击杀的高威胁")
+	assert_gt(scorer.score_damage_target(p, skill, high), scorer.score_damage_target(p, skill, low_unlethal), "同不能击杀时高威胁优先")
+
+
+func test_monster_instantiate_copies_threat() -> void:
+	var card: MonsterCard = _make_monster_card()
+	card.ai = {"threat": 42}
+	var monster: Monster = card.instantiate(null)
+	assert_eq(monster.ai_threat, 42)

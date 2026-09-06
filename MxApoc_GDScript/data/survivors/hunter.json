@@ -52,7 +52,7 @@
       ],
       "ai": {
         "order": 3,
-        "useful": 5,
+        "useful": 58,
         "tags": [
           "equip"
         ]
@@ -93,7 +93,7 @@
       ],
       "ai": {
         "order": 9,
-        "useful": 5,
+        "useful": 58,
         "tags": [
           "damage"
         ],
@@ -141,7 +141,7 @@
       ],
       "ai": {
         "order": 8,
-        "useful": 7,
+        "useful": 80,
         "tags": [
           "equip",
           "weapon"
@@ -186,7 +186,7 @@
       ],
       "ai": {
         "order": 8,
-        "useful": 7,
+        "useful": 80,
         "tags": [
           "equip",
           "weapon"
@@ -234,7 +234,7 @@
       ],
       "ai": {
         "order": 8,
-        "useful": 7,
+        "useful": 80,
         "tags": [
           "equip",
           "weapon"
@@ -279,7 +279,7 @@
       ],
       "ai": {
         "order": 8,
-        "useful": 7,
+        "useful": 80,
         "tags": [
           "equip",
           "weapon"
@@ -316,7 +316,7 @@
       ],
       "ai": {
         "order": 3,
-        "useful": 5,
+        "useful": 58,
         "tags": [
           "equip"
         ]
@@ -364,7 +364,7 @@
       ],
       "ai": {
         "order": 8,
-        "useful": 7,
+        "useful": 80,
         "tags": [
           "equip",
           "weapon"
@@ -406,7 +406,7 @@
       ],
       "ai": {
         "order": 9,
-        "useful": 5,
+        "useful": 58,
         "tags": [
           "damage"
         ],
@@ -445,7 +445,7 @@
       ],
       "ai": {
         "order": 5,
-        "useful": 5,
+        "useful": 58,
         "tags": [
           "food"
         ],
@@ -482,7 +482,7 @@
       ],
       "ai": {
         "order": 5,
-        "useful": 5,
+        "useful": 58,
         "effect": {
           "player": 1,
           "target": 0
@@ -537,7 +537,7 @@
       ],
       "ai": {
         "order": 3,
-        "useful": 5,
+        "useful": 58,
         "tags": [
           "equip"
         ]
@@ -572,7 +572,7 @@
       ],
       "ai": {
         "order": 4,
-        "useful": 5,
+        "useful": 58,
         "tags": [
           "draw"
         ],

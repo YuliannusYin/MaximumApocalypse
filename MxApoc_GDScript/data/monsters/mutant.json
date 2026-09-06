@@ -11,6 +11,7 @@
       "initial_hp": 30,
       "attack_damage": 5,
       "range": "short",
+      "ai": { "threat": 95 },
       "skills": [
         {
           "skill_name": "狂暴的突变体",
@@ -33,6 +34,7 @@
       "initial_hp": 24,
       "attack_damage": 4,
       "range": "medium",
+      "ai": { "threat": 87 },
       "skills": [
         {
           "skill_name": "达克斯顿贾格",
@@ -55,6 +57,7 @@
       "initial_hp": 10,
       "attack_damage": 4,
       "range": "none",
+      "ai": { "threat": 53 },
       "skills": [
         {
           "skill_name": "军部残余武装",
@@ -77,6 +80,7 @@
       "initial_hp": 7,
       "attack_damage": 3,
       "range": "none",
+      "ai": { "threat": 48 },
       "skills": [
         {
           "skill_name": "强盗",
@@ -99,6 +103,7 @@
       "initial_hp": 5,
       "attack_damage": 2,
       "range": "none",
+      "ai": { "threat": 44 },
       "skills": [
         {
           "skill_name": "突变体老鼠",
@@ -121,6 +126,7 @@
       "initial_hp": 8,
       "attack_damage": 5,
       "range": "none",
+      "ai": { "threat": 53 },
       "skills": []
     }
   ]

@@ -27,6 +27,9 @@ var max_hp: int = 0
 ## 攻击伤害值
 var damage_value: int = 0
 
+## AI 威胁值（来自怪物 JSON ai.threat，0–100）
+var ai_threat: int = 0
+
 ## 射程："none"（只攻击纠缠玩家）/ "short" / "medium" / "long" / "infinity"
 var range: String = "none"
 

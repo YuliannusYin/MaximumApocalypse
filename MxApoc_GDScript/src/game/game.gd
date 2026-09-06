@@ -991,6 +991,7 @@ func _create_monster_card_from_data(card_data: MonsterCardData, monster_type: St
 	card.max_hp = card_data.max_hp
 	card.damage_value = card_data.attack_damage
 	card.range = card_data.range
+	card.ai = card_data.ai.duplicate(true) if card_data.ai is Dictionary else {}
 	for skill_data in card_data.skills:
 		card.add_skill(_create_skill_from_data(skill_data))
 	return card

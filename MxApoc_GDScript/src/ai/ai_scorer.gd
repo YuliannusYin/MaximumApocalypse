@@ -49,6 +49,51 @@ func has_tag(obj: Variant, tag: String) -> bool:
 	return ai_tags(obj).has(tag)
 
 
+func is_damage_obj(obj: Variant) -> bool:
+	if has_tag(obj, "damage"):
+		return true
+	if has_tag(obj, "heal") or has_tag(obj, "food"):
+		return false
+	var effect_dict: Variant = read_ai(obj).get("effect", {})
+	if not (effect_dict is Dictionary):
+		return false
+	return float(effect_dict.get("target", 0)) > 0.0 and has_tag(obj, "weapon")
+
+
+func estimated_damage(obj: Variant) -> float:
+	var effect_dict: Variant = read_ai(obj).get("effect", {})
+	if effect_dict is Dictionary:
+		return absf(float(effect_dict.get("target", 0)))
+	return 0.0
+
+
+func is_player_target(target: Variant) -> bool:
+	return target != null and is_instance_valid(target) and target.has_method("is_player") and target.is_player()
+
+
+func non_player_targets(candidates: Array) -> Array:
+	var result: Array = []
+	for target in candidates:
+		if not is_player_target(target):
+			result.append(target)
+	return result
+
+
+func score_damage_target(player: Variant, skill: Variant, target: Variant) -> float:
+	if target == null or is_player_target(target):
+		return -99.0
+	var threat: float = _monster_threat(target)
+	var dmg: float = estimated_damage(skill)
+	var hp: float = float(target.get("hp")) if target.get("hp") != null else 0.0
+	var lethal: bool = dmg > 0.0 and hp > 0.0 and dmg >= hp
+	var score: float = threat
+	if lethal:
+		score += 50.0 + threat * 0.01
+	if player != null and player.monster_zone != null and player.monster_zone.has(target):
+		score += 8.0
+	return score
+
+
 func useful(player: Variant, card: Variant) -> float:
 	if card == null:
 		return 0.0
@@ -58,8 +103,8 @@ func useful(player: Variant, card: Variant) -> float:
 		if skill != null:
 			value = ai_useful(skill)
 	if hints.is_needed_card(card, _game_of(player)):
-		value += 6.0
-	return value
+		value += 15.0
+	return clampf(value, 0.0, 100.0)
 
 
 func effect(player: Variant, obj: Variant, target: Variant) -> float:
@@ -141,7 +186,7 @@ func _score_card_action(player: Variant, card: Variant) -> float:
 	if base == 0.0 and skill != null:
 		base = ai_order(skill)
 	if str(card.get("card_type")) == "equipment":
-		base += 0.5 * useful(player, card)
+		base += 0.05 * useful(player, card)
 		if _equipment_full(player) and not _has_same_name_equipped(player, card):
 			base -= 4.0
 		return base
@@ -149,7 +194,7 @@ func _score_card_action(player: Variant, card: Variant) -> float:
 		base += _best_target_effect(player, skill)
 		base += _situational_skill_bonus(player, skill)
 	else:
-		base += 0.25 * useful(player, card)
+		base += 0.025 * useful(player, card)
 	return base
 
 
@@ -166,9 +211,9 @@ func _score_skill_action(player: Variant, skill: Variant) -> float:
 
 
 func _score_move(player: Variant, block: Variant) -> float:
-	var score: float = 4.0 + score_block(player, block)
 	if player != null and player.monster_zone != null and player.monster_zone.size() > 0:
-		score -= 5.0
+		return -99.0
+	var score: float = 4.0 + score_block(player, block)
 	if player != null and player.get_effective_action_count() <= 1:
 		score -= 1.0
 	return score
@@ -192,6 +237,10 @@ func _best_target_effect(player: Variant, skill: Variant) -> float:
 	if select_n == 0 and str(skill.get("target_type")) == "":
 		return effect(player, skill, player)
 	var targets: Array = player.get_skill_valid_targets(skill)
+	if is_damage_obj(skill):
+		targets = non_player_targets(targets)
+		if targets.is_empty():
+			return -99.0
 	if targets.is_empty():
 		return 0.0
 	if select_n < 0:
@@ -225,7 +274,7 @@ func _situational_skill_bonus(player: Variant, skill: Variant) -> float:
 func _damage_bonus(player: Variant, target: Variant) -> float:
 	if target == null or not (target.has_method("is_monster") and target.is_monster()):
 		return 0.0
-	var bonus: float = _monster_threat(target)
+	var bonus: float = _monster_threat(target) * 0.05
 	if player != null and player.monster_zone != null and player.monster_zone.has(target):
 		bonus += 2.0
 	return bonus
@@ -248,13 +297,10 @@ func _heal_urgency(who: Variant) -> float:
 func _monster_threat(monster: Variant) -> float:
 	if monster == null:
 		return 0.0
-	var threat: float = float(monster.get("damage_value"))
-	threat += float(monster.get("hp")) * 0.15
-	if str(monster.get("monster_level")) == "boss":
-		threat += 4.0
-	elif str(monster.get("monster_level")) == "elite":
-		threat += 2.0
-	return threat
+	var raw: Variant = monster.get("ai_threat")
+	if raw != null:
+		return float(raw)
+	return 0.0
 
 
 func _primary_play_skill(card: Variant) -> Variant:

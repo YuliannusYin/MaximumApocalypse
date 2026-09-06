@@ -11,6 +11,7 @@
       "initial_hp": 18,
       "attack_damage": 5,
       "range": "none",
+      "ai": { "threat": 83 },
       "skills": [
         {
           "skill_name": "僵尸女王",
@@ -33,6 +34,7 @@
       "initial_hp": 16,
       "attack_damage": 4,
       "range": "short",
+      "ai": { "threat": 79 },
       "skills": [
         {
           "skill_name": "一大波僵尸",
@@ -55,6 +57,7 @@
       "initial_hp": 5,
       "attack_damage": 4,
       "range": "none",
+      "ai": { "threat": 28 },
       "skills": []
     },
     {
@@ -66,6 +69,7 @@
       "initial_hp": 8,
       "attack_damage": 4,
       "range": "none",
+      "ai": { "threat": 31 },
       "skills": []
     },
     {
@@ -77,6 +81,7 @@
       "initial_hp": 4,
       "attack_damage": 2,
       "range": "none",
+      "ai": { "threat": 23 },
       "skills": []
     },
     {
@@ -88,6 +93,7 @@
       "initial_hp": 4,
       "attack_damage": 2,
       "range": "none",
+      "ai": { "threat": 43 },
       "skills": [
         {
           "skill_name": "僵尸步行者",
@@ -110,6 +116,7 @@
       "initial_hp": 6,
       "attack_damage": 2,
       "range": "medium",
+      "ai": { "threat": 45 },
       "skills": []
     },
     {
@@ -121,6 +128,7 @@
       "initial_hp": 12,
       "attack_damage": 5,
       "range": "medium",
+      "ai": { "threat": 57 },
       "skills": [
         {
           "skill_name": "僵尸潜行者",

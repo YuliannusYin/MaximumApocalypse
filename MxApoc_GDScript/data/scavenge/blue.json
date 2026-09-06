@@ -36,7 +36,7 @@
       ],
       "ai": {
         "order": 7,
-        "useful": 5,
+        "useful": 55,
         "tags": [
           "ammo"
         ],
@@ -80,7 +80,7 @@
       ],
       "ai": {
         "order": 7,
-        "useful": 5,
+        "useful": 58,
         "tags": [
           "ammo"
         ],
@@ -124,7 +124,7 @@
       ],
       "ai": {
         "order": 7,
-        "useful": 5,
+        "useful": 62,
         "tags": [
           "ammo"
         ],
@@ -168,7 +168,7 @@
       ],
       "ai": {
         "order": 7,
-        "useful": 5,
+        "useful": 66,
         "tags": [
           "ammo"
         ],
@@ -211,7 +211,7 @@
       ],
       "ai": {
         "order": 7,
-        "useful": 5,
+        "useful": 70,
         "tags": [
           "ammo"
         ],
@@ -244,7 +244,7 @@
       ],
       "ai": {
         "order": 3,
-        "useful": 5,
+        "useful": 58,
         "tags": [
           "equip"
         ]
@@ -280,7 +280,7 @@
       ],
       "ai": {
         "order": 3,
-        "useful": 5,
+        "useful": 58,
         "tags": [
           "equip"
         ]
@@ -326,7 +326,7 @@
       ],
       "ai": {
         "order": 8,
-        "useful": 7,
+        "useful": 80,
         "tags": [
           "equip",
           "weapon"
@@ -356,7 +356,7 @@
       ],
       "ai": {
         "order": 3,
-        "useful": 5,
+        "useful": 58,
         "tags": [
           "equip"
         ]
@@ -386,7 +386,7 @@
       ],
       "ai": {
         "order": 3,
-        "useful": 5,
+        "useful": 58,
         "tags": [
           "equip"
         ]
@@ -420,7 +420,7 @@
       ],
       "ai": {
         "order": 3,
-        "useful": 5,
+        "useful": 58,
         "tags": [
           "equip"
         ]

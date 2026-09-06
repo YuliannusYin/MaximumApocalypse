@@ -33,7 +33,7 @@
       ],
       "ai": {
         "order": 0,
-        "useful": 8
+        "useful": 90
       }
     },
     {
@@ -67,7 +67,7 @@
       ],
       "ai": {
         "order": 0,
-        "useful": 8
+        "useful": 90
       }
     },
     {
@@ -101,7 +101,7 @@
       ],
       "ai": {
         "order": 0,
-        "useful": 8
+        "useful": 90
       }
     },
     {
@@ -134,7 +134,7 @@
       ],
       "ai": {
         "order": 6,
-        "useful": 5,
+        "useful": 68,
         "tags": [
           "heal"
         ],
@@ -192,7 +192,7 @@
       ],
       "ai": {
         "order": 0,
-        "useful": 8,
+        "useful": 90,
         "tags": [
           "fuel"
         ]
