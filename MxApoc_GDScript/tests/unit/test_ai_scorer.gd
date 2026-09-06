@@ -74,3 +74,52 @@ func test_monster_instantiate_copies_threat() -> void:
 	card.ai = {"threat": 42}
 	var monster: Monster = card.instantiate(null)
 	assert_eq(monster.ai_threat, 42)
+
+
+func _setup_rescue_fuel_map() -> Dictionary:
+	var mc := MissionConfig.new()
+	var rescue := MissionComponentSpendActionRescue.new()
+	rescue.params = {"block_name": "警察局"}
+	var fuel := MissionComponentAddVanFuel.new()
+	fuel.params = {"block_name": "面包车", "card_name": "燃料", "count": 4}
+	var rally := MissionComponentAllPlayersAtBlock.new()
+	rally.params = {"block_name": "面包车"}
+	mc.action_components = [rescue, fuel]
+	mc.win_condition_components = [rally]
+	Game.mission_config = mc
+	mc.setup_components(Game)
+	var van: MapBlock = _make_block("面包车", 0, 0, true)
+	var east: MapBlock = _make_block("旷野", 1, 0, true)
+	var west: MapBlock = _make_block("旷野", -1, 0, true)
+	var police: MapBlock = _make_block("警察局", 2, 0, true)
+	Game.map_area = [van, east, west, police]
+	return {"van": van, "east": east, "west": west, "police": police}
+
+
+func test_score_block_prefers_neighbor_toward_police() -> void:
+	var blocks: Dictionary = _setup_rescue_fuel_map()
+	var p: Player = _make_player("AI")
+	p.current_block = blocks["van"]
+	p.action_count = 4
+	var scorer = AiScorerScript.new()
+	assert_gt(
+		scorer.score_block(p, blocks["east"]),
+		scorer.score_block(p, blocks["west"]),
+		"朝警察局的邻格应高于反方向"
+	)
+	assert_gt(
+		scorer.score_action(p, {"type": "move", "target": blocks["east"]}),
+		scorer.score_action(p, {"type": "move", "target": blocks["west"]}),
+		"主动移动应朝警察局走"
+	)
+
+
+func test_score_move_zero_when_already_at_travel_dest() -> void:
+	_setup_rescue_fuel_map()
+	var p: Player = _make_player("AI")
+	p.current_block = Game.map_area[0]
+	p.action_count = 4
+	p.hand.append(_make_card("燃料"))
+	var scorer = AiScorerScript.new()
+	var east: MapBlock = Game.map_area[1]
+	assert_lte(scorer.score_action(p, {"type": "move", "target": east}), 0.0, "已在最近行动点时移动分应 ≤ 0")

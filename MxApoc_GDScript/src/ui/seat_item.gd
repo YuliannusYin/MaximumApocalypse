@@ -18,11 +18,7 @@ func _ready() -> void:
 	_seat_index_label.text = "座位 %d" % (seat_index + 1)
 	_populate_survivors()
 	_type_option.set_block_signals(true)
-	if seat_index == 0:
-		_type_option.select(TYPE_HUMAN)
-		_type_option.disabled = true
-	else:
-		_type_option.select(TYPE_AI)
+	_type_option.select(TYPE_AI)
 	_type_option.set_block_signals(false)
 	_update_survivor_enabled()
 	_type_option.item_selected.connect(_on_selection_changed)
@@ -88,9 +84,6 @@ func setup(data: Dictionary) -> void:
 			if meta != null and meta is SurvivorData and meta.english_name == target.english_name:
 				_survivor_option.select(i)
 				break
-	if seat_index == 0:
-		_type_option.select(TYPE_HUMAN)
-		_type_option.disabled = true
 	_type_option.set_block_signals(false)
 	_survivor_option.set_block_signals(false)
 	_update_survivor_enabled()

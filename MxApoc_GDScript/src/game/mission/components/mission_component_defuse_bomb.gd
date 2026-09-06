@@ -88,6 +88,17 @@ func get_action_skill_decl() -> Variant:
 	return decl
 
 
+func ai_should_travel(player: Player) -> bool:
+	if player == null or not is_instance_valid(player):
+		return false
+	var config: MissionConfig = _mission_config
+	if config == null and Game != null and is_instance_valid(Game):
+		config = Game.mission_config
+	if config != null and config.mission_state.get("bomb_defused", false) == true:
+		return false
+	return player.has_item(params.get("card_name", "满是灰尘的日记本"))
+
+
 ## 解除执行：扣减行动并置 bomb_defused 与倒计时激活标记。
 func _do_defuse(game: Game, player: Player) -> void:
 	if game == null or not is_instance_valid(game):

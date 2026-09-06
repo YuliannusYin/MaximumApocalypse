@@ -31,6 +31,7 @@
 | `on_event(game, event_name, event)` | 空 | 声明于 `triggers` |
 | `get_action_options(game, player) -> Array` | `[]` | 声明于 `actions` |
 | `get_action_skill_decl() -> Variant` | null | 行动组件；返回技能栏声明字典 |
+| `ai_should_travel(player) -> bool` | false | 行动组件；AI 是否应把本行动当作行进目标（忽略当前所在格与行动点） |
 
 `get_action_skill_decl()` 字典键：
 

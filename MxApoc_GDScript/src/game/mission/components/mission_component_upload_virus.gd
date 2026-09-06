@@ -80,6 +80,17 @@ func get_action_skill_decl() -> Variant:
 	return decl
 
 
+func ai_should_travel(player: Player) -> bool:
+	if player == null or not is_instance_valid(player):
+		return false
+	var config: MissionConfig = _mission_config
+	if config == null and Game != null and is_instance_valid(Game):
+		config = Game.mission_config
+	if config != null and config.mission_state.get("virus_uploaded", false) == true:
+		return false
+	return player.has_equipment(params.get("equipment", "科学家"))
+
+
 ## 场上存活地块是否存在未移除的任务标记。
 func _any_objective_mark_on_map(game: Game) -> bool:
 	if game == null or not is_instance_valid(game):

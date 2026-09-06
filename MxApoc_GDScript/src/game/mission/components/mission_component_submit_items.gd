@@ -79,6 +79,38 @@ func get_action_skill_decl() -> Variant:
 	return decl
 
 
+func ai_should_travel(player: Player) -> bool:
+	if player == null or not is_instance_valid(player):
+		return false
+	if _submit_complete():
+		return false
+	var items: Dictionary = params.get("items", {})
+	if items.is_empty():
+		return false
+	for card_name in items:
+		if not _collect_cards(player, str(card_name)).is_empty():
+			return true
+	return false
+
+
+func _submit_complete() -> bool:
+	var items: Dictionary = params.get("items", {})
+	if items.is_empty():
+		return true
+	var config: MissionConfig = _mission_config
+	if config == null and Game != null and is_instance_valid(Game):
+		config = Game.mission_config
+	if config == null:
+		return false
+	var submitted: Dictionary = config.mission_state.get("submitted_items", {})
+	if not (submitted is Dictionary):
+		return false
+	for card_name in items:
+		if int(submitted.get(card_name, 0)) < int(items[card_name]):
+			return false
+	return true
+
+
 ## 收集玩家手牌与装备区中指定卡名的全部卡。
 ## 装备区实体在前、手牌在后：discard 按名解析优先命中装备区，
 ## 先弃置装备可避免手牌被误解析为装备区同名实体。

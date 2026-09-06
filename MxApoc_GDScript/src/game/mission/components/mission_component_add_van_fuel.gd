@@ -78,6 +78,17 @@ func get_action_skill_decl() -> Variant:
 	return decl
 
 
+func ai_should_travel(player: Player) -> bool:
+	if player == null or not is_instance_valid(player):
+		return false
+	var config: MissionConfig = _mission_config
+	if config == null and Game != null and is_instance_valid(Game):
+		config = Game.mission_config
+	if config != null and config.mission_state.get("van_fueled", false) == true:
+		return false
+	return not _collect_cards(player).is_empty()
+
+
 func _collect_cards(player: Player) -> Array:
 	var card_name: String = params.get("card_name", "燃料")
 	var cards: Array = []

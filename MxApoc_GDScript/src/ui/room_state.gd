@@ -44,16 +44,18 @@ func reset_to_default() -> void:
 	save()
 
 
-## 是否满足开局条件：非空座位均已选择求生者。
+## 是否满足开局条件：至少有一个非空座位，且非空座位均已选择求生者。
 func is_ready_to_start() -> bool:
 	if seats.is_empty():
 		return false
+	var has_occupant := false
 	for seat in seats:
 		if seat.type == "empty":
 			continue
 		if seat.survivor == null:
 			return false
-	return true
+		has_occupant = true
+	return has_occupant
 
 
 ## 当前模式对应的房间配置路径。
@@ -196,18 +198,15 @@ func _apply_serialized(data: Dictionary) -> void:
 				continue
 			if seats.size() >= MAX_SEATS:
 				break
-			seats.append(_sanitize_seat(raw, seats.size(), available_ids))
+			seats.append(_sanitize_seat(raw, available_ids))
 	if seats.is_empty():
 		seats = [{"type": "human", "survivor": null}]
-	seats[0]["type"] = "human"
 
 
-func _sanitize_seat(raw: Dictionary, index: int, available_ids: Dictionary) -> Dictionary:
+func _sanitize_seat(raw: Dictionary, available_ids: Dictionary) -> Dictionary:
 	var type_text := String(raw.get("type", "ai"))
 	if type_text != "human" and type_text != "ai" and type_text != "empty":
-		type_text = "ai" if index > 0 else "human"
-	if index == 0:
-		type_text = "human"
+		type_text = "ai"
 	var survivor = null
 	if type_text != "empty":
 		var sid := String(raw.get("survivor", ""))

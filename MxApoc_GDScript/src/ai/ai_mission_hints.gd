@@ -1,8 +1,8 @@
 class_name AiMissionHints
 extends RefCounted
 
-## 从任务组件参数推导目标地块与应保留的物资族名。
-## 不写死 13 个剧本，只读 params.block_name / card_name / items。
+## 从任务组件参数推导行进目标与应保留的物资族名。
+## 不写死 13 个剧本：行动点用 ai_should_travel；物资读 params.card_name / items。
 
 
 func needed_item_families(game: Variant = null) -> PackedStringArray:
@@ -13,48 +13,73 @@ func needed_item_families(game: Variant = null) -> PackedStringArray:
 	return names
 
 
-func objective_block_names(game: Variant = null) -> PackedStringArray:
-	var names: PackedStringArray = PackedStringArray()
+func travel_destination_blocks(player: Variant, game: Variant = null) -> Array:
+	var result: Array = []
+	game = _resolve_game(game)
+	if game == null:
+		return result
+	var config: Variant = game.get("mission_config")
+	if config == null or not is_instance_valid(config):
+		return result
 	var seen: Dictionary = {}
-	for component in _all_components(game):
-		if component == null:
+	for component in config.action_components:
+		if not _action_wants_travel(component, player):
 			continue
 		var params: Dictionary = component.params if "params" in component else {}
 		var block_name: String = str(params.get("block_name", ""))
-		if block_name != "" and not seen.has(block_name):
-			seen[block_name] = true
-			names.append(block_name)
-	return names
-
-
-func objective_blocks(game: Variant = null) -> Array:
-	var result: Array = []
-	if game == null or not is_instance_valid(game):
-		game = Game
-	if game == null or not is_instance_valid(game) or not game.has_method("get_blocks_by_name"):
+		if block_name != "":
+			_append_named_blocks(game, block_name, result, seen)
+		else:
+			_append_marked_blocks(game, result, seen)
+	if not result.is_empty():
 		return result
-	for block_name in objective_block_names(game):
-		var blocks: Array = game.get_blocks_by_name(block_name)
-		for block in blocks:
-			if block != null and is_instance_valid(block):
-				result.append(block)
+	for component in config.win_condition_components:
+		if component == null or not is_instance_valid(component):
+			continue
+		if component.has_method("check_win") and component.check_win(game):
+			continue
+		var params: Dictionary = component.params if "params" in component else {}
+		var block_name: String = str(params.get("block_name", ""))
+		if block_name == "":
+			continue
+		var card_name: String = str(params.get("card_name", ""))
+		if card_name != "":
+			if player == null or not is_instance_valid(player) or not player.has_method("has_equipment"):
+				continue
+			if not player.has_equipment(card_name):
+				continue
+		_append_named_blocks(game, block_name, result, seen)
 	return result
+
+
+func nearest_travel_block(player: Variant, game: Variant = null) -> Variant:
+	if player == null or not is_instance_valid(player):
+		return null
+	var current: Variant = player.get_current_block() if player.has_method("get_current_block") else player.get("current_block")
+	if current == null or not is_instance_valid(current) or not current.has_method("distance_to"):
+		return null
+	var best: Variant = null
+	var best_d: int = 99
+	for block in travel_destination_blocks(player, game):
+		if block == null or not is_instance_valid(block) or not current.has_method("distance_to"):
+			continue
+		var d: int = current.distance_to(block)
+		if d < best_d:
+			best_d = d
+			best = block
+	return best
 
 
 func nearest_objective_distance(player: Variant, game: Variant = null) -> int:
 	if player == null or not is_instance_valid(player):
 		return 99
 	var current: Variant = player.get_current_block() if player.has_method("get_current_block") else player.get("current_block")
-	if current == null or not is_instance_valid(current):
+	if current == null or not is_instance_valid(current) or not current.has_method("distance_to"):
 		return 99
-	var best: int = 99
-	for block in objective_blocks(game):
-		if not current.has_method("distance_to"):
-			continue
-		var d: int = current.distance_to(block)
-		if d < best:
-			best = d
-	return best
+	var dest: Variant = nearest_travel_block(player, game)
+	if dest == null or not is_instance_valid(dest):
+		return 99
+	return current.distance_to(dest)
 
 
 func is_needed_card(card: Variant, game: Variant = null) -> bool:
@@ -102,3 +127,48 @@ func _collect_item_names(component: Variant, names: PackedStringArray, seen: Dic
 			if family != "" and not seen.has(family):
 				seen[family] = true
 				names.append(family)
+
+
+func _resolve_game(game: Variant) -> Variant:
+	if game == null or not is_instance_valid(game):
+		game = Game
+	if game == null or not is_instance_valid(game):
+		return null
+	return game
+
+
+func _action_wants_travel(component: Variant, player: Variant) -> bool:
+	if component == null or not is_instance_valid(component):
+		return false
+	if not component.has_method("ai_should_travel"):
+		return false
+	return component.ai_should_travel(player)
+
+
+func _append_named_blocks(game: Variant, block_name: String, result: Array, seen: Dictionary) -> void:
+	if game == null or not game.has_method("get_blocks_by_name"):
+		return
+	for block in game.get_blocks_by_name(block_name):
+		_append_unique_block(block, result, seen)
+
+
+func _append_marked_blocks(game: Variant, result: Array, seen: Dictionary) -> void:
+	if game == null or game.get("map_area") == null:
+		return
+	for block in game.map_area:
+		if block == null or not is_instance_valid(block):
+			continue
+		if block.has_method("is_alive") and not block.is_alive():
+			continue
+		if block.has_method("has_objective_mark") and block.has_objective_mark():
+			_append_unique_block(block, result, seen)
+
+
+func _append_unique_block(block: Variant, result: Array, seen: Dictionary) -> void:
+	if block == null or not is_instance_valid(block):
+		return
+	var key: int = block.get_instance_id()
+	if seen.has(key):
+		return
+	seen[key] = true
+	result.append(block)

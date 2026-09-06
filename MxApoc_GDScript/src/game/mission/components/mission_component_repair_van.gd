@@ -86,6 +86,17 @@ func get_action_skill_decl() -> Variant:
 	return decl
 
 
+func ai_should_travel(player: Player) -> bool:
+	if player == null or not is_instance_valid(player):
+		return false
+	var config: MissionConfig = _mission_config
+	if config == null and Game != null and is_instance_valid(Game):
+		config = Game.mission_config
+	if config != null and config.mission_state.get("van_repaired", false) == true:
+		return false
+	return player.has_item(params.get("card_name", "多余配件"))
+
+
 ## 维修执行（协程）：扣减 1 行动、弃置 1 张配件并累计维修进度。
 ## 配件不足时不消耗行动直接返回。
 func _do_repair(game: Game, player: Player) -> void:

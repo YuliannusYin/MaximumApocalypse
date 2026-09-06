@@ -79,6 +79,18 @@ func get_action_skill_decl() -> Variant:
 	return decl
 
 
+func ai_should_travel(player: Player) -> bool:
+	if player == null or not is_instance_valid(player):
+		return false
+	var game: Game = _game if _game != null else Game
+	if game == null or not is_instance_valid(game) or game.map_area == null:
+		return false
+	for block in game.map_area:
+		if block != null and is_instance_valid(block) and block.has_method("has_objective_mark") and block.has_objective_mark():
+			return true
+	return false
+
+
 ## 统计同地块存活玩家怪物区的怪物总数（地块上被纠缠的怪物）。
 func _count_monsters_on_block(game: Game, block: MapBlock) -> int:
 	var count: int = 0

@@ -20,7 +20,7 @@ Player.wait_player_action
             └─ play_*_animation → 委托共享 GUIPlayerInput（供旁观）
 ```
 
-座位 0 锁定真人（房间 `SeatItem`）。`Game.initialize_game` 只跳过 `type == "empty"`；`type == "ai"` 创建 `Player` 并设 `is_ai = true`。测试默认仍是 `CliPlayerInput`（`Player._init`）。对局场景里 `GameScene2D` 再按 `is_ai` 分配：真人共用 `_gui_input`，AI 新建 `AIPlayerInput`（`animation_input = _gui_input`，`think_seconds = 0.4`）。
+任意座位均可设为真人或 AI（房间 `SeatItem`）。`Game.initialize_game` 只跳过 `type == "empty"`；`type == "ai"` 创建 `Player` 并设 `is_ai = true`。测试默认仍是 `CliPlayerInput`（`Player._init`）。对局场景里 `GameScene2D` 再按 `is_ai` 分配：真人共用 `_gui_input`，AI 新建 `AIPlayerInput`（`animation_input = _gui_input`，`think_seconds = 0.4`）。
 
 任务行动走技能栏 `type: "skill"`，不走已废弃的 `mission_action` 通道。结束回合：`wait_action` 返回 `null`。
 
@@ -122,9 +122,11 @@ JSON 里 `effect.target` 对 `damage` / `heal` 写**正数幅度**。评分器�
 
 ## 五、任务意识
 
-不写死 13 个剧本。`AiMissionHints` 读 `Game.mission_config` 各组件 `params.block_name` / `card_name` / `items`：
+不写死 13 个剧本。`AiMissionHints` 读行动组件 `ai_should_travel` 与胜利条件地名（物资族仍读 `params.card_name` / `items`）：
 
-- 目标地块：走向最近目标；地块有怪则清怪优先于走开
+- 行进目标：未完成且该玩家去了能做的行动点（物资类须已持有对应物品；无 `block_name` 的摧毁标记 / 解救检定则收集场上目标标记地块）。这一层非空则只用这一层，避免脚下的集结地名把远处解救挤掉
+- 否则退回未完成的胜利条件地名：`all_players_at_block` 集结；`escort_equipment_at_block` **仅当该玩家装备着被护送卡**。不扫 lose / trigger 的 `block_name`
+- 走向最近行进目标；已在目标格则主动移动分 ≤ 0（去打牌或结束回合），不往外走
 - 物资族：与现有「名（变体）」规则一致（`matches_item_family`）；匹配则 `useful + 15`（封顶 100），避免制衡 / 弃牌 / 重调丢掉燃料
 - 任务技能 filter 已通过时，order 至少 12 再加完成进度分
 - 有纠缠怪物时不枚举主动移动

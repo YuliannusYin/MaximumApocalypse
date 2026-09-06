@@ -169,7 +169,7 @@ func test_invalid_survivor_and_mission_are_dropped() -> void:
 	assert_null(RoomState.seats[0].survivor)
 
 
-func test_seat_zero_forced_human_and_extra_seats_clamped() -> void:
+func test_extra_seats_clamped_and_seat_zero_can_be_ai() -> void:
 	var seats: Array = []
 	for i in range(8):
 		seats.append({"type": "ai", "survivor": "hunter"})
@@ -184,8 +184,32 @@ func test_seat_zero_forced_human_and_extra_seats_clamped() -> void:
 	file.close()
 	RoomState.load_from(PLAYER_PATH)
 	assert_eq(RoomState.seats.size(), RoomState.MAX_SEATS)
-	assert_eq(RoomState.seats[0].type, "human")
+	assert_eq(RoomState.seats[0].type, "ai")
 	assert_eq(RoomState.seats[1].type, "ai")
+
+
+func test_seat_zero_ai_roundtrip() -> void:
+	RoomState.seats = [
+		{"type": "ai", "survivor": _survivor("hunter")},
+		{"type": "human", "survivor": _survivor("firefighter")},
+	]
+	RoomState.save_to(PLAYER_PATH)
+	RoomState.clear()
+	RoomState.load_from(PLAYER_PATH)
+	assert_eq(RoomState.seats.size(), 2)
+	assert_eq(RoomState.seats[0].type, "ai")
+	assert_eq(RoomState.seats[0].survivor.english_name, "hunter")
+	assert_eq(RoomState.seats[1].type, "human")
+	assert_eq(RoomState.seats[1].survivor.english_name, "firefighter")
+
+
+func test_is_ready_to_start_requires_occupant() -> void:
+	RoomState.seats = [{"type": "empty", "survivor": null}]
+	assert_false(RoomState.is_ready_to_start())
+	RoomState.seats = [{"type": "ai", "survivor": null}]
+	assert_false(RoomState.is_ready_to_start())
+	RoomState.seats = [{"type": "ai", "survivor": _survivor("hunter")}]
+	assert_true(RoomState.is_ready_to_start())
 
 
 func test_corrupt_file_falls_back_to_defaults() -> void:

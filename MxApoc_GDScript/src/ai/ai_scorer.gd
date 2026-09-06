@@ -161,20 +161,15 @@ func score_block(player: Variant, block: Variant) -> float:
 	if block == null or not is_instance_valid(block):
 		return -99.0
 	var score: float = 0.0
-	var dist: int = 99
-	var current: Variant = player.get_current_block() if player != null and player.has_method("get_current_block") else null
-	if current != null and is_instance_valid(current) and current.has_method("distance_to"):
-		dist = current.distance_to(block)
+	var dest: Variant = hints.nearest_travel_block(player)
 	var obj_dist: int = hints.nearest_objective_distance(player)
-	if current != null and is_instance_valid(current) and current.has_method("distance_to"):
-		var after: int = block.distance_to(_nearest_objective_block(player)) if _nearest_objective_block(player) != null else obj_dist
+	if dest != null and is_instance_valid(dest) and block.has_method("distance_to"):
+		var after: int = block.distance_to(dest)
 		score += float(obj_dist - after) * 2.0
 	if block.has_method("has_objective_mark") and block.has_objective_mark():
 		score += 3.0
 	if block.has_method("count_monster_mark") and block.count_monster_mark() > 0:
 		score -= 1.5
-	if dist == 0:
-		score += 0.0
 	return score
 
 
@@ -213,6 +208,8 @@ func _score_skill_action(player: Variant, skill: Variant) -> float:
 func _score_move(player: Variant, block: Variant) -> float:
 	if player != null and player.monster_zone != null and player.monster_zone.size() > 0:
 		return -99.0
+	if hints.nearest_objective_distance(player) == 0:
+		return 0.0
 	var score: float = 4.0 + score_block(player, block)
 	if player != null and player.get_effective_action_count() <= 1:
 		score -= 1.0
@@ -341,20 +338,6 @@ func _has_underfilled_weapon(player: Variant, charge_type: String) -> bool:
 		if int(e.get("charge_current")) < int(e.get("charge_max")):
 			return true
 	return false
-
-
-func _nearest_objective_block(player: Variant) -> Variant:
-	var current: Variant = player.get_current_block() if player != null and player.has_method("get_current_block") else null
-	if current == null:
-		return null
-	var best: Variant = null
-	var best_d: int = 99
-	for block in hints.objective_blocks(_game_of(player)):
-		var d: int = current.distance_to(block)
-		if d < best_d:
-			best_d = d
-			best = block
-	return best
 
 
 func _game_of(_player: Variant) -> Variant:

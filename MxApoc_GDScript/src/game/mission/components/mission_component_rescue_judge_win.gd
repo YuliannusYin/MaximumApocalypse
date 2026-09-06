@@ -76,6 +76,17 @@ func get_action_skill_decl() -> Variant:
 	return decl
 
 
+func ai_should_travel(player: Player) -> bool:
+	if player == null or not is_instance_valid(player):
+		return false
+	var config: MissionConfig = _mission_config
+	if config == null and Game != null and is_instance_valid(Game):
+		config = Game.mission_config
+	if config != null and config.mission_state.get("rescue_judge_done", false) == true:
+		return false
+	return true
+
+
 ## 解救执行（协程）：扣减 1 行动、执行潜行检定并按结果判定胜负。
 ## 成功 → 胜利；失败但持有情报卡 → 胜利；失败且无情报卡 → 失败。
 func _do_rescue(game: Game, player: Player) -> void:

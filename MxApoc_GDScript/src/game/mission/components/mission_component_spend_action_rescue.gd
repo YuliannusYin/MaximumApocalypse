@@ -80,6 +80,17 @@ func get_action_skill_decl() -> Variant:
 	return decl
 
 
+func ai_should_travel(player: Player) -> bool:
+	if player == null or not is_instance_valid(player):
+		return false
+	var config: MissionConfig = _mission_config
+	if config == null and Game != null and is_instance_valid(Game):
+		config = Game.mission_config
+	if config == null:
+		return true
+	return config.mission_state.get(params.get("rescued_key", "scientist_rescued"), false) != true
+
+
 ## 解救执行（协程）：创建拾荒卡并装备到玩家面前，写入 mission_state。
 ## 拾荒卡不存在时不消耗行动直接返回。
 func _do_rescue(game: Game, player: Player) -> void:
