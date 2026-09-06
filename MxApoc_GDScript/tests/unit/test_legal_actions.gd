@@ -73,6 +73,63 @@ func test_legal_actions_no_move_when_monster_zone_not_empty() -> void:
 	assert_false(types.has("move"), "怪物区有怪不应枚举主动移动")
 
 
+func test_legal_actions_scavenge_only_current_block_colors() -> void:
+	var p: Player = _make_player("AI")
+	p.in_phase = "action"
+	p.action_count = 4
+	var mall: MapBlock = _make_block("购物中心", 0, 0, true)
+	mall.scavenge_colors = PackedStringArray(["blue"])
+	Game.map_area = [mall]
+	p.current_block = mall
+	Game.red_scavenge_pile = Pile.new()
+	Game.red_scavenge_pile.add(_make_scavenge_card("燃料", "red"))
+	Game.blue_scavenge_pile = Pile.new()
+	Game.blue_scavenge_pile.add(_make_scavenge_card("食物", "blue"))
+	var actions: Array = LegalActionsScript.enumerate(p)
+	var keys: Array = []
+	for action in actions:
+		if action.get("type") == "pile_draw":
+			keys.append(action.get("pile_key"))
+	assert_true(keys.has("blue_scavenge"), "当前格蓝色应枚举蓝拾荒")
+	assert_false(keys.has("red_scavenge"), "非红格不应枚举红拾荒")
+
+
+func test_legal_actions_skips_focused_shot_without_monsters() -> void:
+	var p: Player = _make_player("AI")
+	p.in_phase = "action"
+	p.action_count = 4
+	var block: MapBlock = _make_block("购物中心", 0, 0, true)
+	Game.map_area = [block]
+	Game.players = [p]
+	p.current_block = block
+	var card: Card = _make_card("集中射击")
+	card.english_name = "focused_shot"
+	var skill := Skill.new()
+	skill.skill_name = "集中射击"
+	skill.english_name = "focused_shot"
+	skill.active = "action"
+	skill.target_type = "equipment"
+	skill.range = "long"
+	skill.ai = {"order": 9, "useful": 0, "tags": ["damage", "ammo"], "effect": {"player": 1, "target": 2}}
+	card.add_skill(skill)
+	p.hand.append(card)
+	var actions: Array = LegalActionsScript.enumerate(p)
+	var has_shot := false
+	for action in actions:
+		if action.get("type") == "card" and action.get("card") == card:
+			has_shot = true
+	assert_false(has_shot, "没有怪物时不应枚举集中射击")
+	var monster: Monster = Monster.new()
+	monster.hp = 5
+	p.monster_zone.append(monster)
+	actions = LegalActionsScript.enumerate(p)
+	has_shot = false
+	for action in actions:
+		if action.get("type") == "card" and action.get("card") == card:
+			has_shot = true
+	assert_true(has_shot, "自己怪物区有怪时应枚举集中射击")
+
+
 func test_legal_actions_skips_damage_when_only_survivors() -> void:
 	var p: Player = _make_player("AI")
 	p.in_phase = "action"

@@ -96,7 +96,8 @@
           "content": "actions.draw_monster(player, 1)",
           "ai": {
             "order": 0,
-            "useful": 0
+            "useful": 0,
+            "hazard": 3
           }
         }
       ]
@@ -284,7 +285,8 @@
           "content": "actions.draw_monster(player, 1)",
           "ai": {
             "order": 0,
-            "useful": 0
+            "useful": 0,
+            "hazard": 6
           }
         }
       ]
@@ -427,7 +429,8 @@
           "content": "var list = game.get_all_players()\nfor i in list:\n\tactions.draw_monster(i, 1)",
           "ai": {
             "order": 0,
-            "useful": 0
+            "useful": 0,
+            "hazard": 4
           }
         }
       ]

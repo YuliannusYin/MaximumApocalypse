@@ -59,21 +59,68 @@ static func _append_pile_draws(player: Variant, actions: Array) -> void:
 		return
 	if player.game_deck != null and is_instance_valid(player.game_deck) and not player.game_deck.is_empty():
 		actions.append({"type": "pile_draw", "pile_key": "game_deck"})
-	for pair in [["red_scavenge", Game.red_scavenge_pile], ["green_scavenge", Game.green_scavenge_pile], ["blue_scavenge", Game.blue_scavenge_pile]]:
-		var pile: Variant = pair[1]
+	var allowed: Dictionary = _allowed_scavenge_colors(player)
+	for pair in [["red", "red_scavenge", Game.red_scavenge_pile], ["green", "green_scavenge", Game.green_scavenge_pile], ["blue", "blue_scavenge", Game.blue_scavenge_pile]]:
+		if not allowed.has(pair[0]):
+			continue
+		var pile: Variant = pair[2]
 		if pile != null and is_instance_valid(pile) and not pile.is_empty():
-			actions.append({"type": "pile_draw", "pile_key": pair[0]})
+			actions.append({"type": "pile_draw", "pile_key": pair[1]})
+
+
+static func _allowed_scavenge_colors(player: Variant) -> Dictionary:
+	var allowed: Dictionary = {}
+	var current: Variant = player.get_current_block() if player.has_method("get_current_block") else player.get("current_block")
+	if current == null or not is_instance_valid(current):
+		return allowed
+	var raw: Variant = current.get("scavenge_colors")
+	if raw is PackedStringArray or raw is Array:
+		for color in raw:
+			allowed[str(color)] = true
+	return allowed
 
 
 static func _should_skip_damage_action(player: Variant, skill: Variant) -> bool:
 	if skill == null or not _is_damage_skill(skill):
 		return false
+	if str(skill.get("target_type")) == "equipment":
+		return not _has_monster_in_weapon_range(player, skill)
 	if player == null or not player.has_method("get_skill_valid_targets"):
 		return false
 	for target in player.get_skill_valid_targets(skill):
 		if not _is_player_like(target):
 			return false
 	return true
+
+
+static func _has_monster_in_weapon_range(player: Variant, skill: Variant) -> bool:
+	if player == null:
+		return false
+	if player.monster_zone != null and player.monster_zone.size() > 0:
+		return true
+	var range_str: String = str(skill.get("range")) if skill != null else ""
+	if range_str == "":
+		range_str = "long"
+	var current: Variant = player.get_current_block() if player.has_method("get_current_block") else null
+	if current == null or not is_instance_valid(current):
+		return false
+	if current.has_method("get_players"):
+		for ally in current.get_players():
+			if _ally_has_monster(ally, player):
+				return true
+	if current.has_method("get_players_in_range"):
+		for ally in current.get_players_in_range(range_str):
+			if _ally_has_monster(ally, player):
+				return true
+	return false
+
+
+static func _ally_has_monster(ally: Variant, self_player: Variant) -> bool:
+	if ally == null or ally == self_player:
+		return false
+	if ally.get("monster_zone") == null:
+		return false
+	return ally.monster_zone.size() > 0
 
 
 static func _is_damage_skill(skill: Variant) -> bool:

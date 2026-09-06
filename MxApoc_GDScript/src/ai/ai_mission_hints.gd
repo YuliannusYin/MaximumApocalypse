@@ -3,6 +3,7 @@ extends RefCounted
 
 ## 从任务组件参数推导行进目标与应保留的物资族名。
 ## 不写死 13 个剧本：行动点用 ai_should_travel；物资读 params.card_name / items。
+## 行进三层：可执行行动点 → 仍缺的采集拾荒格 → 胜利集结。
 
 
 func needed_item_families(game: Variant = null) -> PackedStringArray:
@@ -33,6 +34,9 @@ func travel_destination_blocks(player: Variant, game: Variant = null) -> Array:
 			_append_marked_blocks(game, result, seen)
 	if not result.is_empty():
 		return result
+	var gather: Array = gather_destination_blocks(player, game)
+	if not gather.is_empty():
+		return gather
 	for component in config.win_condition_components:
 		if component == null or not is_instance_valid(component):
 			continue
@@ -50,6 +54,44 @@ func travel_destination_blocks(player: Variant, game: Variant = null) -> Array:
 				continue
 		_append_named_blocks(game, block_name, result, seen)
 	return result
+
+
+func gather_destination_blocks(_player: Variant, game: Variant = null) -> Array:
+	var result: Array = []
+	game = _resolve_game(game)
+	if game == null:
+		return result
+	var families: PackedStringArray = still_needed_gather_families(game)
+	if families.is_empty():
+		return result
+	var best_colors: PackedStringArray = _best_gather_colors(game, families)
+	if best_colors.is_empty():
+		return result
+	var seen: Dictionary = {}
+	if game.get("map_area") == null:
+		return result
+	for block in game.map_area:
+		if block == null or not is_instance_valid(block):
+			continue
+		if block.has_method("is_alive") and not block.is_alive():
+			continue
+		if _block_has_color(block, best_colors):
+			_append_unique_block(block, result, seen)
+	return result
+
+
+func still_needed_gather_families(game: Variant = null) -> PackedStringArray:
+	var names: PackedStringArray = PackedStringArray()
+	var seen: Dictionary = {}
+	game = _resolve_game(game)
+	for family in _gather_family_requirements(game):
+		if _remaining_needed(str(family), game) <= 0:
+			continue
+		if seen.has(family):
+			continue
+		seen[family] = true
+		names.append(str(family))
+	return names
 
 
 func nearest_travel_block(player: Variant, game: Variant = null) -> Variant:
@@ -96,6 +138,44 @@ func matches_item_family(card_name: String, item_name: String) -> bool:
 	return card_name == item_name or card_name.begins_with(item_name + "（")
 
 
+func is_staying_to_gather(player: Variant, game: Variant = null) -> bool:
+	if nearest_objective_distance(player, game) != 0:
+		return false
+	return current_block_has_needed_scavenge(player, game)
+
+
+func current_block_has_needed_scavenge(player: Variant, game: Variant = null) -> bool:
+	if player == null or not is_instance_valid(player):
+		return false
+	var current: Variant = player.get_current_block() if player.has_method("get_current_block") else player.get("current_block")
+	return block_has_needed_scavenge(current, game)
+
+
+func block_has_needed_scavenge(block: Variant, game: Variant = null) -> bool:
+	if block == null or not is_instance_valid(block):
+		return false
+	game = _resolve_game(game)
+	var families: PackedStringArray = still_needed_gather_families(game)
+	if families.is_empty():
+		return false
+	var colors: PackedStringArray = _block_colors(block)
+	for color in colors:
+		if _pile_needed_count(game, str(color), families) > 0:
+			return true
+	return false
+
+
+func pile_has_needed_items(pile_key: String, game: Variant = null) -> bool:
+	var color: String = _color_of_pile_key(pile_key)
+	if color == "":
+		return false
+	game = _resolve_game(game)
+	var families: PackedStringArray = still_needed_gather_families(game)
+	if families.is_empty():
+		return false
+	return _pile_needed_count(game, color, families) > 0
+
+
 func _all_components(game: Variant) -> Array:
 	var result: Array = []
 	if game == null or not is_instance_valid(game):
@@ -127,6 +207,193 @@ func _collect_item_names(component: Variant, names: PackedStringArray, seen: Dic
 			if family != "" and not seen.has(family):
 				seen[family] = true
 				names.append(family)
+
+
+func _gather_family_requirements(game: Variant) -> PackedStringArray:
+	var names: PackedStringArray = PackedStringArray()
+	var seen: Dictionary = {}
+	if game == null or not is_instance_valid(game):
+		return names
+	var config: Variant = game.get("mission_config")
+	if config == null or not is_instance_valid(config):
+		return names
+	var components: Array = []
+	components.append_array(config.action_components)
+	components.append_array(config.win_condition_components)
+	for component in components:
+		if component == null:
+			continue
+		var params: Dictionary = component.params if "params" in component else {}
+		var items: Variant = params.get("items", {})
+		if items is Dictionary:
+			for key in items.keys():
+				if int(items[key]) <= 0:
+					continue
+				var family: String = str(key)
+				if family != "" and not seen.has(family):
+					seen[family] = true
+					names.append(family)
+		var card_name: String = str(params.get("card_name", ""))
+		if card_name != "" and int(params.get("count", 0)) > 0 and not seen.has(card_name):
+			seen[card_name] = true
+			names.append(card_name)
+	return names
+
+
+func _required_count(family: String, game: Variant) -> int:
+	var required: int = 0
+	if game == null or not is_instance_valid(game):
+		return 0
+	var config: Variant = game.get("mission_config")
+	if config == null or not is_instance_valid(config):
+		return 0
+	var components: Array = []
+	components.append_array(config.action_components)
+	components.append_array(config.win_condition_components)
+	for component in components:
+		if component == null:
+			continue
+		var params: Dictionary = component.params if "params" in component else {}
+		var items: Variant = params.get("items", {})
+		if items is Dictionary:
+			for key in items.keys():
+				if matches_item_family(str(key), family) or matches_item_family(family, str(key)):
+					required = maxi(required, int(items[key]))
+		var card_name: String = str(params.get("card_name", ""))
+		if card_name != "" and matches_item_family(card_name, family):
+			required = maxi(required, int(params.get("count", 0)))
+	return required
+
+
+func _submitted_count(family: String, game: Variant) -> int:
+	if game == null or not is_instance_valid(game):
+		return 0
+	var config: Variant = game.get("mission_config")
+	if config == null or not is_instance_valid(config):
+		return 0
+	var state: Dictionary = config.mission_state if "mission_state" in config else {}
+	if state.get("van_fueled", false) == true:
+		for component in config.action_components:
+			if component == null:
+				continue
+			var params: Dictionary = component.params if "params" in component else {}
+			if matches_item_family(str(params.get("card_name", "")), family) and int(params.get("count", 0)) > 0:
+				return _required_count(family, game)
+	var van_fuel: int = int(state.get("van_fuel", 0))
+	if van_fuel > 0:
+		for component in config.action_components:
+			if component == null:
+				continue
+			var params: Dictionary = component.params if "params" in component else {}
+			if matches_item_family(str(params.get("card_name", "")), family) and int(params.get("count", 0)) > 0:
+				return van_fuel
+	var submitted: Variant = state.get("submitted_items", {})
+	if submitted is Dictionary:
+		var total: int = 0
+		for key in submitted.keys():
+			if matches_item_family(str(key), family) or matches_item_family(family, str(key)):
+				total += int(submitted[key])
+		return total
+	return 0
+
+
+func _party_held_count(family: String, game: Variant) -> int:
+	var total: int = 0
+	if game == null or not is_instance_valid(game):
+		return 0
+	var players: Array = game.get_alive_players() if game.has_method("get_alive_players") else game.get("players")
+	if not (players is Array):
+		return 0
+	for player in players:
+		total += _player_held_count(player, family)
+	return total
+
+
+func _player_held_count(player: Variant, family: String) -> int:
+	if player == null or not is_instance_valid(player):
+		return 0
+	var n: int = 0
+	if player.get("hand") != null:
+		for card in player.hand:
+			if card != null and matches_item_family(str(card.get("card_name")), family):
+				n += 1
+	if player.get("equipment_zone") != null:
+		for card in player.equipment_zone:
+			if card != null and matches_item_family(str(card.get("card_name")), family):
+				n += 1
+	return n
+
+
+func _remaining_needed(family: String, game: Variant) -> int:
+	var required: int = _required_count(family, game)
+	if required <= 0:
+		return 0
+	return maxi(0, required - _submitted_count(family, game) - _party_held_count(family, game))
+
+
+func _best_gather_colors(game: Variant, families: PackedStringArray) -> PackedStringArray:
+	var best: PackedStringArray = PackedStringArray()
+	var best_n: int = 0
+	for color in ["red", "green", "blue"]:
+		var n: int = _pile_needed_count(game, color, families)
+		if n > best_n:
+			best_n = n
+			best = PackedStringArray([color])
+		elif n > 0 and n == best_n:
+			best.append(color)
+	return best
+
+
+func _pile_needed_count(game: Variant, color: String, families: PackedStringArray) -> int:
+	if game == null or not game.has_method("get_scavenge_pile"):
+		return 0
+	var pile: Variant = game.get_scavenge_pile(color)
+	if pile == null or not is_instance_valid(pile) or pile.get("cards") == null:
+		return 0
+	var n: int = 0
+	for card in pile.cards:
+		if card == null:
+			continue
+		var card_name: String = str(card.get("card_name"))
+		for family in families:
+			if matches_item_family(card_name, str(family)):
+				n += 1
+				break
+	return n
+
+
+func _block_colors(block: Variant) -> PackedStringArray:
+	if block == null:
+		return PackedStringArray()
+	var raw: Variant = block.get("scavenge_colors")
+	if raw is PackedStringArray:
+		return raw
+	if raw is Array:
+		var out: PackedStringArray = PackedStringArray()
+		for c in raw:
+			out.append(str(c))
+		return out
+	return PackedStringArray()
+
+
+func _block_has_color(block: Variant, colors: PackedStringArray) -> bool:
+	var have: PackedStringArray = _block_colors(block)
+	for color in colors:
+		if have.has(color):
+			return true
+	return false
+
+
+func _color_of_pile_key(pile_key: String) -> String:
+	match pile_key:
+		"red_scavenge":
+			return "red"
+		"green_scavenge":
+			return "green"
+		"blue_scavenge":
+			return "blue"
+		_:
+			return ""
 
 
 func _resolve_game(game: Variant) -> Variant:

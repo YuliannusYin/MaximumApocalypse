@@ -83,3 +83,66 @@ func test_rescue_done_without_fuel_falls_back_to_rally() -> void:
 	var hints = AiMissionHintsScript.new()
 	assert_eq(_dest_names(p), ["面包车"], "无未完成行动点时应回退集结")
 	assert_eq(hints.nearest_travel_block(p), blocks["van"])
+
+
+func _setup_fuel_only() -> MissionConfig:
+	var mc := MissionConfig.new()
+	var fuel := MissionComponentAddVanFuel.new()
+	fuel.params = {"block_name": "面包车", "card_name": "燃料", "count": 4}
+	var rally := MissionComponentAllPlayersAtBlock.new()
+	rally.params = {"block_name": "面包车"}
+	mc.action_components = [fuel]
+	mc.win_condition_components = [rally]
+	Game.mission_config = mc
+	mc.setup_components(Game)
+	return mc
+
+
+func _map_van_gas() -> Dictionary:
+	var van: MapBlock = _make_block("面包车", 0, 0, true)
+	var gas: MapBlock = _make_block("加油站", 2, 0, true)
+	gas.scavenge_colors = PackedStringArray(["red"])
+	var mall: MapBlock = _make_block("购物中心", 1, 1, true)
+	mall.scavenge_colors = PackedStringArray(["blue"])
+	Game.map_area = [van, gas, mall]
+	Game.red_scavenge_pile = Pile.new()
+	Game.red_scavenge_pile.add(_make_scavenge_card("燃料", "red"))
+	Game.red_scavenge_pile.add(_make_scavenge_card("燃料", "red"))
+	Game.blue_scavenge_pile = Pile.new()
+	Game.blue_scavenge_pile.add(_make_scavenge_card("燃料", "blue"))
+	return {"van": van, "gas": gas, "mall": mall}
+
+
+func test_without_fuel_gathers_at_red_scavenge_not_van() -> void:
+	_setup_fuel_only()
+	var blocks: Dictionary = _map_van_gas()
+	var p: Player = _make_player("AI")
+	p.current_block = blocks["van"]
+	Game.players = [p]
+	var hints = AiMissionHintsScript.new()
+	assert_eq(_dest_names(p), ["加油站"], "没燃料时应去剩余燃料最多的红拾荒格")
+	assert_eq(hints.nearest_travel_block(p), blocks["gas"])
+	assert_eq(hints.nearest_objective_distance(p), 2)
+
+
+func test_with_fuel_still_travels_to_van() -> void:
+	_setup_fuel_only()
+	var blocks: Dictionary = _map_van_gas()
+	var p: Player = _make_player("AI")
+	p.current_block = blocks["gas"]
+	p.hand.append(_make_card("燃料"))
+	Game.players = [p]
+	var hints = AiMissionHintsScript.new()
+	assert_eq(_dest_names(p), ["面包车"], "持有燃料时应走加油行动点")
+	assert_eq(hints.nearest_travel_block(p), blocks["van"])
+
+
+func test_at_gas_stays_because_gather_distance_zero() -> void:
+	_setup_fuel_only()
+	var blocks: Dictionary = _map_van_gas()
+	var p: Player = _make_player("AI")
+	p.current_block = blocks["gas"]
+	Game.players = [p]
+	var hints = AiMissionHintsScript.new()
+	assert_eq(hints.nearest_objective_distance(p), 0, "已在最佳采集格时距离应为 0")
+	assert_true(hints.is_staying_to_gather(p))

@@ -6,7 +6,6 @@ extends IPlayerInput
 
 const AiScorerScript = preload("res://src/ai/ai_scorer.gd")
 const LegalActionsScript = preload("res://src/ai/legal_actions.gd")
-const REDRAW_AVG_THRESHOLD := 70.0
 const REDRAW_MAX_COUNT := 20
 
 var scorer = AiScorerScript.new()
@@ -16,6 +15,8 @@ var _owner: Variant = null
 var _repeat_key: String = ""
 var _repeat_count: int = 0
 var _redraw_count: int = 0
+var _fizzle_keys: Dictionary = {}
+var _pending_card: Variant = null
 
 
 func set_request_owner(player: Variant) -> void:
@@ -33,16 +34,20 @@ func get_active_request_owner() -> Variant:
 func wait_action(player: Variant) -> Variant:
 	_owner = player
 	await _think()
+	_note_fizzle_if_needed(player)
 	var actions: Array = LegalActionsScript.enumerate(player)
 	var best: Variant = null
 	var best_score: float = 0.0
 	for action in actions:
+		if _fizzle_keys.has(_fingerprint(action)):
+			continue
 		var score: float = scorer.score_action(player, action)
 		if score > best_score:
 			best_score = score
 			best = action
 	if best == null or best_score <= 0.0:
 		_reset_repeat()
+		_reset_fizzle()
 		return null
 	var key: String = _fingerprint(best)
 	if key == _repeat_key:
@@ -52,7 +57,9 @@ func wait_action(player: Variant) -> Variant:
 		_repeat_count = 1
 	if _repeat_count >= 3:
 		_reset_repeat()
+		_reset_fizzle()
 		return null
+	_pending_card = best.get("card") if str(best.get("type", "")) == "card" else null
 	return best
 
 
@@ -193,11 +200,7 @@ func wait_redraw_decision(player: Variant) -> bool:
 	await _think()
 	if player == null or player.hand == null or player.hand.is_empty():
 		return false
-	var total: float = 0.0
-	for card in player.hand:
-		total += scorer.useful(player, card)
-	var avg: float = total / float(player.hand.size())
-	if avg >= REDRAW_AVG_THRESHOLD:
+	if _hand_has_weapon(player):
 		return false
 	if _redraw_count >= REDRAW_MAX_COUNT:
 		return false
@@ -314,3 +317,36 @@ func _fingerprint(choice: Variant) -> String:
 func _reset_repeat() -> void:
 	_repeat_key = ""
 	_repeat_count = 0
+
+
+func _reset_fizzle() -> void:
+	_fizzle_keys.clear()
+	_pending_card = null
+
+
+func _note_fizzle_if_needed(player: Variant) -> void:
+	var card: Variant = _pending_card
+	_pending_card = null
+	if card == null or player == null or player.hand == null:
+		return
+	if not player.hand.has(card):
+		return
+	if player.has_method("is_card_usable") and not player.is_card_usable(card):
+		return
+	_fizzle_keys[_fingerprint({"type": "card", "card": card})] = true
+
+
+func _hand_has_weapon(player: Variant) -> bool:
+	if player == null or player.hand == null:
+		return false
+	for card in player.hand:
+		if scorer.has_tag(card, "weapon"):
+			return true
+		if card != null and card.get("weapon") == true:
+			return true
+		if card == null or not card.has_method("get_all_skills"):
+			continue
+		for skill in card.get_all_skills():
+			if scorer.has_tag(skill, "weapon"):
+				return true
+	return false

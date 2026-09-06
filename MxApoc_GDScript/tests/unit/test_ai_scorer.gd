@@ -123,3 +123,88 @@ func test_score_move_zero_when_already_at_travel_dest() -> void:
 	var scorer = AiScorerScript.new()
 	var east: MapBlock = Game.map_area[1]
 	assert_lte(scorer.score_action(p, {"type": "move", "target": east}), 0.0, "已在最近行动点时移动分应 ≤ 0")
+
+
+func test_heal_full_hp_scores_zero() -> void:
+	var scorer = AiScorerScript.new()
+	var p: Player = _make_player("AI", 10, 10)
+	p.hp = 10
+	p.max_hp = 10
+	p.in_phase = "action"
+	p.action_count = 4
+	var block: MapBlock = _make_block("购物中心", 0, 0, true)
+	Game.map_area = [block]
+	Game.players = [p]
+	p.current_block = block
+	var skill := Skill.new()
+	skill.skill_name = "缝合"
+	skill.english_name = "suture"
+	skill.active = "action"
+	skill.select_target = 1
+	skill.filter_target_range = "short"
+	skill.ai = {"order": 6, "useful": 0, "tags": ["heal"], "effect": {"player": 1, "target": 2}}
+	p.add_skill(skill)
+	assert_lte(scorer.score_action(p, {"type": "skill", "skill": skill}), 0.0, "满血治疗分应 ≤ 0")
+	assert_eq(scorer.effect(p, skill, p), 0.0, "满血治疗效果分应为 0")
+
+
+func test_own_zone_beats_higher_threat_ally_monster() -> void:
+	var scorer = AiScorerScript.new()
+	var p: Player = _make_player("AI")
+	var own: Monster = Monster.new()
+	own.hp = 4
+	own.max_hp = 4
+	own.ai_threat = 23
+	var other: Monster = Monster.new()
+	other.hp = 12
+	other.max_hp = 12
+	other.ai_threat = 57
+	p.monster_zone.append(own)
+	var skill := Skill.new()
+	skill.ai = {"order": 9, "useful": 0, "tags": ["damage"], "effect": {"player": 0, "target": 2}}
+	assert_gt(
+		scorer.score_damage_target(p, skill, own),
+		scorer.score_damage_target(p, skill, other),
+		"自己怪物区的怪应高于更高 threat 的别人的怪"
+	)
+
+
+func test_gather_scavenge_beats_leaving_gas() -> void:
+	var mc := MissionConfig.new()
+	var fuel := MissionComponentAddVanFuel.new()
+	fuel.params = {"block_name": "面包车", "card_name": "燃料", "count": 4}
+	var rally := MissionComponentAllPlayersAtBlock.new()
+	rally.params = {"block_name": "面包车"}
+	mc.action_components = [fuel]
+	mc.win_condition_components = [rally]
+	Game.mission_config = mc
+	mc.setup_components(Game)
+	var gas: MapBlock = _make_block("加油站", 0, 0, true)
+	gas.scavenge_colors = PackedStringArray(["red"])
+	var wild: MapBlock = _make_block("旷野", 1, 0, true)
+	var van: MapBlock = _make_block("面包车", 3, 0, true)
+	Game.map_area = [gas, wild, van]
+	Game.red_scavenge_pile = Pile.new()
+	Game.red_scavenge_pile.add(_make_scavenge_card("燃料", "red"))
+	var p: Player = _make_player("AI")
+	p.current_block = gas
+	p.action_count = 4
+	Game.players = [p]
+	var scorer = AiScorerScript.new()
+	assert_gt(
+		scorer.score_action(p, {"type": "pile_draw", "pile_key": "red_scavenge"}),
+		scorer.score_action(p, {"type": "move", "target": wild}),
+		"采集格拾荒应高于离开加油站"
+	)
+
+
+func test_hazard_lowers_wilderness_block_score() -> void:
+	var scorer = AiScorerScript.new()
+	var p: Player = _make_player("AI")
+	var safe: MapBlock = _make_block("避难所", 0, 0, true)
+	var wild: MapBlock = _make_block("旷野", 1, 0, true)
+	var hazard := Skill.new()
+	hazard.ai = {"order": 0, "useful": 0, "hazard": 6}
+	wild.add_skill(hazard)
+	p.current_block = safe
+	assert_gt(scorer.score_block(p, safe), scorer.score_block(p, wild), "有 hazard 的旷野应低于安全格")

@@ -81,20 +81,18 @@ func test_choose_card_discards_low_useful() -> void:
 	assert_eq(picked[0], junk, "弃牌应优先弃低 useful")
 
 
-func test_wait_redraw_below_and_at_threshold() -> void:
+func test_wait_redraw_without_weapon_then_with_weapon() -> void:
 	var p: Player = _make_player("AI")
-	var low: Card = _make_card("low")
-	low.ai = {"order": 0, "useful": 50}
-	p.hand.append(low)
-	p.hand.append(low)
+	var junk: Card = _make_card("junk")
+	junk.ai = {"order": 0, "useful": 90}
+	p.hand.append(junk)
 	var input = AIPlayerInputScript.new()
-	assert_true(await input.wait_redraw_decision(p), "均分 50 应重调")
-	var high: Card = _make_card("high")
-	high.ai = {"order": 0, "useful": 70}
+	assert_true(await input.wait_redraw_decision(p), "手里没有武器应重调")
+	var weapon: Card = _make_card("弓")
+	weapon.ai = {"order": 8, "useful": 20, "tags": ["weapon"]}
 	p.hand.clear()
-	p.hand.append(high)
-	p.hand.append(high)
-	assert_false(await input.wait_redraw_decision(p), "均分 70 应停止重调")
+	p.hand.append(weapon)
+	assert_false(await input.wait_redraw_decision(p), "手里有武器牌应停止重调")
 
 
 func test_wait_redraw_stops_at_count_cap() -> void:
@@ -137,3 +135,27 @@ func test_choose_target_skips_ally_and_prefers_lethal() -> void:
 	assert_eq(picked.size(), 1)
 	assert_false(picked[0] is Player, "伤害不应主动选求生者")
 	assert_eq(picked[0], weak, "一击毙命应压过不能击杀的高威胁")
+
+
+func test_wait_action_skips_fizzled_card() -> void:
+	var p: Player = _make_player("AI")
+	p.in_phase = "action"
+	p.action_count = 4
+	var here: MapBlock = _make_block("购物中心", 0, 0, true)
+	var there: MapBlock = _make_block("加油站", 1, 0, true)
+	Game.map_area = [here, there]
+	Game.players = [p]
+	p.current_block = here
+	var card: Card = _make_equipment("梯子")
+	card.english_name = "ladder"
+	card.card_type = "equipment"
+	card.ai = {"order": 8, "useful": 80, "tags": ["equip"]}
+	p.hand.append(card)
+	var input = AIPlayerInputScript.new()
+	input.think_seconds = 0.0
+	var first: Variant = await input.wait_action(p)
+	assert_true(first is Dictionary)
+	assert_eq(first.get("type"), "card", "第一次应选手里的高分装备")
+	var second: Variant = await input.wait_action(p)
+	assert_true(second is Dictionary)
+	assert_ne(second.get("type"), "card", "空放后同指纹卡牌本回合不再选")

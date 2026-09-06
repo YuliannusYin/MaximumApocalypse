@@ -9,6 +9,9 @@ const AiMissionHintsScript = preload("res://src/ai/ai_mission_hints.gd")
 const ATT_SELF := 2.0
 const ATT_ALLY := 1.5
 const ATT_ENEMY := -2.0
+const OWN_ZONE_THREAT_BONUS := 40.0
+const GATHER_SCAVENGE_BONUS := 10.0
+const HAZARD_MARK_PENALTY := 2.5
 
 var hints = AiMissionHintsScript.new()
 
@@ -90,7 +93,7 @@ func score_damage_target(player: Variant, skill: Variant, target: Variant) -> fl
 	if lethal:
 		score += 50.0 + threat * 0.01
 	if player != null and player.monster_zone != null and player.monster_zone.has(target):
-		score += 8.0
+		score += OWN_ZONE_THREAT_BONUS
 	return score
 
 
@@ -123,7 +126,7 @@ func effect(player: Variant, obj: Variant, target: Variant) -> float:
 	if has_tag(obj, "damage"):
 		return player_part + (-att) * absf(target_part) + _damage_bonus(player, target)
 	if has_tag(obj, "heal"):
-		return player_part + att * absf(target_part) + _heal_bonus(player, target)
+		return _heal_effect(player, target, player_part, target_part, att)
 	return player_part + att * target_part
 
 
@@ -169,7 +172,8 @@ func score_block(player: Variant, block: Variant) -> float:
 	if block.has_method("has_objective_mark") and block.has_objective_mark():
 		score += 3.0
 	if block.has_method("count_monster_mark") and block.count_monster_mark() > 0:
-		score -= 1.5
+		score -= float(block.count_monster_mark()) * HAZARD_MARK_PENALTY
+	score -= _block_hazard(block)
 	return score
 
 
@@ -184,7 +188,11 @@ func _score_card_action(player: Variant, card: Variant) -> float:
 		base += 0.05 * useful(player, card)
 		if _equipment_full(player) and not _has_same_name_equipped(player, card):
 			base -= 4.0
+		if not _is_weapon_card(card) and hints.is_staying_to_gather(player):
+			base -= 6.0
 		return base
+	if skill != null and has_tag(skill, "heal"):
+		return _score_heal(player, skill)
 	if skill != null:
 		base += _best_target_effect(player, skill)
 		base += _situational_skill_bonus(player, skill)
@@ -196,6 +204,8 @@ func _score_card_action(player: Variant, card: Variant) -> float:
 func _score_skill_action(player: Variant, skill: Variant) -> float:
 	if skill == null or not is_instance_valid(skill):
 		return -99.0
+	if has_tag(skill, "heal"):
+		return _score_heal(player, skill)
 	var base: float = ai_order(skill)
 	if has_tag(skill, "mission") or str(skill.get("skill_type")) == "任务":
 		base = maxf(base, 12.0)
@@ -224,6 +234,8 @@ func _score_pile_draw(player: Variant, pile_key: String) -> float:
 		score += 0.5
 	if player != null and player.hunger >= 4:
 		score += 1.0
+	if pile_key != "game_deck" and hints.is_staying_to_gather(player) and hints.pile_has_needed_items(pile_key):
+		score += GATHER_SCAVENGE_BONUS
 	return score
 
 
@@ -255,10 +267,12 @@ func _best_target_effect(player: Variant, skill: Variant) -> float:
 
 func _situational_skill_bonus(player: Variant, skill: Variant) -> float:
 	var bonus: float = 0.0
-	if has_tag(skill, "heal"):
-		bonus += _heal_urgency(player) * 4.0
-	if has_tag(skill, "food") and player != null and int(player.get("hunger")) >= 4:
-		bonus += 5.0
+	if has_tag(skill, "food") and player != null:
+		var hunger: int = int(player.get("hunger"))
+		if hunger >= 5:
+			bonus += 6.0
+		elif hunger >= 4:
+			bonus += 2.0
 	if has_tag(skill, "ammo") and _has_underfilled_weapon(player, "ammo"):
 		bonus += 4.0
 	if has_tag(skill, "fuel") and _has_underfilled_weapon(player, "fuel"):
@@ -273,12 +287,22 @@ func _damage_bonus(player: Variant, target: Variant) -> float:
 		return 0.0
 	var bonus: float = _monster_threat(target) * 0.05
 	if player != null and player.monster_zone != null and player.monster_zone.has(target):
-		bonus += 2.0
+		bonus += 6.0
 	return bonus
 
 
-func _heal_bonus(player: Variant, target: Variant) -> float:
-	return _heal_urgency(target if target != null else player)
+func _score_heal(player: Variant, skill: Variant) -> float:
+	var value: float = _best_target_effect(player, skill)
+	if value <= 0.0:
+		return 0.0
+	return value
+
+
+func _heal_effect(_player: Variant, target: Variant, player_part: float, target_part: float, att: float) -> float:
+	var urgency: float = _heal_urgency(target)
+	if urgency <= 0.0:
+		return 0.0
+	return player_part * 0.25 + urgency * 10.0 + att * 0.3 * absf(target_part)
 
 
 func _heal_urgency(who: Variant) -> float:
@@ -298,6 +322,15 @@ func _monster_threat(monster: Variant) -> float:
 	if raw != null:
 		return float(raw)
 	return 0.0
+
+
+func _is_weapon_card(card: Variant) -> bool:
+	if has_tag(card, "weapon"):
+		return true
+	if card != null and card.get("weapon") == true:
+		return true
+	var skill: Variant = _primary_play_skill(card)
+	return skill != null and has_tag(skill, "weapon")
 
 
 func _primary_play_skill(card: Variant) -> Variant:
@@ -338,6 +371,18 @@ func _has_underfilled_weapon(player: Variant, charge_type: String) -> bool:
 		if int(e.get("charge_current")) < int(e.get("charge_max")):
 			return true
 	return false
+
+
+func _block_hazard(block: Variant) -> float:
+	if block == null or not is_instance_valid(block):
+		return 0.0
+	var total: float = 0.0
+	var skills: Variant = block.get("skills")
+	if not (skills is Array):
+		return 0.0
+	for skill in skills:
+		total += float(read_ai(skill).get("hazard", 0))
+	return total
 
 
 func _game_of(_player: Variant) -> Variant:
