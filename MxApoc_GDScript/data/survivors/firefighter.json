@@ -111,7 +111,8 @@
         "useful": 72,
         "tags": [
           "equip",
-          "weapon"
+          "weapon",
+          "aoe"
         ]
       }
     },
@@ -232,6 +233,9 @@
           "ai": {
             "order": 5,
             "useful": 0,
+            "tags": [
+              "stun"
+            ],
             "effect": {
               "player": 1,
               "target": 0
@@ -242,6 +246,9 @@
       "ai": {
         "order": 5,
         "useful": 58,
+        "tags": [
+          "stun"
+        ],
         "effect": {
           "player": 1,
           "target": 0
@@ -515,7 +522,7 @@
             ],
             "effect": {
               "player": 0,
-              "target": 3
+              "target": 5
             }
           }
         }

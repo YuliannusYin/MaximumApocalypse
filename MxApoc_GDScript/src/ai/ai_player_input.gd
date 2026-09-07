@@ -89,7 +89,7 @@ func choose_card(n: int, param: Variant = "hand", filter: Variant = null, prompt
 	var retrieve: bool = prompt.contains("维修") or prompt.contains("神通广大")
 	var overflow: bool = prompt.contains("装备栏超限")
 	if overflow:
-		candidates = _prefer_non_needed_discards(player, candidates)
+		candidates = _prefer_overflow_discards(player, candidates)
 	var scored: Array = []
 	for card in candidates:
 		var value: float = scorer.useful(player, card)
@@ -170,19 +170,33 @@ func choose_block_inline(valid_blocks: Array, prompt: String, count: int) -> Arr
 	if valid_blocks.is_empty():
 		return []
 	var player: Variant = _owner
+	if scorer.is_clear_marks_prompt(prompt):
+		return _pick_clear_marks_blocks(player, valid_blocks, count)
 	var dest: Variant = scorer.hints.nearest_travel_block(player)
 	var current: Variant = null
 	if player != null and player.has_method("get_current_block"):
 		current = player.get_current_block()
+	var leaving_wild: bool = current != null and LegalActionsScript.is_must_leave_block(current)
+	var has_safe_exit: bool = false
+	if leaving_wild:
+		for candidate in valid_blocks:
+			if candidate != null and is_instance_valid(candidate) and not LegalActionsScript.is_must_leave_block(candidate):
+				has_safe_exit = true
+				break
 	var current_dist: int = 99
 	if current != null and dest != null and is_instance_valid(dest):
 		current_dist = scorer.hints.path_distance(current, dest)
 	var scored: Array = []
 	for block in valid_blocks:
-		if dest != null and is_instance_valid(dest) and block != null:
+		if leaving_wild and has_safe_exit:
+			if LegalActionsScript.is_must_leave_block(block):
+				continue
+		elif dest != null and is_instance_valid(dest) and block != null:
 			if scorer.hints.path_distance(block, dest) >= current_dist:
 				continue
 		var score: float = scorer.score_block(player, block)
+		if leaving_wild and has_safe_exit:
+			score += scorer.WILDERNESS_LEAVE_BONUS
 		scored.append({"block": block, "score": score})
 	if scored.is_empty():
 		return []
@@ -354,13 +368,16 @@ func _pick_best_action(player: Variant, skip: Dictionary) -> Variant:
 	var actions: Array = LegalActionsScript.enumerate(player)
 	var best: Variant = null
 	var best_score: float = 0.0
+	var best_dmg: float = -1.0
 	for action in actions:
 		var key: String = _fingerprint(action)
 		if skip.has(key) or _fizzle_keys.has(key):
 			continue
 		var score: float = scorer.score_action(player, action)
-		if score > best_score:
+		var dmg_key: float = scorer.action_damage_key(action)
+		if score > best_score or (is_equal_approx(score, best_score) and dmg_key > best_dmg):
 			best_score = score
+			best_dmg = dmg_key
 			best = action
 	return best
 
@@ -429,3 +446,34 @@ func _prefer_non_needed_discards(player: Variant, candidates: Array) -> Array:
 	if others.is_empty():
 		return candidates
 	return others
+
+
+func _prefer_overflow_discards(player: Variant, candidates: Array) -> Array:
+	var pool: Array = _prefer_non_needed_discards(player, candidates)
+	if player == null or player.monster_zone == null or player.monster_zone.size() <= 0:
+		return pool
+	var non_weapons: Array = []
+	for card in pool:
+		if not scorer._is_weapon_card(card):
+			non_weapons.append(card)
+	if non_weapons.is_empty():
+		return pool
+	return non_weapons
+
+
+func _pick_clear_marks_blocks(player: Variant, valid_blocks: Array, count: int) -> Array:
+	var scored: Array = []
+	for block in valid_blocks:
+		var score: float = scorer.score_clear_marks_block(player, block)
+		if score > 0.0:
+			scored.append({"block": block, "score": score})
+	if scored.is_empty():
+		return []
+	scored.sort_custom(func(a, b): return float(a["score"]) > float(b["score"]))
+	var n: int = maxi(count, 1)
+	if n > scored.size():
+		n = scored.size()
+	var picked: Array = []
+	for i in range(n):
+		picked.append(scored[i]["block"])
+	return picked

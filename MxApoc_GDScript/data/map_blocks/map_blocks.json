@@ -151,7 +151,8 @@
           "content": "var block = player.get_current_block()\nif block != null and not block.is_revealed():\n\tactions.reveal(block, true, player)\nif not await player.sneak_judge():\n\tawait player.move_to(event[\"source_block\"])",
           "ai": {
             "order": 0,
-            "useful": 0
+            "useful": 0,
+            "hazard": 8
           }
         }
       ]
@@ -286,7 +287,7 @@
           "ai": {
             "order": 0,
             "useful": 0,
-            "hazard": 6
+            "hazard": 4
           }
         }
       ]

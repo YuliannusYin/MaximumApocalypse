@@ -199,3 +199,51 @@ func test_path_distance_around_hole_to_van() -> void:
 	assert_eq(hints.nearest_objective_distance(p), 5, "曼哈顿 3，绕空洞图距离 5")
 	assert_eq(hints.path_distance(by_coord["2,0"], by_coord["5,1"]), 4)
 	assert_eq(hints.path_distance(by_coord["1,1"], by_coord["5,1"]), 6)
+
+
+func test_party_leader_prefers_courier() -> void:
+	_setup_fuel_only()
+	var blocks: Dictionary = _map_van_gas()
+	var scout: Player = _make_player("Scout")
+	var courier: Player = _make_player("Courier")
+	scout.current_block = blocks["gas"]
+	courier.current_block = blocks["mall"]
+	courier.hand.append(_make_card("燃料"))
+	Game.players = [scout, courier]
+	var hints = AiMissionHintsScript.new()
+	assert_eq(hints.party_leader(scout), courier, "持燃料的信使应当领队")
+	assert_eq(hints.nearest_travel_block(scout), blocks["mall"], "其他人应跟随信使而不是继续采集")
+
+
+func test_party_leader_is_nearest_to_personal_dest() -> void:
+	_setup_fuel_only()
+	var blocks: Dictionary = _map_van_gas()
+	var near: Player = _make_player("Near")
+	var far: Player = _make_player("Far")
+	near.current_block = blocks["gas"]
+	far.current_block = blocks["van"]
+	Game.players = [near, far]
+	var hints = AiMissionHintsScript.new()
+	assert_eq(hints.party_leader(far), near, "无人当信使时离采集格更近的人是领队")
+	assert_eq(hints.nearest_travel_block(far), blocks["gas"], "掉队者应跟去领队所在格")
+
+
+func test_follow_anchor_uses_safe_neighbor_when_leader_on_wilderness() -> void:
+	var van: MapBlock = _make_block("面包车", 0, 0, true)
+	var wild: MapBlock = _make_block("旷野", 1, 0, true)
+	var hospital: MapBlock = _make_block("医院", 1, 1, true)
+	Game.map_area = [van, wild, hospital]
+	var rally := MissionComponentAllPlayersAtBlock.new()
+	rally.params = {"block_name": "面包车"}
+	var mc := MissionConfig.new()
+	mc.win_condition_components = [rally]
+	Game.mission_config = mc
+	mc.setup_components(Game)
+	var leader: Player = _make_player("Leader")
+	var follower: Player = _make_player("Follower")
+	leader.current_block = wild
+	follower.current_block = hospital
+	Game.players = [leader, follower]
+	var hints = AiMissionHintsScript.new()
+	assert_eq(hints.follow_anchor_block(leader), van, "领队在旷野时应把安全邻格当跟随锚点")
+	assert_eq(hints.nearest_travel_block(follower), van, "跟随者不应把旷野当目标")

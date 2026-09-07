@@ -28,6 +28,18 @@ const CAMOUFLAGE_ESCAPE := 2.0
 const SKIP_HUNGER_SCORE := 6.0
 const DUPLICATE_EQUIP_PENALTY := 40.0
 const REPAIR_DUPLICATE_PENALTY := 8.0
+const LETHAL_ACTION_BONUS := 12.0
+const AOE_WEAPON_EQUIP_BONUS := 18.0
+const ENGAGED_IDLE_PENALTY := 10.0
+const TEAM_BUFF_BASE := 6.0
+const TEAM_BUFF_PER_FIGHTER := 6.0
+const STUN_BASE := 8.0
+const MARK_CLEAR_WEIGHT := 6.0
+const ALLY_SPLASH_WEIGHT := 8.0
+const GRENADE_SPLASH := 3.0
+const WILDERNESS_LEAVE_BONUS := 40.0
+const PARTY_SPREAD_MAX := 2
+const FOLLOW_CLOSE_BONUS := 3.0
 
 var hints = AiMissionHintsScript.new()
 var _score_depth: int = 0
@@ -235,6 +247,25 @@ func score_block(player: Variant, block: Variant) -> float:
 	return score
 
 
+func score_clear_marks_block(player: Variant, block: Variant) -> float:
+	if block == null or not is_instance_valid(block):
+		return -99.0
+	var marks: int = 0
+	if block.has_method("count_monster_mark"):
+		marks = int(block.count_monster_mark())
+	if marks <= 0:
+		return 0.0
+	var score: float = float(marks) * MARK_CLEAR_WEIGHT
+	var dest: Variant = hints.nearest_travel_block(player)
+	if dest != null and is_instance_valid(dest):
+		if dest == block:
+			score += 10.0
+		else:
+			var dist: int = hints.path_distance(block, dest)
+			score += maxf(0.0, 6.0 - float(dist))
+	return score
+
+
 func _score_card_action(player: Variant, card: Variant) -> float:
 	if card == null or not is_instance_valid(card):
 		return -99.0
@@ -243,6 +274,8 @@ func _score_card_action(player: Variant, card: Variant) -> float:
 	if base == 0.0 and skill != null:
 		base = ai_order(skill)
 	if str(card.get("card_type")) == "equipment":
+		if _wilderness_blocks_staying(player, card):
+			return 0.0
 		return _score_equip_card(player, card, base)
 	if skill != null and has_tag(skill, "heal"):
 		return _score_heal(player, skill)
@@ -254,6 +287,12 @@ func _score_card_action(player: Variant, card: Variant) -> float:
 		return _score_skip_hunger(player)
 	if skill != null and (has_tag(skill, "pull") or _is_pull_skill(skill)):
 		return _score_pull(player, skill)
+	if skill != null and (_is_stun_obj(skill) or _is_stun_obj(card)):
+		return _score_stun(player, skill)
+	if skill != null and (_is_team_buff_obj(skill) or _is_team_buff_obj(card)):
+		return _score_team_buff(player, skill if skill != null else card)
+	if _is_volley_obj(skill) or _is_volley_obj(card):
+		return _score_volley(player, skill if skill != null else card)
 	if skill != null:
 		base += _best_target_effect(player, skill)
 		base += _situational_skill_bonus(player, skill)
@@ -261,27 +300,51 @@ func _score_card_action(player: Variant, card: Variant) -> float:
 		base += 0.025 * useful(player, card)
 	if _is_courier(player) and _is_courier_idle_obj(skill if skill != null else card):
 		base -= COURIER_IDLE_PENALTY
+	if _is_engaged(player) and _is_engaged_idle_obj(skill if skill != null else card):
+		base -= ENGAGED_IDLE_PENALTY
+	if _wilderness_blocks_staying(player, skill if skill != null else card):
+		return 0.0
 	return base
 
 
 func _score_skill_action(player: Variant, skill: Variant) -> float:
 	if skill == null or not is_instance_valid(skill):
 		return -99.0
+	if _is_punch_skill(skill) and _has_usable_equipped_weapon_attack(player):
+		return 0.0
 	if has_tag(skill, "heal"):
 		return _score_heal(player, skill)
 	if has_tag(skill, "food"):
 		return _score_food(player, skill)
 	if has_tag(skill, "grant_action"):
+		if _is_on_must_leave(player):
+			return 0.0
 		return _score_grant_action(player, skill)
 	if has_tag(skill, "hunger_ap"):
+		if _is_on_must_leave(player):
+			return 0.0
 		return _score_hunger_ap(player, skill)
 	if has_tag(skill, "skip_hunger") or _is_skip_hunger_skill(skill):
+		if _is_on_must_leave(player):
+			return 0.0
 		return _score_skip_hunger(player)
 	if has_tag(skill, "pull") or _is_pull_skill(skill):
+		if _is_on_must_leave(player):
+			return 0.0
 		return _score_pull(player, skill)
+	if _is_stun_obj(skill):
+		return _score_stun(player, skill)
+	if _is_team_buff_obj(skill):
+		return _score_team_buff(player, skill)
+	if _is_volley_obj(skill):
+		return _score_volley(player, skill)
 	if _is_camouflage_discard(skill):
+		if _is_on_must_leave(player):
+			return 0.0
 		return _score_camouflage_discard(player)
 	if _is_balance_skill(skill):
+		if _is_on_must_leave(player):
+			return 0.0
 		return _score_balance(player, skill)
 	if _is_reveal_obj(skill) and not _has_unrevealed_for_skill(player, skill):
 		return 0.0
@@ -293,12 +356,21 @@ func _score_skill_action(player: Variant, skill: Variant) -> float:
 	base += _situational_skill_bonus(player, skill)
 	if _is_courier(player) and _is_courier_idle_obj(skill):
 		base -= COURIER_IDLE_PENALTY
+	if _is_engaged(player) and _is_engaged_idle_obj(skill):
+		base -= ENGAGED_IDLE_PENALTY
+	if _wilderness_blocks_staying(player, skill):
+		return 0.0
 	return base
 
 
 func _score_move(player: Variant, block: Variant) -> float:
-	if player != null and player.monster_zone != null and player.monster_zone.size() > 0:
+	var current: Variant = _current_block_of(player)
+	var leaving: bool = _is_must_leave_block(current) and not _is_must_leave_block(block)
+	if _is_engaged(player) and not leaving:
 		return -99.0
+	if leaving:
+		var leave_score: float = WILDERNESS_LEAVE_BONUS + score_block(player, block)
+		return maxf(leave_score, 8.0)
 	if hints.nearest_objective_distance(player) == 0:
 		return 0.0
 	var dest: Variant = hints.nearest_travel_block(player)
@@ -311,10 +383,20 @@ func _score_move(player: Variant, block: Variant) -> float:
 		score += COURIER_MOVE_BONUS
 	if player != null and player.get_effective_action_count() <= 1:
 		score -= 1.0
+		if _block_forces_stealth(block) or _is_must_leave_block(block):
+			return 0.0
+	var cohesion: float = _cohesion_move_adjust(player, block)
+	if cohesion < 0.0:
+		return 0.0
+	score += cohesion
 	return score
 
 
 func _score_pile_draw(player: Variant, pile_key: String) -> float:
+	if _is_engaged(player):
+		return 0.0
+	if _is_on_must_leave(player):
+		return 0.0
 	if pile_key == "game_deck" and _player_is_starving(player):
 		return 0.0
 	var score: float = 3.5
@@ -339,9 +421,15 @@ func _best_target_effect(player: Variant, skill: Variant) -> float:
 	var select_n: int = int(skill.get("select_target")) if skill.get("select_target") != null else 0
 	if select_n == 0 and str(skill.get("target_type")) == "":
 		return effect(player, skill, player)
-	var targets: Array = player.get_skill_valid_targets(skill)
+	var raw: Array = player.get_skill_valid_targets(skill)
+	var ally_penalty: float = 0.0
+	if is_damage_obj(skill) and (has_tag(skill, "aoe") or select_n < 0):
+		for t in raw:
+			if is_player_target(t):
+				ally_penalty += ALLY_SPLASH_WEIGHT * estimated_damage(skill)
+	var targets: Array = raw
 	if is_damage_obj(skill):
-		targets = non_player_targets(targets)
+		targets = non_player_targets(raw)
 		if targets.is_empty():
 			return -99.0
 	if targets.is_empty():
@@ -349,14 +437,16 @@ func _best_target_effect(player: Variant, skill: Variant) -> float:
 	if select_n < 0:
 		var total: float = 0.0
 		for t in targets:
-			total += effect(player, skill, t)
-		return total
+			total += _score_damage_hit(player, skill, t) if is_damage_obj(skill) else effect(player, skill, t)
+		return total - ally_penalty
+	if is_damage_obj(skill) and _is_grenade_obj(skill):
+		return _score_grenade(player, skill, targets)
 	var best: float = -99.0
 	for t in targets:
-		var s: float = effect(player, skill, t)
+		var s: float = _score_damage_hit(player, skill, t) if is_damage_obj(skill) else effect(player, skill, t)
 		if s > best:
 			best = s
-	return best if best > -99.0 else 0.0
+	return (best if best > -99.0 else 0.0) - ally_penalty
 
 
 func _situational_skill_bonus(player: Variant, skill: Variant) -> float:
@@ -748,6 +838,8 @@ func _score_equip_card(player: Variant, card: Variant, base: float) -> float:
 		return 0.0
 	if _overflow_would_discard_needed(player, card) and not _may_drop_needed_for_weapon(player, card):
 		return 0.0
+	if _is_on_must_leave(player) and not _is_weapon_card(card):
+		return 0.0
 	base += 0.05 * useful(player, card)
 	if _equipment_would_overflow(player, card) and not _has_same_name_equipped(player, card):
 		base -= 4.0
@@ -757,7 +849,12 @@ func _score_equip_card(player: Variant, card: Variant, base: float) -> float:
 		base -= 6.0
 	if not _is_weapon_card(card) and _is_courier(player):
 		base -= COURIER_IDLE_PENALTY
-	if _is_weapon_card(card) and _should_boost_weapon_equip(player):
+	if _is_weapon_card(card) and _has_usable_equipped_weapon_attack(player):
+		if _is_aoe_weapon_card(card) and _tile_monster_count(player) >= 2 and not _equipment_would_overflow(player, card):
+			base += AOE_WEAPON_EQUIP_BONUS
+		else:
+			return 0.0
+	elif _is_weapon_card(card) and _should_boost_weapon_equip(player):
 		base += ENGAGED_WEAPON_EQUIP_BONUS
 	return base
 
@@ -979,3 +1076,395 @@ func _is_unproductive_grant_peek(action: Dictionary) -> bool:
 	if has_tag(action.get("skill"), "grant_action") or has_tag(action.get("card"), "grant_action"):
 		return true
 	return false
+
+
+func action_damage_key(action: Dictionary) -> float:
+	var skill: Variant = action.get("skill")
+	if skill == null:
+		skill = _primary_play_skill(action.get("card"))
+	if skill == null or not is_damage_obj(skill):
+		return 0.0
+	return estimated_damage(skill)
+
+
+func _score_damage_hit(player: Variant, skill: Variant, target: Variant) -> float:
+	if is_player_target(target):
+		return -ALLY_SPLASH_WEIGHT * estimated_damage(skill)
+	var score: float = effect(player, skill, target)
+	var dmg: float = estimated_damage(skill)
+	var hp: float = float(target.get("hp")) if target.get("hp") != null else 0.0
+	if dmg > 0.0 and hp > 0.0 and dmg >= hp:
+		score += LETHAL_ACTION_BONUS
+	score += dmg * 0.01
+	return score
+
+
+func _score_grenade(player: Variant, skill: Variant, monsters: Array) -> float:
+	var best: float = -99.0
+	for primary in monsters:
+		var score: float = _score_damage_hit(player, skill, primary)
+		for other in _monsters_on_same_tile(player, primary):
+			if other == primary:
+				continue
+			score += GRENADE_SPLASH * 2.0 + _damage_bonus(player, other)
+		for ally in _players_on_same_tile(primary):
+			if ally == player:
+				continue
+			score -= ALLY_SPLASH_WEIGHT * GRENADE_SPLASH
+		if score > best:
+			best = score
+	return best if best > -99.0 else 0.0
+
+
+func _score_stun(player: Variant, skill: Variant) -> float:
+	if player == null or not player.has_method("get_skill_valid_targets"):
+		return 0.0
+	var monsters: Array = non_player_targets(player.get_skill_valid_targets(skill))
+	if monsters.size() < 2:
+		return 0.0
+	var total_hp: float = 0.0
+	var incoming: float = 0.0
+	for monster in monsters:
+		if monster == null:
+			continue
+		total_hp += float(monster.get("hp")) if monster.get("hp") != null else 0.0
+		incoming += _monster_attack(monster)
+	if incoming <= 0.0:
+		return 0.0
+	var ap: int = player.get_effective_action_count() if player.has_method("get_effective_action_count") else 0
+	var best_dmg: float = _best_equipped_weapon_damage(player)
+	if ap > 0 and best_dmg * float(ap) >= total_hp:
+		var hp: int = int(player.get_hp()) if player.has_method("get_hp") else int(player.get("hp"))
+		if incoming < float(hp):
+			return 0.0
+	return ai_order(skill) + STUN_BASE + incoming * 2.0 + float(monsters.size()) * 3.0
+
+
+func _score_team_buff(player: Variant, skill: Variant) -> float:
+	var fighters: int = _engaged_fighter_count(player)
+	if fighters <= 0:
+		return 0.0
+	return ai_order(skill) + TEAM_BUFF_BASE + TEAM_BUFF_PER_FIGHTER * float(fighters)
+
+
+func _score_volley(player: Variant, skill: Variant) -> float:
+	var ammo: int = 0
+	if player != null and player.has_method("get_total_charge_count"):
+		ammo = int(player.get_total_charge_count("ammo"))
+	if ammo <= 0:
+		return 0.0
+	var dump_dmg: float = float(ammo * 2)
+	var monsters: Array = []
+	if player != null and player.has_method("get_skill_valid_targets"):
+		monsters = non_player_targets(player.get_skill_valid_targets(skill))
+	if monsters.is_empty():
+		return 0.0
+	var lethal_tank: bool = false
+	var best: float = 0.0
+	for target in monsters:
+		var hp: float = float(target.get("hp")) if target.get("hp") != null else 0.0
+		var hit: float = dump_dmg * 2.0 + _damage_bonus(player, target)
+		if dump_dmg > 0.0 and hp > 0.0 and dump_dmg >= hp:
+			hit += LETHAL_ACTION_BONUS
+			if hp >= 8.0:
+				lethal_tank = true
+		if hit > best:
+			best = hit
+	if ammo > 3 and not lethal_tank:
+		return 0.0
+	return ai_order(skill) + best
+
+
+func _is_punch_skill(skill: Variant) -> bool:
+	if skill == null:
+		return false
+	return str(skill.get("english_name")) == "punch" or str(skill.get("skill_name")) == "拳打"
+
+
+func _is_stun_obj(obj: Variant) -> bool:
+	if obj == null:
+		return false
+	if has_tag(obj, "stun"):
+		return true
+	return str(obj.get("english_name")) == "fire_extinguisher" or str(obj.get("skill_name")) == "灭火器"
+
+
+func _is_team_buff_obj(obj: Variant) -> bool:
+	if obj == null:
+		return false
+	if has_tag(obj, "team_buff"):
+		return true
+	return str(obj.get("english_name")) == "check_weapon" or str(obj.get("skill_name")) == "检查武器"
+
+
+func _is_volley_obj(obj: Variant) -> bool:
+	if obj == null:
+		return false
+	return str(obj.get("english_name")) == "volley" or str(obj.get("skill_name")) == "齐射"
+
+
+func _is_grenade_obj(obj: Variant) -> bool:
+	if obj == null:
+		return false
+	return str(obj.get("english_name")) == "grenade" or str(obj.get("skill_name")) == "手榴弹"
+
+
+func _is_engaged(player: Variant) -> bool:
+	return player != null and player.monster_zone != null and player.monster_zone.size() > 0
+
+
+func _is_must_leave_block(block: Variant) -> bool:
+	return hints.is_must_leave_block(block) if hints != null else LegalActionsScript.is_must_leave_block(block)
+
+
+func _current_block_of(player: Variant) -> Variant:
+	if player == null:
+		return null
+	if player.has_method("get_current_block"):
+		return player.get_current_block()
+	return player.get("current_block")
+
+
+func _is_on_must_leave(player: Variant) -> bool:
+	return _is_must_leave_block(_current_block_of(player))
+
+
+func _can_clear_zone_and_leave(player: Variant) -> bool:
+	if not _is_on_must_leave(player):
+		return true
+	var ap: int = player.get_effective_action_count() if player != null and player.has_method("get_effective_action_count") else 0
+	if ap <= 1:
+		return false
+	if not _is_engaged(player):
+		return true
+	var dmg: float = _best_equipped_weapon_damage(player)
+	if dmg <= 0.0:
+		return false
+	var hits: int = 0
+	for monster in player.monster_zone:
+		if monster == null:
+			continue
+		var hp: float = float(monster.get("hp")) if monster.get("hp") != null else 0.0
+		if hp <= 0.0:
+			continue
+		hits += int(ceili(hp / dmg))
+	return ap >= hits + 1
+
+
+func _has_safe_leave(player: Variant) -> bool:
+	var current: Variant = _current_block_of(player)
+	if not _is_must_leave_block(current) or current == null:
+		return false
+	if not current.has_method("get_adjacent_blocks"):
+		return false
+	for adj in current.get_adjacent_blocks():
+		if adj != null and is_instance_valid(adj) and not _is_must_leave_block(adj):
+			return true
+	return false
+
+
+func _wilderness_blocks_staying(player: Variant, obj: Variant) -> bool:
+	if not _is_on_must_leave(player):
+		return false
+	if obj == null:
+		return true
+	if has_tag(obj, "heal") or has_tag(obj, "food"):
+		return false
+	if is_damage_obj(obj) or has_tag(obj, "weapon"):
+		if _can_clear_zone_and_leave(player):
+			return false
+		return _has_safe_leave(player)
+	return _has_safe_leave(player)
+
+
+func _cohesion_move_adjust(player: Variant, block: Variant) -> float:
+	if player == null or block == null:
+		return 0.0
+	var game: Variant = _game_of(player)
+	if not hints.has_living_allies(player, game):
+		return 0.0
+	var after_near: int = hints.nearest_ally_distance(player, block, game)
+	if after_near > PARTY_SPREAD_MAX:
+		return -1.0
+	var leader: Variant = hints.party_leader(player, game)
+	if leader == null or not is_instance_valid(leader):
+		return 0.0
+	var current: Variant = _current_block_of(player)
+	if leader != player:
+		var leader_block: Variant = hints.follow_anchor_block(leader, game)
+		if leader_block == null:
+			return 0.0
+		var before_lead: int = hints.path_distance(current, leader_block)
+		var after_lead: int = hints.path_distance(block, leader_block)
+		if before_lead >= PARTY_SPREAD_MAX and after_lead > before_lead:
+			return -1.0
+		if after_lead < before_lead:
+			return FOLLOW_CLOSE_BONUS
+		return 0.0
+	var before_max: int = hints.max_ally_distance(player, current, game)
+	var after_max: int = hints.max_ally_distance(player, block, game)
+	if after_max > PARTY_SPREAD_MAX and after_max > before_max:
+		return -1.0
+	return 0.0
+
+
+func _is_engaged_idle_obj(obj: Variant) -> bool:
+	if obj == null:
+		return false
+	if is_damage_obj(obj) or has_tag(obj, "heal") or has_tag(obj, "food") or has_tag(obj, "stun") or has_tag(obj, "team_buff") or has_tag(obj, "weapon"):
+		return false
+	if _is_stun_obj(obj) or _is_team_buff_obj(obj):
+		return false
+	if has_tag(obj, "draw") or has_tag(obj, "reveal") or has_tag(obj, "buff"):
+		return true
+	var english_name: String = str(obj.get("english_name"))
+	return english_name == "upgrade" or english_name == "binoculars" or english_name == "search_corpse" or english_name == "scout" or english_name == "repair" or english_name == "resourceful"
+
+
+func _is_aoe_weapon_card(card: Variant) -> bool:
+	if not _is_weapon_card(card):
+		return false
+	if has_tag(card, "aoe"):
+		return true
+	var skill: Variant = _primary_play_skill(card)
+	return skill != null and has_tag(skill, "aoe")
+
+
+func _tile_monster_count(player: Variant) -> int:
+	var seen: Dictionary = {}
+	var count: int = 0
+	if player != null and player.monster_zone != null:
+		for monster in player.monster_zone:
+			if monster == null or not is_instance_valid(monster):
+				continue
+			var id: int = monster.get_instance_id()
+			if seen.has(id):
+				continue
+			seen[id] = true
+			count += 1
+	var block: Variant = null
+	if player != null and player.has_method("get_current_block"):
+		block = player.get_current_block()
+	if block == null or not is_instance_valid(block) or not block.has_method("get_players"):
+		return count
+	for ally in block.get_players():
+		if ally == null or ally.monster_zone == null:
+			continue
+		for monster in ally.monster_zone:
+			if monster == null or not is_instance_valid(monster):
+				continue
+			var mid: int = monster.get_instance_id()
+			if seen.has(mid):
+				continue
+			seen[mid] = true
+			count += 1
+	return count
+
+
+func _engaged_fighter_count(player: Variant) -> int:
+	var people: Array = _party_of(player)
+	var n: int = 0
+	for who in people:
+		if who == null or not is_instance_valid(who):
+			continue
+		if who.has_method("is_alive") and not who.is_alive():
+			continue
+		if who.monster_zone != null and who.monster_zone.size() > 0:
+			n += 1
+	return n
+
+
+func _party_of(player: Variant) -> Array:
+	var game: Variant = _game_of(player)
+	if game != null and game.has_method("get_all_players"):
+		return game.get_all_players()
+	if game != null and game.get("players") is Array:
+		return game.get("players")
+	if player != null:
+		return [player]
+	return []
+
+
+func _monster_attack(monster: Variant) -> float:
+	if monster == null:
+		return 0.0
+	if monster.get("damage_value") != null:
+		return float(monster.get("damage_value"))
+	return 0.0
+
+
+func _best_equipped_weapon_damage(player: Variant) -> float:
+	var best: float = 2.0
+	if player == null or player.get("skills") == null:
+		return best
+	for skill in player.skills:
+		if skill == null or not is_instance_valid(skill):
+			continue
+		if not has_tag(skill, "weapon") or not has_tag(skill, "damage"):
+			continue
+		if player.has_method("can_use_active_skill") and not player.can_use_active_skill(skill):
+			continue
+		best = maxf(best, estimated_damage(skill))
+	return best
+
+
+func _monsters_on_same_tile(player: Variant, target: Variant) -> Array:
+	var result: Array = []
+	var block: Variant = _block_of_combat_target(player, target)
+	if block == null or not is_instance_valid(block) or not block.has_method("get_players"):
+		if player != null and player.monster_zone != null:
+			return player.monster_zone.duplicate()
+		return result
+	var seen: Dictionary = {}
+	for ally in block.get_players():
+		if ally == null or ally.monster_zone == null:
+			continue
+		for monster in ally.monster_zone:
+			if monster == null or not is_instance_valid(monster):
+				continue
+			var id: int = monster.get_instance_id()
+			if seen.has(id):
+				continue
+			seen[id] = true
+			result.append(monster)
+	return result
+
+
+func _players_on_same_tile(target: Variant) -> Array:
+	var block: Variant = null
+	if target != null and target.has_method("get_current_block"):
+		block = target.get_current_block()
+	if block == null and target != null:
+		block = target.get("current_block")
+	if block == null or not is_instance_valid(block) or not block.has_method("get_players"):
+		return []
+	return block.get_players()
+
+
+func _block_of_combat_target(player: Variant, target: Variant) -> Variant:
+	if target != null and target.has_method("get_current_block"):
+		var block: Variant = target.get_current_block()
+		if block != null:
+			return block
+	if player != null and player.has_method("get_current_block"):
+		return player.get_current_block()
+	return null
+
+
+func _block_forces_stealth(block: Variant) -> bool:
+	if block == null or not is_instance_valid(block):
+		return false
+	if block.has_method("count_monster_mark") and int(block.count_monster_mark()) > 0:
+		return true
+	if str(block.get("block_name")) == "河流" or str(block.get("english_name")) == "river":
+		return true
+	var skills: Variant = block.get("skills")
+	if skills is Array:
+		for skill in skills:
+			if skill != null and str(skill.get("english_name")) == "river":
+				return true
+	return false
+
+
+func is_clear_marks_prompt(prompt: String) -> bool:
+	return prompt.contains("无人机") or prompt.to_lower().contains("drone")

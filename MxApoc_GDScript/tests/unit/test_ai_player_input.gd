@@ -393,3 +393,237 @@ func test_ai_last_ap_prefers_punch_over_equip() -> void:
 	assert_eq(choice.get("type"), "skill", "最后 1 点行动应出拳打而不是换装")
 	assert_eq(choice.get("skill").english_name, "punch")
 
+
+func _add_extra_monster(p: Player, hp: int = 8) -> Monster:
+	var monster: Monster = Monster.new()
+	monster.hp = hp
+	monster.max_hp = hp
+	monster.damage_value = 4
+	monster.ai_threat = 40
+	p.monster_zone.append(monster)
+	return monster
+
+
+func _torch_skill() -> Skill:
+	var torch := Skill.new()
+	torch.english_name = "blowtorch"
+	torch.skill_name = "喷灯"
+	torch.active = "action"
+	torch.select_target = 1
+	torch.filter_target_range = "short"
+	torch.ai = {"order": 9, "useful": 0, "tags": ["damage", "weapon"], "effect": {"player": 0, "target": 5}}
+	return torch
+
+
+func test_ai_does_not_punch_when_axe_usable() -> void:
+	var p: Player = _ready_combat_player()
+	p.add_skill(_axe_skill())
+	var input = AIPlayerInputScript.new()
+	input.think_seconds = 0.0
+	p.input = input
+	var choice: Variant = await input.wait_action(p)
+	assert_true(choice is Dictionary)
+	assert_eq(choice.get("type"), "skill")
+	assert_ne(choice.get("skill").english_name, "punch", "已装备斧子时不应出拳打")
+	assert_eq(choice.get("skill").english_name, "reliable_axe")
+
+
+func test_ai_uses_lighter_over_axe_with_two_monsters() -> void:
+	var p: Player = _ready_combat_player()
+	p.add_skill(_axe_skill())
+	p.add_skill(_lighter_skill())
+	_add_extra_monster(p, 8)
+	var input = AIPlayerInputScript.new()
+	input.think_seconds = 0.0
+	p.input = input
+	var choice: Variant = await input.wait_action(p)
+	assert_true(choice is Dictionary)
+	assert_eq(choice.get("type"), "skill")
+	assert_eq(choice.get("skill").english_name, "lighter", "同格 2 怪时应出打火机")
+
+
+func test_ai_equips_lighter_when_axe_usable_and_two_monsters() -> void:
+	var p: Player = _ready_combat_player()
+	p.add_skill(_axe_skill())
+	_add_extra_monster(p, 8)
+	var lighter: EquipmentCard = _make_equipment("打火机")
+	lighter.english_name = "lighter"
+	lighter.weapon = true
+	lighter.size = 1
+	lighter.card_type = "equipment"
+	var skill := Skill.new()
+	skill.english_name = "lighter"
+	skill.active = "action"
+	skill.select_target = -1
+	skill.ai = {"order": 9, "useful": 0, "tags": ["damage", "aoe", "weapon"], "effect": {"player": 0, "target": 3}}
+	lighter.skills.append(skill)
+	lighter.ai = {"order": 8, "useful": 72, "tags": ["equip", "weapon", "aoe"]}
+	p.hand.append(lighter)
+	var input = AIPlayerInputScript.new()
+	input.think_seconds = 0.0
+	p.input = input
+	var choice: Variant = await input.wait_action(p)
+	assert_true(choice is Dictionary)
+	assert_eq(choice.get("type"), "card", "2 怪且栏位够时应先装打火机")
+	assert_eq(choice.get("card"), lighter)
+
+
+func test_ai_stuns_when_cannot_clear_two_monsters() -> void:
+	var p: Player = _ready_combat_player()
+	p.action_count = 2
+	p.add_skill(_axe_skill())
+	p.monster_zone[0].hp = 10
+	p.monster_zone[0].max_hp = 10
+	p.monster_zone[0].damage_value = 4
+	_add_extra_monster(p, 10)
+	var stun := Skill.new()
+	stun.english_name = "fire_extinguisher"
+	stun.skill_name = "灭火器"
+	stun.active = "action"
+	stun.select_target = -1
+	stun.filter_target_range = "short"
+	stun.filter_target = func(_player, target, _event, _game) -> bool:
+		return target != null and target.has_method("is_monster") and target.is_monster()
+	stun.ai = {"order": 5, "useful": 0, "tags": ["stun"], "effect": {"player": 1, "target": 0}}
+	p.add_skill(stun)
+	var input = AIPlayerInputScript.new()
+	input.think_seconds = 0.0
+	p.input = input
+	var choice: Variant = await input.wait_action(p)
+	assert_true(choice is Dictionary)
+	assert_eq(choice.get("type"), "skill")
+	assert_eq(choice.get("skill").english_name, "fire_extinguisher", "打不完的 2 怪时应出灭火器")
+
+
+func test_ai_checks_weapon_when_party_engaged() -> void:
+	var p: Player = _ready_combat_player()
+	p.monster_zone[0].hp = 10
+	p.monster_zone[0].max_hp = 10
+	p.add_skill(_torch_skill())
+	var ally: Player = _make_player("Ally")
+	ally.in_phase = "action"
+	var ally2: Player = _make_player("Ally2")
+	ally2.in_phase = "action"
+	Game.players = [p, ally, ally2]
+	ally.current_block = p.current_block
+	ally2.current_block = p.current_block
+	_add_extra_monster(ally, 8)
+	_add_extra_monster(ally2, 8)
+	var buff := Skill.new()
+	buff.english_name = "check_weapon"
+	buff.skill_name = "检查武器"
+	buff.active = "action"
+	buff.ai = {"order": 8, "useful": 0, "tags": ["team_buff"], "effect": {"player": 1, "target": 0}}
+	p.add_skill(buff)
+	var input = AIPlayerInputScript.new()
+	input.think_seconds = 0.0
+	p.input = input
+	var choice: Variant = await input.wait_action(p)
+	assert_true(choice is Dictionary)
+	assert_eq(choice.get("type"), "skill")
+	assert_eq(choice.get("skill").english_name, "check_weapon", "多人纠缠时应先检查武器")
+
+
+func test_ai_loaded_torch_beats_upgrade() -> void:
+	var p: Player = _ready_combat_player()
+	p.add_skill(_torch_skill())
+	var gun: EquipmentCard = _make_equipment("喷灯")
+	gun.english_name = "blowtorch"
+	gun.weapon = true
+	gun.in_equipment_area = true
+	p.equipment_zone.append(gun)
+	var upgrade: Card = _make_card("升级")
+	upgrade.english_name = "upgrade"
+	upgrade.card_type = "action"
+	var skill := Skill.new()
+	skill.english_name = "upgrade"
+	skill.active = "action"
+	skill.target_type = "equipment"
+	skill.select_target = 1
+	skill.filter_target = func(_player, target, _event, _game) -> bool:
+		return target != null and target.get("in_equipment_area") == true
+	skill.ai = {"order": 6, "useful": 0, "tags": ["buff"], "effect": {"player": 1, "target": 0}}
+	upgrade.skills.append(skill)
+	upgrade.ai = {"order": 6, "useful": 58, "tags": ["buff"]}
+	p.hand.append(upgrade)
+	var input = AIPlayerInputScript.new()
+	input.think_seconds = 0.0
+	p.input = input
+	var choice: Variant = await input.wait_action(p)
+	assert_true(choice is Dictionary)
+	assert_eq(choice.get("type"), "skill", "喷灯还能开火时不应打升级")
+	assert_eq(choice.get("skill").english_name, "blowtorch")
+
+
+func test_ai_does_not_swap_usable_weapon_for_bow() -> void:
+	var p: Player = _ready_combat_player()
+	p.add_skill(_axe_skill())
+	p.hand.append(_weapon_card("弓"))
+	var input = AIPlayerInputScript.new()
+	input.think_seconds = 0.0
+	p.input = input
+	var choice: Variant = await input.wait_action(p)
+	assert_true(choice is Dictionary)
+	assert_eq(choice.get("type"), "skill", "已有能用的武器时不应再装弓")
+	assert_eq(choice.get("skill").english_name, "reliable_axe")
+
+
+func test_choose_block_inline_drone_prefers_van_with_three_marks() -> void:
+	var p: Player = _make_player("AI")
+	var van: MapBlock = _make_block("面包车", 2, 0, true)
+	var wild: MapBlock = _make_block("旷野", 1, 0, true)
+	var start: MapBlock = _make_block("农场", 0, 0, true)
+	van.add_monster_mark(3)
+	wild.add_monster_mark(1)
+	Game.map_area = [start, wild, van]
+	p.current_block = start
+	var fuel := MissionComponentAddVanFuel.new()
+	fuel.params = {"block_name": "面包车", "card_name": "燃料", "count": 4}
+	var mc := MissionConfig.new()
+	mc.action_components = [fuel]
+	Game.mission_config = mc
+	mc.setup_components(Game)
+	p.hand.append(_make_card("燃料"))
+	Game.players = [p]
+	var input = AIPlayerInputScript.new()
+	input.set_request_owner(p)
+	var picked: Array = await input.choose_block_inline([wild, van], "无人机攻击", 1)
+	assert_eq(picked.size(), 1, "无人机应选出一格")
+	assert_eq(picked[0], van, "无人机应优先清 3 标记的面包车")
+
+
+func test_choose_block_inline_leaves_wilderness_without_closer() -> void:
+	var van: MapBlock = _make_block("面包车", 0, 0, true)
+	var wild: MapBlock = _make_block("旷野", 2, 0, true)
+	var closer_wild: MapBlock = _make_block("旷野", 1, 0, true)
+	var hospital: MapBlock = _make_block("医院", 2, 1, true)
+	Game.map_area = [van, closer_wild, wild, hospital]
+	var rally := MissionComponentAllPlayersAtBlock.new()
+	rally.params = {"block_name": "面包车"}
+	var mc := MissionConfig.new()
+	mc.win_condition_components = [rally]
+	Game.mission_config = mc
+	mc.setup_components(Game)
+	var p: Player = _make_player("AI")
+	p.current_block = wild
+	Game.players = [p]
+	var input = AIPlayerInputScript.new()
+	input.set_request_owner(p)
+	var picked: Array = await input.choose_block_inline([closer_wild, hospital], "耐力", 1)
+	assert_eq(picked.size(), 1, "旷野上有安全邻格时应选出离开")
+	assert_eq(picked[0], hospital, "离开旷野不要求更靠近行进目标")
+
+
+func test_ai_last_ap_leaves_wilderness_instead_of_punching() -> void:
+	var p: Player = _ready_combat_player()
+	var hospital: MapBlock = _make_block("医院", 1, 0, true)
+	Game.map_area = [p.current_block, hospital]
+	p.action_count = 1
+	var input = AIPlayerInputScript.new()
+	input.think_seconds = 0.0
+	p.input = input
+	var choice: Variant = await input.wait_action(p)
+	assert_true(choice is Dictionary, "旷野上最后 1 点应有离开行动")
+	assert_eq(choice.get("type"), "move", "最后 1 点应带走离开而不是打")
+	assert_eq(choice.get("target"), hospital)
+

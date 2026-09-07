@@ -62,15 +62,38 @@ func test_legal_actions_no_move_without_actions() -> void:
 
 
 func test_legal_actions_no_move_when_monster_zone_not_empty() -> void:
-	var p: Player = _ready_combat_player()
-	var here: MapBlock = p.current_block
-	var there: MapBlock = _make_block("邻格", 1, 0, true)
+	var p: Player = _make_player("AI")
+	p.in_phase = "action"
+	p.action_count = 4
+	var here: MapBlock = _make_block("购物中心", 0, 0, true)
+	var there: MapBlock = _make_block("医院", 1, 0, true)
 	Game.map_area = [here, there]
+	Game.players = [p]
+	p.current_block = here
+	var monster: Monster = Monster.new()
+	monster.hp = 5
+	p.monster_zone.append(monster)
+	p.add_skill(_punch_skill())
 	var actions: Array = LegalActionsScript.enumerate(p)
 	var types: Array = []
 	for action in actions:
 		types.append(action.get("type"))
-	assert_false(types.has("move"), "怪物区有怪不应枚举主动移动")
+	assert_false(types.has("move"), "非旷野且怪物区有怪不应枚举主动移动")
+
+
+func test_legal_actions_wilderness_allows_leave_when_engaged() -> void:
+	var p: Player = _ready_combat_player()
+	var here: MapBlock = p.current_block
+	var safe: MapBlock = _make_block("医院", 1, 0, true)
+	var wild2: MapBlock = _make_block("旷野", 0, 1, true)
+	Game.map_area = [here, safe, wild2]
+	var actions: Array = LegalActionsScript.enumerate(p)
+	var move_names: Array = []
+	for action in actions:
+		if action.get("type") == "move" and action.get("target") != null:
+			move_names.append(action["target"].block_name)
+	assert_true(move_names.has("医院"), "旷野上有怪应枚举离开到非旷野邻格")
+	assert_false(move_names.has("旷野"), "有怪离开旷野时不应走向另一格旷野")
 
 
 func test_legal_actions_scavenge_only_current_block_colors() -> void:

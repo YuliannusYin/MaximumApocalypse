@@ -228,29 +228,27 @@
             }
           },
           "ai": {
-            "order": 9,
+            "order": 8,
             "useful": 0,
             "tags": [
-              "damage",
-              "aoe"
+              "team_buff"
             ],
             "effect": {
-              "player": 0,
-              "target": 3
+              "player": 1,
+              "target": 0
             }
           }
         }
       ],
       "ai": {
-        "order": 9,
+        "order": 8,
         "useful": 58,
         "tags": [
-          "damage",
-          "aoe"
+          "team_buff"
         ],
         "effect": {
-          "player": 0,
-          "target": 3
+          "player": 1,
+          "target": 0
         }
       }
     },
@@ -288,7 +286,7 @@
             ],
             "effect": {
               "player": 0,
-              "target": 2
+              "target": 5
             }
           }
         }
@@ -399,27 +397,27 @@
             }
           },
           "ai": {
-            "order": 9,
+            "order": 6,
             "useful": 0,
             "tags": [
-              "damage"
+              "buff"
             ],
             "effect": {
-              "player": 0,
-              "target": 2
+              "player": 1,
+              "target": 0
             }
           }
         }
       ],
       "ai": {
-        "order": 9,
+        "order": 6,
         "useful": 58,
         "tags": [
-          "damage"
+          "buff"
         ],
         "effect": {
-          "player": 0,
-          "target": 2
+          "player": 1,
+          "target": 0
         }
       }
     },

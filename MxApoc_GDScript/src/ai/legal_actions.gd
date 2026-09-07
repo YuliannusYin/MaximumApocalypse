@@ -55,17 +55,34 @@ static func _append_skills(player: Variant, actions: Array) -> void:
 		actions.append({"type": "skill", "skill": skill})
 
 
+static func is_must_leave_block(block: Variant) -> bool:
+	if block == null or not is_instance_valid(block):
+		return false
+	if str(block.get("block_name")) == "旷野":
+		return true
+	if str(block.get("english_name")) == "wilderness":
+		return true
+	if block.has_method("has_skill") and (block.has_skill("wilderness") or block.has_skill("旷野")):
+		return true
+	return false
+
+
 static func _append_moves(player: Variant, actions: Array) -> void:
 	if player.get_effective_action_count() <= 0:
-		return
-	if player.monster_zone != null and player.monster_zone.size() > 0:
 		return
 	var current: Variant = player.get_current_block() if player.has_method("get_current_block") else null
 	if current == null or not is_instance_valid(current) or not current.has_method("get_adjacent_blocks"):
 		return
+	var engaged: bool = player.monster_zone != null and player.monster_zone.size() > 0
+	var leave_wild: bool = engaged and is_must_leave_block(current)
+	if engaged and not leave_wild:
+		return
 	for block in current.get_adjacent_blocks():
-		if block != null and is_instance_valid(block):
-			actions.append({"type": "move", "target": block})
+		if block == null or not is_instance_valid(block):
+			continue
+		if leave_wild and is_must_leave_block(block):
+			continue
+		actions.append({"type": "move", "target": block})
 
 
 static func _append_pile_draws(player: Variant, actions: Array) -> void:

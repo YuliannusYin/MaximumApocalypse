@@ -99,6 +99,16 @@ func still_needed_gather_families(game: Variant = null) -> PackedStringArray:
 
 
 func nearest_travel_block(player: Variant, game: Variant = null) -> Variant:
+	game = _resolve_game(game)
+	var leader: Variant = party_leader(player, game)
+	if leader != null and leader != player:
+		var anchor: Variant = follow_anchor_block(leader, game)
+		if anchor != null and is_instance_valid(anchor):
+			return anchor
+	return personal_nearest_travel_block(player, game)
+
+
+func personal_nearest_travel_block(player: Variant, game: Variant = null) -> Variant:
 	if player == null or not is_instance_valid(player):
 		return null
 	var current: Variant = player.get_current_block() if player.has_method("get_current_block") else player.get("current_block")
@@ -114,6 +124,81 @@ func nearest_travel_block(player: Variant, game: Variant = null) -> Variant:
 			best_d = d
 			best = block
 	return best
+
+
+func is_must_leave_block(block: Variant) -> bool:
+	if block == null or not is_instance_valid(block):
+		return false
+	if str(block.get("block_name")) == "旷野":
+		return true
+	if str(block.get("english_name")) == "wilderness":
+		return true
+	if block.has_method("has_skill") and (block.has_skill("wilderness") or block.has_skill("旷野")):
+		return true
+	return false
+
+
+func party_leader(player: Variant, game: Variant = null) -> Variant:
+	game = _resolve_game(game)
+	var people: Array = _alive_players(game)
+	if people.is_empty():
+		return player
+	var couriers: Array = []
+	for who in people:
+		if player_holds_needed_item(who, game):
+			couriers.append(who)
+	var pool: Array = couriers if not couriers.is_empty() else people
+	var best: Variant = pool[0]
+	var best_d: int = 99
+	for who in pool:
+		var dest: Variant = personal_nearest_travel_block(who, game)
+		var current: Variant = who.get_current_block() if who.has_method("get_current_block") else who.get("current_block")
+		var d: int = 0
+		if dest != null and is_instance_valid(dest) and current != dest:
+			d = path_distance(current, dest)
+		if d < best_d:
+			best_d = d
+			best = who
+	return best
+
+
+func follow_anchor_block(leader: Variant, game: Variant = null) -> Variant:
+	if leader == null or not is_instance_valid(leader):
+		return null
+	var block: Variant = leader.get_current_block() if leader.has_method("get_current_block") else leader.get("current_block")
+	if block == null or not is_instance_valid(block):
+		return null
+	if not is_must_leave_block(block):
+		return block
+	game = _resolve_game(game)
+	var dest: Variant = personal_nearest_travel_block(leader, game)
+	var best: Variant = null
+	var best_d: int = 99
+	if not block.has_method("get_adjacent_blocks"):
+		return block
+	for adj in block.get_adjacent_blocks():
+		if adj == null or not is_instance_valid(adj) or is_must_leave_block(adj):
+			continue
+		var d: int = 0 if dest == null else path_distance(adj, dest)
+		if d < best_d:
+			best_d = d
+			best = adj
+	return best if best != null else block
+
+
+func nearest_ally_distance(player: Variant, from_block: Variant = null, game: Variant = null) -> int:
+	return _ally_spread(player, from_block, game, true)
+
+
+func max_ally_distance(player: Variant, from_block: Variant = null, game: Variant = null) -> int:
+	return _ally_spread(player, from_block, game, false)
+
+
+func has_living_allies(player: Variant, game: Variant = null) -> bool:
+	for who in _alive_players(game):
+		if who != player:
+			return true
+	return false
 
 
 func nearest_objective_distance(player: Variant, game: Variant = null) -> int:
@@ -445,6 +530,52 @@ func _color_of_pile_key(pile_key: String) -> String:
 			return "blue"
 		_:
 			return ""
+
+
+func _alive_players(game: Variant) -> Array:
+	var result: Array = []
+	game = _resolve_game(game)
+	if game == null:
+		return result
+	var raw: Variant = game.get_alive_players() if game.has_method("get_alive_players") else game.get("players")
+	if not (raw is Array):
+		return result
+	for who in raw:
+		if who == null or not is_instance_valid(who):
+			continue
+		if who.has_method("is_alive") and not who.is_alive():
+			continue
+		result.append(who)
+	return result
+
+
+func _ally_spread(player: Variant, from_block: Variant, game: Variant, nearest: bool) -> int:
+	if player == null:
+		return 0 if nearest else 0
+	game = _resolve_game(game)
+	var origin: Variant = from_block
+	if origin == null:
+		origin = player.get_current_block() if player.has_method("get_current_block") else player.get("current_block")
+	if origin == null or not is_instance_valid(origin):
+		return 0
+	var best: int = 99 if nearest else 0
+	var found: bool = false
+	for who in _alive_players(game):
+		if who == player:
+			continue
+		var other: Variant = who.get_current_block() if who.has_method("get_current_block") else who.get("current_block")
+		if other == null or not is_instance_valid(other):
+			continue
+		found = true
+		var d: int = path_distance(origin, other)
+		if nearest:
+			if d < best:
+				best = d
+		elif d > best:
+			best = d
+	if not found:
+		return 0
+	return best
 
 
 func _resolve_game(game: Variant) -> Variant:

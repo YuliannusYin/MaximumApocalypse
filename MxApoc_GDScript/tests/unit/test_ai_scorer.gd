@@ -341,7 +341,7 @@ func test_grant_action_prefers_teammate_with_real_play() -> void:
 	var idle: Player = _make_player("Idle")
 	idle.in_phase = "action"
 	idle.action_count = 4
-	var block: MapBlock = _make_block("旷野", 0, 0, true)
+	var block: MapBlock = _make_block("购物中心", 0, 0, true)
 	Game.map_area = [block]
 	Game.players = [p, fighter, idle]
 	p.current_block = block
@@ -520,6 +520,7 @@ func test_grant_types_card_ignores_punch() -> void:
 func test_grant_action_includes_self() -> void:
 	var scorer = AiScorerScript.new()
 	var p: Player = _ready_combat_player()
+	p.current_block.block_name = "购物中心"
 	var grant := Skill.new()
 	grant.english_name = "adrenaline_injection"
 	grant.select_target = 1
@@ -738,4 +739,370 @@ func test_same_name_weapon_reequip_scores_zero() -> void:
 	turret2.ai = {"order": 8, "useful": 80, "tags": ["equip", "weapon"]}
 	p.hand.append(turret2)
 	assert_lte(scorer.score_action(p, {"type": "card", "card": turret2}), 0.0, "已装备同名武器再装应 ≤ 0")
+
+
+func _axe_skill() -> Skill:
+	var axe := Skill.new()
+	axe.english_name = "reliable_axe"
+	axe.skill_name = "值得信赖的斧子"
+	axe.active = "action"
+	axe.select_target = 1
+	axe.filter_target_range = "short"
+	axe.ai = {"order": 9, "useful": 0, "tags": ["damage", "weapon"], "effect": {"player": 0, "target": 4}}
+	return axe
+
+
+func _add_extra_monster(p: Player, hp: int = 8) -> Monster:
+	var monster: Monster = Monster.new()
+	monster.hp = hp
+	monster.max_hp = hp
+	monster.damage_value = 4
+	monster.ai_threat = 40
+	p.monster_zone.append(monster)
+	return monster
+
+
+func test_punch_zero_when_axe_usable() -> void:
+	var scorer = AiScorerScript.new()
+	var p: Player = _ready_combat_player()
+	p.add_skill(_axe_skill())
+	assert_lte(scorer.score_action(p, {"type": "skill", "skill": p.skills[0]}), 0.0, "有可用斧子时拳打应 ≤ 0")
+
+
+func test_aoe_lighter_beats_axe_with_two_monsters() -> void:
+	var scorer = AiScorerScript.new()
+	var p: Player = _ready_combat_player()
+	p.add_skill(_axe_skill())
+	_add_extra_monster(p, 8)
+	var lighter := Skill.new()
+	lighter.english_name = "lighter"
+	lighter.active = "action"
+	lighter.select_target = -1
+	lighter.filter_target_range = "short"
+	lighter.filter_target = func(_player, target, _event, _game) -> bool:
+		return target != null and target.has_method("is_monster") and target.is_monster()
+	lighter.ai = {"order": 9, "useful": 0, "tags": ["damage", "aoe", "weapon"], "effect": {"player": 0, "target": 3}}
+	p.add_skill(lighter)
+	assert_gt(
+		scorer.score_action(p, {"type": "skill", "skill": lighter}),
+		scorer.score_action(p, {"type": "skill", "skill": _axe_skill()}),
+		"同格 2 怪时打火机应压过斧子"
+	)
+
+
+func test_equip_aoe_lighter_when_axe_already_usable() -> void:
+	var scorer = AiScorerScript.new()
+	var p: Player = _ready_combat_player()
+	p.add_skill(_axe_skill())
+	_add_extra_monster(p, 8)
+	var lighter: EquipmentCard = _make_equipment("打火机")
+	lighter.english_name = "lighter"
+	lighter.weapon = true
+	lighter.size = 1
+	lighter.card_type = "equipment"
+	var skill := Skill.new()
+	skill.english_name = "lighter"
+	skill.active = "action"
+	skill.select_target = -1
+	skill.ai = {"order": 9, "useful": 0, "tags": ["damage", "aoe", "weapon"], "effect": {"player": 0, "target": 3}}
+	lighter.skills.append(skill)
+	lighter.ai = {"order": 8, "useful": 72, "tags": ["equip", "weapon", "aoe"]}
+	p.hand.append(lighter)
+	assert_gt(
+		scorer.score_action(p, {"type": "card", "card": lighter}),
+		scorer.score_action(p, {"type": "skill", "skill": _axe_skill()}),
+		"2 怪且栏位够时应先装打火机"
+	)
+
+
+func test_stun_beats_axe_when_cannot_clear() -> void:
+	var scorer = AiScorerScript.new()
+	var p: Player = _ready_combat_player()
+	p.action_count = 2
+	p.add_skill(_axe_skill())
+	p.monster_zone[0].hp = 10
+	p.monster_zone[0].max_hp = 10
+	p.monster_zone[0].damage_value = 4
+	_add_extra_monster(p, 10)
+	var stun := Skill.new()
+	stun.english_name = "fire_extinguisher"
+	stun.skill_name = "灭火器"
+	stun.active = "action"
+	stun.select_target = -1
+	stun.filter_target_range = "short"
+	stun.filter_target = func(_player, target, _event, _game) -> bool:
+		return target != null and target.has_method("is_monster") and target.is_monster()
+	stun.ai = {"order": 5, "useful": 0, "tags": ["stun"], "effect": {"player": 1, "target": 0}}
+	p.add_skill(stun)
+	assert_gt(
+		scorer.score_action(p, {"type": "skill", "skill": stun}),
+		scorer.score_action(p, {"type": "skill", "skill": _axe_skill()}),
+		"打不完的 2 怪时应出灭火器"
+	)
+
+
+func test_check_weapon_beats_torch_when_party_engaged() -> void:
+	var scorer = AiScorerScript.new()
+	var p: Player = _ready_combat_player()
+	p.monster_zone[0].hp = 10
+	p.monster_zone[0].max_hp = 10
+	var ally: Player = _make_player("Ally")
+	ally.in_phase = "action"
+	var ally2: Player = _make_player("Ally2")
+	ally2.in_phase = "action"
+	Game.players = [p, ally, ally2]
+	ally.current_block = p.current_block
+	ally2.current_block = p.current_block
+	_add_extra_monster(ally, 8)
+	_add_extra_monster(ally2, 8)
+	var torch := Skill.new()
+	torch.english_name = "blowtorch"
+	torch.active = "action"
+	torch.select_target = 1
+	torch.filter_target_range = "short"
+	torch.ai = {"order": 9, "useful": 0, "tags": ["damage", "weapon"], "effect": {"player": 0, "target": 5}}
+	p.add_skill(torch)
+	var buff := Skill.new()
+	buff.english_name = "check_weapon"
+	buff.skill_name = "检查武器"
+	buff.active = "action"
+	buff.ai = {"order": 8, "useful": 0, "tags": ["team_buff"], "effect": {"player": 1, "target": 0}}
+	p.add_skill(buff)
+	assert_gt(
+		scorer.score_action(p, {"type": "skill", "skill": buff}),
+		scorer.score_action(p, {"type": "skill", "skill": torch}),
+		"多人纠缠时应先检查武器"
+	)
+	for m in p.monster_zone.duplicate():
+		p.monster_zone.erase(m)
+	ally.monster_zone.clear()
+	ally2.monster_zone.clear()
+	assert_lte(scorer.score_action(p, {"type": "skill", "skill": buff}), 0.0, "无人纠缠时检查武器应 ≤ 0")
+
+
+func test_upgrade_loses_to_loaded_torch() -> void:
+	var scorer = AiScorerScript.new()
+	var p: Player = _ready_combat_player()
+	var torch := Skill.new()
+	torch.english_name = "blowtorch"
+	torch.active = "action"
+	torch.select_target = 1
+	torch.filter_target_range = "short"
+	torch.ai = {"order": 9, "useful": 0, "tags": ["damage", "weapon"], "effect": {"player": 0, "target": 5}}
+	p.add_skill(torch)
+	var upgrade: Card = _make_card("升级")
+	upgrade.english_name = "upgrade"
+	upgrade.card_type = "action"
+	var skill := Skill.new()
+	skill.english_name = "upgrade"
+	skill.active = "action"
+	skill.target_type = "equipment"
+	skill.select_target = 1
+	skill.ai = {"order": 6, "useful": 0, "tags": ["buff"], "effect": {"player": 1, "target": 0}}
+	upgrade.skills.append(skill)
+	upgrade.ai = {"order": 6, "useful": 58, "tags": ["buff"]}
+	p.hand.append(upgrade)
+	assert_gt(
+		scorer.score_action(p, {"type": "skill", "skill": torch}),
+		scorer.score_action(p, {"type": "card", "card": upgrade}),
+		"喷灯还能开火时升级不应抢攻击"
+	)
+
+
+func test_clear_marks_prefers_van_with_three_marks() -> void:
+	var scorer = AiScorerScript.new()
+	var p: Player = _make_player("AI")
+	var van: MapBlock = _make_block("面包车", 2, 0, true)
+	var wild: MapBlock = _make_block("旷野", 1, 0, true)
+	var start: MapBlock = _make_block("农场", 0, 0, true)
+	van.add_monster_mark(3)
+	wild.add_monster_mark(1)
+	Game.map_area = [start, wild, van]
+	p.current_block = start
+	var fuel := MissionComponentAddVanFuel.new()
+	fuel.params = {"block_name": "面包车", "card_name": "燃料", "count": 4}
+	var mc := MissionConfig.new()
+	mc.action_components = [fuel]
+	Game.mission_config = mc
+	mc.setup_components(Game)
+	p.hand.append(_make_card("燃料"))
+	Game.players = [p]
+	assert_gt(
+		scorer.score_clear_marks_block(p, van),
+		scorer.score_clear_marks_block(p, wild),
+		"无人机应优先清 3 标记的面包车"
+	)
+
+
+func test_last_ap_does_not_enter_marked_block() -> void:
+	var mc := MissionConfig.new()
+	var fuel := MissionComponentAddVanFuel.new()
+	fuel.params = {"block_name": "面包车", "card_name": "燃料", "count": 4}
+	var rally := MissionComponentAllPlayersAtBlock.new()
+	rally.params = {"block_name": "面包车"}
+	mc.action_components = [fuel]
+	mc.win_condition_components = [rally]
+	Game.mission_config = mc
+	mc.setup_components(Game)
+	var van: MapBlock = _make_block("面包车", 0, 0, true)
+	var farm: MapBlock = _make_block("农场", 1, 0, true)
+	Game.map_area = [van, farm]
+	var scorer = AiScorerScript.new()
+	var p: Player = _make_player("AI")
+	p.action_count = 1
+	p.in_phase = "action"
+	p.current_block = farm
+	p.hand.append(_make_card("燃料"))
+	Game.players = [p]
+	van.add_monster_mark(1)
+	assert_lte(scorer.score_action(p, {"type": "move", "target": van}), 0.0, "最后 1 点不应走进有标记的格")
+
+
+func test_extra_weapon_equip_zero_when_current_weapon_works() -> void:
+	var scorer = AiScorerScript.new()
+	var p: Player = _ready_combat_player()
+	p.add_skill(_axe_skill())
+	var bow: EquipmentCard = _make_equipment("弓")
+	bow.weapon = true
+	bow.ai = {"order": 8, "useful": 80, "tags": ["equip", "weapon"]}
+	p.hand.append(bow)
+	assert_lte(scorer.score_action(p, {"type": "card", "card": bow}), 0.0, "已有能用的武器时再装弓应 ≤ 0")
+
+
+func test_wilderness_leave_beats_scavenge_and_last_ap_attack() -> void:
+	var p: Player = _ready_combat_player()
+	var hospital: MapBlock = _make_block("医院", 1, 0, true)
+	Game.map_area = [p.current_block, hospital]
+	p.action_count = 1
+	p.hunger = 6
+	p.current_block.scavenge_colors = PackedStringArray(["green"])
+	Game.green_scavenge_pile = Pile.new()
+	Game.green_scavenge_pile.add(_make_scavenge_card("食物（小额）", "green"))
+	var scorer = AiScorerScript.new()
+	var leave: float = scorer.score_action(p, {"type": "move", "target": hospital})
+	var scavenge: float = scorer.score_action(p, {"type": "pile_draw", "pile_key": "green_scavenge"})
+	var punch: float = scorer.score_action(p, {"type": "skill", "skill": p.skills[0]})
+	assert_gt(leave, scavenge, "离开旷野应高于拾荒")
+	assert_gt(leave, punch, "最后 1 点离开应高于打出")
+	assert_lte(scavenge, 0.0, "旷野上拾荒应 ≤ 0")
+	assert_lte(punch, 0.0, "有安全邻格时最后 1 点不应留在旷野上打")
+
+
+func test_last_ap_does_not_enter_wilderness() -> void:
+	var farm: MapBlock = _make_block("农场", 0, 0, true)
+	var wild: MapBlock = _make_block("旷野", 1, 0, true)
+	var van: MapBlock = _make_block("面包车", 2, 0, true)
+	Game.map_area = [farm, wild, van]
+	var rally := MissionComponentAllPlayersAtBlock.new()
+	rally.params = {"block_name": "面包车"}
+	var mc := MissionConfig.new()
+	mc.win_condition_components = [rally]
+	Game.mission_config = mc
+	mc.setup_components(Game)
+	var p: Player = _make_player("AI")
+	p.in_phase = "action"
+	p.current_block = farm
+	Game.players = [p]
+	var scorer = AiScorerScript.new()
+	p.action_count = 1
+	assert_lte(scorer.score_action(p, {"type": "move", "target": wild}), 0.0, "最后 1 点不应走进旷野")
+	p.action_count = 2
+	assert_gt(scorer.score_action(p, {"type": "move", "target": wild}), 0.0, "2 点时应允许踏进旷野以便再踏出")
+
+
+func test_engaged_scavenge_scores_zero() -> void:
+	var mall: MapBlock = _make_block("购物中心", 0, 0, true)
+	mall.scavenge_colors = PackedStringArray(["green"])
+	Game.map_area = [mall]
+	Game.green_scavenge_pile = Pile.new()
+	Game.green_scavenge_pile.add(_make_scavenge_card("食物（小额）", "green"))
+	var p: Player = _make_player("AI")
+	p.in_phase = "action"
+	p.action_count = 4
+	p.hunger = 6
+	p.current_block = mall
+	var monster: Monster = Monster.new()
+	monster.hp = 5
+	p.monster_zone.append(monster)
+	Game.players = [p]
+	var scorer = AiScorerScript.new()
+	assert_lte(scorer.score_action(p, {"type": "pile_draw", "pile_key": "green_scavenge"}), 0.0, "纠缠中拾荒应 ≤ 0")
+
+
+func _cohesion_line() -> Dictionary:
+	var rally := MissionComponentAllPlayersAtBlock.new()
+	rally.params = {"block_name": "面包车"}
+	var mc := MissionConfig.new()
+	mc.win_condition_components = [rally]
+	Game.mission_config = mc
+	mc.setup_components(Game)
+	var farm: MapBlock = _make_block("农场", 0, 0, true)
+	var hospital: MapBlock = _make_block("医院", 1, 0, true)
+	var police: MapBlock = _make_block("警察局", 2, 0, true)
+	var mall: MapBlock = _make_block("购物中心", 3, 0, true)
+	var gas: MapBlock = _make_block("加油站", 4, 0, true)
+	var van: MapBlock = _make_block("面包车", 5, 0, true)
+	Game.map_area = [farm, hospital, police, mall, gas, van]
+	return {"farm": farm, "hospital": hospital, "police": police, "mall": mall, "gas": gas, "van": van}
+
+
+func test_leader_move_that_spreads_beyond_two_scores_zero() -> void:
+	var blocks: Dictionary = _cohesion_line()
+	var leader: Player = _make_player("Leader")
+	var straggler: Player = _make_player("Straggler")
+	leader.in_phase = "action"
+	leader.action_count = 4
+	straggler.in_phase = "action"
+	straggler.action_count = 4
+	leader.current_block = blocks["mall"]
+	straggler.current_block = blocks["farm"]
+	Game.players = [leader, straggler]
+	var scorer = AiScorerScript.new()
+	assert_lte(
+		scorer.score_action(leader, {"type": "move", "target": blocks["gas"]}),
+		0.0,
+		"领队再超前到距最后一名超过 2 格时应 ≤ 0"
+	)
+
+
+func test_straggler_prefers_following_leader_over_opposite_gather() -> void:
+	var mc := MissionConfig.new()
+	var fuel := MissionComponentAddVanFuel.new()
+	fuel.params = {"block_name": "面包车", "card_name": "燃料", "count": 4}
+	var rally := MissionComponentAllPlayersAtBlock.new()
+	rally.params = {"block_name": "面包车"}
+	mc.action_components = [fuel]
+	mc.win_condition_components = [rally]
+	Game.mission_config = mc
+	mc.setup_components(Game)
+	var farm: MapBlock = _make_block("农场", 0, 0, true)
+	var hospital: MapBlock = _make_block("医院", 1, 0, true)
+	var police: MapBlock = _make_block("警察局", 2, 0, true)
+	var mall_line: MapBlock = _make_block("购物中心", 3, 0, true)
+	var street: MapBlock = _make_block("城市街道", 4, 0, true)
+	var gas: MapBlock = _make_block("加油站", 5, 0, true)
+	gas.scavenge_colors = PackedStringArray(["red"])
+	var van: MapBlock = _make_block("面包车", 6, 0, true)
+	var opposite: MapBlock = _make_block("超市", 0, 1, true)
+	opposite.scavenge_colors = PackedStringArray(["blue"])
+	Game.map_area = [farm, hospital, police, mall_line, street, gas, van, opposite]
+	Game.red_scavenge_pile = Pile.new()
+	Game.red_scavenge_pile.add(_make_scavenge_card("燃料", "red"))
+	Game.blue_scavenge_pile = Pile.new()
+	Game.blue_scavenge_pile.add(_make_scavenge_card("食物（小额）", "blue"))
+	var leader: Player = _make_player("Leader")
+	var straggler: Player = _make_player("Straggler")
+	leader.in_phase = "action"
+	leader.action_count = 4
+	straggler.in_phase = "action"
+	straggler.action_count = 4
+	leader.current_block = mall_line
+	straggler.current_block = farm
+	Game.players = [leader, straggler]
+	var scorer = AiScorerScript.new()
+	assert_gt(
+		scorer.score_action(straggler, {"type": "move", "target": hospital}),
+		scorer.score_action(straggler, {"type": "move", "target": opposite}),
+		"掉队者靠近领队应高于走向相反采集格"
+	)
 
