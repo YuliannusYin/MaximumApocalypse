@@ -24,7 +24,7 @@
 | `default_bus_layout.tres` | 文件 | 默认音频总线布局 |
 | `export_presets.cfg` | 文件 | 导出预设 |
 | `icon.svg` | 文件 | 项目图标 |
-| `project.godot` | 文件 | Godot 项目配置（含 autoload 注册） |
+| `project.godot` | 文件 | Godot 项目配置（含 autoload 注册、`application/config/version`） |
 
 ---
 
@@ -141,6 +141,7 @@ UI 与输入层。全部 `.gd` 文件如下：
 | `gui_player_input.gd` | `GuiPlayerInput` | 图形界面玩家输入 |
 | `hand_display_area.gd` | `HandDisplayArea` | 手牌展示区 |
 | `i_player_input.gd` | `IPlayerInput` | 玩家输入接口 |
+| `join_room_overlay.gd` | `JoinRoomOverlay` | 主菜单加入房间浮层（占位） |
 | `image_cache.gd` | `ImageCache` | 图片缓存（预加载 `image_manifest.json`） |
 | `loading_screen.gd` | `LoadingScreen` | 加载界面 |
 | `main_menu.gd` | `MainMenu` | 主菜单 |

@@ -44,6 +44,7 @@ func test_missing_file_loads_defaults() -> void:
 	assert_eq(RoomState.seats.size(), 1)
 	assert_eq(RoomState.seats[0].type, "human")
 	assert_null(RoomState.seats[0].survivor)
+	assert_false(RoomState.online_multiplayer)
 
 
 func test_save_load_roundtrip_mission_variants_seats() -> void:
@@ -210,6 +211,30 @@ func test_is_ready_to_start_requires_occupant() -> void:
 	assert_false(RoomState.is_ready_to_start())
 	RoomState.seats = [{"type": "ai", "survivor": _survivor("hunter")}]
 	assert_true(RoomState.is_ready_to_start())
+
+
+func test_online_multiplayer_roundtrip() -> void:
+	RoomState.online_multiplayer = true
+	RoomState.save_to(PLAYER_PATH)
+	RoomState.clear()
+	assert_false(RoomState.online_multiplayer)
+	RoomState.load_from(PLAYER_PATH)
+	assert_true(RoomState.online_multiplayer)
+
+
+func test_missing_online_multiplayer_field_defaults_false() -> void:
+	var payload := {
+		"mission_is_random": true,
+		"mission_id": -1,
+		"variants": {},
+		"seats": [{"type": "human", "survivor": ""}],
+	}
+	var file := FileAccess.open(PLAYER_PATH, FileAccess.WRITE)
+	file.store_string(JSON.stringify(payload))
+	file.close()
+	RoomState.online_multiplayer = true
+	RoomState.load_from(PLAYER_PATH)
+	assert_false(RoomState.online_multiplayer)
 
 
 func test_corrupt_file_falls_back_to_defaults() -> void:

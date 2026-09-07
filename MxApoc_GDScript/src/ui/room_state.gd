@@ -18,6 +18,8 @@ var selected_mission_is_random: bool = true
 var variants: Dictionary = DEFAULT_VARIANTS.duplicate()
 ## 座位列表；每项为 {type: String, survivor: SurvivorData} 字典。
 var seats: Array = []
+## 是否作为在线多人房间（本轮仅配置，不启动网络）。
+var online_multiplayer: bool = false
 
 var _path_player: String = CONFIG_PATH_PLAYER
 var _path_debug: String = CONFIG_PATH_DEBUG
@@ -36,6 +38,7 @@ func clear() -> void:
 	selected_mission_is_random = true
 	variants = DEFAULT_VARIANTS.duplicate()
 	seats = [{"type": "human", "survivor": null}]
+	online_multiplayer = false
 
 
 ## 重置为默认并覆盖当前模式的已保存配置。
@@ -127,6 +130,7 @@ func snapshot() -> String:
 		lines.append("变体：无")
 	else:
 		lines.append("变体：" + ", ".join(active_variants))
+	lines.append("在线多人：" + ("开" if online_multiplayer else "关"))
 
 	lines.append("玩家：")
 	for i in range(seats.size()):
@@ -163,6 +167,7 @@ func _to_serialized() -> Dictionary:
 		"mission_id": mission_id,
 		"variants": variants.duplicate(),
 		"seats": seat_rows,
+		"online_multiplayer": online_multiplayer,
 	}
 
 
@@ -201,6 +206,7 @@ func _apply_serialized(data: Dictionary) -> void:
 			seats.append(_sanitize_seat(raw, available_ids))
 	if seats.is_empty():
 		seats = [{"type": "human", "survivor": null}]
+	online_multiplayer = bool(data.get("online_multiplayer", false))
 
 
 func _sanitize_seat(raw: Dictionary, available_ids: Dictionary) -> Dictionary:

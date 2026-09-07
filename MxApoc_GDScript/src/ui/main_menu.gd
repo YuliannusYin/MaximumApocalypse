@@ -2,6 +2,7 @@ extends Control
 
 const GITHUB_URL := "https://github.com/YuliannusYin/MaximumApocalypse"
 const WIKI_OVERLAY_SCENE := preload("res://scenes/WikiOverlay.tscn")
+const JOIN_ROOM_OVERLAY_SCENE := preload("res://scenes/JoinRoomOverlay.tscn")
 ## 连续点击时间窗口（秒）
 const CLICK_WINDOW := 1.5
 ## 触发切换所需点击次数
@@ -23,6 +24,7 @@ var _version_click_count: int = 0
 ## 上次点击时间戳
 var _last_click_time: float = 0.0
 var _wiki_overlay: Control = null
+var _join_overlay: Control = null
 
 func _ready() -> void:
 	# 保留现有主菜单背景图的原始亮度，仅叠加很轻的废土纹理。
@@ -38,18 +40,27 @@ func _ready() -> void:
 	HudTheme.apply_slot_button(wiki_button, 10, HudTheme.SLOT_BORDER, HudTheme.GOLD_TEXT)
 	HudTheme.apply_slot_button(achievement_button, 10, HudTheme.SLOT_BORDER, HudTheme.GOLD_TEXT)
 	HudTheme.apply_slot_button(github_button, 10)
+	version_label.text = str(ProjectSettings.get_setting("application/config/version", "v0.36.0"))
 	version_label.add_theme_color_override("font_color", HudTheme.TEXT_DIM)
 	create_room_button.pressed.connect(_on_create_room_pressed)
+	join_room_button.pressed.connect(_on_join_room_pressed)
 	quit_button.pressed.connect(_on_quit_pressed)
 	settings_button.pressed.connect(_on_settings_pressed)
 	wiki_button.pressed.connect(_on_wiki_pressed)
 	achievement_button.pressed.connect(_on_achievement_pressed)
 	github_button.pressed.connect(_on_github_pressed)
 	version_label.gui_input.connect(_on_version_label_gui_input)
-	# JoinRoomButton / EditorButton 保持禁用占位，不连接信号
+	# EditorButton 保持禁用占位，不连接信号
 
 func _on_create_room_pressed() -> void:
 	get_tree().change_scene_to_file("res://scenes/GameRoom.tscn")
+
+func _on_join_room_pressed() -> void:
+	if _join_overlay != null and is_instance_valid(_join_overlay):
+		return
+	_join_overlay = JOIN_ROOM_OVERLAY_SCENE.instantiate()
+	add_child(_join_overlay)
+	_join_overlay.closed.connect(func() -> void: _join_overlay = null)
 
 func _on_settings_pressed() -> void:
 	get_tree().change_scene_to_file("res://scenes/SettingsScene.tscn")

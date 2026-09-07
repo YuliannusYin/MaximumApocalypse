@@ -1473,14 +1473,40 @@ func execute_action_immediately(num: int = 1, operation_runtime: Variant = null)
 		context["requested_actions"] = maxi(num, 0)
 	if not context.has("remaining_actions"):
 		context["remaining_actions"] = maxi(num, 0)
+	# 迷你回合是独立行动预算：挂起外层出牌的「效果进行中 / 费用已付」标志，
+	# 避免 consume_action 被短路导致 remaining_actions 永不下降。
+	var saved_cost_guards: Dictionary = _suspend_card_cost_guards()
 	_operation_context_stack.append(context)
 	_operation_runtime_stack.append(runtime)
 	var result: Dictionary = await wait_player_action(context)
 	_operation_runtime_stack.pop_back()
 	_operation_context_stack.pop_back()
+	_restore_card_cost_guards(saved_cost_guards)
 	context["completed"] = true
 	context["reason"] = result.get("reason", "")
 	return result
+
+
+func _suspend_card_cost_guards() -> Dictionary:
+	var saved: Dictionary = {
+		"effect_in_progress": _card_effect_in_progress,
+		"cost_paid": _card_cost_paid_by_content,
+		"pending_settlement": _pending_card_settlement,
+		"pending_free": _pending_card_cost_free,
+	}
+	_card_effect_in_progress = false
+	_card_cost_paid_by_content = false
+	_pending_card_settlement = null
+	_pending_card_cost_free = false
+	return saved
+
+
+func _restore_card_cost_guards(saved: Dictionary) -> void:
+	_card_effect_in_progress = bool(saved.get("effect_in_progress", false))
+	_card_cost_paid_by_content = bool(saved.get("cost_paid", false))
+	var pending: Variant = saved.get("pending_settlement", null)
+	_pending_card_settlement = pending if pending is Card else null
+	_pending_card_cost_free = bool(saved.get("pending_free", false))
 
 
 # === 十二、底层接口与工具方法 ===

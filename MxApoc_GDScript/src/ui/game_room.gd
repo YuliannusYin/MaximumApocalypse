@@ -10,6 +10,7 @@ const RANDOM_MISSION_IDX := 0
 @onready var _reset_button: Button = $BottomBar/ResetButton
 @onready var _mission_option: OptionButton = $MissionSelectArea/ScrollContainer/VBoxContainer/MissionSection/MissionOption
 @onready var _variant_list: VBoxContainer = $MissionSelectArea/ScrollContainer/VBoxContainer/VariantSection/VariantList
+@onready var _online_multiplayer_checkbox: CheckBox = $MissionSelectArea/ScrollContainer/VBoxContainer/AdvancedSection/OnlineMultiplayerCheckBox
 @onready var _mission_name_label: Label = $MissionDetailArea/VBoxContainer/MissionNameLabel
 @onready var _difficulty_label: Label = $MissionDetailArea/VBoxContainer/DifficultyLabel
 @onready var _detail_view: MissionDetailView = $MissionDetailArea/VBoxContainer/ScrollContainer/DetailView
@@ -36,6 +37,8 @@ func _ready() -> void:
 		detail_style.content_margin_bottom = 10
 	HudTheme.apply_section_panel($PlayerSettingArea, Color("#211f1a"))
 	HudTheme.apply_slot_button(_mission_option, 14, HudTheme.GOLD_BORDER, HudTheme.GOLD_TEXT)
+	HudTheme.apply_slot_button(_online_multiplayer_checkbox, 13)
+	_online_multiplayer_checkbox.tooltip_text = "开启后将允许其他玩家通过「加入房间」连入。当前联机尚未实现。"
 	HudTheme.apply_slot_button(_add_seat_button, 14, HudTheme.SLOT_BORDER, HudTheme.TEXT_MAIN)
 	HudTheme.apply_slot_button(_remove_seat_button, 14, HudTheme.SLOT_BORDER, HudTheme.TEXT_MAIN)
 	HudTheme.apply_slot_button(_back_button, 13)
@@ -53,6 +56,7 @@ func _ready() -> void:
 	_back_button.pressed.connect(_on_back)
 	_reset_button.pressed.connect(_on_reset)
 	_mission_option.item_selected.connect(_on_mission_selected)
+	_online_multiplayer_checkbox.toggled.connect(_on_online_multiplayer_toggled)
 	_start_game_button.pressed.connect(_on_start_game)
 	_add_seat_button.pressed.connect(_on_add_seat)
 	_remove_seat_button.pressed.connect(_on_remove_seat)
@@ -106,6 +110,7 @@ func _restore_state() -> void:
 		_select_default_mission()
 	for key in _variant_checkboxes:
 		_variant_checkboxes[key].set_pressed_no_signal(RoomState.variants.get(key, false))
+	_online_multiplayer_checkbox.set_pressed_no_signal(RoomState.online_multiplayer)
 	_refresh_detail_panel()
 
 ## “随机任务”选项当前是否存在（存在时必为第 0 项，metadata 为 null）。
@@ -197,6 +202,10 @@ func _on_variant_toggled(id: String, toggled: bool) -> void:
 	RoomState.variants[id] = toggled
 	RoomState.save()
 
+func _on_online_multiplayer_toggled(toggled: bool) -> void:
+	RoomState.online_multiplayer = toggled
+	RoomState.save()
+
 func _on_add_seat() -> void:
 	if RoomState.seats.size() >= MAX_SEATS:
 		return
@@ -253,6 +262,7 @@ func _on_reset() -> void:
 	# 刷新变体复选框
 	for key in _variant_checkboxes:
 		_variant_checkboxes[key].set_pressed_no_signal(false)
+	_online_multiplayer_checkbox.set_pressed_no_signal(RoomState.online_multiplayer)
 	# 重建座位
 	_rebuild_seats()
 	# 刷新详情面板与开始按钮状态
