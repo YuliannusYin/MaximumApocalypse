@@ -53,6 +53,14 @@ static func _ensure_initialized() -> void:
 	_scan_card_images()
 
 
+static func _role_image_key(folder_name: String, stem: String) -> String:
+	if stem.begins_with("老兵角色牌"):
+		return "veteran_human"
+	if stem.begins_with("狗角色牌"):
+		return "dog"
+	return folder_name
+
+
 static func _scan_block_images() -> void:
 	if not _manifest.has("mapblock"):
 		return
@@ -115,9 +123,17 @@ static func _scan_role_card_images() -> void:
 			# 精确匹配文件主名以「角色牌正面/背面」结尾，排除「角色牌正面头像」等近似文件
 			var stem: String = p.get_file().get_basename().strip_edges()
 			if stem.ends_with("角色牌正面"):
-				_role_card_front[role_name] = load(p)
+				var key: String = _role_image_key(role_name, stem)
+				_role_card_front[key] = load(p)
+				if key != role_name:
+					# 包目录键仍指向主角色正面，供房间/结算用 veteran
+					if stem.begins_with("老兵角色牌"):
+						_role_card_front[role_name] = load(p)
 			elif stem.ends_with("角色牌背面"):
-				_role_card_back[role_name] = load(p)
+				var key_back: String = _role_image_key(role_name, stem)
+				_role_card_back[key_back] = load(p)
+				if key_back != role_name and stem.begins_with("老兵角色牌"):
+					_role_card_back[role_name] = load(p)
 			elif stem.ends_with("角色头像"):
 				_player_avatars[role_name] = load(p)
 

@@ -40,6 +40,10 @@ var game_discard_pile: Pile = null
 
 # === 关联对象 ===
 var role_card: RoleCard = null
+## 双子角色生命体（仅 veteran）。空数组表示普通求生者，自身即唯一生命体。
+var bodies: Array = []
+## 背包等对装备栏的额外加成（叠加在存活子角色容量之和上）。
+var extra_equipment_capacity: int = 0
 var current_block = null  # MapBlock
 var seat_number: int = 0
 var player_name: String = ""
@@ -86,7 +90,119 @@ func is_player() -> bool:
 
 
 func is_alive() -> bool:
+	if has_companion_bodies():
+		for body in bodies:
+			if body != null and is_instance_valid(body) and body.is_alive():
+				return true
+		return false
 	return hp > 0
+
+
+func has_companion_bodies() -> bool:
+	return not bodies.is_empty()
+
+
+func setup_companion_bodies(survivor: SurvivorData) -> void:
+	bodies.clear()
+	if survivor == null or survivor.sub_survivors.is_empty():
+		return
+	var body_script: GDScript = load("res://src/entities/companion_body.gd") as GDScript
+	if body_script == null:
+		push_error("setup_companion_bodies: 无法加载 companion_body.gd")
+		return
+	for sub_dict in survivor.sub_survivors:
+		if not (sub_dict is Dictionary):
+			continue
+		var sub_data: SurvivorData = SurvivorData.new(sub_dict)
+		if sub_data.english_name == "":
+			continue
+		var body = body_script.new()
+		body.setup_from_survivor(sub_data, self)
+		bodies.append(body)
+	if not bodies.is_empty():
+		hp = 0
+		max_hp = 0
+
+
+func get_living_bodies() -> Array:
+	var result: Array = []
+	for body in bodies:
+		if body != null and is_instance_valid(body) and body.is_alive():
+			result.append(body)
+	return result
+
+
+## 可选为技能目标的人类生命体：普通求生者返回 [self]，双子返回仍存活的身体。
+func get_targetable_bodies() -> Array:
+	if not has_companion_bodies():
+		return [self] if is_alive() else []
+	return get_living_bodies()
+
+
+## 无目标「该玩家」效果的承受者：老兵活着则老兵，否则狗；无双子则自身。
+func get_controller_body() -> Variant:
+	if not has_companion_bodies():
+		return self
+	var veteran: Variant = get_body("veteran_human")
+	if veteran != null and veteran.is_alive():
+		return veteran
+	var dog: Variant = get_body("dog")
+	if dog != null and dog.is_alive():
+		return dog
+	return self
+
+
+func get_body(body_english_name: String) -> Variant:
+	for body in bodies:
+		if body != null and is_instance_valid(body) and str(body.get("english_name")) == body_english_name:
+			return body
+	return null
+
+
+func is_body_alive(body_english_name: String) -> bool:
+	var body: Variant = get_body(body_english_name)
+	return body != null and body.is_alive()
+
+
+## 将候选列表中的双子座位展开为可被选中的身体；普通玩家与怪物保持原样。
+static func expand_targetable_entities(entities: Array) -> Array:
+	var result: Array = []
+	var seen: Dictionary = {}
+	for entity in entities:
+		if entity == null or not is_instance_valid(entity):
+			continue
+		var expanded: Array = [entity]
+		if entity.has_method("has_companion_bodies") and entity.has_companion_bodies() and entity.has_method("get_targetable_bodies"):
+			expanded = entity.get_targetable_bodies()
+		for item in expanded:
+			if item == null or not is_instance_valid(item):
+				continue
+			var key: int = item.get_instance_id()
+			if seen.has(key):
+				continue
+			seen[key] = true
+			result.append(item)
+	return result
+
+
+func _is_own_companion_body(candidate: Variant) -> bool:
+	if candidate == null or not is_instance_valid(candidate):
+		return false
+	if not candidate.has_method("is_companion_body") or not candidate.is_companion_body():
+		return false
+	return candidate.get_seat_player() == self
+
+
+## 无目标伤害打当前操控者；有双子时座位自身不扣血。
+func damage(num: int, source: Entity, type: Variant = "", card: Card = null, runtime: Variant = null) -> void:
+	if has_companion_bodies():
+		var body: Variant = get_controller_body()
+		if body != null and body != self:
+			var e: Entity = body as Entity
+			if e != null:
+				await e.damage(num, source, type, card, runtime)
+				return
+	await super.damage(num, source, type, card, runtime)
 
 
 ## 当前对局已退出/重开时返回 true。未绑定 session_id 的测试玩家始终为 false。
@@ -112,31 +228,14 @@ func is_match_over() -> bool:
 func recover(num: int, source: Variant = null, runtime: Variant = null) -> void:
 	if num <= 0:
 		return
-	var rt: Variant = runtime if runtime != null else Game.event_scheduler
-	await rt.dispatch("recover", func() -> void:
-		var event: GameEvent = EventSystem.create_recover_event(self, num, source)
-		await trigger("before_recover", event)
-		if source != null and is_instance_valid(source) and source.has_method("trigger"):
-			await source.trigger("on_deal_recover", event)
-		await trigger("on_recover", event)
-		if EventSystem.is_cancelled(event):
-			return
-		var max_recover: int = get_max_hp() - get_hp()
-		if event["num"] > max_recover:
-			event["num"] = max_recover
-		var hp_before: int = get_hp()
-		add_hp(event["num"])
-		var actual_heal: int = get_hp() - hp_before
-		if actual_heal > 0 and Game != null and is_instance_valid(Game):
-			Game.log_message(LogColors.player(player_name) + " 回复了 " + str(actual_heal) + " 点生命值")
-		if actual_heal > 0 and EventBus != null and is_instance_valid(EventBus):
-			EventBus.hp_recovered.emit(self, actual_heal)
-			if source != null and source != self:
-				EventBus.healing_done.emit(source, self, actual_heal)
-			else:
-				EventBus.healing_done.emit(self, self, actual_heal)
-		await trigger("after_recover", event),
-		{"target": self, "source": source, "num": num})
+	if has_companion_bodies():
+		var body: Variant = get_controller_body()
+		if body != null and body != self:
+			var e: Entity = body as Entity
+			if e != null:
+				await e.recover(num, source, runtime)
+				return
+	await super.recover(num, source, runtime)
 
 
 ## 增加饥饿值。达 6 后翻面角色卡并叠加饥饿伤害标记。
@@ -144,6 +243,11 @@ func recover(num: int, source: Variant = null, runtime: Variant = null) -> void:
 func increase_hunger(num: int, runtime: Variant = null) -> void:
 	if num <= 0:
 		return
+	if has_companion_bodies():
+		var body: Variant = get_controller_body()
+		if body != null and body != self and body.has_method("increase_hunger"):
+			await Callable(body, "increase_hunger").call(num, runtime)
+			return
 	var old_hunger: int = hunger
 	if Game != null and is_instance_valid(Game):
 		Game.log_message(LogColors.player(player_name) + " 增加了 " + str(num) + " 点饥饿值")
@@ -200,6 +304,11 @@ func increase_hunger_evented(num: int, runtime: Variant = null) -> bool:
 func decrease_hunger(num: int) -> void:
 	if num <= 0:
 		return
+	if has_companion_bodies():
+		var body: Variant = get_controller_body()
+		if body != null and body != self and body.has_method("decrease_hunger"):
+			body.decrease_hunger(num)
+			return
 	var max_reduce: int = hunger - 1
 	if num > max_reduce:
 		num = max_reduce
@@ -327,9 +436,9 @@ func try_add_card_to_hand(card: Card, runtime: Variant = null) -> bool:
 ## new_cards 为本批新入手的牌（取消时自动弃置新牌直到不超限，后入手的先弃）。
 ## runtime 为可选的统一事件调度 runtime，见 Entity.damage 说明。
 func resolve_hand_overflow(new_cards: Array, runtime: Variant = null) -> void:
-	if role_card == null:
+	if role_card == null and not has_companion_bodies():
 		return
-	var k: int = hand.size() - role_card.hand_size_limit
+	var k: int = hand.size() - get_hand_size_limit()
 	if k <= 0:
 		return
 	# 单次弹窗：精确模式弃置恰好 K 张手牌
@@ -349,6 +458,19 @@ func resolve_hand_overflow(new_cards: Array, runtime: Variant = null) -> void:
 				auto_names.append(LogColors.card(nc.card_name))
 		if auto_names.size() > 0 and Game != null and is_instance_valid(Game):
 			Game.log_message(LogColors.player(player_name) + " 手牌超限，自动弃置了 " + ", ".join(auto_names))
+		# 容量下降（子角色死亡）时 new_cards 可能为空，继续从手牌尾部弃到上限内
+		k = hand.size() - get_hand_size_limit()
+		while k > 0:
+			var auto_card: Card = null
+			for i in range(hand.size() - 1, -1, -1):
+				var hc: Card = hand[i]
+				if hc != null and is_instance_valid(hc) and not is_card_protected_from_discard(hc):
+					auto_card = hc
+					break
+			if auto_card == null:
+				break
+			await discard(auto_card, "", 1, "", true, runtime)
+			k = hand.size() - get_hand_size_limit()
 		return
 	# 选中：逐张弃置所选牌（带默认弃牌日志）
 	for c in selected:
@@ -1095,7 +1217,7 @@ func equip(card: Card, runtime: Variant = null) -> bool:
 			for e in equipment_zone:
 				if e != null and is_instance_valid(e):
 					total_size += int(e.get("size"))
-			while total_size + new_size > role_card.equipment_capacity and not equipment_zone.is_empty():
+			while total_size + new_size > get_equipment_capacity() and not equipment_zone.is_empty():
 				var overflow_candidates: Array = []
 				for e in get_discardable_equipment_cards():
 					if int(e.get("size")) > 0:
@@ -1167,6 +1289,9 @@ func unequip(card: Variant, runtime: Variant = null) -> bool:
 func increase_equipment_slot(n: int) -> void:
 	if n <= 0:
 		return
+	if has_companion_bodies():
+		extra_equipment_capacity += n
+		return
 	if role_card == null:
 		return
 	role_card.equipment_capacity += n
@@ -1176,9 +1301,87 @@ func increase_equipment_slot(n: int) -> void:
 func decrease_equipment_slot(n: int) -> void:
 	if n <= 0:
 		return
+	if has_companion_bodies():
+		extra_equipment_capacity = maxi(extra_equipment_capacity - n, 0)
+		return
 	if role_card == null:
 		return
 	role_card.equipment_capacity = maxi(role_card.equipment_capacity - n, 0)
+
+
+func get_hand_size_limit() -> int:
+	if has_companion_bodies():
+		var total: int = 0
+		for body in get_living_bodies():
+			total += body.get_hand_size_limit()
+		return total
+	if role_card != null:
+		return role_card.hand_size_limit
+	return 10
+
+
+func get_equipment_capacity() -> int:
+	var cap: int = extra_equipment_capacity
+	if has_companion_bodies():
+		for body in get_living_bodies():
+			cap += body.get_equipment_capacity()
+		return cap
+	if role_card != null:
+		return role_card.equipment_capacity
+	return cap
+
+
+func get_equipped_size() -> int:
+	var total_size: int = 0
+	for e in equipment_zone:
+		if e != null and is_instance_valid(e):
+			total_size += int(e.get("size"))
+	return total_size
+
+
+## 容量下降后弃置占格装备至上限内；占 0 格装备可在容量为 0 时保留。
+func resolve_equipment_overflow(runtime: Variant = null) -> void:
+	var rt: Variant = runtime if runtime != null else Game.event_scheduler
+	var cap: int = get_equipment_capacity()
+	while get_equipped_size() > cap and not equipment_zone.is_empty():
+		var overflow_candidates: Array = []
+		for e in get_discardable_equipment_cards():
+			if int(e.get("size")) > 0:
+				overflow_candidates.append(e)
+		if overflow_candidates.is_empty():
+			break
+		var selected: Array = await choose_card(1, overflow_candidates, null, "\"装备栏超限\": 请弃置装备区中的装备")
+		var to_discard: Variant = selected[0] if not selected.is_empty() else overflow_candidates[0]
+		await discard(to_discard, "", 1, "", selected.is_empty(), rt)
+
+
+## 子角色死亡：重算容量并溢出；双方都死才走座位死亡。
+func on_companion_body_died(_body: Variant, source: Entity, runtime: Variant = null) -> void:
+	var rt: Variant = runtime if runtime != null else Game.event_scheduler
+	await resolve_equipment_overflow(rt)
+	await resolve_hand_overflow([], rt)
+	if not is_alive():
+		await death(source, rt)
+
+
+## 狗的守护：射程为「无」等只打老兵的攻击可改打狗。
+func try_apply_dog_guard(_monster: Variant, targets: Array) -> Array:
+	if not has_skill_by_english_name("dog_guard"):
+		return targets
+	var veteran: Variant = get_body("veteran_human")
+	var dog: Variant = get_body("dog")
+	if veteran == null or dog == null or not veteran.is_alive() or not dog.is_alive():
+		return targets
+	if not targets.has(veteran) or targets.has(dog):
+		return targets
+	if not await confirm("\"狗的守护\": 是否将此次攻击目标从老兵改为狗？"):
+		return targets
+	var result: Array = targets.duplicate()
+	result.erase(veteran)
+	result.append(dog)
+	if Game != null and is_instance_valid(Game):
+		Game.log_message(LogColors.player(player_name) + " 发动了 " + LogColors.skill("狗的守护"))
+	return result
 
 
 # === 九、填充物流程 ===
@@ -1408,7 +1611,13 @@ func _execute_official_turn(event: GameEvent) -> void:
 		await trigger("on_hunger_settlement", event)
 		if is_match_over():
 			return
-		await increase_hunger_evented(1, scheduler)
+		if has_companion_bodies():
+			for body in get_living_bodies():
+				if is_match_over():
+					return
+				await Callable(body, "increase_hunger_evented").call(1, scheduler)
+		else:
+			await increase_hunger_evented(1, scheduler)
 	, "", event)
 	if _abort_official_turn():
 		return
@@ -1531,6 +1740,14 @@ func reduce_hunger(n: int) -> void:
 
 ## 潜行值（含饥饿状态修正）
 func get_sneak() -> int:
+	if has_companion_bodies():
+		var living: Array = get_living_bodies()
+		if living.is_empty():
+			return stealth
+		var lowest: int = living[0].get_sneak()
+		for i in range(1, living.size()):
+			lowest = mini(lowest, living[i].get_sneak())
+		return stealth + lowest
 	if role_card != null:
 		return stealth + role_card.get_sneak()
 	return stealth
@@ -2529,12 +2746,33 @@ func use_active_skill(skill: Skill, operation_runtime: Variant = null) -> void:
 func _filter_targets(skill: Skill, candidates: Array, event: Variant) -> Array:
 	var filtered: Array = []
 	for candidate in candidates:
-		if skill.filter_target.is_valid():
-			if skill.filter_target.call(self, candidate, event, Game):
-				filtered.append(candidate)
-		else:
+		if candidate_passes_filter_target(skill, candidate, event):
 			filtered.append(candidate)
 	return filtered
+
+
+func candidate_passes_filter_target(skill: Variant, candidate: Variant, event: Variant) -> bool:
+	if skill == null:
+		return true
+	var filter_callable: Callable = Callable()
+	if skill is Dictionary:
+		var fc_str: Variant = skill.get("filter_target", null)
+		if fc_str is String and not str(fc_str).strip_edges().is_empty() and str(fc_str).strip_edges() != "true":
+			filter_callable = CodeExecutor.compile_filter_target(str(fc_str))
+		elif fc_str is Callable:
+			filter_callable = fc_str
+	elif is_instance_valid(skill):
+		var fc: Variant = skill.get("filter_target")
+		if fc is Callable:
+			filter_callable = fc
+	if not filter_callable.is_valid():
+		return true
+	if not filter_callable.call(self, candidate, event, Game):
+		return false
+	# 本座位子身体：再按「target = 座位」判定，使 target != player 排除自己的狗
+	if _is_own_companion_body(candidate):
+		return filter_callable.call(self, self, event, Game)
+	return true
 
 
 ## 构建装备目标候选。
@@ -2613,6 +2851,7 @@ func get_skill_valid_targets(skill: Variant) -> Array:
 				seen[key] = true
 				deduped.append(c)
 			candidates = deduped
+	candidates = expand_targetable_entities(candidates)
 	return _filter_targets(skill, candidates, event)
 
 

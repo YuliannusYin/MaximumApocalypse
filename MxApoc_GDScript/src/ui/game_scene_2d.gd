@@ -389,7 +389,12 @@ func _refresh_panel_for_player(player: Variant) -> void:
 func _get_panel_for_player(player: Variant) -> PlayerPanel:
 	if player == null or not is_instance_valid(player):
 		return null
-	var idx: Variant = _player_to_panel_idx.get(player.get_instance_id())
+	var seat: Variant = player
+	if player.has_method("get_seat_player"):
+		var resolved: Variant = player.get_seat_player()
+		if resolved != null and is_instance_valid(resolved):
+			seat = resolved
+	var idx: Variant = _player_to_panel_idx.get(seat.get_instance_id())
 	if idx == null:
 		return null
 	var panel: PlayerPanel = _player_panels[idx]
@@ -755,10 +760,13 @@ func _on_popup_targets_selected(targets: Array) -> void:
 	var player_positions: Array[Vector2] = []
 	var monsters: Array = []
 	for target in targets:
-		if target is Player and is_instance_valid(target):
+		if target != null and is_instance_valid(target) and target.has_method("is_player") and target.is_player():
 			var target_panel: PlayerPanel = _get_panel_for_player(target)
 			if target_panel != null:
-				player_positions.append(target_panel.get_role_card_global_position())
+				if target_panel.has_method("get_body_target_global_position"):
+					player_positions.append(target_panel.get_body_target_global_position(target))
+				else:
+					player_positions.append(target_panel.get_role_card_global_position())
 		elif target is Monster and is_instance_valid(target):
 			monsters.append(target)
 	if player_positions.is_empty() and monsters.is_empty():
@@ -847,6 +855,8 @@ func _on_choose_target_requested(n: int, skill: Variant, prompt: String, min_n: 
 				seen[key] = true
 				deduped.append(c)
 			candidates = deduped
+			if current.has_method("expand_targetable_entities"):
+				candidates = current.expand_targetable_entities(candidates)
 	# filter_target 过滤候选
 	var filtered: Array = []
 	for target in candidates:
@@ -923,6 +933,8 @@ func _on_choose_target_requested(n: int, skill: Variant, prompt: String, min_n: 
 ## skill 为 null 时视为无过滤（恒通过）；filter_target 为空 Callable 时亦恒通过。
 ## filter_target 的 Callable 签名为 (player, target, event, game) -> bool。
 func _is_valid_target(skill: Variant, target: Variant, event: Variant, player: Variant) -> bool:
+	if player != null and player.has_method("candidate_passes_filter_target") and skill != null and not (skill is Dictionary):
+		return player.candidate_passes_filter_target(skill, target, event)
 	if skill == null:
 		return true
 	# Dictionary 类型：filter_target 为 String，需编译
@@ -1040,10 +1052,13 @@ func _on_monster_attack_animation_requested(monster: Variant, targets: Array) ->
 	var owner: Variant = _gui_input.get_active_request_owner()
 	var positions: Array = []
 	for target in targets:
-		if target is Player and is_instance_valid(target):
+		if target != null and is_instance_valid(target) and target.has_method("is_player") and target.is_player():
 			var target_panel: PlayerPanel = _get_panel_for_player(target)
 			if target_panel != null:
-				positions.append(target_panel.get_role_card_global_position())
+				if target_panel.has_method("get_body_target_global_position"):
+					positions.append(target_panel.get_body_target_global_position(target))
+				else:
+					positions.append(target_panel.get_role_card_global_position())
 	await _animation_controller.play_monster_attack(monster, positions)
 	_gui_input.respond_monster_attack_animation(request_id, owner)
 

@@ -215,6 +215,7 @@ func _build_layout() -> void:
 	_hp_track = _make_bar_track(_layout["D"], HP_TRACK_BG)
 	_hp_fill = _make_bar_fill(_hp_track, HP_FILL)
 	_hp_label = _make_overlay_label(_hp_track, 11 if _is_self else 9)
+	_hp_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	add_child(_hp_track)
 	_hunger_track = _make_bar_track(_layout["F"], HUNGER_TRACK_BG)
 	_hunger_fill = _make_bar_fill(_hunger_track, HUNGER_FILL)
@@ -331,6 +332,12 @@ func _update_role_card() -> void:
 	if _player == null:
 		return
 	var role: Variant = _player.get("role_card")
+	var display_player: Variant = _player
+	if _player.has_method("has_companion_bodies") and _player.has_companion_bodies() and _player.has_method("get_controller_body"):
+		var controller: Variant = _player.get_controller_body()
+		if controller != null and is_instance_valid(controller) and controller.get("role_card") != null:
+			display_player = controller
+			role = controller.get("role_card")
 	var name_str: String = ""
 	var state_str: String = ""
 	var is_front: bool = true
@@ -338,6 +345,10 @@ func _update_role_card() -> void:
 		name_str = role.get("role_name")
 		is_front = role.get("is_front_side")
 		state_str = "饥饿" if not is_front else "正常"
+	if _player.has_method("has_companion_bodies") and _player.has_companion_bodies():
+		name_str = str(_player.get("player_name"))
+		if display_player != _player:
+			state_str = str(display_player.get("player_name")) + ("·饥饿" if not is_front else "")
 	if not _player.is_alive():
 		state_str = "已死亡"
 		name_str = _player.get("player_name") if name_str.is_empty() else name_str
@@ -402,9 +413,37 @@ func _update_marks() -> void:
 func _update_hp() -> void:
 	if _player == null:
 		return
+	if _player.has_method("has_companion_bodies") and _player.has_companion_bodies():
+		var parts: PackedStringArray = []
+		var controller: Variant = _player.get_controller_body() if _player.has_method("get_controller_body") else null
+		var bar_hp: int = 0
+		var bar_max: int = 1
+		for body in _player.bodies:
+			if body == null or not is_instance_valid(body):
+				continue
+			var bhp: int = int(body.get("hp"))
+			var bmax: int = int(body.get("max_hp"))
+			var tag: String = str(body.get("player_name"))
+			if not body.is_alive():
+				parts.append("%s死" % tag)
+			else:
+				parts.append("%s♥%d/%d" % [tag, bhp, bmax])
+			if body == controller:
+				bar_hp = bhp
+				bar_max = bmax
+		_hp_label.text = " ".join(parts)
+		_hp_label.add_theme_font_size_override("font_size", 8 if _is_self else 7)
+		var ratio: float = float(bar_hp) / float(bar_max) if bar_max > 0 else 0.0
+		_set_bar_ratio(_hp_fill, _hp_track, ratio)
+		if bar_max > 0 and bar_hp * 2 <= bar_max:
+			_hp_label.add_theme_color_override("font_color", Color(1.0, 0.55, 0.55, 1.0))
+		else:
+			_hp_label.add_theme_color_override("font_color", TEXT_MAIN)
+		return
 	var hp: int = int(_player.get("hp"))
 	var max_hp: int = int(_player.get("max_hp"))
 	_hp_label.text = "♥ %d/%d" % [hp, max_hp]
+	_hp_label.add_theme_font_size_override("font_size", 11 if _is_self else 9)
 	var ratio: float = float(hp) / float(max_hp) if max_hp > 0 else 0.0
 	_set_bar_ratio(_hp_fill, _hp_track, ratio)
 	if max_hp > 0 and hp * 2 <= max_hp:
@@ -415,6 +454,25 @@ func _update_hp() -> void:
 
 func _update_sneak() -> void:
 	if _player == null:
+		return
+	if _player.has_method("has_companion_bodies") and _player.has_companion_bodies():
+		var parts: PackedStringArray = []
+		for body in _player.bodies:
+			if body == null or not is_instance_valid(body):
+				continue
+			var sneak_value: int = body.get_sneak() if body.has_method("get_sneak") else 0
+			var block: Variant = _player.get("current_block")
+			if block != null and is_instance_valid(block):
+				if block.has_method("count_monster"):
+					sneak_value -= block.count_monster()
+				if block.has_method("count_monster_mark"):
+					sneak_value -= block.count_monster_mark()
+			var tag: String = str(body.get("player_name"))
+			if not body.is_alive():
+				parts.append("%s死" % tag)
+			else:
+				parts.append("%s%d" % [tag.substr(0, 1), sneak_value])
+		_sneak_label.text = "潜行 " + " ".join(parts)
 		return
 	var sneak_value: int = _player.get_sneak()
 	var block: Variant = _player.get("current_block")
@@ -429,7 +487,33 @@ func _update_sneak() -> void:
 func _update_hunger() -> void:
 	if _player == null:
 		return
+	if _player.has_method("has_companion_bodies") and _player.has_companion_bodies():
+		var parts: PackedStringArray = []
+		var bar_hunger: int = 1
+		var controller: Variant = _player.get_controller_body() if _player.has_method("get_controller_body") else null
+		for body in _player.bodies:
+			if body == null or not is_instance_valid(body):
+				continue
+			var h: int = int(body.get("hunger"))
+			var tag: String = str(body.get("player_name"))
+			if not body.is_alive():
+				parts.append("%s死" % tag)
+			else:
+				parts.append("%s%d" % [tag.substr(0, 1), h])
+			if body == controller:
+				bar_hunger = h
+		_hunger_label.text = "饥饿 " + " ".join(parts)
+		_hunger_label.add_theme_font_size_override("font_size", 8 if _is_self else 7)
+		_set_bar_ratio(_hunger_fill, _hunger_track, float(bar_hunger) / 6.0)
+		if bar_hunger >= 5:
+			_hunger_label.add_theme_color_override("font_color", Color(1.0, 0.65, 0.15))
+			_hunger_fill.color = HUNGER_FILL_WARN
+		else:
+			_hunger_label.add_theme_color_override("font_color", TEXT_MAIN)
+			_hunger_fill.color = HUNGER_FILL
+		return
 	var hunger: int = int(_player.get("hunger"))
+	_hunger_label.add_theme_font_size_override("font_size", 11 if _is_self else 9)
 	_hunger_label.text = "饥饿 %d/6" % hunger
 	_set_bar_ratio(_hunger_fill, _hunger_track, float(hunger) / 6.0)
 	if hunger >= 5:
@@ -475,9 +559,12 @@ func _update_equipment_zone() -> void:
 		if e != null and is_instance_valid(e):
 			total_size += int(e.get("size"))
 	var capacity: int = 0
-	var role: Variant = _player.get("role_card")
-	if role != null and is_instance_valid(role):
-		capacity = int(role.get("equipment_capacity"))
+	if _player.has_method("get_equipment_capacity"):
+		capacity = int(_player.get_equipment_capacity())
+	else:
+		var role: Variant = _player.get("role_card")
+		if role != null and is_instance_valid(role):
+			capacity = int(role.get("equipment_capacity"))
 	_equipment_button.text = "装备 %d/%d" % [total_size, capacity]
 	if capacity > 0 and total_size >= capacity:
 		_set_slot_font_color(_equipment_button, TEXT_WARN)
@@ -621,6 +708,19 @@ func get_role_card_global_position() -> Vector2:
 	if _role_card_panel == null or not is_instance_valid(_role_card_panel):
 		return Vector2.ZERO
 	return _role_card_panel.global_position + _role_card_panel.size * 0.5
+
+
+## 双子座位按身体取动画终点：老兵偏生命条，狗偏饥饿条。
+func get_body_target_global_position(body: Variant = null) -> Vector2:
+	var base: Vector2 = get_role_card_global_position()
+	if body == null or not is_instance_valid(body):
+		return base
+	var eng: String = str(body.get("english_name"))
+	if eng == "dog" and _hunger_track != null and is_instance_valid(_hunger_track):
+		return _hunger_track.global_position + _hunger_track.size * 0.5
+	if eng == "veteran_human" and _hp_track != null and is_instance_valid(_hp_track):
+		return _hp_track.global_position + _hp_track.size * 0.5
+	return base
 
 
 ## 在锚点控件位置生成上浮淡出飘字。

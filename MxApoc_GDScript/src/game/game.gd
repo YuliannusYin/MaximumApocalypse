@@ -463,7 +463,10 @@ func get_target(block: MapBlock) -> Array:
 		if player == null or not is_instance_valid(player):
 			continue
 		if player.get_current_block() == block:
-			targets.append(player)
+			if player.has_method("get_targetable_bodies"):
+				targets.append_array(player.get_targetable_bodies())
+			else:
+				targets.append(player)
 			if "monster_zone" in player:
 				for monster in player.monster_zone:
 					if monster != null and is_instance_valid(monster):
@@ -520,6 +523,8 @@ func trigger_other_zone_monsters(trigger_name: String, event: Variant, except: V
 ## 从玩家指定区域随机返回一张牌；无牌返回 null。
 ## 装备区持有 Equipment 实体，返回时映射为来源 EquipmentCard，保持"返回卡"语义。
 func get_random_card(player: Variant, areas: Array) -> Variant:
+	if player != null and player.has_method("get_seat_player"):
+		player = player.get_seat_player()
 	if player == null or not is_instance_valid(player):
 		return null
 	var all_cards: Array = []
@@ -542,6 +547,8 @@ func get_random_card(player: Variant, areas: Array) -> Variant:
 ## 从玩家指定区域随机返回最多 n 张不重复的牌；不足 n 张返回全部，无牌返回空数组。
 ## 装备区持有 Equipment 实体，返回时映射为来源 EquipmentCard，与 get_random_card 语义一致。
 func get_random_cards(player: Variant, areas: Array, n: int) -> Array:
+	if player != null and player.has_method("get_seat_player"):
+		player = player.get_seat_player()
 	if player == null or not is_instance_valid(player) or n <= 0:
 		return []
 	var all_cards: Array = []
@@ -655,13 +662,20 @@ func initialize_game(mission: MissionData, variants: Dictionary, seats: Array) -
 		player.role_card = _create_role_card_from_survivor(survivor)
 		player.game_deck = _create_player_deck(survivor)
 		player.game_discard_pile = Pile.new()
+		_create_companion_bodies(player, survivor)
 		# 挂载通用主动技能
 		for skill_data in DataManager.get_common_skills():
 			player.add_skill(_create_skill_from_data(skill_data))
-		# 挂载角色固有技能
+		# 挂载角色固有技能（含子角色固有技能）
 		if player.role_card != null:
 			for skill in player.role_card.intrinsic_skills:
 				player.add_skill(skill)
+		for sub_dict in survivor.sub_survivors:
+			if not (sub_dict is Dictionary):
+				continue
+			var sub_data: SurvivorData = SurvivorData.new(sub_dict)
+			for skill_data in sub_data.intrinsic_skills:
+				player.add_skill(_create_skill_from_data(skill_data))
 		players.append(player)
 
 	# 4. 构建地图
@@ -899,6 +913,10 @@ func _create_role_card_from_survivor(survivor: SurvivorData) -> RoleCard:
 	for skill_data in survivor.intrinsic_skills:
 		rc.intrinsic_skills.append(_create_skill_from_data(skill_data))
 	return rc
+
+
+func _create_companion_bodies(player: Player, survivor: SurvivorData) -> void:
+	player.setup_companion_bodies(survivor)
 
 
 ## 从 SurvivorData 创建玩家游戏牌堆。

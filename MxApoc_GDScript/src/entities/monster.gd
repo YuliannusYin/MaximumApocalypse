@@ -115,25 +115,29 @@ func _notify_monster_skill_triggered() -> void:
 
 ## 修改纠缠对象。设计文档方法：修改纠缠对象(target)。
 ## 用于僵尸潜行者（攻击后改纠缠血量最低玩家）、枪手/消防员（嘲讽使怪物纠缠自己）。
-func change_engaged_target(target: Player) -> void:
+func change_engaged_target(target: Variant) -> void:
+	if target != null and target.has_method("get_seat_player"):
+		var seat: Variant = target.get_seat_player()
+		if seat is Player:
+			target = seat
 	var old_target: Player = attack_target
-	attack_target = target
+	attack_target = target as Player
 	# 实际移动怪物：从 old_target.monster_zone 移除，追加到 target.monster_zone
 	if old_target != null and is_instance_valid(old_target) and "monster_zone" in old_target:
 		old_target.monster_zone.erase(self)
-	if target != null and is_instance_valid(target) and "monster_zone" in target:
-		if not target.monster_zone.has(self):
-			target.monster_zone.append(self)
+	if attack_target != null and is_instance_valid(attack_target) and "monster_zone" in attack_target:
+		if not attack_target.monster_zone.has(self):
+			attack_target.monster_zone.append(self)
 	# 纠缠日志
-	if target != null and is_instance_valid(target) and target != old_target:
+	if attack_target != null and is_instance_valid(attack_target) and attack_target != old_target:
 		if Game != null and is_instance_valid(Game):
-			Game.log_message(LogColors.monster(monster_name) + " 纠缠了 " + LogColors.player(target.player_name))
+			Game.log_message(LogColors.monster(monster_name) + " 纠缠了 " + LogColors.player(attack_target.player_name))
 	if EventBus != null and is_instance_valid(EventBus):
-		EventBus.monster_engaged_target_changed.emit(self, old_target, target)
+		EventBus.monster_engaged_target_changed.emit(self, old_target, attack_target)
 
 
 ## 事件化的纠缠对象变更；保留旧方法兼容既有数据。
-func change_engaged_target_evented(target: Player) -> bool:
+func change_engaged_target_evented(target: Variant) -> bool:
 	var event: GameEvent = EventSystem.create_engaged_target_event(self, target)
 	await trigger("before_change_engaged_target", event)
 	if EventSystem.is_cancelled(event):
@@ -198,12 +202,12 @@ func act(runtime: Variant = null) -> void:
 
 		# 4. on_monster_attack + 调用 _attack()
 		# 先填充 target_players，供 on_monster_attack 数据技能（如突变体中毒、外星人技能）遍历
-		event["target_players"] = _get_attack_targets()
+		event["target_players"] = await _apply_dog_guards(_get_attack_targets())
 		# 攻击演出：目标非空时先播放居中怪物牌 + 血红色箭头动画（经所属玩家 input）
 		if not event["target_players"].is_empty():
 			await _play_attack_animation(event["target_players"])
 		await trigger("on_monster_attack", event)
-		await _attack(scheduler)
+		await _attack(scheduler, event["target_players"])
 
 		# 5. after_monster_attack
 		await trigger("after_monster_attack", event)
@@ -224,25 +228,57 @@ func _get_attack_targets() -> Array:
 		return []
 
 	if range == "none":
-		# 只攻击纠缠玩家，无需地块查询
+		if attack_target.has_method("get_controller_body"):
+			var controller: Variant = attack_target.get_controller_body()
+			if controller != null and is_instance_valid(controller):
+				return [controller]
 		return [attack_target]
 
 	var block: MapBlock = attack_target.get_current_block()
 	if block == null:
 		return []
-	return block.get_players_in_range(range, true)
+	var seats: Array = block.get_players_in_range(range, true)
+	var result: Array = []
+	for seat in seats:
+		if seat == null or not is_instance_valid(seat):
+			continue
+		if seat.has_method("get_targetable_bodies"):
+			result.append_array(seat.get_targetable_bodies())
+		elif seat.is_alive():
+			result.append(seat)
+	return result
+
+
+## 狗的守护：把只打老兵的攻击改打狗。
+func _apply_dog_guards(targets: Array) -> Array:
+	var result: Array = targets.duplicate()
+	var seen: Dictionary = {}
+	for target in targets:
+		if target == null or not is_instance_valid(target) or not target.has_method("get_seat_player"):
+			continue
+		var seat: Variant = target.get_seat_player()
+		if seat == null or not is_instance_valid(seat):
+			continue
+		var seat_id: int = seat.get_instance_id()
+		if seen.has(seat_id):
+			continue
+		seen[seat_id] = true
+		if seat.has_method("try_apply_dog_guard"):
+			result = await seat.try_apply_dog_guard(self, result)
+	return result
 
 
 ## 怪物根据射程对目标发动攻击。
 ## 对 _get_attack_targets() 返回的每个存活目标造成伤害（source = self）。
-func _attack(runtime: Variant = null) -> void:
-	var targets: Array = _get_attack_targets()
+func _attack(runtime: Variant = null, targets: Variant = null) -> void:
+	var attack_targets: Array = targets if targets is Array else _get_attack_targets()
 
-	for target in targets:
+	for target in attack_targets:
 		if target != null and is_instance_valid(target) and target.is_alive():
 			if Game != null and is_instance_valid(Game):
-				Game.log_message(LogColors.monster(monster_name) + " 攻击了 " + LogColors.player(target.player_name))
-			await target.damage(damage_value, self, "monster_attack", null, runtime)
+				var t_name: String = str(target.get("player_name"))
+				Game.log_message(LogColors.monster(monster_name) + " 攻击了 " + LogColors.player(t_name))
+			await Callable(target, "damage").call(damage_value, self, "monster_attack", null, runtime)
 
 
 ## 播放"怪物攻击"动画：经所属玩家 input 请求，阻塞至播完；无所属玩家或 input 时跳过。
@@ -266,8 +302,8 @@ func death(source: Entity, runtime: Variant = null) -> void:
 	var scheduler: Variant = runtime if runtime != null else Game.event_scheduler
 	await scheduler.dispatch("monster_death", func() -> void:
 		if Game != null and is_instance_valid(Game):
-			if source != null and source.is_player():
-				Game.log_message(LogColors.monster(monster_name) + " 被 " + LogColors.player(source.player_name) + " 击杀")
+			if source != null and is_instance_valid(source) and source.has_method("is_player") and source.is_player():
+				Game.log_message(LogColors.monster(monster_name) + " 被 " + LogColors.player(str(source.get("player_name"))) + " 击杀")
 			else:
 				Game.log_message(LogColors.monster(monster_name) + " 被击杀")
 		var event: GameEvent = EventSystem.create_monster_death_event(self, source)

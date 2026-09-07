@@ -61,9 +61,10 @@
 | 求生者游戏牌 | `SurvivorGameCard` | `src/entities/survivor_game_card.gd` | 求生者游戏牌（继承 `Card`） |
 | 拾荒卡 | `ScavengeCard` | `src/entities/scavenge_card.gd` | 拾荒卡（继承 `EquipmentCard`） |
 | 怪物 | `Monster` | `src/entities/monster.gd` | 怪物类 |
+| 子生命体 | `CompanionBody` | `src/entities/companion_body.gd` | 同一座位上的生命体（老兵 / 狗）；`is_player()` 为 true |
 | 怪物卡 | `MonsterCard` | `src/entities/monster_card.gd` | 怪物卡（实体化前） |
 | 地图块 | `MapBlock` | `src/entities/map_block.gd` | 地图块类 |
-| 玩家 | `Player` | `src/entities/player.gd` | 玩家类 |
+| 玩家 | `Player` | `src/entities/player.gd` | 玩家座位类 |
 
 > 卡牌继承链：`ScavengeCard` → `EquipmentCard` → `SurvivorGameCard` → `Card` → `Entity`。
 
@@ -330,6 +331,9 @@ trigger 名在 JSON 数据中用英文 snake_case，技能 `trigger` 字段可�
 | `get_hp()` / `get_max_hp()` | 生命值查询 |
 | `reduce_hp(n)` / `add_hp(n)` | 直接扣 / 加血（不触发钩子） |
 | `is_player()` / `is_monster()` | 类型判断 |
+| `is_companion_body()` | 是否为同一座位上的子生命体 |
+| `get_seat_player()` | 所属座位玩家；普通实体返回自身 |
+| `shares_seat(other)` | 是否与 other 同一座位（用于 AoE 排除己方身体） |
 | `death(source)` | 死亡流程（子类多态实现） |
 
 ### 5.2 Player
@@ -360,8 +364,10 @@ trigger 名在 JSON 数据中用英文 snake_case，技能 `trigger` 字段可�
 | `get_number(key)` | 数值标记查询 |
 | `get_current_block()` | 当前地块 |
 | `choose_card(n, param, filter)` | 选牌 |
-| `choose_target(n, skill)` | 选目标（`n=-1` 全部） |
+| `choose_target(n, skill)` | 选目标（`n=-1` 全部）；候选会把双子座位展开为身体 |
 | `confirm(prompt)` | 确认对话框 |
+| `has_companion_bodies()` / `get_body(id)` / `get_controller_body()` | 双子座位查询 |
+| `try_apply_dog_guard(monster, targets)` | 狗的守护：把只打老兵的攻击改打狗 |
 | `collect_item(card_name, count)` | 收集物品（任务系统） |
 | `has_item(card_name)` | 是否持有物品 |
 | `player_death(source)` | 玩家死亡流程 |

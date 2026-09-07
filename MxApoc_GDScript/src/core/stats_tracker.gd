@@ -111,29 +111,46 @@ func stop_timer() -> void:
 	_start_time_msec = 0
 
 
+func _seat_of(obj: Variant) -> Variant:
+	if obj == null:
+		return null
+	if _stats.has(obj):
+		return obj
+	if obj.has_method("get_seat_player"):
+		var seat: Variant = obj.get_seat_player()
+		if _stats.has(seat):
+			return seat
+	return obj
+
+
 func _on_damage_dealt(source: Variant, target: Variant, amount: int) -> void:
-	if _stats.has(source):
-		get_stats(source).add_damage_dealt(amount)
+	var seat: Variant = _seat_of(source)
+	if _stats.has(seat):
+		get_stats(seat).add_damage_dealt(amount)
 
 
 func _on_damage_taken(target: Variant, source: Variant, amount: int) -> void:
-	if _stats.has(target):
-		get_stats(target).add_damage_taken(amount)
+	var seat: Variant = _seat_of(target)
+	if _stats.has(seat):
+		get_stats(seat).add_damage_taken(amount)
 
 
 func _on_hp_recovered(player: Variant, amount: int) -> void:
-	if _stats.has(player):
-		get_stats(player).add_hp_recovered(amount)
+	var seat: Variant = _seat_of(player)
+	if _stats.has(seat):
+		get_stats(seat).add_hp_recovered(amount)
 
 
 func _on_healing_done(source: Variant, target: Variant, amount: int) -> void:
-	if _stats.has(source):
-		get_stats(source).add_healing_done(amount)
+	var seat: Variant = _seat_of(source)
+	if _stats.has(seat):
+		get_stats(seat).add_healing_done(amount)
 
 
 func _on_hunger_reduced(player: Variant, amount: int) -> void:
-	if _stats.has(player):
-		get_stats(player).add_hunger_reduced(amount)
+	var seat: Variant = _seat_of(player)
+	if _stats.has(seat):
+		get_stats(seat).add_hunger_reduced(amount)
 
 
 func _on_card_used(player: Variant, card: Variant) -> void:

@@ -13,6 +13,7 @@ var _panel: Panel = null
 var _scroll: ScrollContainer = null
 var _content: VBoxContainer = null
 var _player_option: OptionButton = null
+var _body_option: OptionButton = null
 var _players_cache: Array = []
 
 # 常用输入框缓存，供各按钮回调读取
@@ -141,7 +142,12 @@ func _make_line_edit(placeholder: String, width: int = 60) -> LineEdit:
 func _build_player_selector() -> void:
 	_player_option = OptionButton.new()
 	_player_option.custom_minimum_size = Vector2(0, 28)
+	_player_option.item_selected.connect(func(_idx: int) -> void: _refresh_body_options())
 	_content.add_child(_player_option)
+	_body_option = OptionButton.new()
+	_body_option.custom_minimum_size = Vector2(0, 28)
+	_body_option.visible = false
+	_content.add_child(_body_option)
 	refresh_player_list()
 
 
@@ -163,6 +169,45 @@ func refresh_player_list() -> void:
 			reselect_idx = _player_option.get_item_count() - 1
 	if _player_option.get_item_count() > 0:
 		_player_option.select(reselect_idx)
+	_refresh_body_options()
+
+
+func _refresh_body_options() -> void:
+	if _body_option == null:
+		return
+	_body_option.clear()
+	var player: Variant = _get_selected_player()
+	if player == null or not is_instance_valid(player) or not player.has_method("has_companion_bodies") or not player.has_companion_bodies():
+		_body_option.visible = false
+		return
+	_body_option.visible = true
+	_body_option.add_item("当前操控者")
+	for body in player.bodies:
+		if body == null or not is_instance_valid(body):
+			continue
+		var tag: String = str(body.get("player_name"))
+		if not body.is_alive():
+			tag += "（死亡）"
+		_body_option.add_item(tag)
+	if _body_option.get_item_count() > 0:
+		_body_option.select(0)
+
+
+func _get_stat_target() -> Variant:
+	var player: Variant = _get_selected_player()
+	if player == null or not is_instance_valid(player):
+		return null
+	if not player.has_method("has_companion_bodies") or not player.has_companion_bodies() or _body_option == null or not _body_option.visible:
+		return player
+	var idx: int = _body_option.selected
+	if idx <= 0:
+		return player.get_controller_body() if player.has_method("get_controller_body") else player
+	var body_idx: int = idx - 1
+	if body_idx >= 0 and body_idx < player.bodies.size():
+		var body: Variant = player.bodies[body_idx]
+		if body != null and is_instance_valid(body):
+			return body
+	return player
 
 
 func _get_selected_player() -> Variant:
@@ -209,50 +254,59 @@ func _build_stats_section() -> void:
 
 
 func _on_set_hp_pressed() -> void:
-	var player: Variant = _get_selected_player()
-	if player == null or not is_instance_valid(player):
+	var target: Variant = _get_stat_target()
+	if target == null or not is_instance_valid(target):
 		return
-	var value: int = _hp_edit.text.to_int()
-	value = clampi(value, 0, player.max_hp)
-	var old_hp: int = player.hp
-	player.hp = value
+	var max_hp: int = int(target.get("max_hp"))
+	var value: int = clampi(_hp_edit.text.to_int(), 0, max_hp)
+	var old_hp: int = int(target.get("hp"))
+	target.hp = value
 	if EventBus != null and is_instance_valid(EventBus):
-		EventBus.player_hp_changed.emit(player, old_hp, player.hp)
-	_log("将 " + player.player_name + " 的生命值设为 " + str(value))
-	if value <= 0 and old_hp > 0:
-		await player.death(null)
+		EventBus.player_hp_changed.emit(target, old_hp, target.hp)
+		var seat: Variant = target.get_seat_player() if target.has_method("get_seat_player") else target
+		if seat != null and seat != target:
+			EventBus.player_hp_changed.emit(seat, old_hp, target.hp)
+	_log("将 " + str(target.get("player_name")) + " 的生命值设为 " + str(value))
+	if value <= 0 and old_hp > 0 and target.has_method("death"):
+		await target.death(null)
+	_refresh_ui(_get_selected_player())
 
 
 func _on_full_hp_pressed() -> void:
-	var player: Variant = _get_selected_player()
-	if player == null or not is_instance_valid(player):
+	var target: Variant = _get_stat_target()
+	if target == null or not is_instance_valid(target):
 		return
-	var missing: int = player.max_hp - player.hp
-	if missing > 0:
-		await player.recover(missing, null)
-	_log("将 " + player.player_name + " 的生命值回满")
+	var missing: int = int(target.get("max_hp")) - int(target.get("hp"))
+	if missing > 0 and target.has_method("recover"):
+		await target.recover(missing, null)
+	_log("将 " + str(target.get("player_name")) + " 的生命值回满")
+	_refresh_ui(_get_selected_player())
 
 
 func _on_set_hunger_pressed() -> void:
-	var player: Variant = _get_selected_player()
-	if player == null or not is_instance_valid(player):
+	var target: Variant = _get_stat_target()
+	if target == null or not is_instance_valid(target):
 		return
 	var value: int = clampi(_hunger_edit.text.to_int(), 1, 6)
-	var diff: int = value - player.hunger
+	var current: int = int(target.get("hunger"))
+	var diff: int = value - current
 	if diff > 0:
-		player.increase_hunger(diff)
+		target.increase_hunger(diff)
 	elif diff < 0:
-		player.decrease_hunger(-diff)
-	_log("将 " + player.player_name + " 的饥饿值设为 " + str(value))
+		target.decrease_hunger(-diff)
+	_log("将 " + str(target.get("player_name")) + " 的饥饿值设为 " + str(value))
+	_refresh_ui(_get_selected_player())
 
 
 func _on_clear_hunger_pressed() -> void:
-	var player: Variant = _get_selected_player()
-	if player == null or not is_instance_valid(player):
+	var target: Variant = _get_stat_target()
+	if target == null or not is_instance_valid(target):
 		return
-	if player.hunger > 1:
-		player.decrease_hunger(player.hunger - 1)
-	_log("清空了 " + player.player_name + " 的饥饿值")
+	var hunger: int = int(target.get("hunger"))
+	if hunger > 1:
+		target.decrease_hunger(hunger - 1)
+	_log("清空了 " + str(target.get("player_name")) + " 的饥饿值")
+	_refresh_ui(_get_selected_player())
 
 
 func _on_set_action_pressed() -> void:

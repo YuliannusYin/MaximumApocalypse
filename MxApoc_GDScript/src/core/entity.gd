@@ -23,30 +23,42 @@ func trigger(trigger_name: String, event: Variant) -> void:
 	EventSystem.set_trigger_name(event, trigger_name)
 	# 迭代副本：技能 content 可能挂载/移除技能（如燃料 on_draw 调用 equip），
 	# 避免新挂载的同触发器技能在当前迭代中重复触发导致死循环。
-	for s in skills.duplicate():
-		if not s.matches_trigger(trigger_name):
-			continue
-		if not s.execute_filter(self, event):
-			continue
-		# 输出触发日志
-		if Game != null and is_instance_valid(Game):
-			var _trigger_actor: Variant = self
-			if has_method("is_monster") and is_monster() and event.has("player"):
-				_trigger_actor = event["player"]
-			var _actor_name: String = ""
-			if _trigger_actor.has_method("is_player") and _trigger_actor.is_player():
-				_actor_name = _trigger_actor.get("player_name")
-			elif _trigger_actor.has_method("is_monster") and _trigger_actor.is_monster():
-				_actor_name = _trigger_actor.get("monster_name")
-			elif "block_name" in _trigger_actor:
-				_actor_name = str(_trigger_actor.block_name)
-			var _skill_name: String = s.skill_name if s.skill_name != "" else s.english_name
-			if _actor_name != "":
-				Game.log_message(LogColors.player(_actor_name) + " 触发了 " + LogColors.skill_by_type(_skill_name, s.skill_type))
-		await _notify_monster_skill_triggered()
-		await s.execute_content(self, event)
+	var hosts: Array = [self]
+	# 子生命体：同一轮里继续跑座位技能（装备被动），不要递归 await seat.trigger。
+	# 对 load() 的 CompanionBody 再 await 一层 trigger 会让 Entity.damage 协程提前返回。
+	if is_companion_body():
+		var seat: Variant = get_seat_player()
+		if seat != null and seat != self and "skills" in seat:
+			hosts.append(seat)
+	for host in hosts:
 		if EventSystem.is_cancelled(event):
 			break
+		if host == null or not is_instance_valid(host):
+			continue
+		for s in host.skills.duplicate():
+			if not s.matches_trigger(trigger_name):
+				continue
+			if not s.execute_filter(host, event):
+				continue
+			# 输出触发日志
+			if Game != null and is_instance_valid(Game):
+				var _trigger_actor: Variant = host
+				if has_method("is_monster") and is_monster() and event.has("player"):
+					_trigger_actor = event["player"]
+				var _actor_name: String = ""
+				if _trigger_actor.has_method("is_player") and _trigger_actor.is_player():
+					_actor_name = _trigger_actor.get("player_name")
+				elif _trigger_actor.has_method("is_monster") and _trigger_actor.is_monster():
+					_actor_name = _trigger_actor.get("monster_name")
+				elif "block_name" in _trigger_actor:
+					_actor_name = str(_trigger_actor.block_name)
+				var _skill_name: String = s.skill_name if s.skill_name != "" else s.english_name
+				if _actor_name != "":
+					Game.log_message(LogColors.player(_actor_name) + " 触发了 " + LogColors.skill_by_type(_skill_name, s.skill_type))
+			await _notify_monster_skill_triggered()
+			await s.execute_content(host, event)
+			if EventSystem.is_cancelled(event):
+				break
 	_finish_event_node(event)
 
 
@@ -145,6 +157,10 @@ func add_skill(skill: Skill) -> void:
 	if skills.has(skill):
 		return
 	skills.append(skill)
+	# 主动技能的 sub_skills 只给 add_temp_skill 用（如「把你的爪子拿开」免疫），
+	# 挂载父技能时不能当持久被动装上，否则会永久取消伤害。
+	if skill.active != "":
+		return
 	# auto-mount 子技能（按 english_name 去重）
 	for sub_skill in skill.sub_skills.values():
 		if sub_skill.english_name != "" and has_skill_by_english_name(sub_skill.english_name):
@@ -446,8 +462,8 @@ func damage(num: int, source: Entity, type: Variant = "", card: Card = null, run
 
 		# 8. 死亡判定（多态调用）
 		if get_hp() <= 0:
-			death(source, scheduler),
-		{"target": self, "source": source, "num": num, "type": type, "card": card})
+			await death(source, scheduler)
+	, {"target": self, "source": source, "num": num, "type": type, "card": card})
 
 
 # === 4. 生命值接口（子类必须 override） ===
@@ -472,11 +488,87 @@ func add_hp(n: int) -> void:
 	pass
 
 
+## 回复生命（5 节点）。Player / CompanionBody 用 get_hp / add_hp；其它实体默认无生命可回。
+func recover(num: int, source: Variant = null, runtime: Variant = null) -> void:
+	if num <= 0:
+		return
+	if get_max_hp() <= 0:
+		return
+	var rt: Variant = runtime if runtime != null else Game.event_scheduler
+	await rt.dispatch("recover", func() -> void:
+		var event: GameEvent = EventSystem.create_recover_event(self, num, source)
+		await trigger("before_recover", event)
+		if source != null and is_instance_valid(source) and source.has_method("trigger"):
+			await source.trigger("on_deal_recover", event)
+		await trigger("on_recover", event)
+		if EventSystem.is_cancelled(event):
+			return
+		var max_recover: int = get_max_hp() - get_hp()
+		if event["num"] > max_recover:
+			event["num"] = max_recover
+		var hp_before: int = get_hp()
+		add_hp(event["num"])
+		var actual_heal: int = get_hp() - hp_before
+		if actual_heal > 0 and Game != null and is_instance_valid(Game):
+			Game.log_message(LogColors.player(str(get("player_name"))) + " 回复了 " + str(actual_heal) + " 点生命值")
+		if actual_heal > 0 and EventBus != null and is_instance_valid(EventBus):
+			EventBus.hp_recovered.emit(self, actual_heal)
+			if source != null and source != self:
+				EventBus.healing_done.emit(source, self, actual_heal)
+			else:
+				EventBus.healing_done.emit(self, self, actual_heal)
+		await trigger("after_recover", event),
+		{"target": self, "source": source, "num": num})
+
+
+## 增加饥饿。Player / CompanionBody 覆盖。
+func increase_hunger(_num: int, _runtime: Variant = null) -> void:
+	pass
+
+
+func increase_hunger_evented(_num: int, _runtime: Variant = null) -> bool:
+	return false
+
+
+func decrease_hunger_evented(_num: int, _runtime: Variant = null) -> bool:
+	return false
+
+
+## 把 Variant 收成 Entity，供 await 协程方法（对未类型化 Variant 直接 await 可能不等待）。
+static func as_entity(obj: Variant) -> Entity:
+	if obj == null:
+		return null
+	return obj as Entity
+
+
 # === 5. 类型判断 ===
 
 ## 是否为 Player 实例。
 func is_player() -> bool:
 	return false
+
+
+## 是否为同一座位上的子生命体（老兵 / 狗）。
+func is_companion_body() -> bool:
+	return false
+
+
+## 返回该实体所属座位玩家。普通实体返回自身。
+func get_seat_player() -> Variant:
+	return self
+
+
+## 是否与 other 属于同一座位（用于 AoE 排除自身、filter_target）。
+func shares_seat(other: Variant) -> bool:
+	if other == null:
+		return false
+	if other == self:
+		return true
+	var a: Variant = get_seat_player()
+	var b: Variant = other
+	if other.has_method("get_seat_player"):
+		b = other.get_seat_player()
+	return a != null and b != null and a == b
 
 
 ## 是否为 Monster 实例。

@@ -97,7 +97,7 @@
 | `hand_size_limit` | Int | 是 | 手牌上限（默认 10） |
 | `intrinsic_skills` | Array | 是 | 角色固有技能列表 |
 | `deck` | Array | 是 | 角色专属游戏牌堆配置 |
-| `sub_survivors` | Array | 否 | 子角色数据（仅老兵使用，含 `老兵` 与 `狗` 两名子角色） |
+| `sub_survivors` | Array | 否 | 子角色数组。老兵包用两项：`veteran_human` / `dog`。每项字段同求生者顶层战斗数值（`character_name` / `english_name` / `max_hp` / `initial_hp` / `stealth` / `hunger_stealth` / `equipment_slot` / `hand_size_limit` / `intrinsic_skills`），不含独立 `deck`。开局工厂按此项建 `CompanionBody`，座位 `Player` 的 HP 置 0；手牌上限与装备栏按**存活子角色之和**计算。包顶层仍填 schema 必填战斗字段（Wiki 有子角色时展示「老兵 22 + 狗 12」而不是一个总血条）。 |
 
 **`intrinsic_skills[]` 字段：**
 

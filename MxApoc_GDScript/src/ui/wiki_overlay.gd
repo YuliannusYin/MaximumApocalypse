@@ -148,11 +148,32 @@ func _render_survivor(payload: Variant) -> void:
 	if survivor == null:
 		return
 	_add_image(ImageCache.get_role_card_texture(survivor.english_name, true))
-	_add_stat("生命值", "%d / %d" % [survivor.initial_hp, survivor.max_hp])
-	_add_stat("潜行", str(survivor.stealth))
-	_add_stat("饥饿潜行", str(survivor.hunger_stealth))
-	_add_stat("装备栏", str(survivor.equipment_slot))
-	_add_stat("手牌上限", str(survivor.hand_size_limit))
+	if not survivor.sub_survivors.is_empty():
+		var hp_parts: PackedStringArray = []
+		var stealth_parts: PackedStringArray = []
+		var hunger_stealth_parts: PackedStringArray = []
+		var equip_total: int = 0
+		var hand_total: int = 0
+		for sub in survivor.sub_survivors:
+			if not (sub is Dictionary):
+				continue
+			var sub_data := SurvivorData.new(sub)
+			hp_parts.append("%s %d" % [sub_data.character_name, sub_data.initial_hp])
+			stealth_parts.append("%s %d" % [sub_data.character_name, sub_data.stealth])
+			hunger_stealth_parts.append("%s %d" % [sub_data.character_name, sub_data.hunger_stealth])
+			equip_total += sub_data.equipment_slot
+			hand_total += sub_data.hand_size_limit
+		_add_stat("生命值", " + ".join(hp_parts))
+		_add_stat("潜行", " / ".join(stealth_parts) + "（双活取较低）")
+		_add_stat("饥饿潜行", " / ".join(hunger_stealth_parts))
+		_add_stat("装备栏", "%d（存活者之和）" % equip_total)
+		_add_stat("手牌上限", "%d（存活者之和）" % hand_total)
+	else:
+		_add_stat("生命值", "%d / %d" % [survivor.initial_hp, survivor.max_hp])
+		_add_stat("潜行", str(survivor.stealth))
+		_add_stat("饥饿潜行", str(survivor.hunger_stealth))
+		_add_stat("装备栏", str(survivor.equipment_slot))
+		_add_stat("手牌上限", str(survivor.hand_size_limit))
 	if not survivor.intrinsic_skills.is_empty():
 		_add_section("固有技能")
 		for skill in survivor.intrinsic_skills:

@@ -130,8 +130,8 @@ func _option_display_name(option: Variant) -> String:
 		return option
 	if option is Monster:
 		return "%s (HP %d/%d)" % [option.monster_name, option.hp, option.max_hp]
-	if option is Player:
-		return option.player_name
+	if option != null and option.has_method("is_player") and option.is_player():
+		return "%s (HP %d/%d)" % [str(option.get("player_name")), int(option.get("hp")), int(option.get("max_hp"))]
 	if option is Equipment:
 		var eq: Equipment = option
 		if eq.charge_max > 0:
@@ -157,7 +157,7 @@ func _is_all_entity_targets(targets: Array) -> bool:
 	if targets.is_empty():
 		return false
 	for target in targets:
-		if not (target is Monster or target is Player):
+		if not ((target is Monster) or (target != null and is_instance_valid(target) and target.has_method("is_player") and target.is_player())):
 			return false
 	return true
 
@@ -519,7 +519,7 @@ func show_target_select_area(targets: Array, n: int, zone_labels: Array = [], pr
 							if child is Label and child.text == "眩晕":
 								child.position = Vector2(4, 16)
 								break
-			elif target is Player:
+			elif target != null and is_instance_valid(target) and target.has_method("is_player") and target.is_player():
 				card_panel = _build_player_card(target, 120, 180)
 			if card_panel != null:
 				card_panel.gui_input.connect(_on_entity_card_clicked.bind(target, card_panel))
@@ -1289,9 +1289,28 @@ func _build_player_card(p: Variant, w: int, h: int) -> Panel:
 	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(inner)
 
+	# 角色立绘（双子座位用身体自己的角色牌）
+	var role: Variant = p.get("role_card")
+	var eng: String = ""
+	if role != null and is_instance_valid(role):
+		eng = str(role.get("english_name"))
+	elif p.get("english_name") != null:
+		eng = str(p.get("english_name"))
+	if not eng.is_empty():
+		var tex: Texture2D = ImageCache.get_role_card_texture(eng, true)
+		if tex != null:
+			var portrait := TextureRect.new()
+			portrait.texture = tex
+			portrait.position = Vector2(4, 22)
+			portrait.size = Vector2(w - 8, h - 78)
+			portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+			portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			inner.add_child(portrait)
+
 	# 玩家名（中下）
 	var name_lbl := Label.new()
-	name_lbl.text = p.get("player_name")
+	name_lbl.text = str(p.get("player_name"))
 	name_lbl.position = Vector2(4, h - 52)
 	name_lbl.size = Vector2(w - 8, 20)
 	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1302,7 +1321,7 @@ func _build_player_card(p: Variant, w: int, h: int) -> Panel:
 
 	# "玩家"标识（名字下方）
 	var role_lbl := Label.new()
-	role_lbl.text = "玩家"
+	role_lbl.text = "角色" if (p.has_method("is_companion_body") and p.is_companion_body()) else "玩家"
 	role_lbl.position = Vector2(4, h - 32)
 	role_lbl.size = Vector2(w - 8, 18)
 	role_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

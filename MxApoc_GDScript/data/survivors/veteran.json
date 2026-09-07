@@ -1,0 +1,634 @@
+{
+  "$schema": "survivor",
+  "character_name": "老兵与狗",
+  "english_name": "veteran",
+  "max_hp": 22,
+  "initial_hp": 22,
+  "stealth": 7,
+  "hunger_stealth": 6,
+  "equipment_slot": 4,
+  "hand_size_limit": 14,
+  "intrinsic_skills": [],
+  "sub_survivors": [
+    {
+      "character_name": "老兵",
+      "english_name": "veteran_human",
+      "max_hp": 22,
+      "initial_hp": 22,
+      "stealth": 7,
+      "hunger_stealth": 6,
+      "equipment_slot": 4,
+      "hand_size_limit": 8,
+      "intrinsic_skills": [
+        {
+          "skill_name": "把你的爪子拿开",
+          "english_name": "paws_off",
+          "skill_description": "行动：对老兵造成2点伤害，然后狗直到你的下回合开始免疫伤害。",
+          "active": "action",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0 && player.is_body_alive(\"dog\") && player.is_body_alive(\"veteran_human\")",
+          "content": "actions.consume_action(player, 1)\nactions.damage(player.get_body(\"veteran_human\"), 2, player)\nactions.add_temp_skill(player.get_body(\"dog\"), \"paws_off_immunity\", \"before_next_turn_start\")",
+          "sub_skills": {
+            "immunity": {
+              "skill_name": "把你的爪子拿开_免疫",
+              "english_name": "paws_off_immunity",
+              "skill_description": "取消本次伤害结算。",
+              "trigger": "on_take_damage",
+              "forced": true,
+              "content": "EventSystem.cancel(event)",
+              "ai": {
+                "order": 0,
+                "useful": 0
+              }
+            }
+          },
+          "ai": {
+            "order": 6,
+            "useful": 0,
+            "tags": [
+              "buff"
+            ],
+            "effect": {
+              "player": 1,
+              "target": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "character_name": "狗",
+      "english_name": "dog",
+      "max_hp": 12,
+      "initial_hp": 12,
+      "stealth": 9,
+      "hunger_stealth": 8,
+      "equipment_slot": 0,
+      "hand_size_limit": 6,
+      "intrinsic_skills": [
+        {
+          "skill_name": "咬他们",
+          "english_name": "bite_them",
+          "skill_description": "行动：对中距离内的一个目标造成3点伤害，然后狗受到1点伤害。",
+          "range": "medium",
+          "active": "action",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0 && player.is_body_alive(\"dog\")",
+          "select_target": 1,
+          "filter_target": "return true",
+          "window_prompt": "\"咬他们\": 选择攻击目标",
+          "filter_target_range": "medium",
+          "content": "actions.consume_action(player, 1)\nactions.damage(target, 3, player.get_body(\"dog\"))\nactions.damage(player.get_body(\"dog\"), 1, player.get_body(\"dog\"))",
+          "ai": {
+            "order": 9,
+            "useful": 0,
+            "tags": [
+              "damage"
+            ],
+            "effect": {
+              "player": 0,
+              "target": 3
+            }
+          }
+        },
+        {
+          "skill_name": "狗的守护",
+          "english_name": "dog_guard",
+          "skill_description": "被动：当老兵受到怪物攻击时，若狗不是此次攻击的目标，你可以将此次攻击中「老兵」这个目标改成「狗」。",
+          "skill_type": "passive",
+          "forced": false,
+          "filter": "return player.is_body_alive(\"dog\")",
+          "content": "",
+          "ai": {
+            "order": 0,
+            "useful": 0
+          }
+        }
+      ]
+    }
+  ],
+  "deck": [
+    {
+      "card_name": "把它们撕成碎片",
+      "english_name": "tear_them_apart",
+      "count": 2,
+      "card_type": "action",
+      "range": "medium",
+      "skills": [
+        {
+          "skill_name": "把它们撕成碎片",
+          "english_name": "tear_them_apart",
+          "skill_description": "行动：如果狗还活着，对中距离内的最多3个目标造成3点伤害。",
+          "range": "medium",
+          "skill_type": "action",
+          "active": "action",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0 && player.is_body_alive(\"dog\")",
+          "select_target": [1, 3],
+          "filter_target": "return true",
+          "window_prompt": "\"把它们撕成碎片\": 选择攻击目标",
+          "filter_target_range": "medium",
+          "defer_action_cost": true,
+          "content": "actions.consume_action(player, 1)\nvar list = event.targets\nfor i in list:\n\tactions.damage(i, 3, player.get_body(\"dog\"))",
+          "ai": {
+            "order": 9,
+            "useful": 0,
+            "tags": [
+              "damage",
+              "aoe"
+            ],
+            "effect": {
+              "player": 0,
+              "target": 3
+            }
+          }
+        }
+      ],
+      "ai": {
+        "order": 9,
+        "useful": 70,
+        "tags": [
+          "damage",
+          "aoe"
+        ]
+      }
+    },
+    {
+      "card_name": "反击开始",
+      "english_name": "counterattack_begins",
+      "count": 2,
+      "card_type": "action",
+      "skills": [
+        {
+          "skill_name": "反击开始",
+          "english_name": "counterattack_begins",
+          "skill_description": "行动：如果狗已死亡，直到你的下回合开始，老兵造成的伤害加3。",
+          "skill_type": "action",
+          "active": "action",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0 && not player.is_body_alive(\"dog\")",
+          "content": "actions.consume_action(player, 1)\nactions.add_temp_skill(player, \"counterattack_begins_damage\", \"before_next_turn_start\")",
+          "sub_skills": {
+            "damage": {
+              "skill_name": "反击开始_伤害",
+              "english_name": "counterattack_begins_damage",
+              "skill_description": "老兵造成的伤害值额外加 3。",
+              "trigger": "on_deal_damage",
+              "forced": true,
+              "content": "event.num += 3",
+              "ai": {
+                "order": 0,
+                "useful": 0
+              }
+            }
+          },
+          "ai": {
+            "order": 4,
+            "useful": 0,
+            "tags": [
+              "buff"
+            ],
+            "effect": {
+              "player": 1,
+              "target": 0
+            }
+          }
+        }
+      ],
+      "ai": {
+        "order": 4,
+        "useful": 62
+      }
+    },
+    {
+      "card_name": "狗哨",
+      "english_name": "dog_whistle",
+      "count": 2,
+      "card_type": "equipment",
+      "size": 1,
+      "range": "long",
+      "skills": [
+        {
+          "skill_name": "狗哨",
+          "english_name": "dog_whistle",
+          "skill_description": "行动：如果狗还活着，移除长距离内一个地图块上的1个怪物标记，然后狗受到2点伤害。",
+          "skill_type": "equipment",
+          "active": "action",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0 && player.is_body_alive(\"dog\") && player.has_equipment(\"dog_whistle\")",
+          "defer_action_cost": true,
+          "content": "var _block = player.get_current_block()\nif _block == null:\n\tEventSystem.cancel(event)\n\treturn\nvar _candidates = _block.get_blocks_in_range(\"long\")\nvar _valid = []\nfor _b in _candidates:\n\tif _b.count_monster_mark() > 0:\n\t\t_valid.append(_b)\nif _valid.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar _blocks = await player.choose_block_inline(_valid, \"\\\"狗哨\\\": 选择目标地块\", 1)\ntarget = _blocks[0] if _blocks.size() > 0 else null\nif target == null:\n\tEventSystem.cancel(event)\n\treturn\nactions.consume_action(player, 1)\ntarget.remove_monster_mark(1)\nactions.damage(player.get_body(\"dog\"), 2, player)",
+          "ai": {
+            "order": 5,
+            "useful": 0,
+            "tags": [
+              "mission"
+            ],
+            "effect": {
+              "player": 1,
+              "target": 0
+            }
+          }
+        }
+      ],
+      "ai": {
+        "order": 5,
+        "useful": 55,
+        "tags": [
+          "equip"
+        ]
+      }
+    },
+    {
+      "card_name": "干死你们",
+      "english_name": "kill_you_all",
+      "count": 2,
+      "card_type": "action",
+      "range": "medium",
+      "skills": [
+        {
+          "skill_name": "干死你们",
+          "english_name": "kill_you_all",
+          "skill_description": "行动：如果狗已死亡，对中距离内的所有目标造成6点伤害。",
+          "range": "medium",
+          "skill_type": "action",
+          "active": "action",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0 && not player.is_body_alive(\"dog\")",
+          "select_target": -1,
+          "filter_target": "return not player.shares_seat(target)",
+          "filter_target_range": "medium",
+          "defer_action_cost": true,
+          "content": "actions.consume_action(player, 1)\nvar list = event.targets\nfor i in list:\n\tactions.damage(i, 6, player.get_body(\"veteran_human\"))",
+          "ai": {
+            "order": 9,
+            "useful": 0,
+            "tags": [
+              "damage",
+              "aoe"
+            ],
+            "effect": {
+              "player": 0,
+              "target": 6
+            }
+          }
+        }
+      ],
+      "ai": {
+        "order": 9,
+        "useful": 78,
+        "tags": [
+          "damage",
+          "aoe"
+        ]
+      }
+    },
+    {
+      "card_name": "狗项圈",
+      "english_name": "dog_collar",
+      "count": 3,
+      "card_type": "equipment",
+      "size": 0,
+      "skills": [
+        {
+          "skill_name": "狗项圈",
+          "english_name": "dog_collar",
+          "skill_description": "被动：所有对狗造成的伤害减1。",
+          "skill_type": "equipment",
+          "trigger": "on_take_damage",
+          "forced": true,
+          "filter": "return event.target != null and str(event.target.get(\"english_name\")) == \"dog\"",
+          "content": "event.num -= 1",
+          "ai": {
+            "order": 0,
+            "useful": 0
+          }
+        }
+      ],
+      "ai": {
+        "order": 2,
+        "useful": 64,
+        "tags": [
+          "equip"
+        ]
+      }
+    },
+    {
+      "card_name": "军牌",
+      "english_name": "dog_tags",
+      "count": 2,
+      "card_type": "equipment",
+      "size": 0,
+      "skills": [
+        {
+          "skill_name": "军牌",
+          "english_name": "dog_tags",
+          "skill_description": "装备时，老兵和狗各恢复2点生命值。被动：所有对老兵造成的伤害减1。",
+          "skill_type": "equipment",
+          "trigger": "on_equip、on_take_damage",
+          "forced": true,
+          "filter": "return event.trigger_name == \"on_equip\" or (event.target != null and str(event.target.get(\"english_name\")) == \"veteran_human\")",
+          "content": "if event.trigger_name == \"on_equip\":\n\tvar v = player.get_body(\"veteran_human\")\n\tvar d = player.get_body(\"dog\")\n\tif v != null and v.is_alive():\n\t\tactions.recover(v, 2, player)\n\tif d != null and d.is_alive():\n\t\tactions.recover(d, 2, player)\nelif event.trigger_name == \"on_take_damage\":\n\tevent.num -= 1",
+          "ai": {
+            "order": 0,
+            "useful": 0
+          }
+        }
+      ],
+      "ai": {
+        "order": 2,
+        "useful": 66,
+        "tags": [
+          "equip",
+          "heal"
+        ]
+      }
+    },
+    {
+      "card_name": "M1加兰德步枪",
+      "english_name": "m1_garand",
+      "count": 2,
+      "card_type": "equipment",
+      "size": 2,
+      "range": "long",
+      "weapon": true,
+      "charge_type": "ammo",
+      "charge_max": 4,
+      "charge_initial": 4,
+      "skills": [
+        {
+          "skill_name": "M1加兰德步枪",
+          "english_name": "m1_garand",
+          "skill_description": "行动：消耗1枚弹药，对一个目标造成5点伤害。",
+          "range": "long",
+          "skill_type": "equipment",
+          "active": "action",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0 && player.get_charge_count(\"m1_garand\") > 0",
+          "select_target": 1,
+          "filter_target": "return true",
+          "window_prompt": "\"M1加兰德步枪\": 选择攻击目标",
+          "filter_target_range": "long",
+          "content": "actions.consume_action(player, 1)\nvar weapon = player.get_equipment(\"m1_garand\")\nactions.consume_charge(player, weapon, 1)\nactions.damage(target, 5, player.get_body(\"veteran_human\"), \"weapon_attack\", weapon.equipment_card)",
+          "ai": {
+            "order": 9,
+            "useful": 0,
+            "tags": [
+              "damage",
+              "weapon"
+            ],
+            "effect": {
+              "player": 0,
+              "target": 5
+            }
+          }
+        }
+      ],
+      "ai": {
+        "order": 8,
+        "useful": 82,
+        "tags": [
+          "equip",
+          "weapon"
+        ]
+      }
+    },
+    {
+      "card_name": "迫击炮",
+      "english_name": "mortar",
+      "count": 2,
+      "card_type": "equipment",
+      "size": 2,
+      "range": "long",
+      "weapon": true,
+      "charge_type": "ammo",
+      "charge_max": 3,
+      "charge_initial": 3,
+      "skills": [
+        {
+          "skill_name": "迫击炮",
+          "english_name": "mortar",
+          "skill_description": "行动：消耗1枚弹药，选择一个地图块，移除其上所有怪物标记，或对该地图块的所有目标造成5点伤害。",
+          "skill_type": "equipment",
+          "active": "action",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0 && player.get_charge_count(\"mortar\") > 0",
+          "defer_action_cost": true,
+          "content": "var _block = player.get_current_block()\nif _block == null:\n\tEventSystem.cancel(event)\n\treturn\nvar _candidates = _block.get_blocks_in_range(\"long\")\nvar _valid = []\nfor _b in _candidates:\n\tif _b.is_revealed():\n\t\t_valid.append(_b)\nif _valid.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar _blocks = await player.choose_block_inline(_valid, \"\\\"迫击炮\\\": 选择目标地块\", 1)\ntarget = _blocks[0] if _blocks.size() > 0 else null\nif target == null:\n\tEventSystem.cancel(event)\n\treturn\nactions.consume_action(player, 1)\nvar weapon = player.get_equipment(\"mortar\")\nactions.consume_charge(player, weapon, 1)\nif await player.confirm(\"\\\"迫击炮\\\": 是否移除该地块全部怪物标记，否则对该地块所有目标造成5点伤害\"):\n\tactions.remove_all_monster_marks(target)\nelse:\n\tvar list = game.get_target(target)\n\tfor i in list:\n\t\tif not player.shares_seat(i):\n\t\t\tactions.damage(i, 5, player.get_body(\"veteran_human\"), \"weapon_attack\", weapon.equipment_card)",
+          "ai": {
+            "order": 8,
+            "useful": 0,
+            "tags": [
+              "damage",
+              "aoe",
+              "weapon",
+              "mission"
+            ],
+            "effect": {
+              "player": 0,
+              "target": 5
+            }
+          }
+        }
+      ],
+      "ai": {
+        "order": 8,
+        "useful": 80,
+        "tags": [
+          "equip",
+          "weapon"
+        ]
+      }
+    },
+    {
+      "card_name": "取回",
+      "english_name": "fetch",
+      "count": 3,
+      "card_type": "action",
+      "skills": [
+        {
+          "skill_name": "取回",
+          "english_name": "fetch",
+          "skill_description": "行动：如果狗还活着，从任一颜色的拾荒牌堆中抓取3张牌，然后弃置2张拾荒牌。",
+          "skill_type": "action",
+          "active": "action",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0 && player.is_body_alive(\"dog\") && game.has_scavenge_cards()",
+          "defer_action_cost": true,
+          "content": "var color_names = []\nvar piles = []\nif game.red_scavenge_pile != null and not game.red_scavenge_pile.is_empty():\n\tcolor_names.append(\"红色\")\n\tpiles.append(game.red_scavenge_pile)\nif game.green_scavenge_pile != null and not game.green_scavenge_pile.is_empty():\n\tcolor_names.append(\"绿色\")\n\tpiles.append(game.green_scavenge_pile)\nif game.blue_scavenge_pile != null and not game.blue_scavenge_pile.is_empty():\n\tcolor_names.append(\"蓝色\")\n\tpiles.append(game.blue_scavenge_pile)\nif piles.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar picked = await player.choose(color_names, \"\\\"取回\\\": 选择拾荒牌堆颜色\")\nvar pile = piles[0]\nfor i in range(color_names.size()):\n\tif color_names[i] == picked:\n\t\tpile = piles[i]\n\t\tbreak\nactions.consume_action(player, 1)\nactions.draw_scavenge(player, 3, pile)\nvar scav = player.get_cards(\"\", \"\", 0, \"scavenge\")\nvar n = mini(2, scav.size())\nif n <= 0:\n\treturn\nvar chosen = await player.choose_card(n, scav, null, \"\\\"取回\\\": 弃置\" + str(n) + \"张拾荒牌\")\nif chosen.is_empty():\n\tchosen = scav.slice(0, n)\nactions.discard(player, chosen)",
+          "ai": {
+            "order": 3,
+            "useful": 0,
+            "tags": [
+              "draw"
+            ],
+            "effect": {
+              "player": 1,
+              "target": 0
+            }
+          }
+        }
+      ],
+      "ai": {
+        "order": 3,
+        "useful": 60,
+        "tags": [
+          "draw"
+        ]
+      }
+    },
+    {
+      "card_name": "鲁格手枪",
+      "english_name": "luger",
+      "count": 2,
+      "card_type": "equipment",
+      "size": 1,
+      "range": "medium",
+      "weapon": true,
+      "charge_type": "ammo",
+      "charge_max": 5,
+      "charge_initial": 5,
+      "skills": [
+        {
+          "skill_name": "鲁格手枪",
+          "english_name": "luger",
+          "skill_description": "行动：消耗1枚弹药，对一个目标造成4点伤害。",
+          "range": "medium",
+          "skill_type": "equipment",
+          "active": "action",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0 && player.get_charge_count(\"luger\") > 0",
+          "select_target": 1,
+          "filter_target": "return true",
+          "window_prompt": "\"鲁格手枪\": 选择攻击目标",
+          "filter_target_range": "medium",
+          "content": "actions.consume_action(player, 1)\nvar weapon = player.get_equipment(\"luger\")\nactions.consume_charge(player, weapon, 1)\nactions.damage(target, 4, player.get_body(\"veteran_human\"), \"weapon_attack\", weapon.equipment_card)",
+          "ai": {
+            "order": 9,
+            "useful": 0,
+            "tags": [
+              "damage",
+              "weapon"
+            ],
+            "effect": {
+              "player": 0,
+              "target": 4
+            }
+          }
+        }
+      ],
+      "ai": {
+        "order": 8,
+        "useful": 76,
+        "tags": [
+          "equip",
+          "weapon"
+        ]
+      }
+    },
+    {
+      "card_name": "相信它的直觉",
+      "english_name": "trust_its_instinct",
+      "count": 3,
+      "card_type": "action",
+      "skills": [
+        {
+          "skill_name": "相信它的直觉",
+          "english_name": "trust_its_instinct",
+          "skill_description": "行动：如果狗还活着，展示最多2个相邻且未展示的地图块，不触发它们的展示效果。",
+          "skill_type": "action",
+          "active": "action",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0 && player.is_body_alive(\"dog\") && player.get_current_block().has_adjacent_unrevealed_block()",
+          "defer_action_cost": true,
+          "content": "var max_reveal = 2\nvar count = 0\nwhile count < max_reveal:\n\tvar prompt = \"\\\"相信它的直觉\\\": （\" + str(count + 1) + \"/\" + str(max_reveal) + \") 选择相邻地图块\"\n\tvar _candidates = player.get_current_block().get_blocks_in_range(\"medium\")\n\tvar _valid = []\n\tfor _b in _candidates:\n\t\tif _b.is_revealed() == false:\n\t\t\t_valid.append(_b)\n\tvar _blocks = await player.choose_block_inline(_valid, prompt, 1)\n\ttarget = _blocks[0] if _blocks.size() > 0 else null\n\tif target == null:\n\t\tif count == 0:\n\t\t\tEventSystem.cancel(event)\n\t\t\treturn\n\t\tbreak\n\tif count == 0:\n\t\tactions.consume_action(player, 1)\n\tactions.reveal(target, false, player)\n\tcount += 1",
+          "ai": {
+            "order": 3,
+            "useful": 0,
+            "tags": [
+              "reveal"
+            ],
+            "effect": {
+              "player": 1,
+              "target": 0
+            }
+          }
+        }
+      ],
+      "ai": {
+        "order": 3,
+        "useful": 58,
+        "tags": [
+          "reveal"
+        ]
+      }
+    },
+    {
+      "card_name": "抓捕小动物",
+      "english_name": "catch_small_animals",
+      "count": 2,
+      "card_type": "action",
+      "skills": [
+        {
+          "skill_name": "抓捕小动物",
+          "english_name": "catch_small_animals",
+          "skill_description": "行动：如果狗还活着，将老兵和狗的饥饿等级各降低2点。",
+          "skill_type": "action",
+          "active": "action",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0 && player.is_body_alive(\"dog\")",
+          "content": "actions.consume_action(player, 1)\nvar v = player.get_body(\"veteran_human\")\nvar d = player.get_body(\"dog\")\nif v != null and v.is_alive():\n\tactions.decrease_hunger(v, 2)\nif d != null and d.is_alive():\n\tactions.decrease_hunger(d, 2)",
+          "ai": {
+            "order": 4,
+            "useful": 0,
+            "tags": [
+              "food"
+            ],
+            "effect": {
+              "player": 1,
+              "target": 0
+            }
+          }
+        }
+      ],
+      "ai": {
+        "order": 4,
+        "useful": 56,
+        "tags": [
+          "food"
+        ]
+      }
+    },
+    {
+      "card_name": "致残",
+      "english_name": "maim",
+      "count": 3,
+      "card_type": "action",
+      "range": "medium",
+      "skills": [
+        {
+          "skill_name": "致残",
+          "english_name": "maim",
+          "skill_description": "行动：如果狗还活着，击晕一个目标并对它造成3点伤害。",
+          "range": "medium",
+          "skill_type": "action",
+          "active": "action",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0 && player.is_body_alive(\"dog\")",
+          "select_target": 1,
+          "filter_target": "return true",
+          "window_prompt": "\"致残\": 选择目标",
+          "filter_target_range": "medium",
+          "content": "actions.consume_action(player, 1)\nactions.damage(target, 3, player.get_body(\"dog\"))\nif target.has_method(\"is_monster\") and target.is_monster():\n\tactions.stun(target, player.get_body(\"dog\"), \"before_next_turn_start\")",
+          "ai": {
+            "order": 5,
+            "useful": 0,
+            "tags": [
+              "damage",
+              "stun"
+            ],
+            "effect": {
+              "player": 1,
+              "target": 3
+            }
+          }
+        }
+      ],
+      "ai": {
+        "order": 5,
+        "useful": 68,
+        "tags": [
+          "damage",
+          "stun"
+        ]
+      }
+    }
+  ]
+}

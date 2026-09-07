@@ -26,10 +26,21 @@ func _assert_skill_dict(raw: Dictionary, label: String) -> void:
 				_assert_skill_dict(subs[sub_key], "%s / sub %s" % [label, str(sub_key)])
 
 
+func _assert_survivor_skills(survivor: SurvivorData, label: String) -> void:
+	for skill_data in survivor.intrinsic_skills:
+		_assert_skill_tree(skill_data, "%s 固有 %s" % [label, skill_data.english_name])
+	for sub in survivor.sub_survivors:
+		if not (sub is Dictionary):
+			continue
+		var sub_data := SurvivorData.new(sub)
+		if sub_data.english_name.is_empty():
+			continue
+		_assert_survivor_skills(sub_data, "%s/%s" % [label, sub_data.english_name])
+
+
 func test_survivor_cards_and_skills_have_ai() -> void:
 	for survivor in DataManager.get_all_survivors():
-		for skill_data in survivor.intrinsic_skills:
-			_assert_skill_tree(skill_data, "%s 固有 %s" % [survivor.english_name, skill_data.english_name])
+		_assert_survivor_skills(survivor, survivor.english_name)
 		for card_dict in survivor.deck:
 			var card_id: String = "%s/%s" % [survivor.english_name, card_dict.get("english_name", "")]
 			_assert_ai(card_dict.get("ai"), card_id)

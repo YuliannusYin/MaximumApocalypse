@@ -14,8 +14,8 @@
 
 | 字段 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `hp` | int | `0` | 当前生命值。≤ 0 时玩家死亡 |
-| `max_hp` | int | `0` | 生命值上限。恢复不超过此值 |
+| `hp` | int | `0` | 当前生命值。普通求生者 ≤ 0 时座位死亡；双子座位战斗生命值在 `bodies` 上，座位 `hp` 保持 0 |
+| `max_hp` | int | `0` | 生命值上限。恢复不超过此值。双子座位为 0 |
 | `hunger` | int | `1` | 饥饿值，范围 1-6。每回合 +1。达 6 后翻面角色卡并叠加饥饿伤害标记 |
 | `stealth` | int | `0` | 潜行值（不含角色卡修正）。基础潜行值 - (地块怪物数 + 怪物标记数) |
 | `action_count` | int | `0` | 正式行动次数的**兼容镜像**。权威状态在 `TurnContext.remaining_actions`；有限行动期间读 effective API |
@@ -42,8 +42,8 @@
 
 | 字段 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `hand` | Array\<Card\> | `[]` | 手牌区。上限 10 张 |
-| `equipment_zone` | Array\<Equipment\> | `[]` | 装备区（持 Equipment 实体）。受装备栏容量限制（容量由 `RoleCard.equipment_capacity` 决定，见 [RoleCard](../Common/RoleCard.md)） |
+| `hand` | Array\<Card\> | `[]` | 手牌区。上限由 `get_hand_size_limit()` 决定（普通角色读 RoleCard；双子为存活身体之和） |
+| `equipment_zone` | Array\<Equipment\> | `[]` | 装备区（持 Equipment 实体）。容量由 `get_equipment_capacity()` 决定 |
 | `monster_zone` | Array\<Monster\> | `[]` | 怪物区。玩家面前的怪物卡区域。怪物卡进入此区时与玩家纠缠 |
 | `game_deck` | Pile | `null` | 求生者游戏牌堆。抓牌从此处；牌堆空时玩家死亡 |
 | `game_discard_pile` | Pile | `null` | 求生者游戏牌弃牌堆 |
@@ -52,7 +52,9 @@
 
 | 字段 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `role_card` | RoleCard | `null` | 角色卡。饥饿值达 6 后翻面，减少饥饿值后恢复正面 |
+| `role_card` | RoleCard | `null` | 角色卡。饥饿值达 6 后翻面，减少饥饿值后恢复正面。双子座位包级角色卡仅作包身份；各身体另有自己的 RoleCard |
+| `bodies` | Array\<CompanionBody\> | `[]` | 双子生命体。空数组 = 普通求生者（自身即唯一生命体）。老兵座位为 `[veteran_human, dog]` |
+| `extra_equipment_capacity` | int | `0` | 背包等对装备栏的额外加成（叠加在存活子角色容量之和上） |
 | `current_block` | MapBlock | `null` | 当前所在地块 |
 | `seat_number` | int | `0` | 座位号（游戏房间中的座位次序） |
 | `player_name` | String | `""` | 玩家名（用于日志输出与 EventBus 信号载荷） |
@@ -526,10 +528,19 @@
 | `get_hp() -> int` / `get_max_hp() -> int` | 返回当前 / 最大生命值 |
 | `reduce_hp(n)` / `add_hp(n)` | 减少（不低于 0）/ 增加（不超过 `max_hp`）生命值 |
 | `is_player() -> bool` | 恒返回 true |
-| `is_alive() -> bool` | `hp > 0` |
+| `is_alive() -> bool` | 普通求生者：`hp > 0`。双子座位：任一 `CompanionBody` 仍存活 |
+| `has_companion_bodies() -> bool` | `bodies` 非空 |
+| `get_living_bodies() / get_targetable_bodies()` | 存活且可被选为目标的身体；普通求生者返回 `[self]` |
+| `get_controller_body()` | 无目标「该玩家」效果的承受者：老兵活则老兵，否则狗 |
+| `get_body(english_name) / is_body_alive(english_name)` | 按 `veteran_human` / `dog` 取身体 |
+| `expand_targetable_entities(entities)` | 静态：把双子座位展开为存活身体 |
+| `candidate_passes_filter_target(skill, candidate, event)` | 对本座位子身体再按 `filter_target(self, 座位)` 判定，使 `target != player` 排除己方身体 |
+| `shares_seat(other)` | 是否同一座位（含自己的老兵/狗）。继承自 Entity |
+| `try_apply_dog_guard(monster, targets)` | 可选把目标列表里的老兵换成狗 |
+| `on_companion_body_died(body, source)` | 重算容量并溢出；双方都死才 `Player.death()` |
 | `get_hunger() -> int` | 返回饥饿值 |
 | `add_hunger(n)` / `reduce_hunger(n)` | 增加 / 减少饥饿值（`reduce_hunger` 不低于 1，发射 `hunger_reduced` 信号） |
-| `get_sneak() -> int` | 返回潜行值（含饥饿状态修正）：`stealth + role_card.get_sneak()` |
+| `get_sneak() -> int` | 普通：`stealth + role_card.get_sneak()`。双子：双活取较低身体潜行，只剩一人用那人的 |
 | `add_sneak(n)` / `reduce_sneak(n)` | 增加 / 减少潜行值（不低于 0） |
 
 #### 行动管理
@@ -577,6 +588,8 @@
 | `get_equipment(name) -> Equipment` | 按名获取装备实体 |
 | `get_charge_count(equipment_name) -> int` | 查询指定装备的当前填充物数量（不存在返回 0） |
 | `has_card(type="") -> bool` | 是否持有指定类型的牌（无参时判断是否有任意牌） |
+| `get_hand_size_limit() / get_equipment_capacity()` | 普通角色读 RoleCard；双子为存活身体之和 + `extra_equipment_capacity` |
+| `resolve_equipment_overflow()` | 容量下降后弃占格装备；占 0 格装备在容量 0 时保留 |
 
 #### 牌堆查询
 
