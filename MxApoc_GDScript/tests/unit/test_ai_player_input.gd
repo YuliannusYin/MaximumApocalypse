@@ -159,3 +159,169 @@ func test_wait_action_skips_fizzled_card() -> void:
 	var second: Variant = await input.wait_action(p)
 	assert_true(second is Dictionary)
 	assert_ne(second.get("type"), "card", "空放后同指纹卡牌本回合不再选")
+
+
+func test_choose_card_balance_prompt_discards_low_useful() -> void:
+	var p: Player = _make_player("AI")
+	var keep: Card = _make_card("猎枪")
+	keep.ai = {"order": 8, "useful": 80, "tags": ["weapon"]}
+	var junk: Card = _make_card("junk")
+	junk.ai = {"order": 0, "useful": 10}
+	var mid: Card = _make_card("mid")
+	mid.ai = {"order": 0, "useful": 20}
+	var input = AIPlayerInputScript.new()
+	input.set_request_owner(p)
+	var picked: Array = await input.choose_card(2, [keep, junk, mid], null, "\"制衡\": 选择两张求生者游戏牌")
+	assert_eq(picked.size(), 2)
+	assert_false(picked.has(keep), "制衡应按弃牌选低 useful，不应丢掉猎枪")
+	assert_true(picked.has(junk))
+	assert_true(picked.has(mid))
+
+
+func test_wait_action_skips_fizzled_reveal_skill() -> void:
+	var p: Player = _make_player("AI")
+	p.in_phase = "action"
+	p.action_count = 4
+	var here: MapBlock = _make_block("购物中心", 0, 0, true)
+	var there: MapBlock = _make_block("加油站", 1, 0, false)
+	Game.map_area = [here, there]
+	Game.players = [p]
+	p.current_block = here
+	var skill := Skill.new()
+	skill.skill_name = "双筒望远镜"
+	skill.english_name = "binoculars"
+	skill.active = "action"
+	skill.range = "long"
+	skill.ai = {"order": 9, "useful": 0, "tags": ["reveal"], "effect": {"player": 1, "target": 0}}
+	p.add_skill(skill)
+	var input = AIPlayerInputScript.new()
+	input.think_seconds = 0.0
+	var first: Variant = await input.wait_action(p)
+	assert_true(first is Dictionary)
+	assert_eq(first.get("type"), "skill", "第一次应选望远镜")
+	var second: Variant = await input.wait_action(p)
+	assert_true(second is Dictionary)
+	assert_ne(str(second.get("skill").english_name) if second.get("skill") != null else "", "binoculars", "展示技能空放后应改选")
+
+
+func test_choose_block_inline_empty_when_already_at_dest() -> void:
+	var mc := MissionConfig.new()
+	var fuel := MissionComponentAddVanFuel.new()
+	fuel.params = {"block_name": "面包车", "card_name": "燃料", "count": 4}
+	mc.action_components = [fuel]
+	Game.mission_config = mc
+	mc.setup_components(Game)
+	var van: MapBlock = _make_block("面包车", 0, 0, true)
+	var east: MapBlock = _make_block("旷野", 1, 0, true)
+	Game.map_area = [van, east]
+	var p: Player = _make_player("AI")
+	p.current_block = van
+	p.hand.append(_make_card("燃料"))
+	Game.players = [p]
+	var input = AIPlayerInputScript.new()
+	input.set_request_owner(p)
+	var picked: Array = await input.choose_block_inline([east], "摩托车", 1)
+	assert_eq(picked.size(), 0, "已在行进目标时多步移动应停")
+
+
+func _push_card_only_context(player: Player) -> void:
+	player._operation_context_stack.append({
+		"kind": "limited_action",
+		"remaining_actions": 2,
+		"allowed_action_types": ["card"],
+		"completed": false,
+	})
+
+
+func _axe_skill() -> Skill:
+	var skill := Skill.new()
+	skill.skill_name = "值得信赖的斧子"
+	skill.english_name = "reliable_axe"
+	skill.active = "action"
+	skill.select_target = 1
+	skill.filter_target_range = "short"
+	skill.ai = {"order": 9, "useful": 0, "tags": ["damage", "weapon"], "effect": {"player": 0, "target": 4}}
+	return skill
+
+
+func _lighter_skill() -> Skill:
+	var skill := Skill.new()
+	skill.skill_name = "打火机"
+	skill.english_name = "lighter"
+	skill.active = "action"
+	skill.select_target = -1
+	skill.filter_target_range = "short"
+	skill.filter_target = func(_player, target, _event, _game) -> bool:
+		return target != null and target.has_method("is_monster") and target.is_monster()
+	skill.ai = {"order": 9, "useful": 0, "tags": ["damage", "aoe", "weapon"], "effect": {"player": 0, "target": 3}}
+	return skill
+
+
+func _weapon_card(card_name: String) -> EquipmentCard:
+	var card: EquipmentCard = _make_equipment(card_name)
+	card.weapon = true
+	card.ai = {"order": 8, "useful": 80, "tags": ["equip", "weapon"]}
+	return card
+
+
+func test_ai_card_only_limited_action_plays_hand_card() -> void:
+	var p: Player = _ready_combat_player()
+	var card: EquipmentCard = _weapon_card("猎枪")
+	p.hand.append(card)
+	_push_card_only_context(p)
+	var input = AIPlayerInputScript.new()
+	input.think_seconds = 0.0
+	p.input = input
+	var choice: Variant = await input.wait_action(p)
+	assert_true(choice is Dictionary, "迷你回合有手牌时应行动")
+	assert_eq(choice.get("type"), "card", "仅手牌白名单应选卡牌而不是拳打")
+	assert_eq(choice.get("card"), card)
+
+
+func test_ai_card_only_limited_action_ends_without_cards() -> void:
+	var p: Player = _ready_combat_player()
+	_push_card_only_context(p)
+	var input = AIPlayerInputScript.new()
+	input.think_seconds = 0.0
+	p.input = input
+	var choice: Variant = await input.wait_action(p)
+	assert_null(choice, "仅手牌迷你回合空手牌时应结束而不是循环技能")
+
+
+func test_ai_prefers_axe_over_punch() -> void:
+	var p: Player = _ready_combat_player()
+	p.add_skill(_axe_skill())
+	var input = AIPlayerInputScript.new()
+	input.think_seconds = 0.0
+	p.input = input
+	var choice: Variant = await input.wait_action(p)
+	assert_true(choice is Dictionary)
+	assert_eq(choice.get("type"), "skill")
+	assert_eq(choice.get("skill").english_name, "reliable_axe", "已装备斧子应压过拳打")
+
+
+func test_ai_equips_weapon_before_punch_when_engaged() -> void:
+	var p: Player = _ready_combat_player()
+	var gun: EquipmentCard = _weapon_card("猎枪")
+	p.hand.append(gun)
+	var input = AIPlayerInputScript.new()
+	input.think_seconds = 0.0
+	p.input = input
+	var choice: Variant = await input.wait_action(p)
+	assert_true(choice is Dictionary)
+	assert_eq(choice.get("type"), "card", "有怪且未武装时应先装备武器")
+	assert_eq(choice.get("card"), gun)
+
+
+func test_ai_uses_equipped_lighter_before_equipping_shotgun() -> void:
+	var p: Player = _ready_combat_player()
+	p.add_skill(_lighter_skill())
+	p.hand.append(_weapon_card("猎枪"))
+	var input = AIPlayerInputScript.new()
+	input.think_seconds = 0.0
+	p.input = input
+	var choice: Variant = await input.wait_action(p)
+	assert_true(choice is Dictionary)
+	assert_eq(choice.get("type"), "skill", "已有可用武器时应攻击而不是再装备")
+	assert_eq(choice.get("skill").english_name, "lighter")
+

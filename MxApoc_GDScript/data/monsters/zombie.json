@@ -11,7 +11,7 @@
       "initial_hp": 18,
       "attack_damage": 5,
       "range": "none",
-      "ai": { "threat": 83 },
+      "ai": { "threat": 999 },
       "skills": [
         {
           "skill_name": "僵尸女王",

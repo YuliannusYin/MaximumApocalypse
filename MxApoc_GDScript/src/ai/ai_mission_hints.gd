@@ -80,6 +80,10 @@ func gather_destination_blocks(_player: Variant, game: Variant = null) -> Array:
 	return result
 
 
+func remaining_needed_count(family: String, game: Variant = null) -> int:
+	return _remaining_needed(family, _resolve_game(game))
+
+
 func still_needed_gather_families(game: Variant = null) -> PackedStringArray:
 	var names: PackedStringArray = PackedStringArray()
 	var seen: Dictionary = {}

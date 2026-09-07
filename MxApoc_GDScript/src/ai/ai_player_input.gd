@@ -17,6 +17,8 @@ var _repeat_count: int = 0
 var _redraw_count: int = 0
 var _fizzle_keys: Dictionary = {}
 var _pending_card: Variant = null
+var _pending_action: Dictionary = {}
+var _pending_ap: int = -1
 
 
 func set_request_owner(player: Variant) -> void:
@@ -35,17 +37,9 @@ func wait_action(player: Variant) -> Variant:
 	_owner = player
 	await _think()
 	_note_fizzle_if_needed(player)
-	var actions: Array = LegalActionsScript.enumerate(player)
-	var best: Variant = null
-	var best_score: float = 0.0
-	for action in actions:
-		if _fizzle_keys.has(_fingerprint(action)):
-			continue
-		var score: float = scorer.score_action(player, action)
-		if score > best_score:
-			best_score = score
-			best = action
-	if best == null or best_score <= 0.0:
+	var skip: Dictionary = _fizzle_keys.duplicate()
+	var best: Variant = _pick_best_action(player, skip)
+	if best == null:
 		_reset_repeat()
 		_reset_fizzle()
 		return null
@@ -56,10 +50,17 @@ func wait_action(player: Variant) -> Variant:
 		_repeat_key = key
 		_repeat_count = 1
 	if _repeat_count >= 3:
-		_reset_repeat()
-		_reset_fizzle()
-		return null
-	_pending_card = best.get("card") if str(best.get("type", "")) == "card" else null
+		skip[key] = true
+		_repeat_key = ""
+		_repeat_count = 0
+		best = _pick_best_action(player, skip)
+		if best == null:
+			_reset_repeat()
+			_reset_fizzle()
+			return null
+		_repeat_key = _fingerprint(best)
+		_repeat_count = 1
+	_remember_pending(player, best)
 	return best
 
 
@@ -84,7 +85,7 @@ func choose_card(n: int, param: Variant = "hand", filter: Variant = null, prompt
 	var candidates: Array = _card_candidates(player, param, filter)
 	if candidates.is_empty():
 		return []
-	var discard: bool = prompt.contains("弃")
+	var discard: bool = prompt.contains("弃") or prompt.contains("制衡")
 	var scored: Array = []
 	for card in candidates:
 		var value: float = scorer.useful(player, card)
@@ -125,8 +126,15 @@ func choose_target(n: int, skill: Variant, prompt: String = "", min_n: int = -1)
 	if n < 0:
 		return candidates.duplicate()
 	var scored: Array = []
+	var grant: bool = scorer.has_tag(skill, "grant_action")
 	for target in candidates:
-		var score: float = scorer.score_damage_target(player, skill, target) if damage else scorer.effect(player, skill, target)
+		var score: float = 0.0
+		if damage:
+			score = scorer.score_damage_target(player, skill, target)
+		elif grant:
+			score = scorer.score_grant_target(player, target, skill)
+		else:
+			score = scorer.effect(player, skill, target)
 		scored.append({"target": target, "score": score})
 	scored.sort_custom(func(a, b): return float(a["score"]) > float(b["score"]))
 	var exact: bool = min_n < 0
@@ -163,15 +171,32 @@ func choose_block_inline(valid_blocks: Array, prompt: String, count: int) -> Arr
 	if valid_blocks.is_empty():
 		return []
 	var player: Variant = _owner
+	var dest: Variant = scorer.hints.nearest_travel_block(player)
+	var current: Variant = null
+	if player != null and player.has_method("get_current_block"):
+		current = player.get_current_block()
+	var current_dist: int = 99
+	if current != null and dest != null and is_instance_valid(dest) and current.has_method("distance_to"):
+		current_dist = current.distance_to(dest)
 	var scored: Array = []
 	for block in valid_blocks:
-		scored.append({"block": block, "score": scorer.score_block(player, block)})
+		if dest != null and is_instance_valid(dest) and block != null and block.has_method("distance_to"):
+			if block.distance_to(dest) >= current_dist:
+				continue
+		var score: float = scorer.score_block(player, block)
+		scored.append({"block": block, "score": score})
+	if scored.is_empty():
+		return []
 	scored.sort_custom(func(a, b): return float(a["score"]) > float(b["score"]))
+	if dest != null and float(scored[0]["score"]) <= 0.0:
+		return []
 	var n: int = maxi(count, 1)
 	if n > scored.size():
 		n = scored.size()
 	var picked: Array = []
 	for i in range(n):
+		if float(scored[i]["score"]) <= 0.0:
+			break
 		picked.append(scored[i]["block"])
 	return picked
 
@@ -322,18 +347,63 @@ func _reset_repeat() -> void:
 func _reset_fizzle() -> void:
 	_fizzle_keys.clear()
 	_pending_card = null
+	_pending_action = {}
+	_pending_ap = -1
+
+
+func _pick_best_action(player: Variant, skip: Dictionary) -> Variant:
+	var actions: Array = LegalActionsScript.enumerate(player)
+	var best: Variant = null
+	var best_score: float = 0.0
+	for action in actions:
+		var key: String = _fingerprint(action)
+		if skip.has(key) or _fizzle_keys.has(key):
+			continue
+		var score: float = scorer.score_action(player, action)
+		if score > best_score:
+			best_score = score
+			best = action
+	return best
+
+
+func _remember_pending(player: Variant, best: Variant) -> void:
+	_pending_action = best if typeof(best) == TYPE_DICTIONARY else {}
+	_pending_ap = player.get_effective_action_count() if player != null and player.has_method("get_effective_action_count") else -1
+	_pending_card = best.get("card") if typeof(best) == TYPE_DICTIONARY and str(best.get("type", "")) == "card" else null
+
+
+func _is_fizzle_prone_skill(skill: Variant) -> bool:
+	if skill == null:
+		return false
+	if scorer.has_tag(skill, "reveal"):
+		return true
+	if str(skill.get("english_name")) == "binoculars":
+		return true
+	return bool(skill.get("defer_action_cost"))
 
 
 func _note_fizzle_if_needed(player: Variant) -> void:
+	var pending: Dictionary = _pending_action
+	var pending_ap: int = _pending_ap
 	var card: Variant = _pending_card
+	_pending_action = {}
+	_pending_ap = -1
 	_pending_card = null
-	if card == null or player == null or player.hand == null:
+	if player == null or pending.is_empty():
+		return
+	var action_type: String = str(pending.get("type", ""))
+	if action_type == "skill":
+		var skill: Variant = pending.get("skill")
+		if _is_fizzle_prone_skill(skill) and player.has_method("get_effective_action_count") and player.get_effective_action_count() == pending_ap:
+			_fizzle_keys[_fingerprint(pending)] = true
+		return
+	if card == null or player.hand == null:
 		return
 	if not player.hand.has(card):
 		return
 	if player.has_method("is_card_usable") and not player.is_card_usable(card):
 		return
-	_fizzle_keys[_fingerprint({"type": "card", "card": card})] = true
+	_fizzle_keys[_fingerprint(pending)] = true
 
 
 func _hand_has_weapon(player: Variant) -> bool:

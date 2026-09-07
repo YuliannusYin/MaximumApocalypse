@@ -161,6 +161,14 @@ func has_adjacent_unrevealed_block() -> bool:
 	return false
 
 
+## 指定射程内是否有未展示的存活地块（望远镜等展示技能用）。
+func has_unrevealed_block_in_range(range_str: String) -> bool:
+	for b in get_blocks_in_range(range_str):
+		if b != null and is_instance_valid(b) and not b.is_revealed():
+			return true
+	return false
+
+
 # === 坐标与位置查询 ===
 
 ## 返回 {x, y} 坐标。

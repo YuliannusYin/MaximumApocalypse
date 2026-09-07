@@ -197,7 +197,7 @@
       ],
       "ai": {
         "order": 5,
-        "useful": 70,
+        "useful": 72,
         "tags": [
           "food"
         ],
@@ -236,7 +236,7 @@
       ],
       "ai": {
         "order": 5,
-        "useful": 72,
+        "useful": 76,
         "tags": [
           "food"
         ],
@@ -275,7 +275,7 @@
       ],
       "ai": {
         "order": 5,
-        "useful": 75,
+        "useful": 80,
         "tags": [
           "food"
         ],

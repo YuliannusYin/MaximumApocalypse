@@ -147,3 +147,84 @@ func test_legal_actions_skips_damage_when_only_survivors() -> void:
 		if action.get("type") == "skill" and action.get("skill") != null and action["skill"].english_name == "punch":
 			has_punch = true
 	assert_false(has_punch, "只有求生者可打时不应枚举拳打")
+
+
+func test_legal_actions_skips_binoculars_when_all_revealed() -> void:
+	var p: Player = _make_player("AI")
+	p.in_phase = "action"
+	p.action_count = 4
+	var here: MapBlock = _make_block("购物中心", 0, 0, true)
+	var there: MapBlock = _make_block("加油站", 1, 0, true)
+	Game.map_area = [here, there]
+	Game.players = [p]
+	p.current_block = here
+	var skill := Skill.new()
+	skill.skill_name = "双筒望远镜"
+	skill.english_name = "binoculars"
+	skill.active = "action"
+	skill.range = "long"
+	skill.ai = {"order": 5, "useful": 0, "tags": ["reveal"]}
+	p.add_skill(skill)
+	var actions: Array = LegalActionsScript.enumerate(p)
+	var has_binoculars := false
+	for action in actions:
+		if action.get("type") == "skill" and action.get("skill") != null and action["skill"].english_name == "binoculars":
+			has_binoculars = true
+	assert_false(has_binoculars, "全图已展示不应枚举望远镜")
+	there.revealed = false
+	actions = LegalActionsScript.enumerate(p)
+	has_binoculars = false
+	for action in actions:
+		if action.get("type") == "skill" and action.get("skill") != null and action["skill"].english_name == "binoculars":
+			has_binoculars = true
+	assert_true(has_binoculars, "射程内有未展示格时应枚举望远镜")
+
+
+func _push_card_only_context(player: Player) -> void:
+	player._operation_context_stack.append({
+		"kind": "limited_action",
+		"remaining_actions": 2,
+		"allowed_action_types": ["card"],
+		"completed": false,
+	})
+
+
+func test_legal_actions_card_whitelist_excludes_skill_move_draw() -> void:
+	var p: Player = _make_player("AI")
+	p.in_phase = "action"
+	p.action_count = 4
+	var here: MapBlock = _make_block("A", 0, 0, true)
+	var there: MapBlock = _make_block("B", 1, 0, true)
+	Game.map_area = [here, there]
+	Game.players = [p]
+	p.current_block = here
+	p.game_deck.add(_make_card("deck"))
+	p.add_skill(_punch_skill())
+	var weapon: EquipmentCard = _make_equipment("猎枪")
+	weapon.weapon = true
+	weapon.ai = {"order": 8, "useful": 80, "tags": ["equip", "weapon"]}
+	p.hand.append(weapon)
+	_push_card_only_context(p)
+	var actions: Array = LegalActionsScript.enumerate(p)
+	var types: Array = []
+	for action in actions:
+		types.append(action.get("type"))
+	assert_true(types.has("card"), "类固醇迷你回合应枚举手牌")
+	assert_false(types.has("skill"), "仅手牌白名单不应枚举技能")
+	assert_false(types.has("move"), "仅手牌白名单不应枚举移动")
+	assert_false(types.has("pile_draw"), "仅手牌白名单不应枚举抓牌")
+
+
+func test_legal_actions_allowed_types_override_filters_without_context() -> void:
+	var p: Player = _ready_combat_player()
+	var weapon: EquipmentCard = _make_equipment("猎枪")
+	weapon.weapon = true
+	weapon.ai = {"order": 8, "useful": 80, "tags": ["equip", "weapon"]}
+	p.hand.append(weapon)
+	var actions: Array = LegalActionsScript.enumerate(p, ["card"])
+	var types: Array = []
+	for action in actions:
+		types.append(action.get("type"))
+	assert_true(types.has("card"), "grant_types 预览应枚举手牌")
+	assert_false(types.has("skill"), "grant_types 预览不应枚举拳打")
+

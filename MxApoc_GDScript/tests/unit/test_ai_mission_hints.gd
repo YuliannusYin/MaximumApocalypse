@@ -146,3 +146,13 @@ func test_at_gas_stays_because_gather_distance_zero() -> void:
 	var hints = AiMissionHintsScript.new()
 	assert_eq(hints.nearest_objective_distance(p), 0, "已在最佳采集格时距离应为 0")
 	assert_true(hints.is_staying_to_gather(p))
+
+
+func test_remaining_needed_count_drops_when_party_holds_fuel() -> void:
+	_setup_fuel_only()
+	var p: Player = _make_player("AI")
+	Game.players = [p]
+	var hints = AiMissionHintsScript.new()
+	assert_eq(hints.remaining_needed_count("燃料"), 4, "无人持有时应缺 4")
+	p.hand.append(_make_card("燃料"))
+	assert_eq(hints.remaining_needed_count("燃料"), 3, "持有 1 桶后应缺 3")

@@ -196,7 +196,7 @@
             ],
             "effect": {
               "player": 0,
-              "target": 3
+              "target": 4
             }
           }
         }
@@ -466,8 +466,11 @@
           "filter": "return player.get_effective_phase() == \"action\" && player.get_number(\"hunger\") < 6",
           "content": "actions.increase_hunger(player, 1)\nactions.add_action(player, 1)",
           "ai": {
-            "order": 5,
+            "order": 2,
             "useful": 0,
+            "tags": [
+              "hunger_ap"
+            ],
             "effect": {
               "player": 1,
               "target": 0
@@ -476,7 +479,7 @@
         }
       ],
       "ai": {
-        "order": 3,
+        "order": 2,
         "useful": 58,
         "tags": [
           "equip"
@@ -560,7 +563,7 @@
             ],
             "effect": {
               "player": 0,
-              "target": 2
+              "target": 4
             }
           }
         }

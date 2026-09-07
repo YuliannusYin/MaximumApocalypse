@@ -4,17 +4,29 @@ extends RefCounted
 ## 从规则层枚举行动阶段可选项。与 HUD 点选无关。
 
 
-static func enumerate(player: Variant) -> Array:
+static func enumerate(player: Variant, allowed_types: Variant = null) -> Array:
 	var actions: Array = []
 	if player == null or not is_instance_valid(player):
 		return actions
 	if player.has_method("is_alive") and not player.is_alive():
 		return actions
-	_append_cards(player, actions)
-	_append_skills(player, actions)
-	_append_moves(player, actions)
-	_append_pile_draws(player, actions)
+	if _is_type_allowed(player, "card", allowed_types):
+		_append_cards(player, actions)
+	if _is_type_allowed(player, "skill", allowed_types):
+		_append_skills(player, actions)
+	if _is_type_allowed(player, "move", allowed_types):
+		_append_moves(player, actions)
+	if _is_type_allowed(player, "pile_draw", allowed_types):
+		_append_pile_draws(player, actions)
 	return actions
+
+
+static func _is_type_allowed(player: Variant, action_type: String, allowed_override: Variant) -> bool:
+	if allowed_override is Array and not allowed_override.is_empty() and not allowed_override.has(action_type):
+		return false
+	if player != null and player.has_method("is_action_type_allowed"):
+		return player.is_action_type_allowed(action_type)
+	return true
 
 
 static func _append_cards(player: Variant, actions: Array) -> void:
@@ -24,6 +36,8 @@ static func _append_cards(player: Variant, actions: Array) -> void:
 		if card == null or not is_instance_valid(card) or not player.is_card_usable(card):
 			continue
 		if _should_skip_damage_action(player, _primary_play_skill(card)):
+			continue
+		if _should_skip_reveal_action(player, _primary_play_skill(card)):
 			continue
 		actions.append({"type": "card", "card": card})
 
@@ -35,6 +49,8 @@ static func _append_skills(player: Variant, actions: Array) -> void:
 		if skill == null or not is_instance_valid(skill) or not player.can_use_active_skill(skill):
 			continue
 		if _should_skip_damage_action(player, skill):
+			continue
+		if _should_skip_reveal_action(player, skill):
 			continue
 		actions.append({"type": "skill", "skill": skill})
 
@@ -78,6 +94,32 @@ static func _allowed_scavenge_colors(player: Variant) -> Dictionary:
 		for color in raw:
 			allowed[str(color)] = true
 	return allowed
+
+
+static func _should_skip_reveal_action(player: Variant, skill: Variant) -> bool:
+	if skill == null or not _is_reveal_skill(skill):
+		return false
+	var current: Variant = player.get_current_block() if player != null and player.has_method("get_current_block") else null
+	if current == null or not is_instance_valid(current):
+		return true
+	var range_str: String = str(skill.get("range")) if skill.get("range") != null else ""
+	if range_str == "":
+		range_str = "long"
+	if current.has_method("has_unrevealed_block_in_range"):
+		return not current.has_unrevealed_block_in_range(range_str)
+	return true
+
+
+static func _is_reveal_skill(skill: Variant) -> bool:
+	if skill == null:
+		return false
+	var raw: Variant = skill.get("ai") if skill.get("ai") != null else {}
+	if raw is Dictionary:
+		var tags: Variant = raw.get("tags", [])
+		if tags is Array and tags.has("reveal"):
+			return true
+	var english_name: String = str(skill.get("english_name"))
+	return english_name == "binoculars"
 
 
 static func _should_skip_damage_action(player: Variant, skill: Variant) -> bool:

@@ -398,6 +398,12 @@
           "ai": {
             "order": 5,
             "useful": 0,
+            "tags": [
+              "grant_action"
+            ],
+            "grant_types": [
+              "card"
+            ],
             "effect": {
               "player": 1,
               "target": 0
@@ -408,6 +414,12 @@
       "ai": {
         "order": 5,
         "useful": 58,
+        "tags": [
+          "grant_action"
+        ],
+        "grant_types": [
+          "card"
+        ],
         "effect": {
           "player": 1,
           "target": 0
@@ -436,6 +448,9 @@
           "ai": {
             "order": 5,
             "useful": 0,
+            "tags": [
+              "grant_action"
+            ],
             "effect": {
               "player": 1,
               "target": 0
@@ -446,6 +461,9 @@
       "ai": {
         "order": 5,
         "useful": 58,
+        "tags": [
+          "grant_action"
+        ],
         "effect": {
           "player": 1,
           "target": 0

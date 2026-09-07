@@ -269,8 +269,11 @@
           "content": "actions.consume_action(player, 1)\nactions.execute_action_immediately(target, 1)",
           "defer_action_cost": true,
           "ai": {
-            "order": 5,
+            "order": 4,
             "useful": 0,
+            "tags": [
+              "grant_action"
+            ],
             "effect": {
               "player": 1,
               "target": 0
@@ -406,11 +409,14 @@
           "range": "long",
           "skill_type": "equipment",
           "active": "action",
-          "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0 && player.get_current_block() != null && player.get_current_block().has_unrevealed_block_in_range(\"long\")",
           "content": "var blocks = player.get_current_block().get_blocks_in_range(\"long\")\nvar candidates = []\nfor b in blocks:\n\tif not b.is_revealed():\n\t\tcandidates.append(b)\nif candidates.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar chosen = await player.choose_block_inline(candidates, \"\\\"双筒望远镜\\\": 选择目标地图块\", 1)\nif chosen.is_empty():\n\tEventSystem.cancel(event)\n\treturn\ntarget = chosen[0]\nactions.consume_action(player, 1)\nactions.reveal(target, false, player)",
           "ai": {
-            "order": 5,
+            "order": 3,
             "useful": 0,
+            "tags": [
+              "reveal"
+            ],
             "effect": {
               "player": 1,
               "target": 0

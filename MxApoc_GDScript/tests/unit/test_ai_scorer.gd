@@ -208,3 +208,280 @@ func test_hazard_lowers_wilderness_block_score() -> void:
 	wild.add_skill(hazard)
 	p.current_block = safe
 	assert_gt(scorer.score_block(p, safe), scorer.score_block(p, wild), "有 hazard 的旷野应低于安全格")
+
+
+func test_food_prefers_hungry_self_over_fed_ally() -> void:
+	var scorer = AiScorerScript.new()
+	var p: Player = _make_player("AI")
+	p.hunger = 6
+	var ally: Player = _make_player("Ally")
+	ally.hunger = 1
+	var block: MapBlock = _make_block("购物中心", 0, 0, true)
+	Game.map_area = [block]
+	Game.players = [p, ally]
+	p.current_block = block
+	ally.current_block = block
+	var skill := Skill.new()
+	skill.select_target = 1
+	skill.filter_target_range = "short"
+	skill.ai = {"order": 5, "useful": 0, "tags": ["food"], "effect": {"player": 2, "target": 0}}
+	assert_gt(scorer.effect(p, skill, p), scorer.effect(p, skill, ally), "研钵应优先饥饿的自己")
+	assert_eq(scorer.effect(p, skill, ally), 0.0, "目标饥饿 ≤ 1 时食物分应为 0")
+	p.add_skill(skill)
+	assert_gt(scorer.score_action(p, {"type": "skill", "skill": skill}), 0.0, "自己饥饿时应出食物技能")
+
+
+func test_refuel_loses_to_move_toward_van_when_fuel_still_needed() -> void:
+	var mc := MissionConfig.new()
+	var fuel := MissionComponentAddVanFuel.new()
+	fuel.params = {"block_name": "面包车", "card_name": "燃料", "count": 4}
+	var rally := MissionComponentAllPlayersAtBlock.new()
+	rally.params = {"block_name": "面包车"}
+	mc.action_components = [fuel]
+	mc.win_condition_components = [rally]
+	Game.mission_config = mc
+	mc.setup_components(Game)
+	var van: MapBlock = _make_block("面包车", 0, 0, true)
+	var east: MapBlock = _make_block("旷野", 1, 0, true)
+	Game.map_area = [van, east]
+	var p: Player = _make_player("AI")
+	p.current_block = east
+	p.action_count = 4
+	p.in_phase = "action"
+	p.hand.append(_make_card("燃料"))
+	Game.players = [p]
+	var bike: EquipmentCard = _make_equipment("摩托车")
+	bike.charge_type = "fuel"
+	bike.charge_max = 2
+	bike.charge_current = 0
+	p.equipment_zone.append(bike)
+	var refuel := Skill.new()
+	refuel.english_name = "refuel"
+	refuel.skill_name = "加油"
+	refuel.ai = {"order": 5, "useful": 0, "tags": ["fuel"], "effect": {"player": 1, "target": 0}}
+	p.add_skill(refuel)
+	var scorer = AiScorerScript.new()
+	assert_gt(
+		scorer.score_action(p, {"type": "move", "target": van}),
+		scorer.score_action(p, {"type": "skill", "skill": refuel}),
+		"任务仍缺燃料时朝面包车走应高于给载具加油"
+	)
+
+
+func test_balance_scores_nonpositive_when_discarding_weapons() -> void:
+	var scorer = AiScorerScript.new()
+	var p: Player = _make_player("AI")
+	p.in_phase = "action"
+	p.action_count = 4
+	var gun: Card = _make_card("猎枪")
+	gun.ai = {"order": 8, "useful": 80, "tags": ["weapon"]}
+	var kit: Card = _make_card("急救包")
+	kit.ai = {"order": 6, "useful": 70, "tags": ["heal"]}
+	p.hand.append(gun)
+	p.hand.append(kit)
+	var skill := Skill.new()
+	skill.english_name = "balance"
+	skill.skill_name = "制衡"
+	skill.ai = {"order": 3, "useful": 0, "tags": ["draw"], "effect": {"player": 1, "target": 0}}
+	assert_lte(scorer.score_action(p, {"type": "skill", "skill": skill}), 0.0, "制衡丢掉武器/治疗时应 ≤ 0")
+
+
+func test_grant_action_prefers_teammate_with_real_play() -> void:
+	var scorer = AiScorerScript.new()
+	var p: Player = _make_player("AI")
+	p.in_phase = "action"
+	p.action_count = 4
+	var fighter: Player = _make_player("Fighter")
+	fighter.in_phase = "action"
+	fighter.action_count = 4
+	var idle: Player = _make_player("Idle")
+	idle.in_phase = "action"
+	idle.action_count = 4
+	var block: MapBlock = _make_block("旷野", 0, 0, true)
+	Game.map_area = [block]
+	Game.players = [p, fighter, idle]
+	p.current_block = block
+	fighter.current_block = block
+	idle.current_block = block
+	var monster: Monster = Monster.new()
+	monster.hp = 5
+	monster.max_hp = 5
+	monster.ai_threat = 40
+	fighter.monster_zone.append(monster)
+	var punch := Skill.new()
+	punch.english_name = "punch"
+	punch.active = "action"
+	punch.select_target = 1
+	punch.filter_target_range = "short"
+	punch.ai = {"order": 9, "useful": 0, "tags": ["damage"], "effect": {"player": 0, "target": 2}}
+	fighter.add_skill(punch)
+	assert_gt(scorer.score_grant_target(p, fighter), scorer.score_grant_target(p, idle), "对讲机应选有实着的队友")
+	var grant := Skill.new()
+	grant.english_name = "walkie_talkie"
+	grant.select_target = 1
+	grant.filter_target_range = "infinity"
+	grant.ai = {"order": 4, "useful": 0, "tags": ["grant_action"], "effect": {"player": 1, "target": 0}}
+	assert_gt(scorer.score_action(p, {"type": "skill", "skill": grant}), 0.0, "有可行动队友时支援分应为正")
+
+
+func test_size_full_nonweapon_equip_scores_below_zero() -> void:
+	var scorer = AiScorerScript.new()
+	var p: Player = _make_player("AI")
+	p.role_card = RoleCard.new()
+	p.role_card.equipment_capacity = 4
+	var turret: EquipmentCard = _make_equipment("自动炮塔")
+	turret.size = 2
+	turret.ai = {"order": 8, "useful": 80, "tags": ["weapon"]}
+	var mine: EquipmentCard = _make_equipment("感应地雷")
+	mine.size = 1
+	var pistol: EquipmentCard = _make_equipment("手枪")
+	pistol.size = 1
+	pistol.weapon = true
+	pistol.ai = {"order": 8, "useful": 80, "tags": ["weapon"]}
+	p.equipment_zone.append(turret)
+	p.equipment_zone.append(mine)
+	p.equipment_zone.append(pistol)
+	var binoculars: EquipmentCard = _make_equipment("双筒望远镜")
+	binoculars.size = 1
+	binoculars.card_type = "equipment"
+	binoculars.ai = {"order": 3, "useful": 58, "tags": ["equip"]}
+	assert_lt(scorer.score_action(p, {"type": "card", "card": binoculars}), 0.0, "size 已满时望远镜挤装分应低于 0")
+
+
+func test_unneeded_spare_parts_do_not_outrank_food_when_hungry() -> void:
+	var scorer = AiScorerScript.new()
+	var p: Player = _make_player("AI")
+	p.hunger = 4
+	var parts: Card = _make_card("多余配件")
+	parts.ai = {"order": 0, "useful": 90}
+	var food: Card = _make_card("食物（大量）")
+	food.ai = {"order": 5, "useful": 70, "tags": ["food"]}
+	assert_gt(scorer.useful(p, food), scorer.useful(p, parts), "饥饿时食物 useful 应高于非任务配件")
+
+
+func _punch_skill() -> Skill:
+	var skill := Skill.new()
+	skill.skill_name = "拳打"
+	skill.english_name = "punch"
+	skill.active = "action"
+	skill.select_target = 1
+	skill.filter_target_range = "short"
+	skill.ai = {"order": 9, "useful": 0, "tags": ["damage"], "effect": {"player": 0, "target": 2}}
+	return skill
+
+
+func _ready_combat_player() -> Player:
+	var p: Player = _make_player("AI")
+	p.in_phase = "action"
+	p.action_count = 4
+	var block: MapBlock = _make_block("旷野", 0, 0, true)
+	Game.map_area = [block]
+	Game.players = [p]
+	p.current_block = block
+	var monster: Monster = Monster.new()
+	monster.hp = 5
+	monster.max_hp = 5
+	monster.ai_threat = 40
+	p.monster_zone.append(monster)
+	p.add_skill(_punch_skill())
+	return p
+
+
+func test_axe_skill_outscores_punch() -> void:
+	var scorer = AiScorerScript.new()
+	var p: Player = _ready_combat_player()
+	var axe := Skill.new()
+	axe.english_name = "reliable_axe"
+	axe.active = "action"
+	axe.select_target = 1
+	axe.filter_target_range = "short"
+	axe.ai = {"order": 9, "useful": 0, "tags": ["damage", "weapon"], "effect": {"player": 0, "target": 4}}
+	p.add_skill(axe)
+	var punch_score: float = scorer.score_action(p, {"type": "skill", "skill": p.skills[0]})
+	var axe_score: float = scorer.score_action(p, {"type": "skill", "skill": axe})
+	assert_gt(axe_score, punch_score, "斧子 4 伤应压过拳打")
+
+
+func test_unarmed_weapon_equip_outscores_punch_when_engaged() -> void:
+	var scorer = AiScorerScript.new()
+	var p: Player = _ready_combat_player()
+	var gun: EquipmentCard = _make_equipment("猎枪")
+	gun.weapon = true
+	gun.ai = {"order": 8, "useful": 80, "tags": ["equip", "weapon"]}
+	p.hand.append(gun)
+	var punch_score: float = scorer.score_action(p, {"type": "skill", "skill": p.skills[0]})
+	var equip_score: float = scorer.score_action(p, {"type": "card", "card": gun})
+	assert_gt(equip_score, punch_score, "有怪未武装时装备武器应压过拳打")
+
+
+func test_equipped_weapon_outscores_equipping_another() -> void:
+	var scorer = AiScorerScript.new()
+	var p: Player = _ready_combat_player()
+	var lighter := Skill.new()
+	lighter.english_name = "lighter"
+	lighter.active = "action"
+	lighter.select_target = -1
+	lighter.filter_target_range = "short"
+	lighter.filter_target = func(_player, target, _event, _game) -> bool:
+		return target != null and target.has_method("is_monster") and target.is_monster()
+	lighter.ai = {"order": 9, "useful": 0, "tags": ["damage", "aoe", "weapon"], "effect": {"player": 0, "target": 3}}
+	p.add_skill(lighter)
+	var gun: EquipmentCard = _make_equipment("猎枪")
+	gun.weapon = true
+	gun.ai = {"order": 8, "useful": 80, "tags": ["equip", "weapon"]}
+	p.hand.append(gun)
+	var attack_score: float = scorer.score_action(p, {"type": "skill", "skill": lighter})
+	var equip_score: float = scorer.score_action(p, {"type": "card", "card": gun})
+	assert_gt(attack_score, equip_score, "已有可用武器时不应为再装备而放弃攻击")
+
+
+func test_grant_types_card_ignores_punch() -> void:
+	var scorer = AiScorerScript.new()
+	var p: Player = _make_player("Doctor")
+	p.in_phase = "action"
+	p.action_count = 4
+	var puncher: Player = _make_player("Puncher")
+	puncher.in_phase = "action"
+	puncher.action_count = 4
+	var armed: Player = _make_player("Armed")
+	armed.in_phase = "action"
+	armed.action_count = 4
+	var block: MapBlock = _make_block("旷野", 0, 0, true)
+	Game.map_area = [block]
+	Game.players = [p, puncher, armed]
+	p.current_block = block
+	puncher.current_block = block
+	armed.current_block = block
+	var monster: Monster = Monster.new()
+	monster.hp = 5
+	monster.max_hp = 5
+	monster.ai_threat = 40
+	puncher.monster_zone.append(monster)
+	var punch := _punch_skill()
+	puncher.add_skill(punch)
+	var gun: EquipmentCard = _make_equipment("猎枪")
+	gun.weapon = true
+	gun.ai = {"order": 8, "useful": 80, "tags": ["equip", "weapon"]}
+	armed.hand.append(gun)
+	var steroid := Skill.new()
+	steroid.english_name = "steroid_injection"
+	steroid.select_target = 1
+	steroid.filter_target_range = "infinity"
+	steroid.filter_target = func(_player, target, _event, _game) -> bool:
+		return target != null and target.has_method("is_player") and target.is_player()
+	steroid.ai = {"order": 5, "useful": 0, "tags": ["grant_action"], "grant_types": ["card"], "effect": {"player": 1, "target": 0}}
+	assert_gt(scorer.score_grant_target(p, armed, steroid), scorer.score_grant_target(p, puncher, steroid), "类固醇只看手牌，不应把只会拳打的人评更高")
+
+
+func test_grant_action_includes_self() -> void:
+	var scorer = AiScorerScript.new()
+	var p: Player = _ready_combat_player()
+	var grant := Skill.new()
+	grant.english_name = "adrenaline_injection"
+	grant.select_target = 1
+	grant.filter_target_range = "infinity"
+	grant.filter_target = func(_player, target, _event, _game) -> bool:
+		return target != null and target.has_method("is_player") and target.is_player()
+	grant.ai = {"order": 5, "useful": 0, "tags": ["grant_action"], "effect": {"player": 1, "target": 0}}
+	assert_gt(scorer.score_action(p, {"type": "skill", "skill": grant}), 0.0, "可自用的支援牌在自己有实着时应为正")
+

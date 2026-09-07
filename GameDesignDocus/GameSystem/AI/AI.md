@@ -38,11 +38,12 @@ Player.wait_player_action
 `LegalActions.enumerate` 对齐规则，不抄 HUD：
 
 - 手牌：`player.is_card_usable`；伤害牌在合法目标只剩求生者时不枚举；`target_type == equipment` 的伤害牌（如集中射击）还要求射程内有怪物，否则不枚举
-- 技能：`player.can_use_active_skill`；伤害技能同样跳过「只能打人」
-- 移动：有效行动点 > 0 且 **怪物区为空** 时当前地块相邻格（有纠缠怪物不主动走）
+- 技能：`player.can_use_active_skill`；伤害技能同样跳过「只能打人」；`reveal`（望远镜）在射程内没有未展示格时不枚举
+- 移动：有效行动点 > 0 且 **怪物区为空** 时当前地块相邻格（有纠缠怪物不主动走）；只给**严格靠近**行进目标的邻格正分
 - 抓牌：有效行动点 > 0 且牌堆非空；拾荒只枚举 **当前地块 `scavenge_colors`**（与 GUI 一致）
+- 迷你回合白名单：`enumerate` 问 `player.is_action_type_allowed`（与 GUI 一致）。注射类固醇是 `["card"]`，只出手牌；肾上腺素 / 战术领导力空白名单不限制。评分器预览支援目标时可通过第二参数 `allowed_types` 覆盖（类固醇 `grant_types: ["card"]`）
 
-`AIPlayerInput` 决策对齐 `CliPlayerInput`。`think_seconds` 默认 `0`（测试不卡）；场景里设 `0.4`。同一行动指纹连续 3 次则结束回合，避免零消耗死循环。若上次选出的卡牌打出后仍在手且仍可用，本回合将该指纹加入空放黑名单，改选移动 / 拾荒。
+`AIPlayerInput` 决策对齐 `CliPlayerInput`。`think_seconds` 默认 `0`（测试不卡）；场景里设 `0.4`。同一行动指纹连续 3 次则**跳过该选项再选次优**，不直接结束回合。卡牌空放（打出后仍在手）与展示类技能空放（行动点未变）本回合拉黑该指纹。`choose_block_inline`：最高分 ≤ 0 或格子不比当前更靠近行进目标则返回空（耐力 / 摩托车后续步停走）。
 
 ---
 
@@ -55,7 +56,8 @@ Player.wait_player_action
   "order": 8,
   "useful": 80,
   "tags": ["damage", "weapon"],
-  "effect": { "player": 0, "target": 2 }
+  "effect": { "player": 0, "target": 2 },
+  "grant_types": ["card"]
 }
 ```
 
@@ -65,6 +67,7 @@ Player.wait_player_action
 | `useful` | 留牌价值 ∈ **[0, 100]**（弃牌 / 选牌时越高越留）。技能可写 `0` |
 | `tags` | 供局势加成。见下表 |
 | `effect.player` / `effect.target` | 无名杀 `result.player/target` 的数值版 |
+| `grant_types` | 可选。仅 `grant_action` 使用：预览受援者合法行动时的类型白名单（如类固醇 `["card"]`）。省略则看全部类型 |
 
 建议刻度：任务关键物 85–95；主力武器 / 关键装备 70–85；一般行动 50–70；弱牌 20–45；垃圾 0–20。
 
@@ -81,7 +84,7 @@ Player.wait_player_action
 
 ### 3.1 tags
 
-`damage` `heal` `food` `fuel` `ammo` `equip` `move` `draw` `stealth` `mission` `aoe` `weapon`
+`damage` `heal` `food` `fuel` `ammo` `equip` `move` `draw` `stealth` `mission` `aoe` `weapon` `reveal` `grant_action` `hunger_ap`
 
 ### 3.2 order 档位
 
@@ -92,9 +95,10 @@ Player.wait_player_action
 | 8 | 装备武器 / 关键防具 |
 | 7 | 装填弹药 / 燃料 |
 | 6 | 治疗 |
-| 5 | 食物（饥饿将满时由评分器再加分） |
-| 4 | 制衡等过牌 |
-| 3 | 装备非武器 |
+| 5 | 食物（饥饿由评分器按**目标**再加分） |
+| 4 | 对讲机 / 战术领导力（实际分看队友最佳着） |
+| 3 | 制衡、非武器装备、望远镜 |
+| 2 | 野地夹克等「加饥饿换行动」 |
 | 0 | 被动 / 不主动用 |
 
 ### 3.3 effect 符号约定
@@ -103,9 +107,13 @@ JSON 里 `effect.target` 对 `damage` / `heal` 写**正数幅度**。评分器�
 
 - `damage`：最终分 ≈ `effect.player + (-attitude(target)) * |effect.target|` + 威胁；打怪物为正，打队友 / 自己为负
 - `heal`：目标满血则 0；否则由缺血比主导（不含 order），避免满血缝合压过移动 / 拾荒
+- `food`：按**目标**饥饿计分（≤1 为 0；≥3 / ≥5 两档）；使用者饥饿不低于目标时优先自己
+- `grant_action`：目标分 = 该玩家（含自己）当前最高合法行动分（只看一层）；`grant_types` 存在时只预览这些类型；无人有正分实着则整张 ≤ 0
 - 其它：`effect.player + attitude(target) * effect.target`
 
 卡级 `order == 0` 时，出牌评分回退到该牌主动技能的 `order`。
+
+装备栏按 **size 占用** 判断是否挤装；非武器且会超栏时重罚。有纠缠怪物且当前没有可用的已装备武器攻击（`weapon`+`damage` 且 filter 通过；拳打无 `weapon` 不算）时，手里的武器装备加局势分，压过徒手攻击，先花 1 点装上再打。已有可用斧 / 打火机 / 猎枪时不加这项，优先挥已装备武器。`加油` 在任务仍缺该物资族时降权（允许给载具加，但不抢交任务）。制衡按即将丢掉的两张 useful 计分；丢掉武器 / 治疗 / 食物 / 任务物时再扣。非任务需求且 useful 虚高的道具（如多余配件）在留牌时封顶，避免压过食物。
 
 ---
 
@@ -133,7 +141,8 @@ JSON 里 `effect.target` 对 `damage` / `heal` 写**正数幅度**。评分器�
 - 物资族：与现有「名（变体）」规则一致（`matches_item_family`）；匹配则 `useful + 15`（封顶 100），避免制衡 / 弃牌丢掉燃料
 - 任务技能 filter 已通过时，order 至少 12 再加完成进度分
 - 有纠缠怪物时不枚举主动移动
-- 食物：饥饿 ≥ 5（即将掉血）时再强加分
+- 食物：饥饿 ≥ 3 即加分，≥ 5 再加一档；看目标不看使用者
+- 任务仍缺燃料时 `加油` 降权，不禁止
 
 ---
 
@@ -149,7 +158,7 @@ JSON 里 `effect.target` 对 `damage` / `heal` 写**正数幅度**。评分器�
 
 其它方法：
 
-- `choose_target` / `choose_card` / `choose` / `choose_map_block` / `choose_block_inline`：对候选项打分；强制选择取最高；可取消且最高分 ≤ 0 则空 / 取消。prompt 含「弃」时选低 useful。伤害类 `choose_target` 跳过其他求生者（列表只剩玩家时才从中选）
+- `choose_target` / `choose_card` / `choose` / `choose_map_block` / `choose_block_inline`：对候选项打分；强制选择取最高；可取消且最高分 ≤ 0 则空 / 取消。prompt 含「弃」或「制衡」时选低 useful。伤害类 `choose_target` 跳过其他求生者（列表只剩玩家时才从中选）；`grant_action` 选「最佳行动分」最高的玩家（含自己，类固醇按 `grant_types` 只看手牌）。多步移动 `choose_block_inline` 在已在目标格或无法更近时返回空
 - `confirm` / `wait_judge_confirm`：默认确认（潜行检定：有怪标记或仍有行动点则确认）
 - `wait_redraw_decision`：手里已有 `weapon` 牌则停止；否则重调。本局最多 20 次，避免牌库没有武器时卡死开局。已装备的武器不计入（枪手开局柯尔特不算「手里有武器」）
 - `play_*_animation`：有 `animation_input` 则委托 GUI

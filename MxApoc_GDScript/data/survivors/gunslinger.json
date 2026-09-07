@@ -412,8 +412,11 @@
           "defer_action_cost": true,
           "content": "actions.consume_action(player, 1)\nactions.execute_action_immediately(target, 2)",
           "ai": {
-            "order": 5,
+            "order": 4,
             "useful": 0,
+            "tags": [
+              "grant_action"
+            ],
             "effect": {
               "player": 1,
               "target": 0
@@ -422,8 +425,11 @@
         }
       ],
       "ai": {
-        "order": 5,
+        "order": 4,
         "useful": 58,
+        "tags": [
+          "grant_action"
+        ],
         "effect": {
           "player": 1,
           "target": 0
