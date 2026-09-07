@@ -68,6 +68,7 @@ const TEAMMATE_LAYOUT: Dictionary = {
 var _player: Variant = null
 var _is_self: bool = false
 var _is_current_turn: bool = false
+var _is_operation_focus: bool = false
 var _layout: Dictionary = {}
 var _x_offset: int = 0  # 队友面板的 x 偏移（idx 2 起每档 +165）
 var _y_offset: int = 0
@@ -138,7 +139,15 @@ func set_current_turn(is_current: bool) -> void:
 	_apply_border()
 	set_turn_highlight(is_current)
 	if _action_label != null:
-		_action_label.visible = is_current
+		_action_label.visible = is_current or _is_operation_focus
+
+
+## 设置当前操作事件的焦点玩家。与正式回合高亮独立。
+func set_operation_focus(is_focus: bool) -> void:
+	_is_operation_focus = is_focus
+	if _action_label != null:
+		_action_label.visible = _is_current_turn or _is_operation_focus
+		_update_action()
 
 
 ## 刷新所有元素的数据。
@@ -434,8 +443,12 @@ func _update_hunger() -> void:
 func _update_action() -> void:
 	if _player == null:
 		return
-	if _is_current_turn:
-		_action_label.text = "行动 %d/%d" % [_player.get("action_count"), _player.get("max_action_count")]
+	if _is_current_turn or _is_operation_focus:
+		var action_count: int = _player.get_effective_action_count() if _player.has_method("get_effective_action_count") else _player.get("action_count")
+		if _is_operation_focus and not _is_current_turn:
+			_action_label.text = "临时行动 %d" % action_count
+		else:
+			_action_label.text = "行动 %d/%d" % [action_count, _player.get("max_action_count")]
 		_action_label.visible = true
 	else:
 		_action_label.visible = false

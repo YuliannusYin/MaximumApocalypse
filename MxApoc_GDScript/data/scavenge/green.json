@@ -14,12 +14,34 @@
           "skill_description": "玩家饥饿值减少1点。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"hunger\") > 1",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_number(\"hunger\") > 1",
           "select_target": 1,
           "filter_target": "return target == player",
-          "content": "actions.decrease_hunger(player, 1)"
+          "content": "actions.decrease_hunger(player, 1)",
+          "ai": {
+            "order": 5,
+            "useful": 0,
+            "tags": [
+              "food"
+            ],
+            "effect": {
+              "player": 2,
+              "target": 0
+            }
+          }
         }
-      ]
+      ],
+      "ai": {
+        "order": 5,
+        "useful": 55,
+        "tags": [
+          "food"
+        ],
+        "effect": {
+          "player": 2,
+          "target": 0
+        }
+      }
     },
     {
       "card_name": "食物（小额）",
@@ -33,12 +55,34 @@
           "skill_description": "玩家饥饿值减少2点。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"hunger\") > 1",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_number(\"hunger\") > 1",
           "select_target": 1,
           "filter_target": "return target == player",
-          "content": "actions.decrease_hunger(player, 2)"
+          "content": "actions.decrease_hunger(player, 2)",
+          "ai": {
+            "order": 5,
+            "useful": 0,
+            "tags": [
+              "food"
+            ],
+            "effect": {
+              "player": 2,
+              "target": 0
+            }
+          }
         }
-      ]
+      ],
+      "ai": {
+        "order": 5,
+        "useful": 58,
+        "tags": [
+          "food"
+        ],
+        "effect": {
+          "player": 2,
+          "target": 0
+        }
+      }
     },
     {
       "card_name": "食物（标准）",
@@ -52,12 +96,34 @@
           "skill_description": "玩家饥饿值减少3点。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"hunger\") > 1",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_number(\"hunger\") > 1",
           "select_target": 1,
           "filter_target": "return target == player",
-          "content": "actions.decrease_hunger(player, 3)"
+          "content": "actions.decrease_hunger(player, 3)",
+          "ai": {
+            "order": 5,
+            "useful": 0,
+            "tags": [
+              "food"
+            ],
+            "effect": {
+              "player": 2,
+              "target": 0
+            }
+          }
         }
-      ]
+      ],
+      "ai": {
+        "order": 5,
+        "useful": 62,
+        "tags": [
+          "food"
+        ],
+        "effect": {
+          "player": 2,
+          "target": 0
+        }
+      }
     },
     {
       "card_name": "食物（足量）",
@@ -71,12 +137,34 @@
           "skill_description": "玩家饥饿值减少4点。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"hunger\") > 1",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_number(\"hunger\") > 1",
           "select_target": 1,
           "filter_target": "return target == player",
-          "content": "actions.decrease_hunger(player, 4)"
+          "content": "actions.decrease_hunger(player, 4)",
+          "ai": {
+            "order": 5,
+            "useful": 0,
+            "tags": [
+              "food"
+            ],
+            "effect": {
+              "player": 2,
+              "target": 0
+            }
+          }
         }
-      ]
+      ],
+      "ai": {
+        "order": 5,
+        "useful": 66,
+        "tags": [
+          "food"
+        ],
+        "effect": {
+          "player": 2,
+          "target": 0
+        }
+      }
     },
     {
       "card_name": "食物（大量）",
@@ -90,12 +178,34 @@
           "skill_description": "玩家饥饿值减少5点。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"hunger\") > 1",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_number(\"hunger\") > 1",
           "select_target": 1,
           "filter_target": "return target == player",
-          "content": "actions.decrease_hunger(player, 5)"
+          "content": "actions.decrease_hunger(player, 5)",
+          "ai": {
+            "order": 5,
+            "useful": 0,
+            "tags": [
+              "food"
+            ],
+            "effect": {
+              "player": 2,
+              "target": 0
+            }
+          }
         }
-      ]
+      ],
+      "ai": {
+        "order": 5,
+        "useful": 72,
+        "tags": [
+          "food"
+        ],
+        "effect": {
+          "player": 2,
+          "target": 0
+        }
+      }
     },
     {
       "card_name": "食物（小箱）",
@@ -109,10 +219,32 @@
           "skill_description": "所有玩家的饥饿值减少1点。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\"",
-          "content": "var list = game.get_all_players()\nfor i in list:\n\tactions.decrease_hunger(i, 1)"
+          "filter": "return player.get_effective_phase() == \"action\"",
+          "content": "var list = game.get_all_players()\nfor i in list:\n\tactions.decrease_hunger(i, 1)",
+          "ai": {
+            "order": 5,
+            "useful": 0,
+            "tags": [
+              "food"
+            ],
+            "effect": {
+              "player": 2,
+              "target": 0
+            }
+          }
         }
-      ]
+      ],
+      "ai": {
+        "order": 5,
+        "useful": 76,
+        "tags": [
+          "food"
+        ],
+        "effect": {
+          "player": 2,
+          "target": 0
+        }
+      }
     },
     {
       "card_name": "食物（大箱）",
@@ -126,10 +258,32 @@
           "skill_description": "所有玩家的饥饿值减少2点。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\"",
-          "content": "var list = game.get_all_players()\nfor i in list:\n\tactions.decrease_hunger(i, 2)"
+          "filter": "return player.get_effective_phase() == \"action\"",
+          "content": "var list = game.get_all_players()\nfor i in list:\n\tactions.decrease_hunger(i, 2)",
+          "ai": {
+            "order": 5,
+            "useful": 0,
+            "tags": [
+              "food"
+            ],
+            "effect": {
+              "player": 2,
+              "target": 0
+            }
+          }
         }
-      ]
+      ],
+      "ai": {
+        "order": 5,
+        "useful": 80,
+        "tags": [
+          "food"
+        ],
+        "effect": {
+          "player": 2,
+          "target": 0
+        }
+      }
     }
   ]
 }

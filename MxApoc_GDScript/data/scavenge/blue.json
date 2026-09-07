@@ -15,14 +15,36 @@
           "skill_type": "action",
           "active": "action",
           "target_type": "equipment",
-          "filter": "return player.in_phase == \"action\"",
+          "filter": "return player.get_effective_phase() == \"action\"",
           "select_target": 1,
           "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\" && target.charge_current < target.charge_max",
           "window_prompt": "\"弹药（少量）\": 选择要填装的武器",
           "defer_action_cost": true,
-          "content": "actions.consume_action(player, 1)\nactions.add_charge_to(player, target, 2, \"ammo\")"
+          "content": "actions.consume_action(player, 1)\nactions.add_charge_to(player, target, 2, \"ammo\")",
+          "ai": {
+            "order": 7,
+            "useful": 0,
+            "tags": [
+              "ammo"
+            ],
+            "effect": {
+              "player": 1,
+              "target": 0
+            }
+          }
         }
-      ]
+      ],
+      "ai": {
+        "order": 7,
+        "useful": 55,
+        "tags": [
+          "ammo"
+        ],
+        "effect": {
+          "player": 1,
+          "target": 0
+        }
+      }
     },
     {
       "card_name": "弹药（半盒）",
@@ -37,14 +59,36 @@
           "skill_type": "action",
           "active": "action",
           "target_type": "equipment",
-          "filter": "return player.in_phase == \"action\"",
+          "filter": "return player.get_effective_phase() == \"action\"",
           "select_target": 1,
           "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\" && target.charge_current < target.charge_max",
           "window_prompt": "\"弹药（半盒）\": 选择要填装的武器",
           "defer_action_cost": true,
-          "content": "actions.consume_action(player, 1)\nactions.add_charge_to(player, target, 3, \"ammo\")"
+          "content": "actions.consume_action(player, 1)\nactions.add_charge_to(player, target, 3, \"ammo\")",
+          "ai": {
+            "order": 7,
+            "useful": 0,
+            "tags": [
+              "ammo"
+            ],
+            "effect": {
+              "player": 1,
+              "target": 0
+            }
+          }
         }
-      ]
+      ],
+      "ai": {
+        "order": 7,
+        "useful": 58,
+        "tags": [
+          "ammo"
+        ],
+        "effect": {
+          "player": 1,
+          "target": 0
+        }
+      }
     },
     {
       "card_name": "弹药（足量）",
@@ -59,14 +103,36 @@
           "skill_type": "action",
           "active": "action",
           "target_type": "equipment",
-          "filter": "return player.in_phase == \"action\"",
+          "filter": "return player.get_effective_phase() == \"action\"",
           "select_target": 1,
           "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\" && target.charge_current < target.charge_max",
           "window_prompt": "\"弹药（足量）\": 选择要填装的武器",
           "defer_action_cost": true,
-          "content": "actions.consume_action(player, 1)\nactions.add_charge_to(player, target, 4, \"ammo\")"
+          "content": "actions.consume_action(player, 1)\nactions.add_charge_to(player, target, 4, \"ammo\")",
+          "ai": {
+            "order": 7,
+            "useful": 0,
+            "tags": [
+              "ammo"
+            ],
+            "effect": {
+              "player": 1,
+              "target": 0
+            }
+          }
         }
-      ]
+      ],
+      "ai": {
+        "order": 7,
+        "useful": 62,
+        "tags": [
+          "ammo"
+        ],
+        "effect": {
+          "player": 1,
+          "target": 0
+        }
+      }
     },
     {
       "card_name": "弹药（大量）",
@@ -81,14 +147,36 @@
           "skill_type": "action",
           "active": "action",
           "target_type": "equipment",
-          "filter": "return player.in_phase == \"action\"",
+          "filter": "return player.get_effective_phase() == \"action\"",
           "select_target": 1,
           "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\" && target.charge_current < target.charge_max",
           "window_prompt": "\"弹药（大量）\": 选择要填装的武器",
           "defer_action_cost": true,
-          "content": "actions.consume_action(player, 1)\nactions.add_charge_to(player, target, 5, \"ammo\")"
+          "content": "actions.consume_action(player, 1)\nactions.add_charge_to(player, target, 5, \"ammo\")",
+          "ai": {
+            "order": 7,
+            "useful": 0,
+            "tags": [
+              "ammo"
+            ],
+            "effect": {
+              "player": 1,
+              "target": 0
+            }
+          }
         }
-      ]
+      ],
+      "ai": {
+        "order": 7,
+        "useful": 66,
+        "tags": [
+          "ammo"
+        ],
+        "effect": {
+          "player": 1,
+          "target": 0
+        }
+      }
     },
     {
       "card_name": "弹药（整盒）",
@@ -102,14 +190,36 @@
           "skill_type": "action",
           "active": "action",
           "target_type": "equipment",
-          "filter": "return player.in_phase == \"action\"",
+          "filter": "return player.get_effective_phase() == \"action\"",
           "select_target": 1,
           "filter_target": "return target.in_equipment_area && target.charge_type == \"ammo\" && target.charge_current < target.charge_max",
           "window_prompt": "\"弹药（整盒）\": 选择要填装的武器",
           "defer_action_cost": true,
-          "content": "actions.consume_action(player, 1)\nactions.fill_charge_to(player, target)"
+          "content": "actions.consume_action(player, 1)\nactions.fill_charge_to(player, target)",
+          "ai": {
+            "order": 7,
+            "useful": 0,
+            "tags": [
+              "ammo"
+            ],
+            "effect": {
+              "player": 1,
+              "target": 0
+            }
+          }
         }
-      ]
+      ],
+      "ai": {
+        "order": 7,
+        "useful": 70,
+        "tags": [
+          "ammo"
+        ],
+        "effect": {
+          "player": 1,
+          "target": 0
+        }
+      }
     },
     {
       "card_name": "防弹背心",
@@ -125,9 +235,20 @@
           "trigger": "on_take_damage",
           "filter": "return true",
           "forced": true,
-          "content": "event.num -= 2\nactions.add_mark(player, \"bulletproof_vest_uses\", 1, \"\", \"\", false)\nif player.count_mark(\"bulletproof_vest_uses\") >= 3:\n\tactions.remove_card(player, \"bulletproof_vest\", \"equipment\")"
+          "content": "event.num -= 2\nactions.add_mark(player, \"bulletproof_vest_uses\", 1, \"\", \"\", false)\nif player.count_mark(\"bulletproof_vest_uses\") >= 3:\n\tactions.remove_card(player, \"bulletproof_vest\", \"equipment\")",
+          "ai": {
+            "order": 0,
+            "useful": 0
+          }
         }
-      ]
+      ],
+      "ai": {
+        "order": 3,
+        "useful": 58,
+        "tags": [
+          "equip"
+        ]
+      }
     },
     {
       "card_name": "对讲机",
@@ -141,20 +262,39 @@
           "skill_description": "行动：选择另一名玩家，该玩家立即执行一个行动。",
           "skill_type": "equipment",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0",
           "select_target": 1,
           "filter_target": "return target.is_player() && target != player",
           "filter_target_range": "infinity",
           "content": "actions.consume_action(player, 1)\nactions.execute_action_immediately(target, 1)",
-          "defer_action_cost": true
+          "defer_action_cost": true,
+          "ai": {
+            "order": 4,
+            "useful": 0,
+            "tags": [
+              "grant_action"
+            ],
+            "effect": {
+              "player": 1,
+              "target": 0
+            }
+          }
         }
-      ]
+      ],
+      "ai": {
+        "order": 3,
+        "useful": 58,
+        "tags": [
+          "equip"
+        ]
+      }
     },
     {
       "card_name": "手枪",
       "english_name": "pistol",
       "card_type": "equipment",
       "range": "medium",
+      "weapon": true,
       "size": 1,
       "charge_type": "ammo",
       "charge_max": 4,
@@ -167,14 +307,34 @@
           "range": "medium",
           "skill_type": "equipment",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0 && player.get_charge_count(\"pistol\") > 0",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0 && player.get_charge_count(\"pistol\") > 0",
           "select_target": 1,
           "filter_target": "return target != player",
           "window_prompt": "\"手枪\": 选择攻击目标",
           "filter_target_range": "medium",
-          "content": "actions.consume_action(player, 1)\nactions.consume_charge(player, player.get_equipment(\"pistol\"), 1)\nactions.damage(target, 2, player)"
+          "content": "actions.consume_action(player, 1)\nactions.consume_charge(player, player.get_equipment(\"pistol\"), 1)\nactions.damage(target, 2, player)",
+          "ai": {
+            "order": 9,
+            "useful": 0,
+            "tags": [
+              "damage",
+              "weapon"
+            ],
+            "effect": {
+              "player": 0,
+              "target": 2
+            }
+          }
         }
-      ]
+      ],
+      "ai": {
+        "order": 8,
+        "useful": 80,
+        "tags": [
+          "equip",
+          "weapon"
+        ]
+      }
     },
     {
       "card_name": "背包",
@@ -190,9 +350,20 @@
           "trigger": "on_equip、on_unequip",
           "filter": "return event.card.english_name == \"backpack\"",
           "forced": true,
-          "content": "if event.trigger_name == \"on_equip\":\n\tplayer.increase_equipment_slot(1)\nelif event.trigger_name == \"on_unequip\":\n\tplayer.decrease_equipment_slot(1)"
+          "content": "if event.trigger_name == \"on_equip\":\n\tplayer.increase_equipment_slot(1)\nelif event.trigger_name == \"on_unequip\":\n\tplayer.decrease_equipment_slot(1)",
+          "ai": {
+            "order": 0,
+            "useful": 0
+          }
         }
-      ]
+      ],
+      "ai": {
+        "order": 3,
+        "useful": 58,
+        "tags": [
+          "equip"
+        ]
+      }
     },
     {
       "card_name": "手电筒",
@@ -209,9 +380,20 @@
           "filter": "return true",
           "window_prompt": "\"手电筒\": 选择保留的牌",
           "forced": true,
-          "content": "EventSystem.cancel(event)\nvar pile = event[\"pile\"]\nvar top_two = []\nwhile top_two.size() < 2 and not pile.is_empty():\n\ttop_two.append(pile.draw())\nif top_two.size() == 0:\n\treturn\nif top_two.size() == 1:\n\tgame.log_message(LogColors.player(player.player_name) + \" 从拾荒牌堆获得了 \" + LogColors.card(top_two[0].card_name) + \"（牌堆不足 2 张）\")\n\tactions.draw_scavenge_card(player, top_two[0], pile, event)\n\treturn\nvar names = []\nfor c in top_two:\n\tnames.append(c.card_name)\ngame.log_message(LogColors.player(player.player_name) + \" 展示了拾荒牌堆顶 2 张牌: \" + \", \".join(names))\nvar chosen = await player.choose_card(1, top_two)\nvar keep = top_two[0]\nif chosen.size() > 0:\n\tkeep = chosen[0]\ngame.log_message(LogColors.player(player.player_name) + \" 保留了 \" + LogColors.card(keep.card_name))\nactions.draw_scavenge_card(player, keep, pile, event)\nfor card in top_two:\n\tif card != keep:\n\t\tpile.put_bottom(card)\n\t\tgame.log_message(LogColors.player(player.player_name) + \" 将 \" + LogColors.card(card.card_name) + \" 置于拾荒牌堆底\")"
+          "content": "EventSystem.cancel(event)\nvar pile = event[\"pile\"]\nvar top_two = []\nwhile top_two.size() < 2 and not pile.is_empty():\n\ttop_two.append(pile.draw())\nif top_two.size() == 0:\n\treturn\nif top_two.size() == 1:\n\tgame.log_message(LogColors.player(player.player_name) + \" 从拾荒牌堆获得了 \" + LogColors.card(top_two[0].card_name) + \"（牌堆不足 2 张）\")\n\tactions.draw_scavenge_card(player, top_two[0], pile, event)\n\treturn\nvar names = []\nfor c in top_two:\n\tnames.append(c.card_name)\ngame.log_message(LogColors.player(player.player_name) + \" 展示了拾荒牌堆顶 2 张牌: \" + \", \".join(names))\nvar chosen = await player.choose_card(1, top_two)\nvar keep = top_two[0]\nif chosen.size() > 0:\n\tkeep = chosen[0]\ngame.log_message(LogColors.player(player.player_name) + \" 保留了 \" + LogColors.card(keep.card_name))\nactions.draw_scavenge_card(player, keep, pile, event)\nfor card in top_two:\n\tif card != keep:\n\t\tpile.put_bottom(card)\n\t\tgame.log_message(LogColors.player(player.player_name) + \" 将 \" + LogColors.card(card.card_name) + \" 置于拾荒牌堆底\")",
+          "ai": {
+            "order": 0,
+            "useful": 0
+          }
         }
-      ]
+      ],
+      "ai": {
+        "order": 3,
+        "useful": 58,
+        "tags": [
+          "equip"
+        ]
+      }
     },
     {
       "card_name": "双筒望远镜",
@@ -227,11 +409,28 @@
           "range": "long",
           "skill_type": "equipment",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
-          "content": "var blocks = player.get_current_block().get_blocks_in_range(\"long\")\nvar candidates = []\nfor b in blocks:\n\tif not b.is_revealed():\n\t\tcandidates.append(b)\nif candidates.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar chosen = await player.choose_block_inline(candidates, \"\\\"双筒望远镜\\\": 选择目标地图块\", 1)\nif chosen.is_empty():\n\tEventSystem.cancel(event)\n\treturn\ntarget = chosen[0]\nactions.consume_action(player, 1)\nactions.reveal(target, false, player)"
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0 && player.get_current_block() != null && player.get_current_block().has_unrevealed_block_in_range(\"long\")",
+          "content": "var blocks = player.get_current_block().get_blocks_in_range(\"long\")\nvar candidates = []\nfor b in blocks:\n\tif not b.is_revealed():\n\t\tcandidates.append(b)\nif candidates.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar chosen = await player.choose_block_inline(candidates, \"\\\"双筒望远镜\\\": 选择目标地图块\", 1)\nif chosen.is_empty():\n\tEventSystem.cancel(event)\n\treturn\ntarget = chosen[0]\nactions.consume_action(player, 1)\nactions.reveal(target, false, player)",
+          "ai": {
+            "order": 3,
+            "useful": 0,
+            "tags": [
+              "reveal"
+            ],
+            "effect": {
+              "player": 1,
+              "target": 0
+            }
+          }
         }
-      ]
+      ],
+      "ai": {
+        "order": 3,
+        "useful": 58,
+        "tags": [
+          "equip"
+        ]
+      }
     }
-    
   ]
 }

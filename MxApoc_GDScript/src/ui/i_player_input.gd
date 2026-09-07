@@ -3,8 +3,22 @@ extends RefCounted
 
 ## 玩家输入接口（抽象基类模拟）。
 ## GDScript 无 interface 关键字，用抽象基类 + push_error 强制子类 override。
-## 阶段 1 用 CliPlayerInput；阶段 2+ 用 GUIPlayerInput/AIPlayerInput。
-## 设计文档：docs/design-gaps.md §2.2
+## 阶段 1 用 CliPlayerInput；图形对局用 GUIPlayerInput；AI 座位用 AIPlayerInput。
+
+## 设置下一次输入请求的所属玩家。
+## GUI 使用该上下文在共享热座输入实例中区分实际操作玩家；
+## CLI 不需要额外处理。
+func set_request_owner(player: Variant) -> void:
+	pass
+
+
+## 返回当前活动请求的身份；CLI 等非 GUI 实现返回空身份。
+func get_active_request_id() -> int:
+	return -1
+
+
+func get_active_request_owner() -> Variant:
+	return null
 
 
 ## 行动阶段等待玩家选择行动。返回 null 表示结束行动。

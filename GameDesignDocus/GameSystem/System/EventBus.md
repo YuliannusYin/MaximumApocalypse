@@ -1,9 +1,10 @@
 # EventBus 事件总线
 
 > 以 `src/core/event_bus.gd` 为准。
-> 职责：全局事件总线，作为核心逻辑层与 UI 表现层之间的解耦通道。
+> 职责：全局事件总线，作为核心逻辑层与 UI 表现层之间的**只读**解耦通道。
 > 注册为 autoload，全局名 `EventBus`，无 `class_name`，继承 `Node`。
 > 核心逻辑层通过 `EventBus.<signal>.emit(...)` 通知；UI 层通过 `EventBus.<signal>.connect(...)` 订阅。
+> **不是规则调度器。** 对局操作入栈与输入等待见 [EventScheduler.md](../Core/EventScheduler.md)；技能 Dictionary 钩子见 [EventSystem.md](../Core/EventSystem.md)。
 
 ---
 
@@ -18,14 +19,14 @@
 
 ## 信号总览
 
-> 共 35 个 signal，按业务域分组。signal 名作为代码引用保留原样。
+> 信号以 `src/core/event_bus.gd` 声明为准，按业务域分组。signal 名作为代码引用保留原样。
 
 ### 玩家类
 
 | signal 名 | 参数 | 说明 |
 |-----------|------|------|
 | `player_died` | `(player, source)` | 玩家死亡 |
-| `player_hp_changed` | `(player, old_value: int, new_value: int)` | 玩家生命值变化。**审计发现**：声明但代码中无 `emit` 点（UI 已订阅但无发射方） |
+| `player_hp_changed` | `(player, old_value: int, new_value: int)` | 玩家生命值变化 |
 | `player_hunger_changed` | `(player, old_value: int, new_value: int)` | 玩家饥饿值变化 |
 
 ### 卡牌类
@@ -35,12 +36,14 @@
 | `card_drawn` | `(player, card)` | 玩家从牌堆抓牌（含游戏牌、拾荒牌等） |
 | `card_discarded` | `(player, card)` | 玩家弃置卡牌 |
 | `card_used` | `(player, card)` | 玩家使用卡牌 |
+| `card_settlement_started` | `(player, card)` | 卡牌开始结算（供销毁/使用动画） |
+| `card_settlement_finished` | `(player, card)` | 卡牌结算结束 |
 
 ### 怪物类
 
 | signal 名 | 参数 | 说明 |
 |-----------|------|------|
-| `monster_spawned` | `(monster, player)` | 怪物出生。**审计发现**：声明但代码中无 `emit` 点（UI 已订阅但无发射方） |
+| `monster_spawned` | `(monster, player)` | 怪物出生（`Player.draw_monster` 等） |
 | `monster_died` | `(monster, source)` | 怪物死亡 |
 | `monster_engaged_target_changed` | `(monster, old_target, new_target)` | 怪物纠缠目标变化 |
 
@@ -83,9 +86,11 @@
 
 | signal 名 | 参数 | 说明 |
 |-----------|------|------|
-| `phase_changed` | `(player, old_phase: String, new_phase: String)` | 玩家阶段变化 |
-| `action_consumed` | `(player, num: int)` | 玩家消耗行动次数。**审计发现**：声明但代码中无 `emit` 点（UI 已订阅但无发射方） |
+| `phase_changed` | `(player, old_phase: String, new_phase: String)` | 兼容旧 UI/教程：仅在正式进入 `action` 时发射 `(player, "", "action")` |
+| `phase_event` | `(event: PhaseEvent)` | 全部正式阶段切换；`Player._enter_turn_phase` 发射 |
+| `action_consumed` | `(player, num: int)` | 玩家消耗行动次数 |
 | `sneak_judge_triggered` | `(player, block)` | 玩家执行潜行检定时 |
+| `monster_spawn_judged` | `(player, value: int)` | 怪物出生检定投骰结果出来时 |
 
 ### 日志类
 
@@ -107,18 +112,19 @@
 | `skill_used` | `(player, skill)` | 玩家使用主动技能 |
 | `player_turn_started` | `(player)` | 玩家回合开始（统计用，区别于 `turn_started`） |
 
+### 标记类
+
+| signal 名 | 参数 | 说明 |
+|-----------|------|------|
+| `mark_added` | `(entity, mark)` | 实体新增 Mark |
+| `mark_changed` | `(entity, mark)` | Mark 计数/文案/集合项变化 |
+| `mark_removed` | `(entity, mark_name: String)` | 实体移除指定名 Mark |
+
 ---
 
 ## 审计发现：声明但未发射的信号
 
-> 以下 4 个 signal 在 `event_bus.gd` 中已声明、UI 已订阅，但代码库中找不到对应的 `emit` 点。重写 UI 或后续补 emit 时需关注：
-
-| signal 名 | 期望发射时机 |
-|-----------|------------|
-| `monster_spawned` | 怪物出生检定产生新怪物时（`Player.draw_monster` 等节点） |
-| `block_destroyed` | [Game.destroy_map_block](../Game/Game.md#destroy_map_block) 流程末尾 |
-| `action_consumed` | 玩家消耗行动次数时（行动阶段主动技能 / 卡牌使用） |
-| `player_hp_changed` | 玩家生命值变化时（`Player.damage` / `Player.heal` 等） |
+> `block_destroyed` 在 `event_bus.gd` 中已声明，UI 可能订阅，但核心流程尚未 `emit`（摧毁地块走日志与其它信号）。其余曾标注未发射的 `monster_spawned` / `action_consumed` / `player_hp_changed` 现已有 emit 点。
 
 ---
 
@@ -128,4 +134,6 @@
 |------|------|
 | [Game](../Game/Game.md) | `Game.log_message` 通过 `EventBus.publish_log` 推送日志 |
 | [StatsTracker](./StatsTracker.md) | `_init` 时订阅 12 个统计相关 signal 聚合本局统计 |
-| [EventSystem](../Core/EventSystem.md) | 核心逻辑层封装事件并触发 emit；EventBus 提供信号通道 |
+| [EventSystem](../Core/EventSystem.md) | 核心逻辑层在 Dictionary 钩子结算后 emit；EventBus 提供信号通道 |
+| [ArchiveManager](./ArchiveManager.md) | 不经 EventBus；结算页直接写档案 |
+| [Mark](../Core/Mark.md) | `mark_added` / `mark_changed` / `mark_removed` |

@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## 手牌/装备栏超限机制单元测试（"先入手后判定"语义）。
 ## 覆盖：手牌未满正常入手（无弹窗）、手牌满弹窗选中弃置（旧牌弃、新牌留、弹窗候选含新牌）、
@@ -9,7 +9,7 @@ extends GutTest
 
 # === 辅助方法 ===
 
-func _make_player(hp: int = 10, max_hp: int = 10) -> Player:
+func _make_overflow_player(hp: int = 10, max_hp: int = 10) -> Player:
 	var p: Player = Player.new()
 	p.player_name = "TestPlayer"
 	p.hp = hp
@@ -19,25 +19,7 @@ func _make_player(hp: int = 10, max_hp: int = 10) -> Player:
 	return p
 
 
-func _make_card(name: String = "test_card", type: String = "action", source: String = "game") -> Card:
-	var c: Card = Card.new()
-	c.card_name = name
-	c.card_type = type
-	c.source = source
-	return c
-
-
-func _make_scavenge_card(name: String = "test_scavenge", color: String = "blue") -> ScavengeCard:
-	var c: ScavengeCard = ScavengeCard.new()
-	c.card_name = name
-	c.card_type = "item"
-	c.source = "scavenge"
-	c.color = color
-	c.scavenge_type = "consumable"
-	return c
-
-
-func _make_equipment(name: String = "test_equip", size: int = 1) -> EquipmentCard:
+func _make_overflow_equipment(name: String = "test_equip", size: int = 1) -> EquipmentCard:
 	var e: EquipmentCard = EquipmentCard.new()
 	e.card_name = name
 	e.card_type = "equipment"
@@ -73,32 +55,6 @@ func _setup_game_for_player(p: Player) -> void:
 		Game.state_machine.init()
 
 
-func _clear_game() -> void:
-	Game.players = []
-	Game.map_area = []
-	Game.monster_pile = null
-	Game.monster_discard_pile = null
-	Game.scavenge_discard_pile = null
-	Game.red_scavenge_pile = null
-	Game.green_scavenge_pile = null
-	Game.blue_scavenge_pile = null
-	Game.mission_config = null
-	Game.removed_cards = []
-	Game.game_over_called = false
-	Game.game_result = ""
-	Game.log_list = []
-	if Game.state_machine != null and is_instance_valid(Game.state_machine):
-		Game.state_machine.init()
-
-
-func before_each() -> void:
-	_clear_game()
-
-
-func after_each() -> void:
-	_clear_game()
-
-
 ## 探针 input：记录 choose_card 调用参数与调用时的手牌快照
 ##（用于验证超限弹窗的候选区域、prompt 与"先入手后判定"——弹窗时新牌已在手牌候选中）。
 ## order_log 非空时按调用顺序追加 "popup"，用于验证弹窗与其他结算的先后顺序。
@@ -120,7 +76,7 @@ class _ChooseCardSpyInput extends CliPlayerInput:
 # === 一、手牌未满：正常入手，无弹窗 ===
 
 func test_gain_and_draw_below_hand_limit_adds_to_hand() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_overflow_player()
 	_setup_game_for_player(p)
 	p.role_card = _make_role(10, 5)
 	var spy: _ChooseCardSpyInput = _ChooseCardSpyInput.new()
@@ -145,7 +101,7 @@ func test_gain_and_draw_below_hand_limit_adds_to_hand() -> void:
 # === 二、手牌满：弹窗选中弃 1 张（旧牌弃、新牌留） ===
 
 func test_hand_overflow_select_discards_chosen_and_keeps_new() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_overflow_player()
 	_setup_game_for_player(p)
 	p.role_card = _make_role(2, 5)  # 手牌上限 2
 	var c1: Card = _make_card("c1")
@@ -176,7 +132,7 @@ func test_hand_overflow_select_discards_chosen_and_keeps_new() -> void:
 # === 三、手牌满：弹窗取消（新牌自动弃置） ===
 
 func test_hand_overflow_cancel_auto_discards_new_card() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_overflow_player()
 	_setup_game_for_player(p)
 	Game.log_list = []
 	p.role_card = _make_role(2, 5)
@@ -207,7 +163,7 @@ func test_hand_overflow_cancel_auto_discards_new_card() -> void:
 # === 四、draw(2) 手牌=上限：同批合并单次弹窗（选中弃 2 张旧牌） ===
 
 func test_draw_two_at_limit_single_popup_select_two() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_overflow_player()
 	_setup_game_for_player(p)
 	p.role_card = _make_role(2, 5)
 	var c1: Card = _make_card("c1")
@@ -244,7 +200,7 @@ func test_draw_two_at_limit_single_popup_select_two() -> void:
 # === 五、draw(2) 手牌=上限：取消 → 自动弃置 2 张新牌（后入手先弃） ===
 
 func test_draw_two_at_limit_cancel_auto_discards_new_cards() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_overflow_player()
 	_setup_game_for_player(p)
 	Game.log_list = []
 	p.role_card = _make_role(2, 5)
@@ -281,7 +237,7 @@ func test_draw_two_at_limit_cancel_auto_discards_new_cards() -> void:
 # === 六、draw(2) 手牌=上限-1：整批入手后仅弹窗 1 次选 1 张（K=1） ===
 
 func test_draw_two_at_limit_minus_one_single_popup_k_one() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_overflow_player()
 	_setup_game_for_player(p)
 	p.role_card = _make_role(2, 5)
 	var c1: Card = _make_card("c1")
@@ -309,7 +265,7 @@ func test_draw_two_at_limit_minus_one_single_popup_k_one() -> void:
 # === 七、拾荒 draw_scavenge：新牌先入手、抓取技能触发后再弹窗 ===
 
 func test_draw_scavenge_at_hand_full_popup_after_draw_skill() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_overflow_player()
 	_setup_game_for_player(p)
 	p.role_card = _make_role(2, 5)
 	var c1: Card = _make_card("c1")
@@ -323,7 +279,7 @@ func test_draw_scavenge_at_hand_full_popup_after_draw_skill() -> void:
 	draw_skill.skill_name = "抓取顺序探针"
 	draw_skill.trigger = "on_draw_scavenge_card"
 	draw_skill.forced = true
-	draw_skill.content = func(_pl, _tg, _ev: Dictionary, _g) -> void:
+	draw_skill.content = func(_pl, _tg, _ev, _g) -> void:
 		order.append("skill")
 	s1.skills.append(draw_skill)
 	var spy: _ChooseCardSpyInput = _ChooseCardSpyInput.new()
@@ -348,13 +304,13 @@ func test_draw_scavenge_at_hand_full_popup_after_draw_skill() -> void:
 # === 八、装备栏超限：弹窗选中弃装备 ===
 
 func test_equip_overflow_select_discards_equipment_then_equips() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_overflow_player()
 	_setup_game_for_player(p)
 	p.role_card = _make_role(10, 1)  # 装备栏容量 1
-	var e1: EquipmentCard = _make_equipment("e1", 1)
+	var e1: EquipmentCard = _make_overflow_equipment("e1", 1)
 	await p.equip(e1)
 	assert_eq(p.equipment_zone.size(), 1, "前置：e1 已占用全部容量")
-	var e2: EquipmentCard = _make_equipment("e2", 1)
+	var e2: EquipmentCard = _make_overflow_equipment("e2", 1)
 	p.hand.append(e2)
 	var spy: _ChooseCardSpyInput = _ChooseCardSpyInput.new()
 	p.input = spy
@@ -369,20 +325,21 @@ func test_equip_overflow_select_discards_equipment_then_equips() -> void:
 	assert_false(p.hand.has(e2), "e2 应离开手牌进入装备区")
 	# 弹窗参数：候选为装备区列表，prompt 注明装备栏超限
 	assert_eq(spy.calls.size(), 1, "应弹窗一次")
-	assert_eq(spy.calls[0]["param"], p.equipment_zone, "弹窗候选应为装备区列表")
+	assert_eq(spy.calls[0]["param"].size(), 1, "弹窗候选应为装备区内可弃置装备列表")
+	assert_true(spy.calls[0]["param"].has(entity1), "弹窗候选应包含待弃置的旧装备")
 	assert_true(str(spy.calls[0]["prompt"]).contains("装备栏超限"), "prompt 应注明装备栏超限")
 
 
 # === 九、装备栏超限：弹窗取消（直接 equip 验证） ===
 
 func test_equip_overflow_cancel_aborts_and_discards_card() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_overflow_player()
 	_setup_game_for_player(p)
 	Game.log_list = []
 	p.role_card = _make_role(10, 1)
-	var e1: EquipmentCard = _make_equipment("e1", 1)
+	var e1: EquipmentCard = _make_overflow_equipment("e1", 1)
 	await p.equip(e1)
-	var e2: EquipmentCard = _make_equipment("e2", 1)
+	var e2: EquipmentCard = _make_overflow_equipment("e2", 1)
 	p.hand.append(e2)
 	var cli: CliPlayerInput = CliPlayerInput.new()
 	cli.queue_choose_card([])  # 模拟玩家取消
@@ -403,12 +360,12 @@ func test_equip_overflow_cancel_aborts_and_discards_card() -> void:
 # === 十、装备栏超限：use_card 流程取消（行动点照常消耗） ===
 
 func test_use_card_equipment_overflow_cancel_consumes_action() -> void:
-	var p: Player = _make_player()
+	var p: Player = _make_overflow_player()
 	_setup_game_for_player(p)
 	p.role_card = _make_role(10, 1)
-	var e1: EquipmentCard = _make_equipment("e1", 1)
+	var e1: EquipmentCard = _make_overflow_equipment("e1", 1)
 	await p.equip(e1)
-	var e2: EquipmentCard = _make_equipment("e2", 1)
+	var e2: EquipmentCard = _make_overflow_equipment("e2", 1)
 	p.hand.append(e2)
 	p.action_count = 2
 	var cli: CliPlayerInput = CliPlayerInput.new()
@@ -419,3 +376,138 @@ func test_use_card_equipment_overflow_cancel_consumes_action() -> void:
 	assert_false(p.has_equipment("e2"), "e2 不应进入装备区")
 	assert_true(p.has_equipment("e1"), "原装备 e1 应保留")
 	assert_true(p.game_discard_pile.get_all().has(e2), "待装备的 e2 应被弃置")
+
+
+## === 十一、装备超限候选过滤：排除 size=0 与科学家 ===
+
+func test_equip_overflow_filters_zero_size_and_scientist() -> void:
+	var p: Player = _make_overflow_player()
+	_setup_game_for_player(p)
+	p.role_card = _make_role(10, 3)
+	var scientist: EquipmentCard = _make_overflow_equipment("科学家", 1)
+	scientist.english_name = "scientist"
+	var zero_size: EquipmentCard = _make_overflow_equipment("zero_size", 0)
+	var normal: EquipmentCard = _make_overflow_equipment("normal", 1)
+	await p.equip(scientist)
+	await p.equip(zero_size)
+	await p.equip(normal)
+	p.role_card.equipment_capacity = 2
+	var replacement: EquipmentCard = _make_overflow_equipment("replacement", 1)
+	p.hand.append(replacement)
+	var spy: _ChooseCardSpyInput = _ChooseCardSpyInput.new()
+	p.input = spy
+	spy.queue_choose_card([p.get_equipment("normal")])
+	assert_true(await p.equip(replacement), "选取普通装备腾位后应成功装备")
+	assert_eq(spy.calls.size(), 1, "应触发一次装备超限选择")
+	var candidates: Array = spy.calls[0]["param"]
+	assert_false(candidates.has(p.get_equipment("科学家")), "科学家不应出现在装备超限候选中")
+	assert_false(candidates.any(func(e): return e.card_name == "zero_size"), "size=0 装备不应出现在候选中")
+	assert_true(p.has_equipment("科学家"), "科学家应继续留在装备区")
+	assert_true(p.has_equipment("zero_size"), "size=0 装备应继续留在装备区")
+
+
+## === 十二、科学家不可被 discard/remove_card ===
+
+func test_scientist_is_not_discardable_or_removable() -> void:
+	var p: Player = _make_overflow_player()
+	_setup_game_for_player(p)
+	p.role_card = _make_role(10, 5)
+	var scientist: EquipmentCard = _make_overflow_equipment("科学家", 1)
+	scientist.english_name = "scientist"
+	await p.equip(scientist)
+	var entity: Equipment = p.get_equipment("科学家")
+	await p.discard(entity)
+	assert_true(p.has_equipment("科学家"), "装备区内科学家不能被 discard")
+	assert_false(p.game_discard_pile.get_all().has(scientist), "科学家不能进入弃牌堆")
+	await p.remove_card(entity)
+	assert_true(p.has_equipment("科学家"), "装备区内科学家不能被 remove_card")
+	assert_false(Game.removed_cards.has(scientist), "科学家不能被移出游戏")
+	var hand_scientist: EquipmentCard = _make_overflow_equipment("科学家", 1)
+	hand_scientist.english_name = "scientist"
+	p.hand.append(hand_scientist)
+	await p.discard(hand_scientist)
+	assert_true(p.hand.has(hand_scientist), "手牌区内科学家不能被 discard")
+	await p.remove_card(hand_scientist)
+	assert_true(p.hand.has(hand_scientist), "手牌区内科学家不能被 remove_card")
+	assert_false(Game.removed_cards.has(hand_scientist), "手牌区内科学家不能被移出游戏")
+
+
+func test_choose_to_discard_filters_hand_scientist() -> void:
+	var p: Player = _make_overflow_player()
+	_setup_game_for_player(p)
+	p.role_card = _make_role(10, 5)
+	var scientist: EquipmentCard = _make_overflow_equipment("科学家", 1)
+	scientist.english_name = "scientist"
+	var normal: Card = _make_card("normal")
+	p.hand.append(scientist)
+	p.hand.append(normal)
+	var spy: _ChooseCardSpyInput = _ChooseCardSpyInput.new()
+	p.input = spy
+	spy.queue_choose_card([normal])
+	await p.choose_to_discard(1)
+	assert_eq(spy.calls.size(), 0, "可弃牌恰好 1 张时不应弹窗，直接全弃")
+	assert_true(p.game_discard_pile.get_all().has(normal), "普通牌应正常被弃置")
+	assert_true(p.hand.has(scientist), "科学家应继续留在手牌")
+
+
+func test_choose_to_discard_popup_excludes_scientist_includes_equipment() -> void:
+	var p: Player = _make_overflow_player()
+	_setup_game_for_player(p)
+	p.role_card = _make_role(10, 5)
+	var scientist: EquipmentCard = _make_overflow_equipment("科学家", 1)
+	scientist.english_name = "scientist"
+	var n1: Card = _make_card("n1")
+	var n2: Card = _make_card("n2")
+	p.hand.append(scientist)
+	p.hand.append(n1)
+	p.hand.append(n2)
+	var knife: EquipmentCard = _make_overflow_equipment("knife", 1)
+	await p.equip(knife)
+	var knife_entity: Variant = p.get_equipment("knife")
+	var spy: _ChooseCardSpyInput = _ChooseCardSpyInput.new()
+	p.input = spy
+	spy.queue_choose_card([n1])
+	await p.choose_to_discard(1)
+	assert_eq(spy.calls.size(), 1, "可弃牌多于 1 张时应弹窗")
+	var param: Array = spy.calls[0]["param"]
+	assert_false(param.has(scientist), "手牌中的科学家不应出现在弃牌候选中")
+	assert_true(param.has(n1), "手牌应进入弃牌候选")
+	assert_true(param.has(n2), "手牌应进入弃牌候选")
+	assert_true(param.has(knife_entity), "装备区应进入弃牌候选")
+	assert_true(p.game_discard_pile.get_all().has(n1), "所选牌应被弃置")
+	assert_true(p.hand.has(scientist), "科学家应继续留在手牌")
+	assert_true(p.hand.has(n2), "未选中的手牌应留下")
+	assert_eq(p.equipment_zone.size(), 1, "未选中的装备应留下")
+
+
+func test_choose_to_discard_cancel_randomly_discards_n() -> void:
+	var p: Player = _make_overflow_player()
+	_setup_game_for_player(p)
+	p.role_card = _make_role(10, 5)
+	var c1: Card = _make_card("c1")
+	var c2: Card = _make_card("c2")
+	var c3: Card = _make_card("c3")
+	var c4: Card = _make_card("c4")
+	p.hand.append_array([c1, c2, c3, c4])
+	var spy: _ChooseCardSpyInput = _ChooseCardSpyInput.new()
+	p.input = spy
+	spy.queue_choose_card([])
+	await p.choose_to_discard(2)
+	assert_eq(spy.calls.size(), 1, "可弃牌多于 2 张时应弹窗")
+	assert_eq(p.hand.size(), 2, "取消后应随机弃置 2 张，手牌剩 2")
+	assert_eq(p.game_discard_pile.size(), 2, "弃牌堆应有 2 张")
+
+
+func test_choose_to_discard_not_enough_discards_all_without_popup() -> void:
+	var p: Player = _make_overflow_player()
+	_setup_game_for_player(p)
+	p.role_card = _make_role(10, 5)
+	var c1: Card = _make_card("c1")
+	var c2: Card = _make_card("c2")
+	p.hand.append_array([c1, c2])
+	var spy: _ChooseCardSpyInput = _ChooseCardSpyInput.new()
+	p.input = spy
+	await p.choose_to_discard(3)
+	assert_eq(spy.calls.size(), 0, "可弃牌不足时不应弹窗")
+	assert_eq(p.hand.size(), 0, "不足 3 张时应全部弃置")
+	assert_eq(p.game_discard_pile.size(), 2)

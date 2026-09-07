@@ -35,7 +35,7 @@ func get_action_options(game: Game, player: Player) -> Array:
 		return []
 	if player.current_block.block_name != params.get("block_name", ""):
 		return []
-	if player.action_count < 1:
+	if player.get_effective_action_count() < 1:
 		return []
 	var items: Dictionary = params.get("items", {})
 	if items.is_empty():
@@ -62,7 +62,7 @@ func get_action_skill_decl() -> Variant:
 			return false
 		if _mission_config == null:
 			return false
-		if player.action_count < 1:
+		if player.get_effective_action_count() < 1:
 			return false
 		var items: Dictionary = params.get("items", {})
 		if items.is_empty():
@@ -75,7 +75,40 @@ func get_action_skill_decl() -> Variant:
 		await _do_submit(_game, player)
 	decl["confirm"] = func(player: Player) -> String:
 		return "确定消耗 1 行动提交物资？"
+	decl["ai"] = _mission_action_ai()
 	return decl
+
+
+func ai_should_travel(player: Player) -> bool:
+	if player == null or not is_instance_valid(player):
+		return false
+	if _submit_complete():
+		return false
+	var items: Dictionary = params.get("items", {})
+	if items.is_empty():
+		return false
+	for card_name in items:
+		if not _collect_cards(player, str(card_name)).is_empty():
+			return true
+	return false
+
+
+func _submit_complete() -> bool:
+	var items: Dictionary = params.get("items", {})
+	if items.is_empty():
+		return true
+	var config: MissionConfig = _mission_config
+	if config == null and Game != null and is_instance_valid(Game):
+		config = Game.mission_config
+	if config == null:
+		return false
+	var submitted: Dictionary = config.mission_state.get("submitted_items", {})
+	if not (submitted is Dictionary):
+		return false
+	for card_name in items:
+		if int(submitted.get(card_name, 0)) < int(items[card_name]):
+			return false
+	return true
 
 
 ## 收集玩家手牌与装备区中指定卡名的全部卡。
@@ -118,7 +151,8 @@ func _do_submit(game: Game, player: Player) -> void:
 			batches[card_name] = to_discard
 	if batches.is_empty():
 		return
-	player.reduce_action_count(1)
+	if not await player.consume_action_evented(1):
+		return
 	var submitted: Dictionary = _mission_config.mission_state.get("submitted_items", {}).duplicate()
 	var parts: Array = []
 	for card_name in batches:

@@ -1,7 +1,7 @@
-extends GutTest
+extends TestBase
 
 ## 任务行动技能化单元测试（surface-mission-actions-as-skills Task 1+2+3）。
-## 覆盖：7 个行动组件 get_action_skill_decl 声明完整性、block_match 地块匹配、
+## 覆盖：8 个行动组件 get_action_skill_decl 声明完整性、block_match 地块匹配、
 ## filter 灰化条件正反例、MissionConfig.mount_action_skills / unmount_action_skills
 ## 挂载卸载幂等性、挂载 Skill 的 filter/content/confirm_prompt 执行链路、
 ## initialize_game 出生点技能挂载（地块技能 + 任务行动技能）。
@@ -9,51 +9,6 @@ extends GutTest
 ## move_to 挂载链路（进入/回滚/清理）由 Task 5 集成测试覆盖，此处只测 mount/unmount/decl。
 
 # === 辅助方法 ===
-
-func _make_player(name: String = "P", hp: int = 10) -> Player:
-	var p: Player = Player.new()
-	p.player_name = name
-	p.hp = hp
-	p.max_hp = hp
-	p.game_deck = Pile.new()
-	p.game_discard_pile = Pile.new()
-	return p
-
-
-func _make_card(card_name: String = "test_card", type: String = "action") -> Card:
-	var c: Card = Card.new()
-	c.card_name = card_name
-	c.card_type = type
-	c.source = "game"
-	return c
-
-
-func _make_block(block_name: String = "test_block", x: int = 0, y: int = 0) -> MapBlock:
-	var b: MapBlock = MapBlock.new()
-	b.block_name = block_name
-	b.set_coordinate(x, y)
-	return b
-
-
-func _clear_game() -> void:
-	Game.players = []
-	Game.map_area = []
-	Game.monster_pile = null
-	Game.monster_discard_pile = null
-	Game.scavenge_discard_pile = null
-	Game.red_scavenge_pile = null
-	Game.green_scavenge_pile = null
-	Game.blue_scavenge_pile = null
-	Game.mission_config = null
-	Game.current_mission = null
-	Game.removed_cards = []
-	Game.game_over_called = false
-	Game.game_result = ""
-	Game.coop_death_mode = false
-	Game.log_list = []
-	if Game.state_machine != null and is_instance_valid(Game.state_machine):
-		Game.state_machine.init()
-
 
 ## 构造挂载单个行动组件的 MissionConfig 并完成 setup，返回上下文。
 func _setup_component(id: String, comp_params: Dictionary, action_count: int = 3) -> Dictionary:
@@ -79,12 +34,12 @@ func _mission_skills(p: Player) -> Array:
 
 func before_each() -> void:
 	MissionComponentRegistry.reset()
-	_clear_game()
+	super.before_each()
 
 
 func after_each() -> void:
 	MissionComponentRegistry.reset()
-	_clear_game()
+	super.after_each()
 
 
 # === 1. decl 完整性 ===
@@ -95,11 +50,12 @@ func test_decl_non_action_component_returns_null() -> void:
 	assert_null(component.get_action_skill_decl(), "非 action 类组件应返回 null")
 
 
-func test_decl_complete_for_all_seven_components() -> void:
+func test_decl_complete_for_all_eight_components() -> void:
 	var expectations: Dictionary = {
 		"spend_action_rescue": "解救科学家",
 		"destroy_current_mark": "摧毁目标",
 		"submit_items": "提交物资",
+		"add_van_fuel": "添加燃料",
 		"repair_van": "维修面包车",
 		"defuse_bomb": "解除炸弹",
 		"upload_virus": "上传病毒",
@@ -110,9 +66,10 @@ func test_decl_complete_for_all_seven_components() -> void:
 		var decl: Variant = component.get_action_skill_decl()
 		assert_not_null(decl, id + " 应返回 decl")
 		assert_true(decl is Dictionary, id + " 的 decl 应为 Dictionary")
-		for key in ["skill_name", "block_match", "filter", "execute", "confirm"]:
+		for key in ["skill_name", "block_match", "filter", "execute", "confirm", "ai"]:
 			assert_true(decl.has(key), id + " 的 decl 应含键 " + key)
 		assert_eq(decl["skill_name"], expectations[id], id + " 的默认技能名应为 " + expectations[id])
+		assert_eq(int(decl["ai"].get("order", 0)), 12, id + " 的 ai.order 应为 12")
 		for key in ["block_match", "filter", "execute", "confirm"]:
 			assert_true(decl[key].is_valid(), id + " 的 " + key + " 应为有效 Callable")
 
@@ -130,6 +87,7 @@ func test_block_match_static_components() -> void:
 	var cases: Array = [
 		["spend_action_rescue", {"block_name": "实验室"}, "实验室", "加油站"],
 		["submit_items", {"block_name": "避难所"}, "避难所", "隧道"],
+		["add_van_fuel", {}, "面包车", "避难所"],
 		["repair_van", {}, "面包车", "避难所"],
 		["defuse_bomb", {}, "电厂", "面包车"],
 		["upload_virus", {}, "坠毁点", "避难所"],
@@ -216,6 +174,23 @@ func test_filter_submit_items() -> void:
 	assert_false(decl["filter"].call(p), "未持有清单内物资应灰化")
 
 
+func test_filter_add_van_fuel() -> void:
+	var ctx: Dictionary = _setup_component("add_van_fuel", {"count": 4})
+	var decl: Variant = ctx["component"].get_action_skill_decl()
+	var p: Player = ctx["p"]
+	p.current_block = _make_block("面包车")
+	p.hand.append(_make_card("燃料"))
+	assert_true(decl["filter"].call(p), "持有燃料且行动足够、未满额时应可用")
+	p.action_count = 0
+	assert_false(decl["filter"].call(p), "行动不足应灰化")
+	p.action_count = 3
+	p.hand.clear()
+	assert_false(decl["filter"].call(p), "未持有燃料应灰化")
+	p.hand.append(_make_card("燃料"))
+	ctx["mc"].mission_state["van_fueled"] = true
+	assert_false(decl["filter"].call(p), "满额后应灰化")
+
+
 func test_filter_repair_van() -> void:
 	var ctx: Dictionary = _setup_component("repair_van", {})
 	var decl: Variant = ctx["component"].get_action_skill_decl()
@@ -295,6 +270,7 @@ func test_mount_adds_mission_skill() -> void:
 	assert_eq(skill.active, "action", "应为主动技能（active=action）")
 	assert_true(skill.english_name.begins_with("mission_action_"), "english_name 应带 mission_action_ 前缀")
 	assert_true(skill.skill_description.length() > 0, "技能描述应为确认文案（非空）")
+	assert_eq(int(skill.ai.get("order", 0)), 12, "挂载技能应带任务行动 ai.order")
 
 
 func test_mount_non_matching_block_no_skill() -> void:
@@ -407,14 +383,10 @@ func test_initialize_game_mounts_spawn_skills() -> void:
 	Game.initialize_game(mission, {}, seats)
 	assert_eq(Game.players.size(), 1, "应创建 1 名玩家")
 	var p: Player = Game.players[0]
-	var has_van_block_skill: bool = false
 	var mission_skills: Array = []
 	for s in p.skills:
-		if s.english_name == "van":
-			has_van_block_skill = true
 		if s.english_name.begins_with("mission_action_"):
 			mission_skills.append(s)
-	assert_true(has_van_block_skill, "开局应挂载出生点（面包车）地块技能")
 	assert_eq(mission_skills.size(), 1, "开局应挂载 1 个任务行动技能")
 	assert_eq(mission_skills[0].skill_name, "维修面包车", "任务行动技能名应为维修面包车")
 	assert_eq(mission_skills[0].skill_type, "任务", "任务行动技能类型应为 任务")

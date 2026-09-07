@@ -266,8 +266,6 @@ func _render_mission(payload: Variant) -> void:
 	_add_stat("难度", mission.difficulty_display)
 	var pack: String = _MONSTER_PACK_NAMES.get(mission.monster_pack_type, mission.monster_pack_type)
 	_add_stat("怪物包", pack)
-	if mission.van_fuel_required != null:
-		_add_stat("面包车燃料", str(mission.van_fuel_required))
 	if mission.intro_text != "":
 		_add_section("介绍")
 		_add_body(mission.intro_text)

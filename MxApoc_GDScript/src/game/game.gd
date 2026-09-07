@@ -1,5 +1,8 @@
 extends Node
 
+const EventSchedulerScript = preload("res://src/core/event_scheduler.gd")
+const AIPlayerInputScript = preload("res://src/ai/ai_player_input.gd")
+
 ## Game 游戏全局类（autoload）。
 ## 全局区域 + build_map + destroy_map_block + 状态机委托。
 ## 设计文档：GameDesignDocus/GameSystem/Game/Game.md
@@ -25,6 +28,9 @@ var coop_death_mode: bool = false
 var current_mission: Variant = null  # 可能是 Dictionary 或 Resource，类型不确定
 var removed_cards: Array = []
 var log_list: Array = []
+var event_scheduler: Variant = null
+## 对局世代。退出/重开时递增；仍在跑的旧开局/回合协程用它判断自己是否已过期。
+var _session_id: int = 0
 
 # === 子技能注册表 ===
 # 键为子技能 english_name（全局唯一），值为 SkillData。
@@ -37,10 +43,37 @@ var game_result: String = ""
 
 
 func _ready() -> void:
+	event_scheduler = EventSchedulerScript.new()
 	state_machine = GameStateMachine.new()
 	state_machine.init()
 	stats_tracker = StatsTracker.new()
 	_wire_mission_event_forwarding()
+
+
+func get_session_id() -> int:
+	return _session_id
+
+
+func is_session(session_id: int) -> bool:
+	return session_id == _session_id
+
+
+## 中止当前对局：递增世代、解开仍在 await 的输入、换新调度器，避免旧协程污染下一局。
+func abort_session() -> void:
+	_session_id += 1
+	if event_scheduler != null:
+		event_scheduler.reset()
+	event_scheduler = EventSchedulerScript.new()
+	if state_machine != null:
+		state_machine.init()
+	players.clear()
+	map_area.clear()
+	map_width = 0
+	map_height = 0
+	card_resolution_area.clear()
+	removed_cards.clear()
+	game_over_called = false
+	game_result = ""
 
 
 ## 日志输出。方法名避开 GDScript 内置 log()（自然对数）。
@@ -58,18 +91,22 @@ func log(message: String) -> void:
 # === 状态机委托 ===
 
 ## 游戏开局流程。委托给 state_machine.start_game()。
-func start_game() -> void:
+## runtime 为可选的统一事件调度 runtime，见 Entity.damage 说明。
+func start_game(runtime: Variant = null) -> void:
+	var scheduler: Variant = event_scheduler if runtime == null else runtime
 	if state_machine != null and is_instance_valid(state_machine):
-		await state_machine.start_game()
+		await state_machine.start_game(scheduler)
 
 
 ## 游戏结束流程。接受 String ("win"/"lose") 并委托给 state_machine.game_over(enum)。
-func game_over(result: String) -> void:
+## 调用方必须 await，避免结束事件并发插入当前调度栈。
+## runtime 为可选的统一事件调度 runtime，见 Entity.damage 说明。
+func game_over(result: String, runtime: Variant = null) -> void:
 	var enum_result: int = GameStateMachine.GameResult.LOSE
 	if result == "win":
 		enum_result = GameStateMachine.GameResult.WIN
 	if state_machine != null and is_instance_valid(state_machine):
-		state_machine.game_over(enum_result)
+		await state_machine.game_over(enum_result, "", event_scheduler if runtime == null else runtime)
 	else:
 		game_over_called = true
 		game_result = result
@@ -111,6 +148,7 @@ func _wire_mission_event_forwarding() -> void:
 	EventBus.objective_mark_triggered.connect(_on_event_objective_mark_triggered)
 	EventBus.equipment_equipped.connect(_on_event_equipment_equipped)
 	EventBus.card_discarded.connect(_on_mission_card_discarded)
+	EventBus.player_died.connect(_on_mission_player_died)
 	EventBus.monster_spawn_judged.connect(_on_mission_monster_spawn_judged)
 
 
@@ -155,6 +193,10 @@ func _on_event_equipment_equipped(player: Variant, card: Variant) -> void:
 
 func _on_mission_card_discarded(player: Variant, card: Variant) -> void:
 	_forward_mission_event("card_discarded", {"player": player, "card": card})
+
+
+func _on_mission_player_died(player: Variant, source: Variant) -> void:
+	_forward_mission_event("player_died", {"player": player, "source": source})
 
 
 func _on_mission_monster_spawn_judged(player: Variant, value: int) -> void:
@@ -337,53 +379,57 @@ func _create_map_block(block_name: String, variant_index: int = -1) -> MapBlock:
 
 
 ## 摧毁地块流程。6 节点：before → 玩家弹出 → 怪物标记清零 → on → 状态变更 → after。
-func destroy_map_block(block: MapBlock, source: Variant) -> bool:
+## runtime 为可选的统一事件调度 runtime，见 Entity.damage 说明。
+func destroy_map_block(block: MapBlock, source: Variant, runtime: Variant = null) -> bool:
 	if block == null or not is_instance_valid(block):
 		return false
-	var event: Dictionary = EventSystem.create_destroy_block_event(source, block)
-	# 1. 摧毁地块前（取消点）
-	for player in players:
-		if player != null and is_instance_valid(player):
-			await player.trigger("before_destroy_block", event)
-	if EventSystem.is_cancelled(event):
-		return false
-	# 2. 处理地块上的玩家（弹出到相邻存活地块）
-	var players_on_block: Array = block.get_players()
-	for player in players_on_block:
-		var adjacent: Array = block.get_adjacent_blocks()
-		if adjacent.is_empty():
-			log_message(LogColors.player(player.player_name) + " 无处可逃，受到 5 点伤害")
-			player.damage(5, null, "block_destroy")
-		else:
-			var target: MapBlock = await player.choose_map_block(adjacent)
-			if target == null:
-				target = adjacent[0]
-			if block.has_method("_clear_skills_for_player"):
-				block._clear_skills_for_player(player)
-			player.current_block = target
-			if target.has_method("_acquire_skills_for_player"):
-				target._acquire_skills_for_player(player)
-			# 并列维护任务行动技能挂载（卸载被摧毁地块的、挂载迁移目标地块的）
-			if mission_config != null:
-				mission_config.unmount_action_skills(player)
-				mission_config.mount_action_skills(player, target)
-			if not target.is_revealed():
-				await target.reveal(true, player)
-	# 3. 消灭地块上的所有怪物标记
-	block.monster_marks = 0
-	# 4. 摧毁地块时（系统结算）
-	for player in players:
-		if player != null and is_instance_valid(player):
-			await player.trigger("on_destroy_block", event)
-	# 5. 地块状态变更，从地图区域移除
-	block.block_state = "destroyed"
-	map_area.erase(block)
-	log_message(LogColors.block(block.block_name) + " 被摧毁了")
-	# 6. 摧毁地块后（通知）
-	for player in players:
-		if player != null and is_instance_valid(player):
-			await player.trigger("after_destroy_block", event)
-	return true
+	var scheduler: Variant = event_scheduler if runtime == null else runtime
+	return await scheduler.dispatch("destroy_block", func() -> bool:
+		var event: GameEvent = EventSystem.create_destroy_block_event(source, block)
+		# 1. 摧毁地块前（取消点）
+		for player in players:
+			if player != null and is_instance_valid(player):
+				await player.trigger("before_destroy_block", event)
+		if EventSystem.is_cancelled(event):
+			return false
+		# 2. 处理地块上的玩家（弹出到相邻存活地块）
+		var players_on_block: Array = block.get_players()
+		for player in players_on_block:
+			var adjacent: Array = block.get_adjacent_blocks()
+			if adjacent.is_empty():
+				log_message(LogColors.player(player.player_name) + " 无处可逃，受到 5 点伤害")
+				await player.damage(5, null, "block_destroy", null, scheduler)
+			else:
+				var target: MapBlock = await player.choose_map_block(adjacent)
+				if target == null:
+					target = adjacent[0]
+				if block.has_method("_clear_skills_for_player"):
+					block._clear_skills_for_player(player)
+				player.current_block = target
+				if target.has_method("_acquire_skills_for_player"):
+					target._acquire_skills_for_player(player)
+				# 并列维护任务行动技能挂载（卸载被摧毁地块的、挂载迁移目标地块的）
+				if mission_config != null:
+					mission_config.unmount_action_skills(player)
+					mission_config.mount_action_skills(player, target)
+				if not target.is_revealed():
+					await target.reveal(true, player)
+		# 3. 消灭地块上的所有怪物标记
+		block.monster_marks = 0
+		# 4. 摧毁地块时（系统结算）
+		for player in players:
+			if player != null and is_instance_valid(player):
+				await player.trigger("on_destroy_block", event)
+		# 5. 地块状态变更，从地图区域移除
+		block.block_state = "destroyed"
+		map_area.erase(block)
+		log_message(LogColors.block(block.block_name) + " 被摧毁了")
+		# 6. 摧毁地块后（通知）
+		for player in players:
+			if player != null and is_instance_valid(player):
+				await player.trigger("after_destroy_block", event)
+		return true,
+		{"source": source, "block": block})
 
 
 # === 玩家管理 ===
@@ -455,6 +501,22 @@ func get_engaged_monsters(player: Variant) -> Array:
 	return []
 
 
+## 向所有玩家怪物区中除 except 外的存活怪物广播 trigger。
+## 用于跨怪物监听技能（如僵尸女王 on_monster_death、外星科学家 on_deal_damage、方阵机器人 on_take_damage）。
+func trigger_other_zone_monsters(trigger_name: String, event: Variant, except: Variant = null) -> void:
+	for _p in players:
+		if _p == null or not is_instance_valid(_p):
+			continue
+		if not "monster_zone" in _p:
+			continue
+		for _m in _p.monster_zone:
+			if _m == null or not is_instance_valid(_m) or _m == except:
+				continue
+			if _m.has_method("get_hp") and _m.get_hp() <= 0:
+				continue
+			await _m.trigger(trigger_name, event)
+
+
 ## 从玩家指定区域随机返回一张牌；无牌返回 null。
 ## 装备区持有 Equipment 实体，返回时映射为来源 EquipmentCard，保持"返回卡"语义。
 func get_random_card(player: Variant, areas: Array) -> Variant:
@@ -463,9 +525,13 @@ func get_random_card(player: Variant, areas: Array) -> Variant:
 	var all_cards: Array = []
 	for area in areas:
 		if area == "hand" and "hand" in player:
-			all_cards.append_array(player.hand)
+			for card in player.hand:
+				if player.has_method("is_card_protected_from_discard") and player.is_card_protected_from_discard(card):
+					continue
+				all_cards.append(card)
 		elif area == "equipment" and "equipment_zone" in player:
-			for e in player.equipment_zone:
+			var equipment_cards: Array = player.get_discardable_equipment_cards() if player.has_method("get_discardable_equipment_cards") else player.equipment_zone
+			for e in equipment_cards:
 				if e != null and is_instance_valid(e) and e.get("equipment_card") != null:
 					all_cards.append(e.equipment_card)
 	if all_cards.is_empty():
@@ -481,9 +547,13 @@ func get_random_cards(player: Variant, areas: Array, n: int) -> Array:
 	var all_cards: Array = []
 	for area in areas:
 		if area == "hand" and "hand" in player:
-			all_cards.append_array(player.hand)
+			for card in player.hand:
+				if player.has_method("is_card_protected_from_discard") and player.is_card_protected_from_discard(card):
+					continue
+				all_cards.append(card)
 		elif area == "equipment" and "equipment_zone" in player:
-			for e in player.equipment_zone:
+			var equipment_cards: Array = player.get_discardable_equipment_cards() if player.has_method("get_discardable_equipment_cards") else player.equipment_zone
+			for e in equipment_cards:
 				if e != null and is_instance_valid(e) and e.get("equipment_card") != null:
 					all_cards.append(e.equipment_card)
 	all_cards.shuffle()
@@ -536,9 +606,18 @@ func get_card(card_english_name: String, pile: Variant) -> Card:
 
 # === 游戏初始化 ===
 
+## 按房间当前选座/任务初始化一局。加载页开局与对局场景兜底共用。
+func initialize_from_room_state() -> void:
+	var mission: MissionData = RoomState.selected_mission
+	if RoomState.selected_mission_is_random:
+		mission = null
+	initialize_game(mission, RoomState.variants, RoomState.seats)
+
+
 ## 游戏初始化：从 RoomState 创建玩家、构建地图、初始化牌堆。
 ## 在 start_game() 前调用。mission 为 null 时随机抽取一个任务。
 func initialize_game(mission: MissionData, variants: Dictionary, seats: Array) -> void:
+	abort_session()
 	# 1. 确定任务
 	if mission == null:
 		var all_missions: Array = DataManager.get_all_missions()
@@ -550,7 +629,6 @@ func initialize_game(mission: MissionData, variants: Dictionary, seats: Array) -
 
 	# 2. 设置任务配置
 	mission_config = MissionConfig.new()
-	mission_config.van_fuel_required = int(mission.van_fuel_required) if mission.van_fuel_required != null else -1
 	mission_config.no_initial_monster_draw = mission.no_initial_monster_draw
 	mission_config.mission_state = {}
 	_mount_mission_components(mission)
@@ -559,14 +637,18 @@ func initialize_game(mission: MissionData, variants: Dictionary, seats: Array) -
 	players.clear()
 	for i in range(seats.size()):
 		var seat: Dictionary = seats[i]
-		if seat.type == "empty" or seat.type == "ai":
+		if String(seat.get("type", "")) == "empty":
 			continue
 		var survivor: SurvivorData = seat.survivor
 		if survivor == null:
 			continue
 		var player: Player = Player.new()
+		player.session_id = _session_id
 		player.seat_number = i
 		player.player_name = survivor.character_name
+		player.is_ai = String(seat.get("type", "")) == "ai"
+		if player.is_ai:
+			player.input = AIPlayerInputScript.new()
 		player.max_hp = survivor.max_hp
 		player.hp = survivor.initial_hp
 		player.hunger = 1
@@ -782,6 +864,9 @@ func _create_skill_from_data(skill_data: SkillData) -> Skill:
 	skill.confirm_prompt = CodeExecutor.compile_confirm_prompt(skill_data.confirm_prompt)
 	skill.defer_action_cost = skill_data.defer_action_cost
 	skill.window_prompt = skill_data.window_prompt
+	skill.ai = skill_data.ai.duplicate(true)
+	skill.ai_result = CodeExecutor.compile_score(str(skill.ai.get("result", "")))
+	skill.ai_check = CodeExecutor.compile_score(str(skill.ai.get("check", "")))
 	# 递归编译子技能
 	for sub_key in skill_data.sub_skills.keys():
 		var sub_skill_data: SkillData = skill_data.sub_skills[sub_key]
@@ -841,6 +926,7 @@ func _create_game_card_from_dict(card_dict: Dictionary) -> Card:
 		(card as EquipmentCard).size = int(card_dict.get("size", 1))
 		var range_str: String = card_dict.get("range", "none")
 		(card as EquipmentCard).range = range_str
+		(card as EquipmentCard).weapon = bool(card_dict.get("weapon", false))
 		(card as EquipmentCard).card_subtype = "equipment"
 	elif card_type == "action":
 		card = SurvivorGameCard.new()
@@ -854,6 +940,8 @@ func _create_game_card_from_dict(card_dict: Dictionary) -> Card:
 	card.english_name = card_dict.get("english_name", "")
 	card.card_type = card_type
 	card.source = "game"
+	var raw_card_ai: Variant = card_dict.get("ai", {})
+	card.ai = raw_card_ai.duplicate(true) if raw_card_ai is Dictionary else {}
 	# 加载技能
 	var raw_skills: Array = card_dict.get("skills", [])
 	for raw in raw_skills:
@@ -881,9 +969,11 @@ func _create_scavenge_card_from_data(card_data: ScavengeCardData, color: String)
 	# 非装备类拾荒卡（食物/弹药/医疗用品等）的 charge 字段保持默认 0/空，无害。
 	card.size = card_data.size
 	card.range = card_data.range
+	card.weapon = card_data.weapon
 	card.charge_type = card_data.charge_type
 	card.charge_max = card_data.charge_max
 	card.charge_current = card_data.charge_initial
+	card.ai = card_data.ai.duplicate(true)
 	for skill_data in card_data.skills:
 		card.add_skill(_create_skill_from_data(skill_data))
 	return card
@@ -901,6 +991,7 @@ func _create_monster_card_from_data(card_data: MonsterCardData, monster_type: St
 	card.max_hp = card_data.max_hp
 	card.damage_value = card_data.attack_damage
 	card.range = card_data.range
+	card.ai = card_data.ai.duplicate(true) if card_data.ai is Dictionary else {}
 	for skill_data in card_data.skills:
 		card.add_skill(_create_skill_from_data(skill_data))
 	return card

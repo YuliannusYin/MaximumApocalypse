@@ -1,0 +1,82 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/ui/join_room_overlay.gd" id="1_join"]
+
+[node name="JoinRoomOverlay" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+script = ExtResource("1_join")
+
+[node name="Dimmer" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+color = Color(0, 0, 0, 0.55)
+
+[node name="Center" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+
+[node name="Panel" type="PanelContainer" parent="Center"]
+custom_minimum_size = Vector2(420, 0)
+layout_mode = 2
+
+[node name="VBox" type="VBoxContainer" parent="Center/Panel"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="TitleLabel" type="Label" parent="Center/Panel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "加入房间"
+horizontal_alignment = 1
+
+[node name="NicknameLabel" type="Label" parent="Center/Panel/VBox"]
+layout_mode = 2
+text = "玩家昵称"
+
+[node name="NicknameEdit" type="LineEdit" parent="Center/Panel/VBox"]
+layout_mode = 2
+placeholder_text = "输入昵称"
+
+[node name="AddressLabel" type="Label" parent="Center/Panel/VBox"]
+layout_mode = 2
+text = "网络地址"
+
+[node name="AddressEdit" type="LineEdit" parent="Center/Panel/VBox"]
+layout_mode = 2
+placeholder_text = "例如 192.168.1.10:7777"
+
+[node name="HintLabel" type="Label" parent="Center/Panel/VBox"]
+custom_minimum_size = Vector2(0, 24)
+layout_mode = 2
+horizontal_alignment = 1
+
+[node name="Buttons" type="HBoxContainer" parent="Center/Panel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 16
+alignment = 1
+
+[node name="ConfirmButton" type="Button" parent="Center/Panel/VBox/Buttons"]
+custom_minimum_size = Vector2(100, 36)
+layout_mode = 2
+text = "确认"
+
+[node name="CancelButton" type="Button" parent="Center/Panel/VBox/Buttons"]
+custom_minimum_size = Vector2(100, 36)
+layout_mode = 2
+text = "取消"

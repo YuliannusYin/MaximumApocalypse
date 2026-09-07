@@ -15,12 +15,23 @@
       "skill_description": "行动：使一名玩家回复1点生命。",
       "range": "short",
       "active": "action",
-      "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+      "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0",
       "select_target": 1,
       "filter_target": "return target.is_player()",
       "window_prompt": "\"缝合\": 选择治疗目标",
       "filter_target_range": "short",
-      "content": "actions.consume_action(player, 1)\nactions.recover(target, 1)"
+      "content": "actions.consume_action(player, 1)\nactions.recover(target, 1)",
+      "ai": {
+        "order": 6,
+        "useful": 0,
+        "tags": [
+          "heal"
+        ],
+        "effect": {
+          "player": 1,
+          "target": 2
+        }
+      }
     }
   ],
   "deck": [
@@ -36,11 +47,33 @@
           "skill_description": "行动：抓取两张游戏牌，再随机从场上拾荒牌堆抓取一张拾荒牌。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0",
           "defer_action_cost": true,
-          "content": "actions.consume_action(player, 1)\nactions.draw(player, 2)\nvar non_empty = []\nif game.red_scavenge_pile != null and not game.red_scavenge_pile.is_empty():\n\tnon_empty.append(game.red_scavenge_pile)\nif game.green_scavenge_pile != null and not game.green_scavenge_pile.is_empty():\n\tnon_empty.append(game.green_scavenge_pile)\nif game.blue_scavenge_pile != null and not game.blue_scavenge_pile.is_empty():\n\tnon_empty.append(game.blue_scavenge_pile)\nif non_empty.is_empty():\n\tgame.log(\"所有拾荒牌堆均为空，跳过随机抓取\")\nelse:\n\tvar chosen = non_empty[randi() % non_empty.size()]\n\tactions.draw_scavenge(player, 1, chosen)"
+          "content": "actions.consume_action(player, 1)\nactions.draw(player, 2)\nvar non_empty = []\nif game.red_scavenge_pile != null and not game.red_scavenge_pile.is_empty():\n\tnon_empty.append(game.red_scavenge_pile)\nif game.green_scavenge_pile != null and not game.green_scavenge_pile.is_empty():\n\tnon_empty.append(game.green_scavenge_pile)\nif game.blue_scavenge_pile != null and not game.blue_scavenge_pile.is_empty():\n\tnon_empty.append(game.blue_scavenge_pile)\nif non_empty.is_empty():\n\tgame.log(\"所有拾荒牌堆均为空，跳过随机抓取\")\nelse:\n\tvar chosen = non_empty[randi() % non_empty.size()]\n\tactions.draw_scavenge(player, 1, chosen)",
+          "ai": {
+            "order": 4,
+            "useful": 0,
+            "tags": [
+              "draw"
+            ],
+            "effect": {
+              "player": 1,
+              "target": 0
+            }
+          }
         }
-      ]
+      ],
+      "ai": {
+        "order": 4,
+        "useful": 58,
+        "tags": [
+          "draw"
+        ],
+        "effect": {
+          "player": 1,
+          "target": 0
+        }
+      }
     },
     {
       "card_name": "轮床",
@@ -57,14 +90,32 @@
           "range": "long",
           "skill_type": "equipment",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0",
           "select_target": 1,
           "filter_target": "return target.is_player() && target != player",
           "window_prompt": "\"轮床\": 选择要拉近的玩家",
           "filter_target_range": "long",
-          "content": "actions.consume_action(player, 1)\ntarget.pull_toward_one_block_no_effect(player)"
+          "content": "actions.consume_action(player, 1)\ntarget.pull_toward_one_block_no_effect(player)",
+          "ai": {
+            "order": 1,
+            "useful": 0,
+            "tags": [
+              "pull"
+            ],
+            "effect": {
+              "player": 1,
+              "target": 0
+            }
+          }
         }
-      ]
+      ],
+      "ai": {
+        "order": 3,
+        "useful": 58,
+        "tags": [
+          "equip"
+        ]
+      }
     },
     {
       "card_name": "莫洛托夫鸡尾酒",
@@ -80,15 +131,39 @@
           "range": "medium",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0",
           "select_target": -1,
           "filter_target": "return target.is_monster()",
           "window_prompt": "\"莫洛托夫鸡尾酒\": 选择攻击目标",
           "filter_target_range": "medium",
           "defer_action_cost": true,
-          "content": "actions.consume_action(player, 1)\nvar list = event.targets\nfor i in list:\n\tactions.damage(i, 3, player)"
+          "content": "actions.consume_action(player, 1)\nvar list = event.targets\nfor i in list:\n\tactions.damage(i, 3, player)",
+          "ai": {
+            "order": 9,
+            "useful": 0,
+            "tags": [
+              "damage",
+              "aoe"
+            ],
+            "effect": {
+              "player": 0,
+              "target": 3
+            }
+          }
         }
-      ]
+      ],
+      "ai": {
+        "order": 9,
+        "useful": 58,
+        "tags": [
+          "damage",
+          "aoe"
+        ],
+        "effect": {
+          "player": 0,
+          "target": 3
+        }
+      }
     },
     {
       "card_name": "手术刀",
@@ -97,16 +172,21 @@
       "card_type": "equipment",
       "size": 1,
       "range": "short",
+      "weapon": true,
       "skills": [
         {
           "skill_name": "手术刀_回复",
           "english_name": "scalpel_recover",
-          "skill_description": "被动：回复生命时，额外回复1点。行动：对1个目标造成2点伤害。",
+          "skill_description": "被动：来源于你的回复效果额外增加1点。行动：对1个目标造成2点伤害。",
           "skill_type": "equipment",
-          "trigger": "on_recover",
+          "trigger": "on_deal_recover",
           "filter": "return true",
           "forced": true,
-          "content": "event.num += 1"
+          "content": "event.num += 1",
+          "ai": {
+            "order": 0,
+            "useful": 0
+          }
         },
         {
           "skill_name": "手术刀",
@@ -115,14 +195,34 @@
           "range": "short",
           "skill_type": "equipment",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0",
           "select_target": 1,
           "filter_target": "return target != player",
           "window_prompt": "\"手术刀\": 选择攻击目标",
           "filter_target_range": "short",
-          "content": "actions.consume_action(player, 1)\nvar weapon = player.get_equipment(\"scalpel\")\nactions.damage(target, 2, player, \"weapon_attack\", weapon.equipment_card)"
+          "content": "actions.consume_action(player, 1)\nvar weapon = player.get_equipment(\"scalpel\")\nactions.damage(target, 2, player, \"weapon_attack\", weapon.equipment_card)",
+          "ai": {
+            "order": 9,
+            "useful": 0,
+            "tags": [
+              "damage",
+              "weapon"
+            ],
+            "effect": {
+              "player": 0,
+              "target": 2
+            }
+          }
         }
-      ]
+      ],
+      "ai": {
+        "order": 8,
+        "useful": 80,
+        "tags": [
+          "equip",
+          "weapon"
+        ]
+      }
     },
     {
       "card_name": "手套",
@@ -134,14 +234,25 @@
         {
           "skill_name": "手套",
           "english_name": "gloves",
-          "skill_description": "被动：回复生命时，额外回复1点。",
+          "skill_description": "被动：来源于你的回复效果额外增加1点。",
           "skill_type": "equipment",
-          "trigger": "on_recover",
+          "trigger": "on_deal_recover",
           "filter": "return true",
           "forced": true,
-          "content": "event.num += 1"
+          "content": "event.num += 1",
+          "ai": {
+            "order": 0,
+            "useful": 0
+          }
         }
-      ]
+      ],
+      "ai": {
+        "order": 3,
+        "useful": 58,
+        "tags": [
+          "equip"
+        ]
+      }
     },
     {
       "card_name": "泰瑟枪",
@@ -158,14 +269,29 @@
           "range": "medium",
           "skill_type": "equipment",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0",
           "select_target": 1,
           "filter_target": "return target.is_monster()",
           "window_prompt": "\"泰瑟枪\": 选择击晕目标",
           "filter_target_range": "medium",
-          "content": "actions.consume_action(player, 1)\nactions.stun(target, player, \"before_next_turn_start\")"
+          "content": "actions.consume_action(player, 1)\nactions.stun(target, player, \"before_next_turn_start\")",
+          "ai": {
+            "order": 5,
+            "useful": 0,
+            "effect": {
+              "player": 1,
+              "target": 0
+            }
+          }
         }
-      ]
+      ],
+      "ai": {
+        "order": 3,
+        "useful": 58,
+        "tags": [
+          "equip"
+        ]
+      }
     },
     {
       "card_name": "希波克拉底誓言",
@@ -179,15 +305,37 @@
           "skill_description": "行动：使任一玩家回复6点生命。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0",
           "select_target": 1,
           "filter_target": "return target.is_player()",
           "window_prompt": "\"希波克拉底誓言\": 选择治疗目标",
           "filter_target_range": "infinity",
           "defer_action_cost": true,
-          "content": "actions.consume_action(player, 1)\nactions.recover(target, 6)"
+          "content": "actions.consume_action(player, 1)\nactions.recover(target, 6)",
+          "ai": {
+            "order": 6,
+            "useful": 0,
+            "tags": [
+              "heal"
+            ],
+            "effect": {
+              "player": 1,
+              "target": 2
+            }
+          }
         }
-      ]
+      ],
+      "ai": {
+        "order": 6,
+        "useful": 68,
+        "tags": [
+          "heal"
+        ],
+        "effect": {
+          "player": 1,
+          "target": 2
+        }
+      }
     },
     {
       "card_name": "研钵",
@@ -204,14 +352,32 @@
           "range": "short",
           "skill_type": "equipment",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0",
           "select_target": 1,
           "filter_target": "return target.is_player()",
           "window_prompt": "\"研钵\": 选择目标玩家",
           "filter_target_range": "short",
-          "content": "actions.consume_action(player, 1)\nif target.count_mark(\"poison\") > 0:\n\tvar ok = await player.confirm(\"\\\"研钵\\\":是否清除选取玩家的异常状态，否则降低该玩家 1 点饥饿值\")\n\tif ok:\n\t\tactions.remove_mark(target, \"poison\")\n\telse:\n\t\tactions.decrease_hunger(target, 1)\nelse:\n\tactions.decrease_hunger(target, 1)"
+          "content": "actions.consume_action(player, 1)\nif target.count_mark(\"poison\") > 0:\n\tvar ok = await player.confirm(\"\\\"研钵\\\":是否清除选取玩家的异常状态，否则降低该玩家 1 点饥饿值\")\n\tif ok:\n\t\tactions.remove_mark(target, \"poison\")\n\telse:\n\t\tactions.decrease_hunger(target, 1)\nelse:\n\tactions.decrease_hunger(target, 1)",
+          "ai": {
+            "order": 5,
+            "useful": 0,
+            "tags": [
+              "food"
+            ],
+            "effect": {
+              "player": 2,
+              "target": 0
+            }
+          }
         }
-      ]
+      ],
+      "ai": {
+        "order": 3,
+        "useful": 58,
+        "tags": [
+          "equip"
+        ]
+      }
     },
     {
       "card_name": "注射类固醇",
@@ -222,18 +388,46 @@
         {
           "skill_name": "注射类固醇",
           "english_name": "steroid_injection",
-          "skill_description": "行动：选择一名玩家，该玩家可以立即使用2张牌。",
+          "skill_description": "行动：选择一名玩家，该玩家立即执行2个仅能使用手牌的行动。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0",
           "select_target": 1,
           "filter_target": "return target.is_player()",
           "window_prompt": "\"注射类固醇\": 选择目标玩家",
           "filter_target_range": "infinity",
           "defer_action_cost": true,
-          "content": "actions.consume_action(player, 1)\nactions.play_card_immediately(target)\nactions.play_card_immediately(target)"
+          "content": "actions.consume_action(player, 1)\nactions.execute_action_immediately(target, 2, [\"card\"])",
+          "ai": {
+            "order": 5,
+            "useful": 0,
+            "tags": [
+              "grant_action"
+            ],
+            "grant_types": [
+              "card"
+            ],
+            "effect": {
+              "player": 1,
+              "target": 0
+            }
+          }
         }
-      ]
+      ],
+      "ai": {
+        "order": 5,
+        "useful": 58,
+        "tags": [
+          "grant_action"
+        ],
+        "grant_types": [
+          "card"
+        ],
+        "effect": {
+          "player": 1,
+          "target": 0
+        }
+      }
     },
     {
       "card_name": "注射肾上腺素",
@@ -247,15 +441,37 @@
           "skill_description": "行动：选择另一名玩家，该玩家立即执行2个行动。",
           "skill_type": "action",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0",
           "select_target": 1,
           "filter_target": "return target.is_player()",
           "window_prompt": "\"注射肾上腺素\": 选择目标玩家",
           "filter_target_range": "infinity",
           "defer_action_cost": true,
-          "content": "actions.consume_action(player, 1)\nactions.execute_action_immediately(target, 2)"
+          "content": "actions.consume_action(player, 1)\nactions.execute_action_immediately(target, 2)",
+          "ai": {
+            "order": 5,
+            "useful": 0,
+            "tags": [
+              "grant_action"
+            ],
+            "effect": {
+              "player": 1,
+              "target": 0
+            }
+          }
         }
-      ]
+      ],
+      "ai": {
+        "order": 5,
+        "useful": 58,
+        "tags": [
+          "grant_action"
+        ],
+        "effect": {
+          "player": 1,
+          "target": 0
+        }
+      }
     },
     {
       "card_name": "钻头",
@@ -264,6 +480,7 @@
       "card_type": "equipment",
       "size": 1,
       "range": "short",
+      "weapon": true,
       "skills": [
         {
           "skill_name": "钻头",
@@ -272,14 +489,34 @@
           "range": "short",
           "skill_type": "equipment",
           "active": "action",
-          "filter": "return player.in_phase == \"action\" && player.get_number(\"action_count\") > 0",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0",
           "select_target": 1,
           "filter_target": "return target != player",
           "window_prompt": "\"钻头\": 选择攻击目标",
           "filter_target_range": "short",
-          "content": "actions.consume_action(player, 1)\nvar weapon = player.get_equipment(\"drill\")\nactions.damage(target, 3, player, \"weapon_attack\", weapon.equipment_card)"
+          "content": "actions.consume_action(player, 1)\nvar weapon = player.get_equipment(\"drill\")\nactions.damage(target, 3, player, \"weapon_attack\", weapon.equipment_card)",
+          "ai": {
+            "order": 9,
+            "useful": 0,
+            "tags": [
+              "damage",
+              "weapon"
+            ],
+            "effect": {
+              "player": 0,
+              "target": 2
+            }
+          }
         }
-      ]
+      ],
+      "ai": {
+        "order": 8,
+        "useful": 80,
+        "tags": [
+          "equip",
+          "weapon"
+        ]
+      }
     }
   ]
 }

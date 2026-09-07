@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## 判定类任务组件单元测试（已批准 spec Task 3：5 个新增胜利条件组件）。
 ## 覆盖：kill_monsters / all_blocks_revealed / objective_marks_cleared /
@@ -11,67 +11,14 @@ extends GutTest
 
 # === 辅助方法 ===
 
-func _make_player(name: String = "P", hp: int = 10) -> Player:
-	var p: Player = Player.new()
-	p.player_name = name
-	p.hp = hp
-	p.max_hp = hp
-	p.game_deck = Pile.new()
-	p.game_discard_pile = Pile.new()
-	return p
-
-
-func _make_block(block_name: String = "test_block", x: int = 0, y: int = 0) -> MapBlock:
-	var b: MapBlock = MapBlock.new()
-	b.block_name = block_name
-	b.set_coordinate(x, y)
-	return b
-
-
-func _make_monster_card(name: String = "test_monster", level: String = "normal") -> MonsterCard:
-	var c: MonsterCard = MonsterCard.new()
-	c.card_name = name
-	c.card_type = "monster"
-	c.source = "monster"
-	c.monster_type = "zombie"
-	c.monster_level = level
-	c.max_hp = 3
-	c.damage_value = 2
-	c.range = "none"
-	return c
-
-
-func _make_monster(name: String) -> Monster:
-	return _make_monster_card(name).instantiate(null)
-
-
-func _clear_game() -> void:
-	Game.players = []
-	Game.map_area = []
-	Game.monster_pile = null
-	Game.monster_discard_pile = null
-	Game.scavenge_discard_pile = null
-	Game.red_scavenge_pile = null
-	Game.green_scavenge_pile = null
-	Game.blue_scavenge_pile = null
-	Game.mission_config = null
-	Game.current_mission = null
-	Game.removed_cards = []
-	Game.game_over_called = false
-	Game.game_result = ""
-	Game.log_list = []
-	if Game.state_machine != null and is_instance_valid(Game.state_machine):
-		Game.state_machine.init()
-
-
 func before_each() -> void:
 	MissionComponentRegistry.reset()
-	_clear_game()
+	super.before_each()
 
 
 func after_each() -> void:
 	MissionComponentRegistry.reset()
-	_clear_game()
+	super.after_each()
 
 
 # === 0. 注册表内置映射 ===

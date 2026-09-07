@@ -52,6 +52,7 @@ static func _register_builtins() -> void:
 	register("turn_countdown", MissionComponentTurnCountdown)
 	register("destroy_current_mark", MissionComponentDestroyCurrentMark)
 	register("submit_items", MissionComponentSubmitItems)
+	register("add_van_fuel", MissionComponentAddVanFuel)
 	register("repair_van", MissionComponentRepairVan)
 	register("defuse_bomb", MissionComponentDefuseBomb)
 	register("upload_virus", MissionComponentUploadVirus)

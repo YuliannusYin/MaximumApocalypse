@@ -46,7 +46,7 @@ func get_action_options(game: Game, player: Player) -> Array:
 	if player.current_block.block_name != params.get("block_name", ""):
 		return []
 	var cost: int = int(params.get("cost", 2))
-	if player.action_count < cost:
+	if player.get_effective_action_count() < cost:
 		return []
 	var card_name: String = params.get("card_name", "科学家")
 	return [{
@@ -71,12 +71,24 @@ func get_action_skill_decl() -> Variant:
 			return false
 		if _mission_config.mission_state.get(params.get("rescued_key", "scientist_rescued"), false) == true:
 			return false
-		return player.action_count >= int(params.get("cost", 2))
+		return player.get_effective_action_count() >= int(params.get("cost", 2))
 	decl["execute"] = func(player: Player) -> void:
 		await _do_rescue(_game, player)
 	decl["confirm"] = func(player: Player) -> String:
 		return "确定花费 %d 行动解救%s？" % [int(params.get("cost", 2)), params.get("card_name", "科学家")]
+	decl["ai"] = _mission_action_ai()
 	return decl
+
+
+func ai_should_travel(player: Player) -> bool:
+	if player == null or not is_instance_valid(player):
+		return false
+	var config: MissionConfig = _mission_config
+	if config == null and Game != null and is_instance_valid(Game):
+		config = Game.mission_config
+	if config == null:
+		return true
+	return config.mission_state.get(params.get("rescued_key", "scientist_rescued"), false) != true
 
 
 ## 解救执行（协程）：创建拾荒卡并装备到玩家面前，写入 mission_state。
@@ -94,7 +106,8 @@ func _do_rescue(game: Game, player: Player) -> void:
 	if card == null:
 		game.log_message("未找到拾荒卡：" + card_name + "，无法解救")
 		return
-	player.reduce_action_count(cost)
+	if not await player.consume_action_evented(cost):
+		return
 	await player.equip(card)
 	_mission_config.mission_state[params.get("rescued_key", "scientist_rescued")] = true
 	_mission_config.mission_state[params.get("holder_key", "scientist_holder")] = player

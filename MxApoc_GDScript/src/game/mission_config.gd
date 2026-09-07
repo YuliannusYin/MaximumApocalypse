@@ -5,9 +5,6 @@ extends RefCounted
 ## 三层架构第二/三层运行时容器：持有按 JSON 声明挂载的组件实例与任务脚本实例。
 ## 设计文档：GameDesignDocus/GameSystem/Game/Game.md#任务配置结构missionconfig
 
-## 启动面包车所需燃料值。-1 表示 NULL（该任务不通过面包车胜利，如任务 4/8/9/11）。
-var van_fuel_required: int = -1
-
 ## 开局跳过初始怪物牌抓取（如任务 11）。
 var no_initial_monster_draw: bool = false
 
@@ -135,6 +132,8 @@ func mount_action_skills(player: Variant, block: MapBlock) -> void:
 			var execute_ref: Callable = decl_execute
 			skill.content = func(p, _t, _e, _g) -> void:
 				await execute_ref.call(p)
+		var decl_ai: Variant = decl.get("ai", {})
+		skill.ai = decl_ai.duplicate(true) if decl_ai is Dictionary else {}
 		player.add_skill(skill)
 
 

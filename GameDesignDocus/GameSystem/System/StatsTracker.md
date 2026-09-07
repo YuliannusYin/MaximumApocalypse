@@ -26,7 +26,10 @@
 | `_stats` | Dictionary | {} | 内部 `player -> PlayerStats` 映射 |
 | `game_duration_msec` | int | 0 | 本局游戏总时长（毫秒） |
 | `_start_time_msec` | int | 0 | 计时开始时间（毫秒）；0 表示未开始计时 |
-| `_subscribed` | bool | false | 是否已订阅 EventBus 信号；`_init` 后置 true，避免重复 connect |
+| `_subscribed` | bool | false | 是否已订阅 EventBus 信号 |
+| `_survivor_ids` | Dictionary | {} | `player -> survivor_id`（RoleCard.english_name） |
+| `_monster_kills` | Dictionary | {} | 怪物卡 `english_name` → 击杀数 |
+| `_boss_kills` | Dictionary | {} | `player -> 首领击杀数` |
 
 ---
 
@@ -107,7 +110,11 @@
 
 ### _on_monster_died(_monster, source) -> void
 
-> source 非 null 且 `_stats` 含 source 时调用 `get_stats(source).add_kills(1)`。
+> `_stats` 含 source 时调用 `get_stats(source).add_kills(1)`；并按怪物 `english_name` 累加 `_monster_kills`，首领另计 `_boss_kills`。
+
+### get_archive_summary(result_override="") -> Dictionary
+
+> 供 [ArchiveManager.record_game_result](./ArchiveManager.md) 使用。返回 `{result, duration_msec, player_count, mission_id, survivors, monsters}`。`survivors` 按 survivor_id 汇总 damage/kills/healing/turns/boss_kills；`monsters` 为 `_monster_kills` 副本。
 
 ---
 
@@ -117,4 +124,5 @@
 |------|------|
 | [Game](../Game/Game.md) | Game 持有 `stats_tracker` 实例，`_ready` 中创建 |
 | [EventBus](./EventBus.md) | `_init` 时订阅 12 个统计相关 signal |
+| [ArchiveManager](./ArchiveManager.md) | 结算页用 `get_archive_summary` 归档 |
 | [PlayerStats](./PlayerStats.md) | 为每位玩家维护一个 PlayerStats 实例 |

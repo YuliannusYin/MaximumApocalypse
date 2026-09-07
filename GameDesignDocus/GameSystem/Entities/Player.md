@@ -4,6 +4,7 @@
 > 职责：玩家实体的状态、区域、行动与玩家专属流程方法。
 > 代码：`src/entities/player.gd`，`class_name Player extends Entity`。
 > trigger 机制与全 trigger 索引见 [EventSystem.md](../Core/EventSystem.md)。
+> 正式回合阶段、有限行动与调度器见 [EventScheduler.md](../Core/EventScheduler.md)。
 
 ---
 
@@ -17,9 +18,9 @@
 | `max_hp` | int | `0` | 生命值上限。恢复不超过此值 |
 | `hunger` | int | `1` | 饥饿值，范围 1-6。每回合 +1。达 6 后翻面角色卡并叠加饥饿伤害标记 |
 | `stealth` | int | `0` | 潜行值（不含角色卡修正）。基础潜行值 - (地块怪物数 + 怪物标记数) |
-| `action_count` | int | `0` | 行动次数。每回合 4 次。移动 / 抓牌 / 出牌 / 拾荒 / 执行卡牌行动各消耗 1 次 |
+| `action_count` | int | `0` | 正式行动次数的**兼容镜像**。权威状态在 `TurnContext.remaining_actions`；有限行动期间读 effective API |
 | `max_action_count` | int | `4` | 行动次数上限。部分技能可临时增加 |
-| `in_phase` | String | `"idle"` | 当前所处回合阶段，技能 filter 用。值见下表 |
+| `in_phase` | String | `"idle"` | 正式阶段的**兼容镜像**。权威状态在 `TurnContext.phase`；有限行动期间 `get_effective_phase()` 返回虚拟 `"action"` |
 | `_phase_end_requested` | String | `""` | 内部信号：`end_phase` 设置后 `wait_player_action` 循环跳出 |
 
 #### `in_phase` 中英映射
@@ -55,13 +56,14 @@
 | `current_block` | MapBlock | `null` | 当前所在地块 |
 | `seat_number` | int | `0` | 座位号（游戏房间中的座位次序） |
 | `player_name` | String | `""` | 玩家名（用于日志输出与 EventBus 信号载荷） |
+| `is_ai` | bool | `false` | 是否由 AI 控制。开局由座位 `type == "ai"` 写入 |
 
 ### 标记与输入
 
 | 字段 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `marks` | Dictionary\<String, int\> | `{}` | 标记字典。键 = 标记名，值 = 计数。如 `"poison"` / `"hunger_damage_level"` / `"moved_this_turn"` / `"shelter_disabled"` 等 |
-| `input` | IPlayerInput | 自动 `CliPlayerInput.new()` | 输入接口（选择器、确认对话框、目标选择等） |
+| `marks` | Dictionary\<String, Mark\> | `{}` | 标记字典。键 = 标记名，值 = [Mark](../Core/Mark.md) 对象。如 `"poison"` / `"hunger_damage_level"` / `"moved_this_turn"` |
+| `input` | IPlayerInput | 自动 `CliPlayerInput.new()` | 输入接口。测试默认 CLI；对局场景真人用 `GUIPlayerInput`，AI 用 `AIPlayerInput` |
 
 #### 常用标记
 
@@ -73,7 +75,7 @@
 | `moved_this_turn` | 本回合已移动标记。爆破机器人天赋 2 等技能依赖。回合开始时清除 |
 | 其他临时标记 | 各技能 / 地块添加的标记 |
 
-> 标记管理通过 `count_mark` / `add_mark` / `remove_mark` / `has_mark` / `add_mark_skill` / `has_mark_skill` 等方法。
+> 标记管理通过 Entity 的 `count_mark` / `add_mark` / `remove_mark` / `has_mark` / `add_mark_skill` 等方法，见 [Mark.md](../Core/Mark.md)。
 
 ---
 
@@ -81,7 +83,7 @@
 
 > 完整 trigger 列表见 [EventSystem.md](../Core/EventSystem.md)。Player 类涉及的 trigger 领域：
 
-- **伤害 / 回复类**：`before_take_damage` / `on_take_damage` / `after_take_damage`、`before_recover` / `on_recover` / `after_recover`
+- **伤害 / 回复类**：`before_take_damage` / `on_take_damage` / `after_take_damage`、`before_recover` / `on_deal_recover` / `on_recover` / `after_recover`
 - **移动类**：`before_leave_block` / `on_leave_block` / `after_leave_block`、`before_enter_block` / `on_enter_block` / `after_enter_block`
 - **回合类**：`before_turn_start` / `on_turn_start`、`before_monster_spawn` / `on_monster_spawn`、`before_draw_phase`、`before_action_phase` / `before_action_phase_end` / `on_action_phase_end`、`before_hunger_settlement` / `on_hunger_settlement`、`before_poison_settlement` / `on_poison_settlement`、`before_zone_monster_act` / `on_zone_monster_act`、`before_turn_end` / `on_turn_end`
 - **抓牌类**：`before_draw_game_card` / `on_draw_game_card` / `after_draw_game_card`、`before_draw_scavenge_card` / `on_draw_scavenge_card` / `after_draw_scavenge_card`、`before_draw_monster_card` / `on_draw_monster_card` / `after_draw_monster_card`、`before_monster_enter_zone` / `on_monster_enter_zone` / `after_monster_enter_zone`
@@ -102,20 +104,22 @@
 
 #### `recover(num, source=null)`
 
-回复生命值（4 节点）。`source` 为治疗来源（默认 null 表示自行回复）；`source != self` 时额外发射 `healing_done` 信号。
+回复生命值（5 节点）。`source` 为治疗来源（默认 null 表示无来源，跳过来源侧 `on_deal_recover`）；`source != self` 时额外发射 `healing_done` 信号。经 `GameActions.recover` 调用且未显式传入 source 时，默认归因为发动该技能/卡牌的玩家。
 
 流程：
 
 1. `num <= 0` 直接 return
-2. 构建 `EventSystem.create_recover_event(self, num)`
-3. `before_recover`（不取消）
-4. `on_recover`（技能可修改 `event["num"]`，如 surgeon 手术刀·回复、手套：`num += 1`）
-5. `EventSystem.is_cancelled(event)` 为 true 时 return
-6. 系统加血：`event["num"]` 受 `max_hp - hp` 上限约束，调用 `add_hp(event["num"])`
-7. 实际回复量 > 0 时输出日志、发射 `hp_recovered` 信号；`source != self` 时再发射 `healing_done(source, self, actual)`，否则发射 `healing_done(self, self, actual)`
-8. `after_recover`
+2. 构建 `EventSystem.create_recover_event(self, num, source)`
+3. `before_recover`（目标；不取消）
+4. `on_deal_recover`（来源；`source != null` 时触发，可修改 `event["num"]`，如 surgeon 手术刀·回复、手套：`num += 1`）
+5. `on_recover`（目标；可修改 `event["num"]`）
+6. `EventSystem.is_cancelled(event)` 为 true 时 return
+7. 系统加血：`event["num"]` 受 `max_hp - hp` 上限约束，调用 `add_hp(event["num"])`
+8. 实际回复量 > 0 时输出日志、发射 `hp_recovered` 信号；`source != self` 时再发射 `healing_done(source, self, actual)`，否则发射 `healing_done(self, self, actual)`
+9. `after_recover`
 
-> 与 `add_hp(n)` 的区别：`add_hp` 为底层原子方法，直接修改生命值，不触发钩子且不受最大值约束；`recover` 走完整 4 节点流程。
+> 与 `add_hp(n)` 的区别：`add_hp` 为底层原子方法，直接修改生命值，不触发钩子且不受最大值约束；`recover` 走完整 5 节点流程。
+> 地块回血（如医院）应显式传入地块为 `source`，避免被归因为所在玩家从而触发手术刀/手套。
 
 #### `increase_hunger(num)`
 
@@ -471,9 +475,13 @@
 
 ### 十、回合流程
 
-#### `start_turn()`
+#### `start_turn(runtime = null)`
 
-玩家回合完整流程（21 节点，节点 21 由状态机执行）。
+玩家回合完整流程（21 节点，节点 21 由状态机执行）。经 `scheduler.run_event(TurnEvent)` 贯穿整回合；各阶段为 `run_turn_phase` 的 `PhaseEvent` 跨度。回合内 `draw` / `monster.act` 等挂在当前阶段节点下。`runtime` 省略时用 `Game.event_scheduler`。
+
+死亡或对局结束提前返回时，当前阶段与 `TurnEvent` 为 `CANCELLED`，`TurnContext` 停在当前阶段。
+
+进入 `action` 时仍发射旧 `EventBus.phase_changed(self, "", "action")`。技能与 UI 判断「能否行动」应使用 `get_effective_phase()` / `get_effective_action_count()`，以便有限行动覆盖正式镜像。
 
 | 节点 | 操作 / trigger | in_phase |
 |------|---------------|----------|
@@ -505,7 +513,7 @@
 
 #### `execute_action_immediately(num=1)`
 
-立即执行一个行动（仅含行动阶段）。保存原 `in_phase`，切换到 `"action"`，设置 `action_count = num`，调用 `wait_player_action()`，结束后恢复原 `in_phase`。
+立即执行一个行动（仅含行动阶段的迷你回合）。通过有限行动上下文提供行动预算，不覆盖正式回合的 `in_phase` / `action_count`。`GameActions.execute_action_immediately` 可传入 `allowed_action_types`（如 `["card"]`）；非空时 `dispatch_player_action` 只接受白名单内的行动类型。空白名单表示不限制（肾上腺素等）。
 
 ---
 
@@ -528,8 +536,10 @@
 
 | 方法 | 说明 |
 |------|------|
-| `get_action_count() -> int` / `set_action_count(n)` | 读取 / 设置行动次数 |
-| `reduce_action_count(n)` | 扣减行动次数（不低于 0） |
+| `get_action_count() -> int` / `set_action_count(n)` | 读取 / 设置行动次数（转调 effective / TurnContext） |
+| `get_effective_phase() -> String` | 有限行动中返回 `"action"`，否则正式阶段 |
+| `get_effective_action_count() -> int` | 有限上下文优先，否则 TurnContext / 镜像 |
+| `reduce_action_count(n)` | 扣减有效行动次数（不低于 0） |
 | `consume_action(n)` | 扣除 n 点行动次数（content 代码字符串统一调用名，等价 `reduce_action_count`），输出"消耗了 X 点行动点数"日志 |
 | `add_action(n)` | 增加 n 点行动次数（不低于 0），输出"增加了 X 点行动点数"日志（野地夹克使用） |
 
@@ -621,9 +631,13 @@
 
 用 `skill.filter_target` 过滤候选目标列表。`filter_target` 为空 Callable 时全保留。
 
+#### `get_equipment_candidates(range_str) -> Array`
+
+构建装备目标候选。`range_str` 为空时只返回自己的装备区（弹药、空尖弹等未声明射程的技能）；否则返回射程内所有玩家装备区中的装备（含自己）。无当前地块时回退到自己的装备区。
+
 #### `get_skill_valid_targets(skill) -> Array`
 
-构建技能的合法目标候选列表（按 `target_type` 与 `filter_target_range` 构建并经 `_filter_targets` 过滤）。逻辑与 UI 层 `_on_choose_target_requested` 保持一致，供可用性判断复用。
+构建技能的合法目标候选列表（按 `target_type` 与 `filter_target_range` 构建并经 `_filter_targets` 过滤）。`target_type == "equipment"` 时走 `get_equipment_candidates`（空射程不默认成短距离）。逻辑与 UI 层 `_on_choose_target_requested` 保持一致，供可用性判断复用。
 
 #### `can_use_active_skill(skill) -> bool`
 

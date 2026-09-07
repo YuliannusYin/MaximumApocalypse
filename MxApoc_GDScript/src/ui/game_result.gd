@@ -10,18 +10,23 @@ const _STAT_HEADERS: PackedStringArray = [
 	"造成伤害", "受到伤害", "击杀", "移动", "摸牌", "拾荒",
 	"减饥饿", "回复HP", "治疗量", "用牌", "技能", "回合",
 ]
+const LoadingScreenScript := preload("res://src/ui/loading_screen.gd")
 
 const _NAME_COL_WIDTH: float = 100.0
 const _STAT_COL_WIDTH: float = 62.0
 const _ROW_HEIGHT: float = 30.0
 
 @onready var _title_label: Label = $TitleLabel
+@onready var _mission_name_panel: PanelContainer = $MissionNamePanel
+@onready var _mission_name_label: Label = $MissionNamePanel/MissionNameLabel
 @onready var _duration_label: Label = $DurationLabel
 @onready var _role_cards: Array[TextureRect] = [
 	$Seat1/RoleCard,
 	$Seat2/RoleCard,
 	$Seat3/RoleCard,
 	$Seat4/RoleCard,
+	$Seat5/RoleCard,
+	$Seat6/RoleCard,
 ]
 @onready var _stats_grid: GridContainer = $StatsScroll/StatsGrid
 @onready var _back_button: Button = $BottomBar/BackButton
@@ -30,6 +35,7 @@ const _ROW_HEIGHT: float = 30.0
 @onready var _background: ColorRect = $Background
 
 var _log_panel: Node = null
+var _log_export_dialog: FileDialog = null
 
 ## 归档防重入标记：同一结算页实例只归档一次（_ready 重复触发或二次调用直接返回）。
 ## 重新开局后的结算页是新实例，标记随之重置，不受影响。
@@ -42,10 +48,12 @@ func _ready() -> void:
 	HudTheme.apply_screen_background(_background, Color("#101110"))
 	HudTheme.add_wasteland_backdrop(self, _background)
 	HudTheme.apply_title(_title_label, 40)
+	HudTheme.apply_section_panel(_mission_name_panel, Color("#171713"))
+	_mission_name_label.add_theme_color_override("font_color", HudTheme.GOLD_TEXT)
 	HudTheme.apply_slot_button(_back_button, 13)
 	HudTheme.apply_slot_button(_log_button, 13)
 	HudTheme.apply_mission_slot_button(_restart_button, 13)
-	for seat_idx in range(1, 5):
+	for seat_idx in range(1, 7):
 		HudTheme.apply_section_panel(get_node("Seat%d" % seat_idx), Color("#171713"))
 	# 读取本局数据
 	var result: int = -1
@@ -62,6 +70,7 @@ func _ready() -> void:
 			duration_msec = Game.stats_tracker.game_duration_msec
 		players = Game.players
 		_fill_title(result, players)
+		_fill_mission_name()
 		_fill_duration(duration_msec)
 		_fill_role_cards(players)
 		_fill_stats(all_stats, current_player, players)
@@ -91,6 +100,19 @@ func _fill_title(result: int, players: Array) -> void:
 	else:
 		_title_label.text = "无人生还"
 		_title_label.add_theme_color_override("font_color", Color(0.8, 0.2, 0.2))
+
+
+func _fill_mission_name() -> void:
+	var mission_name := ""
+	if Game != null and is_instance_valid(Game):
+		var mission: Variant = Game.current_mission
+		if mission is Dictionary:
+			mission_name = str(mission.get("mission_name", ""))
+		elif mission != null and typeof(mission) == TYPE_OBJECT and is_instance_valid(mission):
+			mission_name = str(mission.get("mission_name"))
+	if mission_name == "":
+		mission_name = "未知任务"
+	_mission_name_label.text = mission_name
 
 
 func _fill_duration(duration_msec: int) -> void:
@@ -171,7 +193,7 @@ func _record_archive(result: int) -> void:
 	_new_achievements = ArchiveManager.record_game_result(summary)
 
 
-## 新达成成就区块：在结算页右侧（座位区/统计表右旁的空区）动态构建，
+## 新达成成就区块：在结算页右侧（统计表旁）动态构建，
 ## 结构为 标题「新达成成就」+ 滚动列表（每条成就：名称 + 描述）。
 ## 本局无新成就（开发者模式 / 未归档 / 无新解锁）时不创建该区块（天然隐藏）。
 func _fill_new_achievements() -> void:
@@ -179,8 +201,8 @@ func _fill_new_achievements() -> void:
 		return
 	var frame := PanelContainer.new()
 	frame.name = "NewAchievements"
-	frame.position = Vector2(1150.0, 130.0)
-	frame.size = Vector2(270.0, 570.0)
+	frame.position = Vector2(1150.0, 460.0)
+	frame.size = Vector2(270.0, 240.0)
 	frame.add_theme_stylebox_override("panel", _make_stylebox(Color(0.16, 0.13, 0.08)))
 	var outer := VBoxContainer.new()
 	outer.add_theme_constant_override("separation", 8)
@@ -263,15 +285,11 @@ func _stats_to_array(stats: Variant) -> Array:
 # === 按钮回调 ===
 
 func _on_back_pressed() -> void:
-	Game.state_machine.current_state = GameStateMachine.GameState.WAITING
-	Game.players.clear()
-	Game.map_area.clear()
-	RoomState.clear()
-	get_tree().change_scene_to_file("res://scenes/MainMenu.tscn")
+	LoadingScreenScript.go_exit_to_menu(get_tree())
 
 
 func _on_restart_pressed() -> void:
-	get_tree().change_scene_to_file("res://scenes/GameScene2D.tscn")
+	LoadingScreenScript.go_restart_game(get_tree())
 
 
 func _on_view_log_pressed() -> void:
@@ -339,20 +357,88 @@ func _create_log_panel() -> Control:
 	else:
 		for msg in logs:
 			var line := Label.new()
-			line.text = str(msg)
+			line.text = LogColors.strip_bbcode(str(msg))
 			line.add_theme_font_size_override("font_size", 13)
 			line.add_theme_color_override("font_color", Color(0.88, 0.88, 0.88))
 			content.add_child(line)
 
-	# 关闭按钮
+	var btn_row := HBoxContainer.new()
+	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	btn_row.add_theme_constant_override("separation", 16)
+	vbox.add_child(btn_row)
+
+	var export_btn := Button.new()
+	export_btn.text = "导出日志"
+	export_btn.custom_minimum_size = Vector2(160, 40)
+	export_btn.add_theme_font_size_override("font_size", 16)
+	export_btn.disabled = logs.is_empty()
+	export_btn.pressed.connect(_on_export_log_pressed)
+	HudTheme.apply_slot_button(export_btn, 16)
+	btn_row.add_child(export_btn)
+
 	var close_btn := Button.new()
 	close_btn.text = "关闭 (Esc)"
 	close_btn.custom_minimum_size = Vector2(160, 40)
 	close_btn.add_theme_font_size_override("font_size", 16)
 	close_btn.pressed.connect(_on_close_log_pressed)
-	vbox.add_child(close_btn)
+	HudTheme.apply_slot_button(close_btn, 16)
+	btn_row.add_child(close_btn)
 
 	return panel
+
+
+func _on_export_log_pressed() -> void:
+	var logs: Array = []
+	if Game != null and is_instance_valid(Game):
+		logs = Game.log_list
+	if logs.is_empty():
+		_show_log_export_feedback("暂无日志可导出")
+		return
+	if _log_export_dialog == null or not is_instance_valid(_log_export_dialog):
+		_log_export_dialog = FileDialog.new()
+		_log_export_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+		_log_export_dialog.access = FileDialog.ACCESS_FILESYSTEM
+		_log_export_dialog.use_native_dialog = true
+		_log_export_dialog.title = "导出游戏日志"
+		_log_export_dialog.add_filter("*.txt", "文本文件")
+		_log_export_dialog.file_selected.connect(_on_log_export_file_selected)
+		add_child(_log_export_dialog)
+	_log_export_dialog.current_dir = OS.get_system_dir(OS.SYSTEM_DIR_DOCUMENTS)
+	_log_export_dialog.current_file = _default_log_filename()
+	_log_export_dialog.popup_centered()
+
+
+func _on_log_export_file_selected(path: String) -> void:
+	var export_path: String = path
+	if not export_path.to_lower().ends_with(".txt"):
+		export_path += ".txt"
+	var logs: Array = []
+	if Game != null and is_instance_valid(Game):
+		logs = Game.log_list
+	var file := FileAccess.open(export_path, FileAccess.WRITE)
+	if file == null:
+		_show_log_export_feedback("导出失败：" + error_string(FileAccess.get_open_error()))
+		return
+	file.store_string(LogColors.to_plain_log(logs))
+	file.close()
+	_show_log_export_feedback("已导出到：\n" + export_path)
+
+
+func _default_log_filename() -> String:
+	var dt: Dictionary = Time.get_datetime_dict_from_system()
+	return "MaximumApocalypse_log_%04d%02d%02d_%02d%02d%02d.txt" % [
+		dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second,
+	]
+
+
+func _show_log_export_feedback(message: String) -> void:
+	var dialog := AcceptDialog.new()
+	dialog.title = "导出游戏日志"
+	dialog.dialog_text = message
+	dialog.confirmed.connect(dialog.queue_free)
+	dialog.canceled.connect(dialog.queue_free)
+	add_child(dialog)
+	dialog.popup_centered()
 
 
 func _on_close_log_pressed() -> void:

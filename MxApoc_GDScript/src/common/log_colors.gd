@@ -51,6 +51,34 @@ static func skill_by_type(name: String, skill_type: String) -> String:
 	return _wrap(name, color)
 
 
+## 去掉日志中的颜色 BBCode，保留引号与正文。用于导出纯文本。
+static func strip_bbcode(message: String) -> String:
+	return _strip_with_regex(message, _make_bbcode_regex())
+
+
+## 将日志数组拼成纯文本，每条一行。
+static func to_plain_log(messages: Array) -> String:
+	var regex := _make_bbcode_regex()
+	var lines: PackedStringArray = PackedStringArray()
+	for msg in messages:
+		lines.append(_strip_with_regex(str(msg), regex))
+	return "\n".join(lines)
+
+
 ## 内部：用指定颜色包裹双引号文本
 static func _wrap(name: String, color: String) -> String:
 	return "[color=%s]\"%s\"[/color]" % [color, name]
+
+
+static func _strip_with_regex(message: String, regex: RegEx) -> String:
+	if regex == null:
+		return message
+	return regex.sub(message, "", true)
+
+
+static func _make_bbcode_regex() -> RegEx:
+	var regex := RegEx.new()
+	var err: int = regex.compile("\\[/?color(?:=#[0-9a-fA-F]+)?\\]")
+	if err != OK:
+		return null
+	return regex

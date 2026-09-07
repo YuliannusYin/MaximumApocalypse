@@ -11,6 +11,7 @@
       "initial_hp": 25,
       "attack_damage": 5,
       "range": "none",
+      "ai": { "threat": 80 },
       "skills": [
         {
           "skill_name": "外星收割者-摧毁装备",
@@ -43,6 +44,7 @@
       "initial_hp": 22,
       "attack_damage": 4,
       "range": "none",
+      "ai": { "threat": 75 },
       "skills": [
         {
           "skill_name": "外星指挥官-集结修复",
@@ -75,6 +77,7 @@
       "initial_hp": 9,
       "attack_damage": 1,
       "range": "none",
+      "ai": { "threat": 85 },
       "skills": [
         {
           "skill_name": "外星科学家-勒索装备",
@@ -84,16 +87,16 @@
           "trigger": "after_monster_enter_zone",
           "forced": true,
           "filter": "return true",
-          "content": "var drawer = event.player\nvar equip_cards = drawer.get_cards(\"equipment\")\nif equip_cards.is_empty():\n\tactions.damage(drawer, 6, event[\"card\"])\nelif await drawer.confirm(\"\\\"外星科学家\\\": 是否弃置一张装备，否则受到 6 点伤害\"):\n\tvar chosen = await drawer.choose_card(1, equip_cards)\n\tif chosen.is_empty():\n\t\tactions.damage(drawer, 6, event[\"card\"])\n\telse:\n\t\tactions.discard(drawer, chosen)\nelse:\n\tactions.damage(drawer, 6, event[\"card\"])"
+          "content": "var drawer = event.player\nvar equip_cards = drawer.get_discardable_equipment_cards()\nif equip_cards.is_empty():\n\tactions.damage(drawer, 6, player)\nelif await drawer.confirm(\"\\\"外星科学家\\\": 是否弃置一张装备，否则受到 6 点伤害\"):\n\tvar chosen = await drawer.choose_card(1, equip_cards)\n\tif chosen.is_empty():\n\t\tactions.damage(drawer, 6, player)\n\telse:\n\t\tactions.discard(drawer, chosen)\nelse:\n\tactions.damage(drawer, 6, player)"
         },
         {
           "skill_name": "外星科学家-协同强化",
           "english_name": "alien_scientist_synergy",
-          "skill_description": "所有外星人类怪物攻击时，造成的伤害加一。",
+          "skill_description": "场上每有一只外星科学家，所有外星人类怪物造成伤害时额外加一。",
           "skill_type": "monster",
           "trigger": "on_deal_damage",
           "forced": true,
-          "filter": "return event.source.monster_type == \"alien\"",
+          "filter": "return event.source != null && event.source.has_method(\"is_monster\") && event.source.is_monster() && event.source.monster_type == \"alien\"",
           "content": "event.num += 1"
         }
       ]
@@ -107,6 +110,7 @@
       "initial_hp": 18,
       "attack_damage": 4,
       "range": "none",
+      "ai": { "threat": 40 },
       "skills": [
         {
           "skill_name": "外星机械",
@@ -129,6 +133,7 @@
       "initial_hp": 7,
       "attack_damage": 3,
       "range": "none",
+      "ai": { "threat": 50 },
       "skills": [
         {
           "skill_name": "外星入侵者",
@@ -151,6 +156,7 @@
       "initial_hp": 10,
       "attack_damage": 6,
       "range": "none",
+      "ai": { "threat": 60 },
       "skills": [
         {
           "skill_name": "外星飞船-烧毁",
@@ -181,6 +187,7 @@
       "initial_hp": 15,
       "attack_damage": 3,
       "range": "long",
+      "ai": { "threat": 50 },
       "skills": []
     }
   ]

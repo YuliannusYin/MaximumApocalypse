@@ -11,6 +11,7 @@
       "initial_hp": 19,
       "attack_damage": 4,
       "range": "medium",
+      "ai": { "threat": 82 },
       "skills": [
         {
           "skill_name": "人工智能核心领袖",
@@ -20,7 +21,7 @@
           "trigger": "after_monster_enter_zone",
           "forced": true,
           "filter": "return true",
-          "content": "var drawer = event.player\nvar hand_cards = game.get_cards(drawer, \"hand\")\nfor c in hand_cards:\n\tactions.discard(drawer, c)\nvar list = game.get_target_in_range(self.engaged_player, \"medium\")\nfor p in list:\n\tactions.damage(p, 4, self)"
+          "content": "var drawer = event.player\nvar hand_cards = drawer.get_cards(\"hand\")\nfor c in hand_cards:\n\tactions.discard(drawer, c)\nvar _engaged = player.attack_target\nif _engaged == null:\n\treturn\nvar _block = _engaged.get_current_block()\nif _block == null:\n\treturn\nvar list = _block.get_players_in_range(\"medium\", true)\nfor p in list:\n\tactions.damage(p, 4, player)"
         }
       ]
     },
@@ -33,6 +34,7 @@
       "initial_hp": 22,
       "attack_damage": 6,
       "range": "medium",
+      "ai": { "threat": 89 },
       "skills": [
         {
           "skill_name": "导弹坦克",
@@ -42,7 +44,7 @@
           "trigger": "after_monster_enter_zone",
           "forced": true,
           "filter": "return true",
-          "content": "var drawer = event.player\nvar equipment = game.get_cards(drawer, \"equipment\")\nfor c in equipment:\n\tactions.discard(drawer, c)\nvar list = game.get_target_in_range(self.engaged_player, \"medium\")\nfor p in list:\n\tactions.damage(p, 6, self)"
+          "content": "var drawer = event.player\nvar equipment = drawer.get_cards(\"equipment\")\nfor c in equipment:\n\tactions.discard(drawer, c)\nvar _engaged = player.attack_target\nif _engaged == null:\n\treturn\nvar _block = _engaged.get_current_block()\nif _block == null:\n\treturn\nvar list = _block.get_players_in_range(\"medium\", true)\nfor p in list:\n\tactions.damage(p, 6, player)"
         }
       ]
     },
@@ -55,6 +57,7 @@
       "initial_hp": 10,
       "attack_damage": 2,
       "range": "none",
+      "ai": { "threat": 49 },
       "skills": [
         {
           "skill_name": "激光无人机",
@@ -63,7 +66,7 @@
           "skill_type": "monster",
           "trigger": "before_sneak_judge",
           "forced": true,
-          "filter": "return event.player == self.engaged_player",
+          "filter": "return event.player == player.attack_target",
           "content": "event.skip_judge = true\nevent.result = {\"value\": 999, \"success\": false}"
         }
       ]
@@ -77,6 +80,7 @@
       "initial_hp": 12,
       "attack_damage": 3,
       "range": "none",
+      "ai": { "threat": 53 },
       "skills": [
         {
           "skill_name": "机器人侦察兵",
@@ -99,6 +103,7 @@
       "initial_hp": 20,
       "attack_damage": 3,
       "range": "medium",
+      "ai": { "threat": 61 },
       "skills": [
         {
           "skill_name": "全能机器人",
@@ -107,8 +112,8 @@
           "skill_type": "monster",
           "trigger": "on_monster_death",
           "forced": true,
-          "filter": "return event.target == self",
-          "content": "var list = game.get_target_in_range(self.engaged_player, \"medium\")\nfor p in list:\n\tactions.damage(p, 4, self)"
+          "filter": "return event.target == player",
+          "content": "var _engaged = player.attack_target\nif _engaged == null:\n\treturn\nvar _block = _engaged.get_current_block()\nif _block == null:\n\treturn\nvar list = _block.get_players_in_range(\"medium\", true)\nfor p in list:\n\tactions.damage(p, 4, player)"
         }
       ]
     },
@@ -121,6 +126,7 @@
       "initial_hp": 15,
       "attack_damage": 4,
       "range": "none",
+      "ai": { "threat": 58 },
       "skills": [
         {
           "skill_name": "爆破机器人-殉爆",
@@ -129,8 +135,8 @@
           "skill_type": "monster",
           "trigger": "on_monster_death",
           "forced": true,
-          "filter": "return event.target == self",
-          "content": "actions.damage(self.engaged_player, 2, self)"
+          "filter": "return event.target == player",
+          "content": "if player.attack_target != null:\n\tactions.damage(player.attack_target, 2, player)"
         },
         {
           "skill_name": "爆破机器人-定点爆破",
@@ -139,7 +145,7 @@
           "skill_type": "monster",
           "trigger": "on_deal_damage",
           "forced": true,
-          "filter": "return event.source == self && event.target.count_mark(\"moved_this_turn\") == 0",
+          "filter": "return event.source == player && event.target.count_mark(\"moved_this_turn\") == 0",
           "content": "event.num *= 2"
         }
       ]
@@ -153,16 +159,17 @@
       "initial_hp": 11,
       "attack_damage": 4,
       "range": "medium",
+      "ai": { "threat": 54 },
       "skills": [
         {
           "skill_name": "方阵机器人",
           "english_name": "phalanx_robot",
-          "skill_description": "当此怪物卡射程内的机器人类怪物卡受到伤害时，受到的伤害减少1点。",
+          "skill_description": "场上每有一只射程罩住目标的方阵机器人，机器人类怪物受到的伤害减少1点（最低减到0）。",
           "skill_type": "monster",
           "trigger": "on_take_damage",
           "forced": true,
-          "filter": "return event.target.monster_type == \"robot\" && event.target in game.get_target_in_range(self.engaged_player, \"medium\")",
-          "content": "event.num -= 1"
+          "filter": "return event.target != null && event.target.has_method(\"is_monster\") && event.target.is_monster() && event.target.monster_type == \"robot\" && player.attack_target != null && player.attack_target.get_current_block() != null && event.target.get_current_block() != null && event.target.get_current_block() in player.attack_target.get_current_block().get_blocks_in_range(\"medium\", true)",
+          "content": "event.num = maxi(event.num - 1, 0)"
         }
       ]
     }

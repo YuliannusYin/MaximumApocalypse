@@ -5,7 +5,7 @@
 > Game 类**不继承** Entity（无技能、无 trigger），是全局管理器。
 > 注册为 autoload，全局名 `Game`，无 `class_name`，继承 `Node`。
 > 游戏初始化与开局流程见 [GameInstructions/02_开局与流程.md](../../GameInstructions/02_开局与流程.md)。
-> 状态管理（游戏阶段/游戏结果/当前回合玩家/回合队列）委托给 [GameStateMachine](../Core/GameStateMachine.md)。
+> 状态管理（游戏阶段/游戏结果/当前回合玩家）委托给 [GameStateMachine](../Core/GameStateMachine.md)；回合排队在 [EventScheduler](../Core/EventScheduler.md)。
 
 ---
 
@@ -31,9 +31,10 @@
 
 | 字段名 | 类型 | 默认 | 说明 |
 |--------|------|------|------|
-| `state_machine` | GameStateMachine | null | 游戏状态机实例。`_ready()` 中创建并 `init()`。管理游戏阶段、游戏结果、当前回合玩家、回合队列等。详见 [GameStateMachine.md](../Core/GameStateMachine.md) |
+| `state_machine` | GameStateMachine | null | 游戏状态机实例。`_ready()` 中创建并 `init()`。管理游戏阶段、游戏结果、当前回合玩家等；回合排队在 `event_scheduler`。详见 [GameStateMachine.md](../Core/GameStateMachine.md) |
 | `mission_config` | MissionConfig | null | 本局任务配置。由 `initialize_game` 从 MissionData 构造。详见 [MissionConfig.md](./MissionConfig.md) |
 | `stats_tracker` | StatsTracker | null | 本局统计聚合器。`_ready()` 中创建。详见 [StatsTracker.md](../System/StatsTracker.md) |
+| `event_scheduler` | EventScheduler | 每局新建 | 本局唯一事件调度器。`_ready()` 与新对局重置时 `new()`，旧实例 `reset()`。详见 [EventScheduler.md](../Core/EventScheduler.md) |
 | `coop_death_mode` | bool | false | 同生共死变体。开启后任一玩家死亡即所有求生者输掉游戏。默认 false |
 | `current_mission` | Variant | null | 本局任务的 MissionData 引用（可能为 Dictionary 或 Resource） |
 | `removed_cards` | Array | [] | 移出游戏的卡牌列表（区别于进入弃牌堆的卡牌） |
@@ -54,7 +55,7 @@
 
 ### _ready()
 
-> autoload 初始化钩子。创建 `state_machine`（并调用 `init()`）与 `stats_tracker`。
+> autoload 初始化钩子。创建 `event_scheduler`、`state_machine`（并调用 `init()`）与 `stats_tracker`。
 
 ### 日志
 
@@ -73,16 +74,16 @@
 
 #### start_game()
 
-> 游戏开局流程。**委托给** [GameStateMachine.start_game()](../Core/GameStateMachine.md)，使用 `await` 等待完成。
+> 游戏开局流程。**委托给** [GameStateMachine.start_game()](../Core/GameStateMachine.md)，使用 `await` 等待完成。可选 `runtime` 传入调度器，默认 `Game.event_scheduler`。
 > 在 `initialize_game` 之后调用。依次执行：状态转换 setup → playing → 抓初始手牌（含可选重调）→ 抓初始怪物卡（任务声明 `no_initial_monster_draw` 时跳过，如任务 11）→ 触发「游戏开始时」trigger → 进入第一玩家回合。
-> 落地 [EventSystem §4.12](../Core/EventSystem.md) 的「游戏开始时」trigger。
+> 开局整段包在 `scheduler.dispatch("game_start", ...)` 内。钩子 Dictionary 仍见 [EventSystem §4.12](../Core/EventSystem.md)；调度见 [EventScheduler.md](../Core/EventScheduler.md)。
 
 #### game_over(result)
 
-> 游戏结束流程。接受 String 参数 "win" / "lose"，转换为 `GameStateMachine.GameResult` 枚举后委托给 [GameStateMachine.game_over()](../Core/GameStateMachine.md)。
+> 游戏结束流程。接受 String 参数 "win" / "lose"，转换为 `GameStateMachine.GameResult` 枚举后委托给 [GameStateMachine.game_over()](../Core/GameStateMachine.md)。**调用方必须 await**，避免结束事件并发插入当前调度栈。可选 `runtime` 默认 `Game.event_scheduler`。
 > 若 `state_machine` 无效，则直接设置 `game_over_called = true`、`game_result = result`（向后兼容路径）。
 > 触发场景：所有玩家死亡（lose）；或胜利条件达成（win）。
-> 落地 [EventSystem §4.12](../Core/EventSystem.md) 的「游戏结束时」trigger。
+> 整段包在 `scheduler.dispatch("game_over", ...)` 内。钩子 Dictionary 见 [EventSystem §4.12](../Core/EventSystem.md)。
 
 ##### 游戏失败条件
 
@@ -91,7 +92,7 @@
 - **所有玩家死亡** → `all_players_dead()` 为真 → `game_over("lose")`（[Player.playerDeath](../Entities/Player.md) 末尾检查）
 - **怪物牌堆重洗后仍空**（所有怪物卡都在场上）→ `game_over("lose")`（见 [Player.drawMonster](../Entities/Player.md)）
 - **同生共死变体**：`coop_death_mode` 为真时，任一玩家死亡即 `game_over("lose")`（[Player.playerDeath](../Entities/Player.md) 末尾在全灭判定之前检查）
-- **任务特定失败**：任务系统检查后调用 `game_over("lose")`（如 `turn_countdown` 倒计时归零、`card_discard_watch` lose 模式监视卡被弃置、任务 8 `rescue_judge_win` 解救检定失败且未持有情报卡）
+- **任务特定失败**：回合结束 `check_lose`；或行动当场 `game_over("lose")`（任务 8 解救检定失败且未持有情报卡）
 
 ##### 游戏胜利条件
 
@@ -100,11 +101,8 @@
 > 在玩家的回合结束时，胜利条件才触发（玩家依然会在回合结束前受到伤害）。
 
 - 玩家完成了任务（`check_mission_win_condition()` 委托给 `mission_config.check_win`，由胜利条件组件 AND + 专用脚本编排）
-- 往「面包车」添加了所需要的燃料值（`mission_config.van_fuel_required`；为 -1 时跳过此条件及以下条件）
-- 所有存活玩家都返回到了地图块「面包车」上
-- 地图块「面包车」内没有任何怪物和怪物标记
 
-> **燃料值为 -1（NULL）**：表示该任务不通过启动面包车胜利（如任务 4/8/9/11），此时仅检查任务胜利条件。详见 [MissionConfig.md](./MissionConfig.md)。
+> 加油、登车、护送等条件由任务 JSON 组件声明，引擎不再硬编码面包车链。详见 [MissionConfig.md](./MissionConfig.md)。
 
 #### next_turn()
 
@@ -120,7 +118,6 @@
 > 若 `mission_config` 为 null 返回 false。由 [GameStateMachine.check_win_condition()](../Core/GameStateMachine.md) 调用，作为胜利判定的第一项条件。
 
 > **任务配置结构 MissionConfig（三层架构运行时容器）**：
-> - `van_fuel_required`：启动面包车所需燃料；-1 表 NULL（该任务不通过面包车胜利，如任务 4/8/9/11）
 > - `no_initial_monster_draw`：开局跳过每名玩家的初始抓怪（来自任务 JSON 同名字段，如任务 11）
 > - `initial_objective_mark_count`：开局时场上任务标记总数，由 `initialize_game` 在 `build_map` 之后遍历 `map_area` 累加各地块 `objective_marks.size()` 统计写入，供 `objective_marks_cleared` 等组件计算已移除数
 > - `win_condition_components` / `lose_condition_components` / `trigger_components` / `action_components`：按任务 JSON 声明（`win_conditions` / `lose_conditions` / `triggers` / `actions` 字段）挂载的四类可复用组件实例数组（`src/game/mission/components/`，经 `MissionComponentRegistry` 实例化）
@@ -132,7 +129,6 @@
 > 1. **先失败后胜利**：先查 `mission_config.check_lose`（任一失败组件或脚本为 true 即 `game_over(LOSE)`），再查 `check_win`
 > 2. **组件 AND**：`check_win` 要求所有胜利组件为 true 且（无脚本或脚本为 true）；无组件且无脚本时空真（视为任务条件满足）
 > 3. **脚本共用通道**：脚本与组件共用 `check_win` / `check_lose` / `on_event` / `get_action_options` 注入通道，由 `MissionConfig` 统一编排
-> 4. **面包车判定**：`van_fuel_required < 0` 时任务胜利即直接胜利；否则还需满足面包车燃料达标、全员上车、面包车无怪物及怪物标记
 
 > **事件转发与行动选项**：`Game` 将 EventBus 的 10 个信号（`turn_started` / `turn_ended` / `player_moved` / `block_revealed` / `block_destroyed` / `monster_died` / `objective_mark_triggered` / `equipment_equipped` / `card_discarded` / `monster_spawn_judged`）转发到 `mission_config.on_event`（触发器组件与脚本共用）；行动组件同时以 Skill 形式挂载技能栏：玩家进出地块时由 `mission_config.mount_action_skills` / `unmount_action_skills` 挂载/卸载到 `player.skills`（`active="action"`、`skill_type="任务"`，金色按钮区分），经 `use_active_skill` 执行，技能栏为任务行动的唯一 UI 入口；`mission_config.get_action_options` 汇总行动组件与脚本的选项（接口与 `{"type": "mission_action", "option_id": ...}` 执行通道保留，见 [Player.wait_player_action](../Entities/Player.md)）。
 
@@ -169,7 +165,7 @@
 #### destroy_map_block(block, source)
 
 > 摧毁地块流程。触发场景：[blue.md 大炸药](../../Resource/ScavengePacks/blue.md)「行动：摧毁一个地图板块」。
-> 落地 [EventSystem §4.13](../Core/EventSystem.md) 的「摧毁地块前/时/后」trigger。
+> 整段包在 `scheduler.dispatch("destroy_block", ...)` 内（可选 `runtime`）。钩子 Dictionary 见 [EventSystem §4.13](../Core/EventSystem.md)。
 >
 > **6 节点处理逻辑**：
 > 1. 构造 `event = EventSystem.create_destroy_block_event(source, block)`
@@ -225,6 +221,11 @@
 #### get_engaged_monsters(player)
 
 > 返回玩家面前纠缠的怪物列表。若 `player` 无效或不含 `monster_zone` 字段返回空数组；否则返回 `player.monster_zone`。
+
+#### trigger_other_zone_monsters(trigger_name, event, except)
+
+> 向所有玩家怪物区中除 `except` 外的存活怪物广播 `trigger_name`。跳过无效实体、`except` 自身，以及 `get_hp() <= 0` 的怪物。
+> 用于跨怪物监听技能：伤害流程节点 3 在 source 为怪物时广播 `on_deal_damage`（如外星科学家-协同强化）；节点 4 在 target 为怪物时广播 `on_take_damage`（如方阵机器人）；怪物死亡流程节点 2 广播 `on_monster_death`（如僵尸女王）。
 
 ---
 
@@ -297,18 +298,18 @@
 > 参数：
 > - `mission: MissionData`：本局任务。为 null 时从 `DataManager.get_all_missions()` 随机抽取一个
 > - `variants: Dictionary`：变体配置（如同生共死模式等）
-> - `seats: Array`：座位列表，每项为 `{type, survivor}` 字典；`type == "empty"` 或 `"ai"` 的座位跳过
+> - `seats: Array`：座位列表，每项为 `{type, survivor}` 字典；只跳过 `type == "empty"`（或 `survivor == null`）。`type == "ai"` 与 `"human"` 一样创建玩家
 
 > **执行步骤**：
 > 1. **确定任务**：mission 为 null 时随机抽取；赋值给 `current_mission`
 > 2. **设置任务配置**：创建 `MissionConfig` 实例
->    - `van_fuel_required = int(mission.van_fuel_required)`（mission 字段为 null 时置 -1）
 >    - `no_initial_monster_draw = mission.no_initial_monster_draw`（开局跳过每名玩家的初始抓怪，如任务 11）
 >    - `mission_config.mission_state = {}`
 >    - 调用 `_mount_mission_components(mission)` 按任务 JSON 声明挂载组件与脚本实例（三层架构第二/三层）
 > 3. **创建玩家**：清空 `players`，遍历 `seats`：
->    - 跳过 `type == "empty"` 或 `"ai"` 的座位，或 `survivor == null` 的座位
->    - 创建 `Player`，设置 `seat_number`、`player_name = survivor.character_name`、`max_hp`、`hp = survivor.initial_hp`、`hunger = 1`
+>    - 跳过 `type == "empty"` 或 `survivor == null` 的座位（AI 座位入局）
+>    - 创建 `Player`，设置 `seat_number`、`player_name = survivor.character_name`、`is_ai = (type == "ai")`、`max_hp`、`hp = survivor.initial_hp`、`hunger = 1`
+>    - AI 座位此时 `input = AIPlayerInput.new()`；对局场景再按 `is_ai` 换成带动画委托的实例（真人共用 `GUIPlayerInput`）
 >    - `role_card = _create_role_card_from_survivor(survivor)`
 >    - `game_deck = _create_player_deck(survivor)`、`game_discard_pile = Pile.new()`
 >    - 挂载通用主动技能：遍历 `DataManager.get_common_skills()` 调用 `_create_skill_from_data` 后 `player.add_skill`
@@ -387,6 +388,7 @@
 > - `filter_target = CodeExecutor.compile_filter_target(skill_data.filter_target)`
 > - `filter_card = CodeExecutor.compile_filter_card(skill_data.filter_card)`
 > - `confirm_prompt = CodeExecutor.compile_confirm_prompt(skill_data.confirm_prompt)`
+> - 复制 `skill.ai`；`ai_result = CodeExecutor.compile_score(ai.result)`，`ai_check = CodeExecutor.compile_score(ai.check)`
 
 #### _create_role_card_from_survivor(survivor)
 
@@ -445,13 +447,17 @@
 | 关系 | 说明 |
 |------|------|
 | [GameStateMachine](../Core/GameStateMachine.md) | Game 持有 `state_machine` 实例；`start_game` / `game_over` / `get_current_player` / `next_turn` 委托给状态机 |
+| [EventScheduler](../Core/EventScheduler.md) | Game 持有每局唯一 `event_scheduler` |
 | [MissionConfig](./MissionConfig.md) | Game 持有 `mission_config`，由 `initialize_game` 从 MissionData 构造 |
+| [MissionComponent](./MissionComponent.md) | 任务 JSON 声明的组件；事件经 `_forward_mission_event` 转发 |
+| [ArchiveManager](../System/ArchiveManager.md) | 不由 Game 持有；结算页按本局 StatsTracker 归档 |
 | [StatsTracker](../System/StatsTracker.md) | Game 持有 `stats_tracker`，订阅 EventBus 信号聚合本局统计 |
 | [EventBus](../System/EventBus.md) | `log_message` 通过 `EventBus.publish_log` 推送 UI 日志面板 |
-| [CodeExecutor](../System/CodeExecutor.md) | 工厂方法编译 skill 代码字段 |
+| [CodeExecutor](../../Engineering/CodeExecutor.md) | 工厂方法编译 skill 代码字段 |
 | [LogColors](../System/LogColors.md) | 日志输出使用 `LogColors` 着色实体名 |
 | [DataManager](../../Engineering/DataFormat.md) | 工厂方法从 DataManager 加载 `*Data` 类（`MapBlockData` / `SurvivorData` / `ScavengeCardData` / `MonsterCardData` / `SkillData` / 通用技能等） |
 | [Player](../Entities/Player.md) | Game 管理所有玩家；玩家死亡触发全灭判定 |
+| [AI](../AI/AI.md) | `initialize_game` 为 AI 座位创建玩家并挂 `AIPlayerInput` |
 | [Monster](../Entities/Monster.md) | Game 管理怪物牌堆 / 弃牌堆 |
 | [Card](../Entities/Card.md) | Game 管理各类牌堆；`remove_card` 移出游戏 |
 | [MapBlock](../Entities/MapBlock.md) | Game 管理地图区域；`build_map` / `destroy_map_block` / `_create_map_block` 维护地块生命周期 |

@@ -8,15 +8,24 @@ extends MissionComponent
 ## - equipment: String（默认 "科学家"）——上传所需的装备名（须在玩家装备区）
 ## 行动选项仅在玩家位于上传地点、装备区持有指定装备、行动数充足
 ## 且场上存活地块已无任何未移除的任务标记时出现；
-## 执行后扣减 1 行动并直接判定胜利（game_over("win")）。
+## 执行后扣减 1 行动，写入 mission_state["virus_uploaded"] = true
+## 并直接判定胜利（game_over("win")）。
+## mission_state 键：
+## - "virus_uploaded"：bool——已执行上传病毒（progress_conditions state_flag 求值用）
 ## 服务任务 9。
 
 ## 游戏实例引用。setup 时注入，供行动技能 filter 扫描场上标记与执行体调用 _do_upload。
 var _game: Game = null
 
+## 任务配置引用。setup 时注入，用于读写 mission_state。
+var _mission_config: MissionConfig = null
+
 
 func setup(game: Game, mission_config: MissionConfig) -> void:
 	_game = game
+	_mission_config = mission_config
+	if _mission_config != null and not _mission_config.mission_state.has("virus_uploaded"):
+		_mission_config.mission_state["virus_uploaded"] = false
 	if not params.has("block_name"):
 		params["block_name"] = "坠毁点"
 	if not params.has("equipment"):
@@ -32,7 +41,7 @@ func get_action_options(game: Game, player: Player) -> Array:
 		return []
 	if not player.has_equipment(params.get("equipment", "科学家")):
 		return []
-	if player.action_count < 1:
+	if player.get_effective_action_count() < 1:
 		return []
 	if _any_objective_mark_on_map(game):
 		return []
@@ -56,7 +65,7 @@ func get_action_skill_decl() -> Variant:
 			return false
 		if not player.has_equipment(params.get("equipment", "科学家")):
 			return false
-		if player.action_count < 1:
+		if player.get_effective_action_count() < 1:
 			return false
 		if _game == null or not is_instance_valid(_game):
 			return false
@@ -67,7 +76,19 @@ func get_action_skill_decl() -> Variant:
 		await _do_upload(_game, player)
 	decl["confirm"] = func(player: Player) -> String:
 		return "确定消耗 1 行动上传病毒？"
+	decl["ai"] = _mission_action_ai()
 	return decl
+
+
+func ai_should_travel(player: Player) -> bool:
+	if player == null or not is_instance_valid(player):
+		return false
+	var config: MissionConfig = _mission_config
+	if config == null and Game != null and is_instance_valid(Game):
+		config = Game.mission_config
+	if config != null and config.mission_state.get("virus_uploaded", false) == true:
+		return false
+	return player.has_equipment(params.get("equipment", "科学家"))
 
 
 ## 场上存活地块是否存在未移除的任务标记。
@@ -86,12 +107,15 @@ func _any_objective_mark_on_map(game: Game) -> bool:
 	return false
 
 
-## 上传执行：扣减 1 行动并直接判定胜利。
+## 上传执行：扣减 1 行动，写入 virus_uploaded 旗标并直接判定胜利。
 func _do_upload(game: Game, player: Player) -> void:
 	if game == null or not is_instance_valid(game):
 		return
 	if player == null or not is_instance_valid(player):
 		return
-	player.reduce_action_count(1)
+	if not await player.consume_action_evented(1):
+		return
+	if _mission_config != null:
+		_mission_config.mission_state["virus_uploaded"] = true
 	game.log_message(LogColors.player(player.player_name) + " 上传了病毒！")
-	game.game_over("win")
+	await game.game_over("win")

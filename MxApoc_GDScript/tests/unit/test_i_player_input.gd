@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## CliPlayerInput 队列机制单元测试。
 ## 注：GUT 9.7.0 将 push_error 视为测试失败，因此不直接调用 IPlayerInput 抽象方法。

@@ -1,6 +1,7 @@
 extends Control
 
 const SEAT_ITEM_SCENE := preload("res://scenes/SeatItem.tscn")
+const LoadingScreenScript := preload("res://src/ui/loading_screen.gd")
 const MAX_SEATS := 6
 const MIN_SEATS := 1
 const RANDOM_MISSION_IDX := 0
@@ -9,9 +10,10 @@ const RANDOM_MISSION_IDX := 0
 @onready var _reset_button: Button = $BottomBar/ResetButton
 @onready var _mission_option: OptionButton = $MissionSelectArea/ScrollContainer/VBoxContainer/MissionSection/MissionOption
 @onready var _variant_list: VBoxContainer = $MissionSelectArea/ScrollContainer/VBoxContainer/VariantSection/VariantList
+@onready var _online_multiplayer_checkbox: CheckBox = $MissionSelectArea/ScrollContainer/VBoxContainer/AdvancedSection/OnlineMultiplayerCheckBox
 @onready var _mission_name_label: Label = $MissionDetailArea/VBoxContainer/MissionNameLabel
 @onready var _difficulty_label: Label = $MissionDetailArea/VBoxContainer/DifficultyLabel
-@onready var _detail_rich: RichTextLabel = $MissionDetailArea/VBoxContainer/ScrollContainer/DetailRich
+@onready var _detail_view: MissionDetailView = $MissionDetailArea/VBoxContainer/ScrollContainer/DetailView
 @onready var _start_game_button: Button = $BottomBar/StartGameButton
 @onready var _add_seat_button: Button = $PlayerSettingArea/VBoxContainer/SeatsHeader/AddSeatButton
 @onready var _remove_seat_button: Button = $PlayerSettingArea/VBoxContainer/SeatsHeader/RemoveSeatButton
@@ -27,8 +29,16 @@ func _ready() -> void:
 	HudTheme.apply_title(_title_label, 26)
 	HudTheme.apply_section_panel($MissionSelectArea, Color("#211f1a"))
 	HudTheme.apply_section_panel($MissionDetailArea, Color("#1d1c19"))
+	var detail_style := $MissionDetailArea.get_theme_stylebox("panel") as StyleBoxFlat
+	if detail_style != null:
+		detail_style.content_margin_left = 12
+		detail_style.content_margin_right = 12
+		detail_style.content_margin_top = 10
+		detail_style.content_margin_bottom = 10
 	HudTheme.apply_section_panel($PlayerSettingArea, Color("#211f1a"))
 	HudTheme.apply_slot_button(_mission_option, 14, HudTheme.GOLD_BORDER, HudTheme.GOLD_TEXT)
+	HudTheme.apply_slot_button(_online_multiplayer_checkbox, 13)
+	_online_multiplayer_checkbox.tooltip_text = "开启后将允许其他玩家通过「加入房间」连入。当前联机尚未实现。"
 	HudTheme.apply_slot_button(_add_seat_button, 14, HudTheme.SLOT_BORDER, HudTheme.TEXT_MAIN)
 	HudTheme.apply_slot_button(_remove_seat_button, 14, HudTheme.SLOT_BORDER, HudTheme.TEXT_MAIN)
 	HudTheme.apply_slot_button(_back_button, 13)
@@ -36,14 +46,17 @@ func _ready() -> void:
 	HudTheme.apply_mission_slot_button(_start_game_button, 13)
 	_mission_name_label.add_theme_color_override("font_color", HudTheme.GOLD_TEXT)
 	_difficulty_label.add_theme_color_override("font_color", HudTheme.GOLD_TEXT_DIM)
+	RoomState.load_from_disk()
 	_populate_missions()
 	_populate_variants()
 	_restore_state()
 	_rebuild_seats()
 	_update_start_button()
+	RoomState.save()
 	_back_button.pressed.connect(_on_back)
 	_reset_button.pressed.connect(_on_reset)
 	_mission_option.item_selected.connect(_on_mission_selected)
+	_online_multiplayer_checkbox.toggled.connect(_on_online_multiplayer_toggled)
 	_start_game_button.pressed.connect(_on_start_game)
 	_add_seat_button.pressed.connect(_on_add_seat)
 	_remove_seat_button.pressed.connect(_on_remove_seat)
@@ -97,6 +110,7 @@ func _restore_state() -> void:
 		_select_default_mission()
 	for key in _variant_checkboxes:
 		_variant_checkboxes[key].set_pressed_no_signal(RoomState.variants.get(key, false))
+	_online_multiplayer_checkbox.set_pressed_no_signal(RoomState.online_multiplayer)
 	_refresh_detail_panel()
 
 ## “随机任务”选项当前是否存在（存在时必为第 0 项，metadata 为 null）。
@@ -182,9 +196,15 @@ func _on_mission_selected(idx: int) -> void:
 		RoomState.selected_mission_is_random = false
 		RoomState.selected_mission = meta
 	_refresh_detail_panel()
+	RoomState.save()
 
 func _on_variant_toggled(id: String, toggled: bool) -> void:
 	RoomState.variants[id] = toggled
+	RoomState.save()
+
+func _on_online_multiplayer_toggled(toggled: bool) -> void:
+	RoomState.online_multiplayer = toggled
+	RoomState.save()
 
 func _on_add_seat() -> void:
 	if RoomState.seats.size() >= MAX_SEATS:
@@ -192,6 +212,7 @@ func _on_add_seat() -> void:
 	RoomState.seats.append({"type": "ai", "survivor": null})
 	_rebuild_seats()
 	_update_start_button()
+	RoomState.save()
 
 func _on_remove_seat() -> void:
 	if RoomState.seats.size() <= MIN_SEATS:
@@ -199,48 +220,29 @@ func _on_remove_seat() -> void:
 	RoomState.seats.pop_back()
 	_rebuild_seats()
 	_update_start_button()
+	RoomState.save()
 
 func _on_seat_changed(_idx: int) -> void:
 	_refresh_seats_disabled()
 	_sync_seats_to_state()
 	_update_start_button()
+	RoomState.save()
 
 func _refresh_detail_panel() -> void:
 	if RoomState.selected_mission_is_random:
 		_mission_name_label.text = "随机任务"
 		_difficulty_label.text = ""
-		_detail_rich.text = "[i]随机任务（开局时抽取）[/i]"
+		_detail_view.populate(null, MissionDetailView.PLACEHOLDER_RANDOM)
 		return
 	var mission = RoomState.selected_mission
 	if mission == null:
 		_mission_name_label.text = "未选择"
 		_difficulty_label.text = ""
-		_detail_rich.text = ""
+		_detail_view.populate(null)
 		return
 	_mission_name_label.text = mission.mission_name
 	_difficulty_label.text = "难度：%s" % mission.difficulty_display
-	var fuel_text = str(mission.van_fuel_required) if mission.van_fuel_required != null else "(未指定)"
-	var bbcode := ""
-	bbcode += "[b]燃料：[/b]%s\n" % fuel_text
-	bbcode += "[b]怪物包：[/b]%s\n\n" % mission.monster_pack_type
-	bbcode += "[b]任务介绍：[/b]\n%s\n\n" % mission.intro_text
-	bbcode += "[b]任务目标：[/b]\n%s\n\n" % mission.objective_text
-	bbcode += "[b]特殊设置：[/b]%s" % mission.special_setup
-	# 地图块配置
-	var block_parts: PackedStringArray = []
-	for block_name in mission.map_blocks_config:
-		block_parts.append("%s×%d" % [block_name, mission.map_blocks_config[block_name]])
-	bbcode += "\n\n[b]地图块配置：[/b]\n%s" % ", ".join(block_parts)
-	# 拾荒牌堆配置
-	var color_names: Dictionary = {"red": "红色", "green": "绿色", "blue": "蓝色"}
-	bbcode += "\n\n[b]拾荒牌堆配置：[/b]"
-	for color in ["red", "green", "blue"]:
-		var card_entries: Array = mission.scavenge_config.get(color, [])
-		var card_parts: PackedStringArray = []
-		for entry in card_entries:
-			card_parts.append("%s×%d" % [entry.get("card_name", ""), int(entry.get("count", 0))])
-		bbcode += "\n%s：%s" % [color_names[color], ", ".join(card_parts)]
-	_detail_rich.text = bbcode
+	_detail_view.populate(mission)
 
 func _update_start_button() -> void:
 	_start_game_button.disabled = not RoomState.is_ready_to_start()
@@ -248,20 +250,22 @@ func _update_start_button() -> void:
 func _on_start_game() -> void:
 	if not RoomState.is_ready_to_start():
 		return
-	get_tree().change_scene_to_file("res://scenes/LoadingScreen.tscn")
+	LoadingScreenScript.go_enter_game(get_tree())
 
 func _on_back() -> void:
 	get_tree().change_scene_to_file("res://scenes/MainMenu.tscn")
 
 func _on_reset() -> void:
-	RoomState.clear()
+	RoomState.reset_to_default()
 	# 刷新任务选择下拉框选中项（随机任务未解锁时回退到第一个可选任务）
 	_select_default_mission()
 	# 刷新变体复选框
 	for key in _variant_checkboxes:
 		_variant_checkboxes[key].set_pressed_no_signal(false)
+	_online_multiplayer_checkbox.set_pressed_no_signal(RoomState.online_multiplayer)
 	# 重建座位
 	_rebuild_seats()
 	# 刷新详情面板与开始按钮状态
 	_refresh_detail_panel()
 	_update_start_button()
+	RoomState.save()

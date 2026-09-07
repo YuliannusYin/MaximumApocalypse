@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## use_card 与玩家输入引擎机制单元测试。
 ## 覆盖 use_card 行动牌分支（content 执行 + 弃牌）、consume_action、
@@ -21,32 +21,6 @@ func _make_test_player(hp: int = 32, max_hp: int = 32) -> Player:
 	return p
 
 
-func _make_block(block_name: String = "test_block", x: int = 0, y: int = 0) -> MapBlock:
-	var b: MapBlock = MapBlock.new()
-	b.block_name = block_name
-	b.set_coordinate(x, y)
-	return b
-
-
-func _make_monster(monster_name: String = "test_monster") -> Monster:
-	var mc: MonsterCard = MonsterCard.new()
-	mc.card_name = monster_name
-	mc.monster_type = "zombie"
-	mc.monster_level = "normal"
-	mc.max_hp = 3
-	mc.damage_value = 2
-	mc.range = "none"
-	return mc.instantiate(null)
-
-
-func _make_card(card_name: String = "test_card", type: String = "action") -> Card:
-	var c: Card = Card.new()
-	c.card_name = card_name
-	c.card_type = type
-	c.source = "game"
-	return c
-
-
 func _setup_game_for_player(p: Player) -> void:
 	Game.players = [p]
 	Game.map_area = []
@@ -66,32 +40,6 @@ func _setup_game_for_player(p: Player) -> void:
 		Game.state_machine.init()
 
 
-func _clear_game() -> void:
-	Game.players = []
-	Game.map_area = []
-	Game.monster_pile = null
-	Game.monster_discard_pile = null
-	Game.scavenge_discard_pile = null
-	Game.red_scavenge_pile = null
-	Game.green_scavenge_pile = null
-	Game.blue_scavenge_pile = null
-	Game.mission_config = null
-	Game.removed_cards = []
-	Game.game_over_called = false
-	Game.game_result = ""
-	Game.log_list = []
-	if Game.state_machine != null and is_instance_valid(Game.state_machine):
-		Game.state_machine.init()
-
-
-func before_each() -> void:
-	_clear_game()
-
-
-func after_each() -> void:
-	_clear_game()
-
-
 # === 测试用例 ===
 
 # 测试 1: 行动牌总计只扣除一次行动次数
@@ -103,7 +51,7 @@ func test_use_card_consume_action() -> void:
 	var card: Card = _make_card("action1", "action")
 	var s: Skill = Skill.new()
 	s.active = "action"
-	s.content = func(player: Player, _t, _ev: Dictionary, _g) -> void:
+	s.content = func(player: Player, _t, _ev, _g) -> void:
 		player.consume_action(1)
 	card.add_skill(s)
 	p.hand.append(card)
@@ -121,7 +69,7 @@ func test_action_card_moves_to_settlement_during_content() -> void:
 	var observed: Array = []
 	var s: Skill = Skill.new()
 	s.active = "action"
-	s.content = func(player: Player, _t, _ev: Dictionary, _g) -> void:
+	s.content = func(player: Player, _t, _ev, _g) -> void:
 		observed.append({
 			"in_hand": player.hand.has(card),
 			"in_settlement": player.card_settlement_zone.has(card),
@@ -148,14 +96,14 @@ func test_action_card_settlement_rolls_back_when_cost_cancelled() -> void:
 	var hook: Skill = Skill.new()
 	hook.trigger = "before_consume_action"
 	hook.forced = true
-	hook.content = func(_player: Player, _target, event: Dictionary, _game) -> void:
+	hook.content = func(_player: Player, _target, event, _game) -> void:
 		EventSystem.cancel(event)
 	p.add_skill(hook)
 	var card: Card = _make_card("rollback_card", "action")
 	var content_called: Array = []
 	var s: Skill = Skill.new()
 	s.active = "action"
-	s.content = func(_player: Player, _target, _event: Dictionary, _game) -> void:
+	s.content = func(_player: Player, _target, _event, _game) -> void:
 		content_called.append(true)
 	card.add_skill(s)
 	p.hand.append(card)
@@ -178,7 +126,7 @@ func test_deferred_card_enters_settlement_at_content_cost() -> void:
 	var s: Skill = Skill.new()
 	s.active = "action"
 	s.defer_action_cost = true
-	s.content = func(player: Player, _target, _event: Dictionary, _game) -> void:
+	s.content = func(player: Player, _target, _event, _game) -> void:
 		observed.append({
 			"before_cost_in_hand": player.hand.has(card),
 			"before_cost_in_settlement": player.card_settlement_zone.has(card),
@@ -215,7 +163,7 @@ func test_deferred_card_target_cancel_keeps_card_in_hand() -> void:
 	s.active = "action"
 	s.defer_action_cost = true
 	s.select_target = 1
-	s.content = func(_player: Player, _target, _event: Dictionary, _game) -> void:
+	s.content = func(_player: Player, _target, _event, _game) -> void:
 		assert_true(false, "取消首次目标选择后不应执行 content")
 	card.add_skill(s)
 	p.hand.append(card)

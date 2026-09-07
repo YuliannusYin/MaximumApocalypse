@@ -5,6 +5,7 @@
 > 代码：`src/entities/monster.gd`，`class_name Monster extends Entity`。
 > 实体化由 [MonsterCard.instantiate](Card.md#monstercard-怪物卡) 完成（复制卡面数据到 Monster 实例）。
 > trigger 机制与全 trigger 索引见 [EventSystem.md](../Core/EventSystem.md)。
+> `act` / `death` / `stun` 等流程经 `Game.event_scheduler.dispatch` 入栈，见 [EventScheduler.md](../Core/EventScheduler.md)。
 
 ---
 
@@ -13,7 +14,7 @@
 怪物卡从怪物牌堆抓取后，在进入玩家怪物区时**实体化**为 Monster 实例（见 [Player.draw_monster](Player.md#draw_monstern) 节点 2d）。实体化时由 `MonsterCard.instantiate(player)` 完成以下赋值：
 
 - `monster_name = card_name`（怪物名回引卡牌名）
-- `monster_type` / `monster_level` / `max_hp` / `damage_value` / `range` 从卡面复制
+- `monster_type` / `monster_level` / `max_hp` / `damage_value` / `range` / `ai_threat` 从卡面复制
 - `hp = max_hp`（初始化当前生命值为上限）
 - `attack_target = player`（设置纠缠对象为抓取玩家）
 - `monster_card = self`（回引来源怪物卡，死亡后入怪物弃牌堆用）
@@ -33,6 +34,7 @@
 | `hp` | int | `0` | 当前生命值。≤ 0 时进入死亡流程 |
 | `max_hp` | int | `0` | 最大生命值上限 |
 | `damage_value` | int | `0` | 怪物攻击造成的伤害 |
+| `ai_threat` | int | `0` | AI 威胁值（来自 JSON `ai.threat`，0–100） |
 | `range` | String | `"none"` | 射程：`"none"`（只攻击纠缠玩家）/ `"short"` / `"medium"` / `"long"` / `"infinity"`。决定怪物攻击范围 |
 | `attack_target` | Player | `null` | 纠缠的玩家。怪物只攻击其纠缠对象所在地块的玩家（按射程） |
 | `monster_card` | MonsterCard | `null` | 来源怪物卡（死亡后进入怪物弃牌堆用） |
@@ -153,7 +155,7 @@
 
 #### 跨怪物广播 `on_monster_death`
 
-`on_monster_death` 节点执行后，遍历 `Game.players` 中每个玩家 `_p` 的 `monster_zone`，对每只非自身且存活的怪物 `_m` 调用 `await _m.trigger("on_monster_death", event)`。
+`on_monster_death` 节点执行后，调用 `Game.trigger_other_zone_monsters("on_monster_death", event, self)`，向所有玩家怪物区中除自身外的存活怪物广播同一事件。
 
 > **设计原因**：使跨怪物监听技能（如僵尸女王）能感知到其他怪物的死亡。事件载荷与死亡怪物自身触发的 `on_monster_death` 相同，包含 `target` / `source` 等字段。
 

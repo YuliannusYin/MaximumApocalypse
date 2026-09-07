@@ -1,17 +1,17 @@
-extends GutTest
+extends TestBase
 
 ## 任务进度面板（MissionProgressPanel）单元测试。
-## 覆盖：build_lines_from 拼行格式、10 种条件类型的 _eval_condition 求值、
+## 覆盖：build_lines_from 拼行格式、8 种条件类型的 _eval_condition 求值、
 ## 13 个任务 JSON 的 progress_conditions 配置合法性、build_lines 空/非空分支。
 ## 面板实例不加入场景树（_ready 不触发），只测纯数据方法（headless 可跑）。
 
-## 已知条件类型全集（注意共 10 种）
+## 已知条件类型全集（注意共 8 种）
 const KNOWN_TYPES: Array = [
-	"van_fuel", "van_boarding", "state_flag", "state_count", "hold_items",
+	"state_flag", "state_count", "hold_items",
 	"submitted_count", "all_at_block", "escort_at_block", "marks_cleared", "all_revealed",
 ]
 
-## 各类型必要 params（van_fuel / van_boarding / all_revealed 无必要参数）
+## 各类型必要 params（all_revealed 无必要参数）
 const REQUIRED_PARAMS: Dictionary = {
 	"state_flag": ["key"],
 	"state_count": ["key", "target"],
@@ -31,63 +31,11 @@ func _make_panel() -> MissionProgressPanel:
 	return panel
 
 
-func _make_player(name: String = "P", hp: int = 10) -> Player:
-	var p: Player = Player.new()
-	p.player_name = name
-	p.hp = hp
-	p.max_hp = hp
-	p.game_deck = Pile.new()
-	p.game_discard_pile = Pile.new()
-	return p
-
-
-func _make_card(card_name: String = "test_card", type: String = "action") -> Card:
-	var c: Card = Card.new()
-	c.card_name = card_name
-	c.card_type = type
-	c.source = "game"
-	return c
-
-
-func _make_block(block_name: String = "test_block", x: int = 0, y: int = 0) -> MapBlock:
-	var b: MapBlock = MapBlock.new()
-	b.block_name = block_name
-	b.set_coordinate(x, y)
-	return b
-
-
 ## 创建并挂载 MissionConfig（mission_state 可直接写入）。
 func _setup_mission_state() -> MissionConfig:
 	var mc: MissionConfig = MissionConfig.new()
 	Game.mission_config = mc
 	return mc
-
-
-func _clear_game() -> void:
-	Game.players = []
-	Game.map_area = []
-	Game.monster_pile = null
-	Game.monster_discard_pile = null
-	Game.scavenge_discard_pile = null
-	Game.red_scavenge_pile = null
-	Game.green_scavenge_pile = null
-	Game.blue_scavenge_pile = null
-	Game.mission_config = null
-	Game.current_mission = null
-	Game.removed_cards = []
-	Game.game_over_called = false
-	Game.game_result = ""
-	Game.log_list = []
-	if Game.state_machine != null and is_instance_valid(Game.state_machine):
-		Game.state_machine.init()
-
-
-func before_each() -> void:
-	_clear_game()
-
-
-func after_each() -> void:
-	_clear_game()
 
 
 # === A. build_lines_from 拼行格式 ===
@@ -175,48 +123,6 @@ func test_a_empty_conditions_return_empty() -> void:
 
 
 # === B. 各类型 _eval_condition 求值 ===
-
-func test_b_van_fuel() -> void:
-	var panel: MissionProgressPanel = _make_panel()
-	var mc: MissionConfig = _setup_mission_state()
-	mc.van_fuel_required = 4
-	var van: MapBlock = _make_block("面包车", 0, 0)
-	van.van_fuel = 1
-	Game.map_area = [van]
-	var r: Dictionary = panel._eval_condition({"type": "van_fuel"})
-	assert_true(r["known"], "van_fuel 应为已知类型")
-	assert_false(r["done"], "燃料 1/4 不应完成")
-	assert_eq(r["progress"], "(1/4)", "燃料进度应为 (1/4)")
-	van.van_fuel = 4
-	r = panel._eval_condition({"type": "van_fuel"})
-	assert_true(r["done"], "燃料 4/4 应完成")
-	assert_eq(r["progress"], "(4/4)", "燃料进度应为 (4/4)")
-	mc.van_fuel_required = -1
-	r = panel._eval_condition({"type": "van_fuel"})
-	assert_false(r["done"], "需求值 < 0 时应容错为未完成")
-	assert_eq(r["progress"], "", "需求值 < 0 时不应有进度后缀")
-
-
-func test_b_van_boarding() -> void:
-	var panel: MissionProgressPanel = _make_panel()
-	_setup_mission_state()
-	var van: MapBlock = _make_block("面包车", 0, 0)
-	var p1: Player = _make_player("P1")
-	var p2: Player = _make_player("P2")
-	p1.current_block = van
-	p2.current_block = van
-	Game.players = [p1, p2]
-	Game.map_area = [van]
-	var r: Dictionary = panel._eval_condition({"type": "van_boarding"})
-	assert_true(r["done"], "全员登车且面包车无怪应完成")
-	p2.current_block = _make_block("避难所", 1, 0)
-	r = panel._eval_condition({"type": "van_boarding"})
-	assert_false(r["done"], "一玩家不在面包车不应完成")
-	p2.current_block = van
-	van.add_monster_mark(1)
-	r = panel._eval_condition({"type": "van_boarding"})
-	assert_false(r["done"], "面包车有怪物标记不应完成")
-
 
 func test_b_state_flag() -> void:
 	var panel: MissionProgressPanel = _make_panel()

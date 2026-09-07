@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## 集成测试：状态机开局 + 玩家回合 21 节点 + 回合循环 全链路。
 ## 覆盖 GameStateMachine.start_game + Player.start_turn + next_turn 循环。
@@ -26,13 +26,8 @@ class CountingWinComponent extends MissionComponent:
 
 # === 辅助方法 ===
 
-func _make_player(name: String = "P", hp: int = 10) -> Player:
-	var p: Player = Player.new()
-	p.player_name = name
-	p.hp = hp
-	p.max_hp = hp
-	p.game_deck = Pile.new()
-	p.game_discard_pile = Pile.new()
+func _make_player(player_name: String = "TestPlayer", hp: int = 10, max_hp: int = -1) -> Player:
+	var p: Player = super._make_player(player_name, hp, max_hp)
 	# 牌堆放入 5 张牌，避免空牌堆死亡
 	for i in 5:
 		var c: Card = Card.new()
@@ -46,49 +41,8 @@ func _make_player(name: String = "P", hp: int = 10) -> Player:
 func _make_winning_mission_config() -> MissionConfig:
 	# 设置一个第一回合后立即胜利的任务配置
 	var mc: MissionConfig = MissionConfig.new()
-	mc.van_fuel_required = -1  # NULL 燃料，不检查面包车
 	mc.win_condition_components.append(AlwaysWinComponent.new())
 	return mc
-
-
-func _make_monster_card(name: String = "zombie") -> MonsterCard:
-	var mc: MonsterCard = MonsterCard.new()
-	mc.card_name = name
-	mc.card_type = "monster"
-	mc.source = "monster"
-	mc.monster_type = "zombie"
-	mc.monster_level = "normal"
-	mc.max_hp = 3
-	mc.damage_value = 2
-	mc.range = "none"
-	return mc
-
-
-func _clear_game() -> void:
-	Game.players = []
-	Game.map_area = []
-	Game.monster_pile = null
-	Game.monster_discard_pile = null
-	Game.scavenge_discard_pile = null
-	Game.red_scavenge_pile = null
-	Game.green_scavenge_pile = null
-	Game.blue_scavenge_pile = null
-	Game.mission_config = null
-	Game.removed_cards = []
-	Game.game_over_called = false
-	Game.game_result = ""
-	Game.coop_death_mode = false
-	Game.log_list = []
-	if Game.state_machine != null and is_instance_valid(Game.state_machine):
-		Game.state_machine.init()
-
-
-func before_each() -> void:
-	_clear_game()
-
-
-func after_each() -> void:
-	_clear_game()
 
 
 # === 测试用例 ===
@@ -130,7 +84,6 @@ func test_next_turn_advances_to_next_player() -> void:
 		Game.monster_pile.add(_make_monster_card("z" + str(i)))
 	# 用计数胜利组件追踪检查次数，第二次调用返回 true
 	var mc: MissionConfig = MissionConfig.new()
-	mc.van_fuel_required = -1
 	mc.win_condition_components.append(CountingWinComponent.new())
 	Game.mission_config = mc
 	await Game.state_machine.start_game()
@@ -140,6 +93,31 @@ func test_next_turn_advances_to_next_player() -> void:
 	# 验证两个玩家都执行过回合（hand 各至少 4 张）
 	assert_true(p1.hand.size() >= 4, "p1 应已抓牌")
 	assert_true(p2.hand.size() >= 4, "p2 应已抓牌")
+
+
+func test_next_turn_builds_fresh_turn_event_per_player() -> void:
+	const GameEventScript = preload("res://src/core/game_event.gd")
+	var p1: Player = _make_player("A")
+	var p2: Player = _make_player("B")
+	Game.players = [p1, p2]
+	Game.monster_pile = Pile.new()
+	for i in 4:
+		Game.monster_pile.add(_make_monster_card("z" + str(i)))
+	var mc: MissionConfig = MissionConfig.new()
+	mc.win_condition_components.append(CountingWinComponent.new())
+	Game.mission_config = mc
+	await Game.state_machine.start_game()
+	# p1、p2 各自都应建立自己的正式 TurnEvent，owner 各自归属正确，且都已 completed。
+	var turn1: Variant = p1.get_turn_event()
+	var turn2: Variant = p2.get_turn_event()
+	assert_not_null(turn1)
+	assert_not_null(turn2)
+	assert_eq(turn1.owner, p1)
+	assert_eq(turn2.owner, p2)
+	assert_eq(turn1.status, GameEventScript.Status.COMPLETED)
+	assert_eq(turn2.status, GameEventScript.Status.COMPLETED)
+	assert_eq(turn1.turn_number, Game.state_machine.get_turn_number())
+	assert_eq(turn2.turn_number, Game.state_machine.get_turn_number())
 
 
 func test_turn_flow_with_dead_player_skipped() -> void:

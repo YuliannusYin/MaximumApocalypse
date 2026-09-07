@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## 集成测试：任务行动技能化端到端链路（surface-mission-actions-as-skills Task 5）。
 ## 覆盖：真实任务 JSON（mission_1 / mission_9 / mission_11）→ MissionConfig 挂载 →
@@ -12,52 +12,8 @@ extends GutTest
 
 # === 辅助方法 ===
 
-func _make_player(player_name: String = "P", hp: int = 10) -> Player:
-	var p: Player = Player.new()
-	p.player_name = player_name
-	p.hp = hp
-	p.max_hp = hp
-	p.game_deck = Pile.new()
-	p.game_discard_pile = Pile.new()
-	return p
-
-
-func _make_card(card_name: String = "test_card", card_type: String = "action") -> Card:
-	var c: Card = Card.new()
-	c.card_name = card_name
-	c.card_type = card_type
-	c.source = "game"
-	return c
-
-
-func _make_block(block_name: String = "B", x: int = 0, y: int = 0) -> MapBlock:
-	var b: MapBlock = MapBlock.new()
-	b.block_name = block_name
-	b.set_coordinate(x, y)
-	b.revealed = true
-	return b
-
-
-func _clear_game() -> void:
-	Game.players = []
-	Game.map_area = []
-	Game.map_width = 0
-	Game.map_height = 0
-	Game.monster_pile = null
-	Game.monster_discard_pile = null
-	Game.scavenge_discard_pile = null
-	Game.red_scavenge_pile = null
-	Game.green_scavenge_pile = null
-	Game.blue_scavenge_pile = null
-	Game.mission_config = null
-	Game.current_mission = null
-	Game.removed_cards = []
-	Game.game_over_called = false
-	Game.game_result = ""
-	Game.coop_death_mode = false
-	Game.log_list = []
-	if Game.state_machine != null and is_instance_valid(Game.state_machine):
-		Game.state_machine.init()
+func _make_block(block_name: String = "test_block", x: int = 0, y: int = 0, revealed: bool = true) -> MapBlock:
+	return super._make_block(block_name, x, y, revealed)
 
 
 ## 轻量挂载：真实任务 JSON 组件 → MissionConfig（与 initialize_game 一致的旗标解析）
@@ -68,7 +24,6 @@ func _mount_mission(mission_id: int) -> MissionConfig:
 		assert_not_null(mission, "任务 %d 数据应已加载" % mission_id)
 		return null
 	var mc: MissionConfig = MissionConfig.new()
-	mc.van_fuel_required = int(mission.van_fuel_required) if mission.van_fuel_required != null else -1
 	mc.no_initial_monster_draw = mission.no_initial_monster_draw
 	Game.mission_config = mc
 	Game._mount_mission_components(mission)
@@ -110,17 +65,13 @@ func _find_mission_skill(p: Player, skill_name: String) -> Skill:
 func _make_cancel_skill(trigger_name: String) -> Skill:
 	var s: Skill = Skill.new()
 	s.trigger = trigger_name
-	s.content = func(_p, _t, ev: Dictionary, _g) -> void:
+	s.content = func(_p, _t, ev, _g) -> void:
 		EventSystem.cancel(ev)
 	return s
 
 
-func before_each() -> void:
-	_clear_game()
-
-
 func after_each() -> void:
-	_clear_game()
+	super.after_each()
 	# 冲刷装备等 fire-and-forget 协程，避免事件残留跨用例
 	for i in 3:
 		await Engine.get_main_loop().process_frame
@@ -274,8 +225,8 @@ func test_mission_9_marked_block_mounts_destroy_skill() -> void:
 	assert_true(skills[0].execute_filter(p, {}), "有标记且行动足够时 filter 应通过")
 
 
-func test_mission_9_monster_marks_do_not_block_destroy() -> void:
-	# 任务 9 真实配置 require_no_monster=false：地块怪物标记不阻断摧毁
+func test_mission_9_monster_marks_block_destroy() -> void:
+	# 任务 9 JSON：require_no_monster=true，地块怪物标记阻断摧毁
 	_mount_mission(9)
 	var marked: MapBlock = _make_block("军事基地", 0, 0)
 	marked.add_objective_mark({"mark_id": "mark_1"})
@@ -289,8 +240,8 @@ func test_mission_9_monster_marks_do_not_block_destroy() -> void:
 	assert_not_null(skill, "应已挂载摧毁目标技能")
 	# 进入后追加怪物标记（进入时无怪物标记，避开潜行检定消耗）
 	marked.add_monster_mark(2)
-	assert_true(skill.execute_filter(p, {}),
-		"任务 9（require_no_monster=false）地块有怪物标记时 filter 仍应通过")
+	assert_false(skill.execute_filter(p, {}),
+		"任务 9（require_no_monster=true）地块有怪物标记时 filter 应失败")
 
 
 func test_mission_9_destroy_execution_removes_mark() -> void:

@@ -44,5 +44,22 @@ func get_action_options(game: Game, player: Player) -> Array:
 ## - filter: Callable(player: Player) -> bool——可用性（false 时技能栏灰化；不含地块匹配）
 ## - execute: Callable(player: Player)——执行体（协程可，内部含行动扣减与效果）
 ## - confirm: Callable(player: Player) -> String——确认门文案
+## - ai: Dictionary——AI 评分（缺省见 `_mission_action_ai`）
 func get_action_skill_decl() -> Variant:
 	return null
+
+
+## AI 是否应把本行动当作行进目标。忽略玩家当前所在格与剩余行动点；完成态仍拦截。
+## 有 `params.block_name` 的行动去该地名；无地名（摧毁标记 / 解救检定）由 hints 收集场上目标标记地块。
+func ai_should_travel(_player: Player) -> bool:
+	return false
+
+
+## 任务行动技能默认 AI 分：可用时优先于普通战斗/移动。
+func _mission_action_ai() -> Dictionary:
+	return {
+		"order": 12,
+		"useful": 0,
+		"tags": ["mission"],
+		"effect": {"player": 4, "target": 0},
+	}

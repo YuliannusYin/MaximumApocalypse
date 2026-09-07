@@ -4,9 +4,8 @@
   "mission_name": "7. 侦查外星人地区",
   "english_name": "scout_alien_zone",
   "difficulty": "hard",
-  "van_fuel_required": 4,
-  "intro_text": "我们的军事实力不及外星人。但是，如果他们认为我们会在他们摧毁我们的文明之后坐以待毙，那么他们就大错特错了。我们要侦察一下这个地区，这样我们就知道发起攻击的最佳地点。",
-  "objective_text": "展示所有地图块；给“面包车”添加“燃料”(0/4)；回合结束时，所有存活玩家在“面包车”上且“面包车”上没有任何怪物，获得胜利。",
+  "intro_text": "我们的军事实力不及外星人。但是，如果他们认为我们会在他们摧毁我们的文明之后坐以待毙，那么他们就大错特错了。我们要侦察一下这个地区，这样我们就知道发起攻击的最佳地点。\n目标：展示所有地图块，然后带着足够多的燃料返回面包车上逃跑。",
+  "objective_text": "展示所有地图块；给“面包车”添加“燃料”(0/4)；回合结束时，所有存活玩家在地图块“面包车”上，且“面包车”上没有任何怪物，就获得胜利。",
   "special_setup": "将怪物牌堆中的首领级怪物牌随机分布到怪物牌堆中的下半部分。\n展示带有“任务标记”地图块的玩家抓取一张首领牌。",
   "monster_pack_type": "alien",
   "map_blocks_config": {
@@ -85,14 +84,19 @@
     ]
   },
   "win_conditions": [
-    { "component": "all_blocks_revealed", "params": {} }
+    { "component": "all_blocks_revealed", "params": {} },
+    { "component": "state_flag", "params": { "key": "van_fueled" } },
+    { "component": "all_players_at_block", "params": { "block_name": "面包车", "no_monster": true } }
+  ],
+  "actions": [
+    { "component": "add_van_fuel", "params": { "block_name": "面包车", "card_name": "燃料", "count": 4 } }
   ],
   "triggers": [
     { "component": "reveal_mark_draw_boss", "params": {} }
   ],
   "progress_conditions": [
     { "text": "展示所有地图块", "type": "all_revealed" },
-    { "text": "给\"面包车\"添加\"燃料\"", "type": "van_fuel" },
-    { "text": "回合结束时，所有存活玩家在地图块\"面包车\"上，且\"面包车\"上没有任何怪物，就获得胜利", "type": "van_boarding" }
+    { "text": "给\"面包车\"添加\"燃料\"", "type": "state_count", "params": { "key": "van_fuel", "target": 4 } },
+    { "text": "回合结束时，所有存活玩家在地图块\"面包车\"上，且\"面包车\"上没有任何怪物，就获得胜利", "type": "all_at_block", "params": { "block_name": "面包车", "no_monster": true } }
   ]
 }

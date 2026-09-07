@@ -39,6 +39,12 @@ var charge_max: int = 0
 ## 装备区标记：实体在装备区时为 true
 var in_equipment_area: bool = false
 
+## 是否为武器牌（会造成伤害的装备）。由 JSON `weapon` 字段声明，缺省 false。
+var weapon: bool = false
+
+## 当前持有该装备的玩家。instantiate 时写入，卸下时清空。
+var equipped_player: Player = null
+
 ## 来源装备卡回引（弃置/回收时入弃牌堆用）
 var equipment_card: EquipmentCard = null
 
@@ -107,8 +113,8 @@ func change_charge_type(type: String) -> void:
 		equipment_card.change_charge_type(type)
 
 
-## 是否为武器牌（用于 damage 流程的 card 参数判断）。
+## 是否为武器牌（用于 damage 流程的 card 参数判断与升级目标过滤）。
 func is_weapon_card() -> bool:
 	if equipment_card != null:
 		return equipment_card.is_weapon_card()
-	return false
+	return weapon

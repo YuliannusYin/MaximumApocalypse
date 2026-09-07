@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## 触发类任务组件单元测试（三层架构第二层：6 个触发器组件）。
 ## 覆盖：mark_enter_reward / first_enter_draw_boss / reveal_mark_draw_boss /
@@ -12,64 +12,6 @@ extends GutTest
 
 # === 辅助方法 ===
 
-func _make_player(name: String = "P", hp: int = 10) -> Player:
-	var p: Player = Player.new()
-	p.player_name = name
-	p.hp = hp
-	p.max_hp = hp
-	p.game_deck = Pile.new()
-	p.game_discard_pile = Pile.new()
-	return p
-
-
-func _make_card(card_name: String = "test_card", type: String = "action", source: String = "game") -> Card:
-	var c: Card = Card.new()
-	c.card_name = card_name
-	c.card_type = type
-	c.source = source
-	return c
-
-
-func _make_block(block_name: String = "test_block", x: int = 0, y: int = 0) -> MapBlock:
-	var b: MapBlock = MapBlock.new()
-	b.block_name = block_name
-	b.set_coordinate(x, y)
-	return b
-
-
-func _make_monster_card(name: String = "test_monster", level: String = "normal") -> MonsterCard:
-	var c: MonsterCard = MonsterCard.new()
-	c.card_name = name
-	c.card_type = "monster"
-	c.source = "monster"
-	c.monster_type = "zombie"
-	c.monster_level = level
-	c.max_hp = 3
-	c.damage_value = 2
-	c.range = "none"
-	return c
-
-
-func _clear_game() -> void:
-	Game.players = []
-	Game.map_area = []
-	Game.map_width = 0
-	Game.map_height = 0
-	Game.monster_pile = null
-	Game.monster_discard_pile = null
-	Game.scavenge_discard_pile = null
-	Game.red_scavenge_pile = null
-	Game.green_scavenge_pile = null
-	Game.blue_scavenge_pile = null
-	Game.mission_config = null
-	Game.removed_cards = []
-	Game.game_over_called = false
-	Game.game_result = ""
-	Game.log_list = []
-	if Game.state_machine != null and is_instance_valid(Game.state_machine):
-		Game.state_machine.init()
-
-
 ## 判断 Game.log_list 中是否存在包含指定片段的日志。
 func _log_contains(part: String) -> bool:
 	for msg in Game.log_list:
@@ -80,12 +22,12 @@ func _log_contains(part: String) -> bool:
 
 func before_each() -> void:
 	MissionComponentRegistry.reset()
-	_clear_game()
+	super.before_each()
 
 
 func after_each() -> void:
 	MissionComponentRegistry.reset()
-	_clear_game()
+	super.after_each()
 
 
 # === 0. 注册表内置映射 ===

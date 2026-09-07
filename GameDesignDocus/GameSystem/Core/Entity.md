@@ -4,7 +4,7 @@
 > 类名 `Entity`，继承 `RefCounted`。
 > 所有可挂载技能、可触发事件的实体的基类。
 > 继承关系：Entity ← Player / Monster / Card / MapBlock。
-> 事件触发机制详见 [EventSystem.md](EventSystem.md)；**EventBus 信号总线详见 [System/EventBus.md](../System/EventBus.md)**（不在本章展开）。
+> 事件触发机制详见 [EventSystem.md](EventSystem.md)；**统一调度见 [EventScheduler.md](EventScheduler.md)**；**EventBus 信号总线详见 [System/EventBus.md](../System/EventBus.md)**（不在本章展开）。
 
 ---
 
@@ -14,8 +14,9 @@ Entity 基类负责：
 
 1. **技能挂载**：维护实体身上的技能列表（角色固有技能、装备技能、地块技能、临时技能等）
 2. **事件触发**：提供统一的 `trigger(trigger_name, event)` 接口，遍历技能并执行匹配的 content
-3. **通用流程**：提供跨子类共享的流程方法（如 `damage` 伤害流程）
-4. **通用接口**：声明子类需实现的抽象方法（如 `death`）与通用查询接口
+3. **标记**：维护 `marks` 字典（[Mark](Mark.md) 对象）
+4. **通用流程**：提供跨子类共享的流程方法（如 `damage` 伤害流程）
+5. **通用接口**：声明子类需实现的抽象方法（如 `death`）与通用查询接口
 
 ---
 
@@ -24,6 +25,7 @@ Entity 基类负责：
 | 字段名 | 类型 | 默认值 | 说明 |
 |------|------|------|------|
 | `skills` | Array[Skill] | `[]` | 挂载在该实体上的所有技能。`get_all_skills()` 返回此列表 |
+| `marks` | Dictionary[String, Mark] | `{}` | 实体标记集合。键为标记名，值为 [Mark](Mark.md) 对象（计数 + 集合项 + UI 文案） |
 
 > 子类各自扩展字段（如 Player 的 HP/饥饿/手牌区，Monster 的纠缠对象/射程等），详见各子类文档。
 
@@ -39,7 +41,7 @@ Entity 基类负责：
 
 | 签名 | 参数 | 返回 |
 |------|------|------|
-| `trigger(trigger_name: String, event: Dictionary) -> void` | `trigger_name` 触发名（英文键名）；`event` 事件对象 | 无（异步 await） |
+| `trigger(trigger_name: String, event: Variant) -> void` | `trigger_name` 触发名（英文键名）；`event` 为 Dictionary 或 `GameEvent` | 无（异步 await） |
 
 **执行步骤**：
 
@@ -51,6 +53,8 @@ Entity 基类负责：
    - **输出触发日志**：`"<触发者名> 触发了 <技能名>"`
    - `await s.execute_content(self, event)`
    - 若 `EventSystem.is_cancelled(event)` 为 `true`，break 跳出循环
+
+同一 `GameEvent` 会在一条领域流程里被多次 `trigger()`（如伤害 `before_take_damage` → `on_take_damage`）。每次 `trigger` 结束只同步取消态，**不得**把节点标成 completed，否则后续取消点无法 `cancel`。
 
 **触发者名解析规则**：
 
@@ -70,7 +74,7 @@ Entity 基类负责：
 
 | 签名 | 参数 | 返回 |
 |------|------|------|
-| `trigger_only(trigger_name: String, event: Dictionary, skill_list: Array) -> void` | `trigger_name` 触发名；`event` 事件对象；`skill_list` 限定技能列表 | 无（异步 await） |
+| `trigger_only(trigger_name: String, event: Variant, skill_list: Array) -> void` | `trigger_name` 触发名；`event` 为 Dictionary 或 `GameEvent`；`skill_list` 限定技能列表 | 无（异步 await） |
 
 **与 `trigger` 的差异**：
 
@@ -123,17 +127,18 @@ Entity 基类负责：
 
 ### 3. 伤害流程（通用，8 节点）
 
-#### 3.1 damage(num, source, type = "", card = null)
+#### 3.1 damage(num, source, type = "", card = null, runtime = null)
 
-「target 受到来自于 source 的 num 点类型为 type 的伤害」的流程方法。
+「target 受到来自于 source 的 num 点类型为 type 的伤害」的流程方法。整段包在 `scheduler.dispatch("damage", ...)` 内。
 
 | 签名 | 参数 | 返回 |
 |------|------|------|
-| `damage(num: int, source: Entity, type: Variant = "", card: Card = null) -> void` | `num` 伤害值；`source` 伤害来源（`null` 表示无来源）；`type` 伤害类型标识（可为 String 如 `"monster_attack"` / `"poison"` / `"hunger"`，或 int，**默认空字符串**）；`card` 武器牌（`null` 表示非武器伤害） | 无（异步 await） |
+| `damage(num: int, source: Entity, type: Variant = "", card: Card = null, runtime: Variant = null) -> void` | `num` 伤害值；`source` 伤害来源（`null` 表示无来源）；`type` 伤害类型标识（可为 String 如 `"monster_attack"` / `"poison"` / `"hunger"`，或 int，**默认空字符串**）；`card` 武器牌（`null` 表示非武器伤害）；`runtime` 可选 `EventScheduler`，省略时用 `Game.event_scheduler` | 无（异步 await） |
 
 > **偏差修正**：`type` 默认值为**空字符串 `""`**（非 NULL）。
 > `source = null` 时表示无来源伤害（饥饿/中毒），跳过所有 source 侧钩子。
 > `card = null` 时表示非武器伤害；`card` 为武器牌时供「造成伤害时」filter 判断（如 gunslinger 空尖弹、mechanic 升级）。
+> 调用方已在某次 `dispatch` 内时应传入同一 `runtime`，以保持嵌套父子关系。
 
 **事件钩子顺序（8 节点 + 5.5/5.6 系统节点）**：
 
@@ -141,8 +146,8 @@ Entity 基类负责：
 |------|------------------------|---------|------|
 | 1 | `before_deal_damage` | source | source != null 时触发 |
 | 2 | `before_take_damage` | target | 始终触发（含无来源伤害） |
-| 3 | `on_deal_damage` | source | source != null 时触发；可修改 `event.num`（伤害加成）；可通过 `event.card` 判断武器 |
-| 4 | `on_take_damage` | target | **取消点**；可修改 `event.num`（伤害减免）或调用 `event.cancel()` |
+| 3 | `on_deal_damage` | source；source 为怪物时另广播其他有场存活怪物（跳过 source 自身） | source != null 时触发；可修改 `event.num`（伤害加成）；可通过 `event.card` 判断武器；跨怪物广播经 `Game.trigger_other_zone_monsters`（如外星科学家-协同强化） |
+| 4 | `on_take_damage` | target；target 为怪物时另广播其他有场存活怪物（跳过 target 自身） | **取消点**；可修改 `event.num`（伤害减免）或调用 `event.cancel()`；跨怪物广播经 `Game.trigger_other_zone_monsters`（如方阵机器人） |
 | 5 | （系统扣血） | — | `reduce_hp(event.num)`，非钩子节点 |
 | 5.5 | （EventBus 信号） | — | 实际扣血量大于 0 时发射 `damage_taken` / `damage_dealt` 信号，非钩子节点 |
 | 5.6 | （日志记录） | — | 玩家/怪物受伤时输出区分来源的伤害日志，非钩子节点 |
@@ -248,5 +253,7 @@ Entity 基类负责：
 | Card | 继承 Entity，卡牌自带技能（装备技能、行动牌效果、怪物卡技能） |
 | MapBlock | 继承 Entity，地块技能挂载到进入的 Player 身上由 Player.trigger 触发 |
 | Skill | 通过 `add_skill` / `remove_skill` 挂载到 Entity，见 [Skill.md](../Common/Skill.md) |
-| EventSystem | 提供 event schema 与取消机制，见 [EventSystem.md](EventSystem.md) |
+| [Mark](Mark.md) | `marks` 字典的值类型；`add_mark` / `count_mark` / `remove_mark` 等接口见 Mark.md |
+| EventSystem | 提供 Dictionary event schema 与取消机制，见 [EventSystem.md](EventSystem.md) |
+| EventScheduler | `damage` 等流程经 `dispatch` 入栈，见 [EventScheduler.md](EventScheduler.md) |
 | EventBus | damage 流程 5.5 节点发射统计信号，详见 [System/EventBus.md](../System/EventBus.md) |

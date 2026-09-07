@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## 第零轮重调阶段集成测试。
 
@@ -20,42 +20,10 @@ func after_all() -> void:
 	Game.players = _original_players
 
 
-func _clear_game() -> void:
-	Game.players = []
-	Game.map_area = []
-	Game.monster_pile = null
-	Game.monster_discard_pile = null
-	Game.scavenge_discard_pile = null
-	Game.red_scavenge_pile = null
-	Game.green_scavenge_pile = null
-	Game.blue_scavenge_pile = null
-	Game.mission_config = null
-	Game.removed_cards = []
-	Game.game_over_called = false
-	Game.game_result = ""
-	Game.coop_death_mode = false
-	Game.log_list = []
-	if Game.state_machine != null and is_instance_valid(Game.state_machine):
-		Game.state_machine.init()
-
-
-func before_each() -> void:
-	_clear_game()
-
-
-func after_each() -> void:
-	_clear_game()
-
-
 # === 辅助方法 ===
 
-func _make_player(name: String = "P", hp: int = 10) -> Player:
-	var p: Player = Player.new()
-	p.player_name = name
-	p.hp = hp
-	p.max_hp = hp
-	p.game_deck = Pile.new()
-	p.game_discard_pile = Pile.new()
+func _make_player(player_name: String = "TestPlayer", hp: int = 10, max_hp: int = -1) -> Player:
+	var p: Player = super._make_player(player_name, hp, max_hp)
 	# 填充牌堆：至少 8 张牌（4 初始 + 4 重调）
 	for i in 8:
 		var card: Card = Card.new()
@@ -68,22 +36,8 @@ func _make_player(name: String = "P", hp: int = 10) -> Player:
 	return p
 
 
-func _make_monster_card(name: String = "z") -> MonsterCard:
-	var mc: MonsterCard = MonsterCard.new()
-	mc.card_name = name
-	mc.card_type = "monster"
-	mc.source = "monster"
-	mc.monster_type = "zombie"
-	mc.monster_level = "normal"
-	mc.max_hp = 3
-	mc.damage_value = 2
-	mc.range = "none"
-	return mc
-
-
 func _make_winning_mission_config() -> MissionConfig:
 	var mc: MissionConfig = MissionConfig.new()
-	mc.van_fuel_required = -1
 	mc.win_condition_components.append(AlwaysWinComponent.new())
 	return mc
 
@@ -133,3 +87,33 @@ func test_round_zero_skip_redraw_keeps_hand() -> void:
 	await Game.state_machine.start_game()
 	# 不重调 + start_turn 抓 1 张 → 手牌应 5 张（4 初始 + 1 start_turn）
 	assert_true(p.hand.size() >= 4, "不重调手牌应至少 4 张，实际 " + str(p.hand.size()))
+
+
+func test_round_zero_builds_independent_turn_event() -> void:
+	const GameEventScript = preload("res://src/core/game_event.gd")
+	var p: Player = _make_player("A")
+	Game.players = [p]
+	Game.monster_pile = Pile.new()
+	Game.monster_pile.add(_make_monster_card("z1"))
+	# 不使用胜利组件：手动只跑第零轮 + 第一个正式回合，逐步比对 TurnEvent
+	Game.state_machine.transition_to(GameStateMachine.GameState.PLAYING)
+	for player in Game.players:
+		player.draw(4)
+		await player.draw_monster(1)
+	await Game.state_machine._round_zero()
+	var round_zero_turn: Variant = p.get_turn_event()
+	assert_not_null(round_zero_turn, "第零轮也应建立独立 TurnEvent")
+	assert_eq(round_zero_turn.turn_number, 0)
+	assert_eq(round_zero_turn.status, GameEventScript.Status.COMPLETED, "第零轮结束后 TurnEvent 应 completed")
+	assert_eq(
+		round_zero_turn.children.map(func(phase: Variant) -> String: return phase.new_phase),
+		["round_zero", "idle"],
+		"第零轮不应套用正式回合 21 节点的阶段序列"
+	)
+	# 紧接着的正式回合应建立一个全新的 TurnEvent，不复用第零轮的实例
+	# 直接调用 start_turn（而非 next_turn，因为它是驱动整局游戏的 while 循环）。
+	await p.start_turn()
+	var formal_turn: Variant = p.get_turn_event()
+	assert_not_null(formal_turn)
+	assert_ne(formal_turn, round_zero_turn, "正式回合应建立新的 TurnEvent，而非复用第零轮的")
+	assert_eq(round_zero_turn.status, GameEventScript.Status.COMPLETED, "第零轮的 TurnEvent 状态不应被后续回合影响")

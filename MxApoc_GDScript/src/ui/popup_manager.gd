@@ -28,10 +28,29 @@ var _popup_ok_button: Button = null
 var _popup_item_views: Array = []
 
 var _popup_layer: CanvasLayer
+var _event_scheduler: Variant = null
 
 
 func setup(popup_layer: CanvasLayer) -> void:
 	_popup_layer = popup_layer
+
+
+## 注入 EventScheduler，未显式传入玩家时从当前 InputRequest owner 取值。
+func set_event_scheduler(scheduler: Variant) -> void:
+	_event_scheduler = scheduler
+
+
+func get_input_request() -> Variant:
+	if _event_scheduler == null or not is_instance_valid(_event_scheduler):
+		return null
+	return _event_scheduler.get_current_input_request()
+
+
+func get_input_request_owner() -> Variant:
+	var request: Variant = get_input_request()
+	if request != null and request.owner != null and is_instance_valid(request.owner):
+		return request.owner
+	return null
 
 
 func is_popup_open() -> bool:
@@ -286,10 +305,10 @@ func show_card_select_popup(cards: Array, n: int, position: String, zone_labels:
 		var card = cards[i]
 		var view := CardView.new()
 		view.set_card(card)
-		if show_zone and i < zone_labels.size():
-			view.set_zone_label(zone_labels[i])
 		view.gui_input.connect(_on_card_select_clicked.bind(card, view))
 		grid.add_child(view)
+		if show_zone and i < zone_labels.size():
+			view.set_zone_label(zone_labels[i])
 		view.mouse_filter = Control.MOUSE_FILTER_STOP
 		_popup_item_views.append(view)
 
@@ -400,10 +419,10 @@ func show_target_select_area(targets: Array, n: int, zone_labels: Array = [], pr
 			var target = targets[i]
 			var view := CardView.new()
 			view.set_card(target)
-			if show_zone and i < zone_labels.size():
-				view.set_zone_label(zone_labels[i])
 			view.gui_input.connect(_on_target_card_clicked.bind(target, view))
 			grid.add_child(view)
+			if show_zone and i < zone_labels.size():
+				view.set_zone_label(zone_labels[i])
 			view.mouse_filter = Control.MOUSE_FILTER_STOP
 			_popup_item_views.append(view)
 
@@ -951,12 +970,15 @@ func show_block_detail_popup(block: Variant) -> void:
 
 func show_mission_detail_popup() -> void:
 	var mission: Variant = Game.current_mission
-	if mission == null or not is_instance_valid(mission):
+	if mission == null:
+		return
+	if mission is Object and not is_instance_valid(mission):
 		return
 	var overlay := _create_modal_overlay()
 	var panel := Panel.new()
 	panel.position = Vector2(365, 120)
 	panel.size = Vector2(700, 480)
+	HudTheme.apply_section_panel(panel, Color("#1d1c19"))
 	overlay.add_child(panel)
 
 	var vbox := VBoxContainer.new()
@@ -965,96 +987,32 @@ func show_mission_detail_popup() -> void:
 	vbox.offset_top = 8
 	vbox.offset_right = -12
 	vbox.offset_bottom = -8
-	vbox.add_theme_constant_override("separation", 6)
+	vbox.add_theme_constant_override("separation", 8)
 	panel.add_child(vbox)
 
 	var title := Label.new()
 	title.text = "任务：%s（%s）" % [mission.get("mission_name"), mission.get("difficulty_display")]
 	title.add_theme_font_size_override("font_size", 16)
+	title.add_theme_color_override("font_color", HudTheme.GOLD_TEXT)
 	vbox.add_child(title)
 
-	var fuel: String = "无需"
-	if mission.get("van_fuel_required") != null:
-		fuel = str(mission.get("van_fuel_required"))
-	var info := Label.new()
-	info.text = "面包车燃料需求：%s    怪物包：%s" % [fuel, mission.get("monster_pack_type")]
-	info.add_theme_font_size_override("font_size", 12)
-	vbox.add_child(info)
-
-	# 可滚动内容区域
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	vbox.add_child(scroll)
 
-	var content := VBoxContainer.new()
-	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	content.add_theme_constant_override("separation", 6)
-	scroll.add_child(content)
-
-	var obj_label := Label.new()
-	obj_label.text = "目标："
-	obj_label.add_theme_font_size_override("font_size", 13)
-	content.add_child(obj_label)
-
-	var obj_text := Label.new()
-	obj_text.text = mission.get("objective_text")
-	obj_text.add_theme_font_size_override("font_size", 12)
-	obj_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	obj_text.custom_minimum_size = Vector2(660, 0)
-	content.add_child(obj_text)
-
-	var intro_label := Label.new()
-	intro_label.text = "简介："
-	intro_label.add_theme_font_size_override("font_size", 13)
-	content.add_child(intro_label)
-
-	var intro_text := Label.new()
-	intro_text.text = mission.get("intro_text")
-	intro_text.add_theme_font_size_override("font_size", 12)
-	intro_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	intro_text.custom_minimum_size = Vector2(660, 0)
-	content.add_child(intro_text)
-
-	# 地图块配置
-	var block_label := Label.new()
-	block_label.text = "地图块配置："
-	block_label.add_theme_font_size_override("font_size", 13)
-	content.add_child(block_label)
-	var block_parts: PackedStringArray = []
-	var map_blocks_config: Dictionary = mission.get("map_blocks_config")
-	for block_name in map_blocks_config:
-		block_parts.append("%s×%d" % [block_name, map_blocks_config[block_name]])
-	var block_text := Label.new()
-	block_text.text = ", ".join(block_parts)
-	block_text.add_theme_font_size_override("font_size", 12)
-	block_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	block_text.custom_minimum_size = Vector2(660, 0)
-	content.add_child(block_text)
-
-	# 拾荒牌堆配置
-	var scavenge_label := Label.new()
-	scavenge_label.text = "拾荒牌堆配置："
-	scavenge_label.add_theme_font_size_override("font_size", 13)
-	content.add_child(scavenge_label)
-	var color_names: Dictionary = {"red": "红色", "green": "绿色", "blue": "蓝色"}
-	var scavenge_config: Dictionary = mission.get("scavenge_config")
-	for color in ["red", "green", "blue"]:
-		var card_entries: Array = scavenge_config.get(color, [])
-		var card_parts: PackedStringArray = []
-		for entry in card_entries:
-			card_parts.append("%s×%d" % [entry.get("card_name", ""), int(entry.get("count", 0))])
-		var color_text := Label.new()
-		color_text.text = "%s：%s" % [color_names[color], ", ".join(card_parts)]
-		color_text.add_theme_font_size_override("font_size", 12)
-		color_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		color_text.custom_minimum_size = Vector2(660, 0)
-		content.add_child(color_text)
+	var detail := MissionDetailView.new()
+	detail.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	detail.custom_minimum_size.x = 656
+	scroll.add_child(detail)
+	detail.populate(mission)
 
 	var ok_btn := Button.new()
 	ok_btn.text = "关闭"
 	ok_btn.custom_minimum_size = Vector2(80, 30)
 	ok_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	HudTheme.apply_slot_button(ok_btn, 13)
 	ok_btn.pressed.connect(_close_popup)
 	vbox.add_child(ok_btn)
 
@@ -1188,9 +1146,12 @@ func show_scavenge_discard_popup() -> void:
 	_finish_popup_build(overlay)
 
 
-func show_game_discard_popup() -> void:
+func show_game_discard_popup(player: Variant = null) -> void:
 	var cards: Array = []
-	var current: Variant = Game.get_current_player()
+	var request_owner: Variant = get_input_request_owner()
+	var current: Variant = player if player != null else request_owner
+	if current == null or not is_instance_valid(current):
+		current = Game.get_current_player()
 	if current != null and is_instance_valid(current):
 		var pile: Variant = current.get("game_discard_pile")
 		if pile != null and is_instance_valid(pile):

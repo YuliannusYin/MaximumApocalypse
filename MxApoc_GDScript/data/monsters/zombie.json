@@ -11,6 +11,7 @@
       "initial_hp": 18,
       "attack_damage": 5,
       "range": "none",
+      "ai": { "threat": 999 },
       "skills": [
         {
           "skill_name": "僵尸女王",
@@ -33,16 +34,17 @@
       "initial_hp": 16,
       "attack_damage": 4,
       "range": "short",
+      "ai": { "threat": 79 },
       "skills": [
         {
           "skill_name": "一大波僵尸",
           "english_name": "zombie_horde",
-          "skill_description": "当此怪物卡被玩家抓取时，在抓取该卡玩家的所有相邻地块上各放置一个怪物标记，然后该玩家再抓取一张怪物卡。",
+          "skill_description": "当此怪物卡被抓取时，场上所有玩家抓取一张怪物卡。",
           "skill_type": "monster",
           "trigger": "after_monster_enter_zone",
           "forced": true,
           "filter": "return true",
-          "content": "var drawer = event.player\nvar list = drawer.get_current_block().get_adjacent_blocks()\nfor i in list:\n\tactions.add_monster_mark(i, 1)\nactions.draw_monster(drawer, 1)"
+          "content": "var list = game.get_alive_players()\nfor p in list:\n\tactions.draw_monster(p, 1)"
         }
       ]
     },
@@ -55,6 +57,7 @@
       "initial_hp": 5,
       "attack_damage": 4,
       "range": "none",
+      "ai": { "threat": 28 },
       "skills": []
     },
     {
@@ -66,6 +69,7 @@
       "initial_hp": 8,
       "attack_damage": 4,
       "range": "none",
+      "ai": { "threat": 31 },
       "skills": []
     },
     {
@@ -77,6 +81,7 @@
       "initial_hp": 4,
       "attack_damage": 2,
       "range": "none",
+      "ai": { "threat": 23 },
       "skills": []
     },
     {
@@ -88,6 +93,7 @@
       "initial_hp": 4,
       "attack_damage": 2,
       "range": "none",
+      "ai": { "threat": 43 },
       "skills": [
         {
           "skill_name": "僵尸步行者",
@@ -110,6 +116,7 @@
       "initial_hp": 6,
       "attack_damage": 2,
       "range": "medium",
+      "ai": { "threat": 45 },
       "skills": []
     },
     {
@@ -121,6 +128,7 @@
       "initial_hp": 12,
       "attack_damage": 5,
       "range": "medium",
+      "ai": { "threat": 57 },
       "skills": [
         {
           "skill_name": "僵尸潜行者",

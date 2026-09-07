@@ -35,6 +35,7 @@ func instantiate(player: Player = null) -> Monster:
 	monster.max_hp = max_hp
 	monster.hp = max_hp
 	monster.damage_value = damage_value
+	monster.ai_threat = int(ai.get("threat", 0)) if ai is Dictionary else 0
 	monster.range = range
 	monster.attack_target = player
 	monster.monster_card = self

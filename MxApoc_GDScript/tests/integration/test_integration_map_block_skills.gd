@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## 集成测试：地图块技能端到端。
 ## 覆盖电厂/百货商店/森林/河流/避难所地块技能的真实 JSON 加载与触发全链路。
@@ -7,60 +7,14 @@ extends GutTest
 
 # === 辅助方法 ===
 
-func _make_player(name: String = "P", hp: int = 10) -> Player:
-	var p: Player = Player.new()
-	p.player_name = name
-	p.hp = hp
-	p.max_hp = hp
-	p.game_deck = Pile.new()
-	p.game_discard_pile = Pile.new()
+func _make_player(player_name: String = "TestPlayer", hp: int = 10, max_hp: int = -1) -> Player:
+	var p: Player = super._make_player(player_name, hp, max_hp)
 	p.role_card = RoleCard.new()
 	return p
 
 
-func _make_block(name: String = "B", x: int = 0, y: int = 0) -> MapBlock:
-	var b: MapBlock = MapBlock.new()
-	b.block_name = name
-	b.set_coordinate(x, y)
-	b.revealed = true
-	return b
-
-
-func _make_scavenge_card(name: String = "test_scavenge", color: String = "green") -> ScavengeCard:
-	var c: ScavengeCard = ScavengeCard.new()
-	c.card_name = name
-	c.card_type = "item"
-	c.source = "scavenge"
-	c.color = color
-	c.scavenge_type = "consumable"
-	return c
-
-
-func _clear_game() -> void:
-	Game.players = []
-	Game.map_area = []
-	Game.monster_pile = null
-	Game.monster_discard_pile = null
-	Game.scavenge_discard_pile = null
-	Game.red_scavenge_pile = null
-	Game.green_scavenge_pile = null
-	Game.blue_scavenge_pile = null
-	Game.mission_config = null
-	Game.removed_cards = []
-	Game.game_over_called = false
-	Game.game_result = ""
-	Game.coop_death_mode = false
-	Game.log_list = []
-	if Game.state_machine != null and is_instance_valid(Game.state_machine):
-		Game.state_machine.init()
-
-
-func before_each() -> void:
-	_clear_game()
-
-
-func after_each() -> void:
-	_clear_game()
+func _make_block(block_name: String = "test_block", x: int = 0, y: int = 0, revealed: bool = true) -> MapBlock:
+	return super._make_block(block_name, x, y, revealed)
 
 
 # === 测试用例 ===
@@ -161,7 +115,7 @@ func test_shelter_turn_start_adds_disabled_mark() -> void:
 	Game.map_area = [start, shelter]
 	await p.move_to(shelter)
 	# 手动触发 on_turn_start
-	var event: Dictionary = EventSystem.create_event({"player": p})
+	var event: GameEvent = EventSystem.create_event({"player": p})
 	await p.trigger("on_turn_start", event)
 	assert_true(p.has_mark_skill("shelter_disabled"), "避难所 on_turn_start 应添加 shelter_disabled 标记")
 
@@ -180,3 +134,63 @@ func test_shelter_immune_damage_when_not_started_here() -> void:
 	p.hp = 10
 	await p.damage(5, null)
 	assert_eq(p.hp, 10, "避难所应免疫伤害（on_take_damage 被 cancel）")
+
+
+## 游乐园展示：手牌多于 3 张时弹窗精确弃 3 张
+func test_reveal_amusement_park_choose_to_discard() -> void:
+	var p: Player = _make_player("A")
+	var park: MapBlock = Game._create_map_block("游乐园")
+	park.set_coordinate(0, 0)
+	park.revealed = false
+	var c1: Card = _make_card("c1")
+	var c2: Card = _make_card("c2")
+	var c3: Card = _make_card("c3")
+	var c4: Card = _make_card("c4")
+	p.hand.append_array([c1, c2, c3, c4])
+	p.current_block = park
+	park._acquire_skills_for_player(p)
+	Game.players = [p]
+	Game.map_area = [park]
+	p.input.queue_choose_card([c1, c2, c3])
+	await park.reveal(true, p)
+	assert_eq(p.hand.size(), 1, "展示游乐园应弃置 3 张，剩 1 张")
+	assert_true(p.hand.has(c4), "未选中的牌应留下")
+	assert_eq(p.game_discard_pile.size(), 3, "弃牌堆应有 3 张")
+
+
+## 游乐园展示：点取消则随机弃 3 张
+func test_reveal_amusement_park_cancel_random_discard() -> void:
+	var p: Player = _make_player("A")
+	var park: MapBlock = Game._create_map_block("游乐园")
+	park.set_coordinate(0, 0)
+	park.revealed = false
+	p.hand.append_array([_make_card("c1"), _make_card("c2"), _make_card("c3"), _make_card("c4")])
+	p.current_block = park
+	park._acquire_skills_for_player(p)
+	Game.players = [p]
+	Game.map_area = [park]
+	p.input.queue_choose_card([])
+	await park.reveal(true, p)
+	assert_eq(p.hand.size(), 1, "取消后应随机弃置 3 张，剩 1 张")
+	assert_eq(p.game_discard_pile.size(), 3)
+
+
+## 游乐园回合结束：弃 1 张
+func test_amusement_park_turn_end_choose_to_discard() -> void:
+	var p: Player = _make_player("A")
+	var park: MapBlock = Game._create_map_block("游乐园")
+	park.set_coordinate(0, 0)
+	park.revealed = true
+	var c1: Card = _make_card("c1")
+	var c2: Card = _make_card("c2")
+	p.hand.append_array([c1, c2])
+	p.current_block = park
+	park._acquire_skills_for_player(p)
+	Game.players = [p]
+	Game.map_area = [park]
+	p.input.queue_choose_card([c1])
+	var event: GameEvent = EventSystem.create_event({"player": p, "block": park})
+	await p.trigger("on_turn_end", event)
+	assert_false(p.hand.has(c1), "回合结束应弃置所选牌")
+	assert_true(p.hand.has(c2), "未选中的牌应留下")
+	assert_eq(p.game_discard_pile.size(), 1)

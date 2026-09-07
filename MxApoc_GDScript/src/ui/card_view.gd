@@ -56,6 +56,7 @@ var _base_position: Vector2 = Vector2.ZERO
 var _is_selected: bool = false
 var _is_hovered: bool = false
 var _zone_label: Label
+var _pending_zone_text: String = ""
 var _charge_label: Label
 var _hover_lift_enabled: bool = false
 var _hover_tween: Tween = null
@@ -206,13 +207,20 @@ func _kill_move_tween() -> void:
 
 
 ## 设置区域标签文本（如"装备区"、"手牌区"）。空文本时隐藏。
+## 进树前调用会缓存文本，_ready/_build_content 后再应用到标签节点。
 func set_zone_label(text: String) -> void:
-	if _zone_label != null and is_instance_valid(_zone_label):
-		if text.is_empty():
-			_zone_label.visible = false
-		else:
-			_zone_label.text = text
-			_zone_label.visible = true
+	_pending_zone_text = text
+	_apply_zone_label()
+
+
+func _apply_zone_label() -> void:
+	if _zone_label == null or not is_instance_valid(_zone_label):
+		return
+	if _pending_zone_text.is_empty():
+		_zone_label.visible = false
+	else:
+		_zone_label.text = _pending_zone_text
+		_zone_label.visible = true
 
 
 # === 构建 ===
@@ -294,6 +302,7 @@ func _build_content() -> void:
 	_zone_label.add_theme_constant_override("outline_size", 3)
 	_zone_label.visible = false
 	_content_panel.add_child(_zone_label)
+	_apply_zone_label()
 	# 填充物信息（右上角，装备牌有 charge_max > 0 时显示）
 	_charge_label = Label.new()
 	_charge_label.position = Vector2(CARD_W - 50, 4)
@@ -330,6 +339,7 @@ func _refresh() -> void:
 	else:
 		_apply_text_layout()
 	_apply_style()
+	_apply_zone_label()
 
 
 ## 图片布局：图片背景 + 牌名(中下) + 距离(名字下) + 左上角标识。

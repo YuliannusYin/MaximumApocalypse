@@ -40,7 +40,7 @@ func get_action_options(game: Game, player: Player) -> Array:
 		return []
 	if not player.current_block.has_objective_mark():
 		return []
-	if player.action_count < 1:
+	if player.get_effective_action_count() < 1:
 		return []
 	return [{
 		"id": "rescue_judge_win",
@@ -67,12 +67,24 @@ func get_action_skill_decl() -> Variant:
 			return false
 		if not player.current_block.has_objective_mark():
 			return false
-		return player.action_count >= 1
+		return player.get_effective_action_count() >= 1
 	decl["execute"] = func(player: Player) -> void:
 		await _do_rescue(_game, player)
 	decl["confirm"] = func(player: Player) -> String:
 		return "确定消耗 1 行动解救科学家？"
+	decl["ai"] = _mission_action_ai()
 	return decl
+
+
+func ai_should_travel(player: Player) -> bool:
+	if player == null or not is_instance_valid(player):
+		return false
+	var config: MissionConfig = _mission_config
+	if config == null and Game != null and is_instance_valid(Game):
+		config = Game.mission_config
+	if config != null and config.mission_state.get("rescue_judge_done", false) == true:
+		return false
+	return true
 
 
 ## 解救执行（协程）：扣减 1 行动、执行潜行检定并按结果判定胜负。
@@ -84,17 +96,18 @@ func _do_rescue(game: Game, player: Player) -> void:
 		return
 	if _mission_config == null:
 		return
-	player.reduce_action_count(1)
+	if not await player.consume_action_evented(1):
+		return
 	_mission_config.mission_state["rescue_judge_done"] = true
 	game.log_message(LogColors.player(player.player_name) + " 执行潜行检定……")
 	var success: bool = await player.sneak_judge(player.current_block)
 	if success:
 		game.log_message("潜行检定成功！科学家还活着！")
-		game.game_over("win")
+		await game.game_over("win")
 		return
 	if player.has_item(params.get("card_name", "满是灰尘的日记本")):
 		game.log_message("潜行检定失败，但记下了科学家弥留之际的信息！")
-		game.game_over("win")
+		await game.game_over("win")
 	else:
 		game.log_message("潜行检定失败且没有日记本……")
-		game.game_over("lose")
+		await game.game_over("lose")

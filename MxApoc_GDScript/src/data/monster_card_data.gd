@@ -14,6 +14,8 @@ var attack_damage: int = 0
 var range: String = ""  # "none" / "short" / "medium" / "long" / "infinity"
 var count: int = 1  # 该怪物卡在牌堆中的数量
 var skills: Array = []  # Array[SkillData]
+## AI 威胁数据（至少含 threat 0–100）。
+var ai: Dictionary = {}
 
 
 func _init(data: Dictionary = {}) -> void:
@@ -25,6 +27,8 @@ func _init(data: Dictionary = {}) -> void:
 	attack_damage = int(data.get("attack_damage", 0))
 	range = data.get("range", "none")
 	count = int(data.get("count", 1))
+	var raw_ai: Variant = data.get("ai", {})
+	ai = raw_ai.duplicate(true) if raw_ai is Dictionary else {}
 	var raw_skills: Array = data.get("skills", [])
 	for raw in raw_skills:
 		if raw is Dictionary:

@@ -14,11 +14,19 @@
 | 设计文档类名 | GDScript 类名 | 文件 | 说明 |
 | --- | --- | --- | --- |
 | 实体 | `Entity` | `src/core/entity.gd` | 实体基类（技能挂载、伤害流程、触发） |
-| 事件总线 | `EventBus` | `src/core/event_bus.gd` | 全局事件总线（autoload） |
-| 事件系统 | `EventSystem` | `src/core/event_system.gd` | 事件工厂与取消机制（静态工具类） |
+| 事件总线 | `EventBus` | `src/core/event_bus.gd` | 全局事件总线（autoload），结算后只读通知 |
+| 事件系统 | `EventSystem` | `src/core/event_system.gd` | JSON/trigger 用 Dictionary 事件工厂（静态工具类） |
+| 统一事件调度器 | `EventScheduler` | `src/core/event_scheduler.gd` | 每局唯一调度器 |
+| 统一事件节点 | `GameEvent` | `src/core/game_event.gd` | 事件树生命周期节点 |
+| 输入请求 | `InputRequest` | `src/core/input_request.gd` | 外部输入等待节点 |
+| 回合事件 | `TurnEvent` | `src/core/turn_event.gd` | 正式回合观察节点 |
+| 阶段事件 | `PhaseEvent` | `src/core/phase_event.gd` | 正式阶段观察节点 |
+| 回合上下文 | `TurnContext` | `src/core/turn_context.gd` | 正式回合阶段与行动点 |
+| 游戏操作门面 | `GameActions` | `src/core/game_actions.gd` | JSON 技能嵌套操作入口 |
 | 游戏状态机 | `GameStateMachine` | `src/core/game_state_machine.gd` | 游戏状态机与回合队列 |
 | 玩家统计 | `PlayerStats` | `src/core/player_stats.gd` | 单玩家统计数据 |
-| 统计跟踪器 | `StatsTracker` | `src/core/stats_tracker.gd` | 全局统计跟踪器 |
+| 档案管理器 | `ArchiveManager` | `src/core/archive_manager.gd` | 跨对局档案与成就（autoload） |
+| 实体标记 | `Mark` | `src/core/mark.gd` | 计数/集合标记对象 |
 
 ### 1.2 Common 通用结构
 
@@ -65,6 +73,9 @@
 | --- | --- | --- | --- |
 | 游戏 | `Game` | `src/game/game.gd` | 游戏全局类（autoload） |
 | 任务配置 | `MissionConfig` | `src/game/mission_config.gd` | 任务运行时配置 |
+| 任务组件 | `MissionComponent` | `src/game/mission/components/mission_component.gd` | 可复用任务组件基类 |
+| 任务组件注册表 | `MissionComponentRegistry` | `src/game/mission/components/mission_component_registry.gd` | id → 组件类 |
+| 任务脚本 | `MissionScript` | `src/game/mission/scripts/mission_script.gd` | 第三层脚本基类 |
 
 ### 1.6 UI 主要类
 
@@ -82,7 +93,18 @@
 | 事件日志面板 | `EventLogPanel` | `src/ui/event_log_panel.gd` |
 | 弹窗管理器 | `PopupManager` | `src/ui/popup_manager.gd` |
 
-> UI 层其余类见 [GodotProjectStructure.md §2.6](GodotProjectStructure.md)。
+> UI 层其余类见 [GodotProjectStructure.md §2.7](GodotProjectStructure.md)。
+
+### 1.7 AI 合作评分
+
+| 设计文档类名 | GDScript 类名 | 文件 | 说明 |
+| --- | --- | --- | --- |
+| AI 玩家输入 | `AIPlayerInput` | `src/ai/ai_player_input.gd` | 电脑座位输入；决策直接返回 |
+| AI 评分器 | `AiScorer` | `src/ai/ai_scorer.gd` | 态度 / order / useful / effect |
+| 合法行动枚举 | `LegalActions` | `src/ai/legal_actions.gd` | 行动阶段可选项 |
+| 任务提示 | `AiMissionHints` | `src/ai/ai_mission_hints.gd` | 目标地块与应留物资族 |
+
+详见 [AI.md](../GameSystem/AI/AI.md)。
 
 ---
 
@@ -178,6 +200,15 @@ trigger 名在 JSON 数据中用英文 snake_case，技能 `trigger` 字段可�
 | 受到伤害时 | `on_take_damage` | ✅ |
 | 受到伤害后 | `after_take_damage` | 否 |
 
+### 3.1.1 回复类
+
+| 中文 | 英文键名 | 取消点 |
+| --- | --- | --- |
+| 回复生命前 | `before_recover` | 否 |
+| 造成回复时 | `on_deal_recover` | 否 |
+| 回复生命时 | `on_recover` | 否 |
+| 回复生命后 | `after_recover` | 否 |
+
 ### 3.2 移动 / 地块类
 
 | 中文 | 英文键名 | 取消点 |
@@ -249,13 +280,17 @@ trigger 名在 JSON 数据中用英文 snake_case，技能 `trigger` 字段可�
 
 ## 四、event schema 字段映射
 
-`event` 为 Dictionary 类型，由 `EventSystem.create_event` 创建并注入 `trigger_name` / `cancelled` / `cancel` 三个基础字段，各流程工厂方法在此基础上追加专属字段。所有键名均为 snake_case：
+`event` 为 `GameEvent`，由 `EventSystem.create_event` 创建。JSON 仍按 Dictionary 字段名读写。领域操作入栈见 [EventScheduler.md](../GameSystem/Core/EventScheduler.md)。所有键名均为 snake_case：
 
 | 中文 | event key | 类型 | 说明 |
 | --- | --- | --- | --- |
 | 当前触发名 | `trigger_name` | String | 由 `EventSystem.set_trigger_name` 写入 |
 | 是否已取消 | `cancelled` | bool | |
-| 取消函数 | `cancel` | Callable | 调用后置 `cancelled = true` |
+| 取消函数 | `cancel` | Callable | `event["cancel"].call()` 或 `EventSystem.cancel(event)` |
+| 事件节点 id | `id` | int | `GameEvent.id` |
+| 树根 id | `root` | int | |
+| 子事件 | `children` | Array | 子 `GameEvent` 列表 |
+| 操作门面 | `actions` | GameActions | content 执行期间注入 |
 | 受伤 / 死亡实体 | `target` | Entity | |
 | 伤害来源 | `source` | Entity / null | `null` 表示无来源（饥饿 / 中毒） |
 | 伤害 / 回复 / 抓牌数 | `num` | int | |
@@ -291,7 +326,7 @@ trigger 名在 JSON 数据中用英文 snake_case，技能 `trigger` 字段可�
 | `get_all_skills()` | 获取所有技能 |
 | `add_skill(skill)` | 挂载技能 |
 | `remove_skill(skill)` | 移除技能 |
-| `damage(num, source, type, card)` | 伤害流程（8 节点） |
+| `damage(num, source, type, card, runtime = null)` | 伤害流程（8 节点）；`runtime` 为 EventScheduler |
 | `get_hp()` / `get_max_hp()` | 生命值查询 |
 | `reduce_hp(n)` / `add_hp(n)` | 直接扣 / 加血（不触发钩子） |
 | `is_player()` / `is_monster()` | 类型判断 |
@@ -312,7 +347,7 @@ trigger 名在 JSON 数据中用英文 snake_case，技能 `trigger` 字段可�
 | `consume_charge(equipment, num)` | 消耗填充物 |
 | `consume_action(n)` / `add_action(n)` | 扣除 / 增加行动次数 |
 | `use_card(card)` | 使用卡牌（含 `defer_action_cost` 机制） |
-| `recover(num)` | 回复生命 |
+| `recover(num, source = null)` | 回复生命 |
 | `increase_hunger(n)` / `decrease_hunger(n)` | 饥饿值增减 |
 | `poison()` | 中毒结算 |
 | `judge()` / `sneak_judge()` | 投骰 / 潜行检定 |
@@ -356,7 +391,6 @@ trigger 名在 JSON 数据中用英文 snake_case，技能 `trigger` 字段可�
 | `get_players_in_range(range)` / `get_players()` | 玩家查询 |
 | `has_monster_mark()` / `count_monster_marks()` | 怪物标记 |
 | `add_monster_mark(n)` / `remove_monster_mark()` | 怪物标记增减 |
-| `get_van_fuel()` / `get_van_fuel_max()` / `add_van_fuel(n)` | 面包车燃料 |
 | `has_skill(name)` | 是否含某技能 |
 | `is_map_block()` | 是否为地图块（供 `filter_target` 区分） |
 
@@ -375,6 +409,7 @@ trigger 名在 JSON 数据中用英文 snake_case，技能 `trigger` 字段可�
 | `create_scavenge_card(card_name)` | 创建拾荒卡实例 |
 | `get_all_players()` / `get_alive_players()` | 玩家查询 |
 | `get_engaged_monsters(player)` | 玩家面前怪物 |
+| `trigger_other_zone_monsters(trigger_name, event, except)` | 向其他有场存活怪物广播 trigger |
 | `check_mission_win_condition()` | 任务胜利判定 |
 | `log_message(message)` | 输出日志 |
 
@@ -386,7 +421,7 @@ trigger 名在 JSON 数据中用英文 snake_case，技能 `trigger` 字段可�
 | `start_game()` | 启动游戏 |
 | `next_turn()` | 下一回合 |
 | `game_over(result)` | 游戏结束 |
-| `check_win_condition()` | 胜利判定（含面包车胜利） |
+| `check_win_condition()` | 回合结束胜负判定（先 check_lose 再 check_win） |
 | `queue_extra_turn(player)` | 加入额外回合 |
 | `skip_next_turn(player)` | 跳过下回合 |
 | `get_current_player()` / `get_game_state()` / `get_game_result()` | 查询 |
@@ -408,6 +443,11 @@ trigger 名在 JSON 数据中用英文 snake_case，技能 `trigger` 字段可�
 
 | 方法 | 说明 |
 | --- | --- |
+| `setup_components(game)` | 初始化全部组件与脚本 |
+| `check_win(game)` | 全部胜利组件 AND（无组件时空真） |
+| `check_lose(game)` | 任一失败组件 OR |
+| `on_event(game, event_name, event)` | 转发给触发器组件与脚本 |
+| `get_action_options(game, player)` | 汇总任务行动选项 |
 | `mount_action_skills(player, block)` | 挂载任务行动技能：玩家进入地块时按行动组件 `get_action_skill_decl()` 声明构建 Skill（`english_name` 为 `mission_action_<组件索引>`）加入 `player.skills`，与地块技能获取并列 |
 | `unmount_action_skills(player)` | 卸载全部任务行动技能：按 `english_name` 前缀 `mission_action_` 识别并 `remove_skill`，与地块技能清理并列 |
 
@@ -455,6 +495,12 @@ trigger 名在 JSON 数据中用英文 snake_case，技能 `trigger` 字段可�
 | `hunger_reduced` | `(player, amount)` | 饥饿值减少 |
 | `skill_used` | `(player, skill)` | 使用主动技能 |
 | `player_turn_started` | `(player)` | 玩家回合开始 |
+| `card_settlement_started` | `(player, card)` | 卡牌开始结算 |
+| `card_settlement_finished` | `(player, card)` | 卡牌结算结束 |
+| `phase_event` | `(event)` | 正式阶段切换 |
+| `mark_added` | `(entity, mark)` | 新增 Mark |
+| `mark_changed` | `(entity, mark)` | Mark 变化 |
+| `mark_removed` | `(entity, mark_name)` | 移除 Mark |
 
 > `EventBus.publish_log(message)` 为日志发布的便捷方法，内部 `emit` `log_message` 信号。
 
@@ -462,13 +508,13 @@ trigger 名在 JSON 数据中用英文 snake_case，技能 `trigger` 字段可�
 
 ## 七、EventSystem 工厂方法映射
 
-`EventSystem`（静态工具类）的全部 `create_*_event` 工厂方法。每个 event 均由 `create_event` 注入 `trigger_name` / `cancelled` / `cancel` 基础字段后追加流程专属字段：
+`EventSystem`（静态工具类）的全部 `create_*_event` 工厂方法。每个工厂返回 `GameEvent`，并写入 `trigger_name` / `cancelled` / `cancel` 与流程专属字段：
 
 | 工厂方法 | 签名 | 追加字段 |
 | --- | --- | --- |
 | `create_event` | `(initial: Dictionary = {})` | `trigger_name` / `cancelled` / `cancel`（基础） |
 | `create_damage_event` | `(target, source, num, type, card = null)` | `target` / `source` / `num` / `type` / `card` |
-| `create_recover_event` | `(player, num)` | `player` / `num` |
+| `create_recover_event` | `(player, num, source = null)` | `player` / `num` / `source` |
 | `create_move_event` | `(player, source_block, target_block)` | `player` / `source_block` / `target_block` |
 | `create_draw_game_card_event` | `(player, num)` | `player` / `num` / `cards` |
 | `create_draw_scavenge_event` | `(player, pile, num)` | `player` / `pile` / `num` / `cards` / `card` |
@@ -501,15 +547,19 @@ trigger 名在 JSON 数据中用英文 snake_case，技能 `trigger` 字段可�
 | `submitted_items` | Dictionary{物品名: Int} | `submit_items`（写）、`collect_items`（`mode: submit` 时读） | 已在目标地块提交的物品计数 |
 | `van_repair_count` | Int | `repair_van`（读写） | 面包车已维修次数 |
 | `van_repaired` | Bool | `repair_van`（写） | 面包车是否已维修完成（达到 `times` 次后置 true） |
+| `van_fuel` | Int | `add_van_fuel`（写） | 已添加燃料累计桶数 |
+| `van_fueled` | Bool | `add_van_fuel`（写）、`state_flag`（读） | 燃料是否达到 `count` |
 | `bomb_defused` | Bool | `defuse_bomb`（写） | 炸弹是否已被拆除 |
 | `countdown_activate` | Bool | 外部组件（写）、`turn_countdown`（读） | 置 true 时在下一个 `on_event` 中激活倒计时，激活后清除该键 |
 | `countdown_active` | Bool | `turn_countdown` | 倒计时是否已激活 |
 | `countdown_remaining` | Int | `turn_countdown` | 倒计时剩余轮数 |
 | `countdown_expired` | Bool | `turn_countdown` | 倒计时是否已归零（`check_lose` 依据此键判定失败） |
 | `rescue_judge_done` | Bool | `rescue_judge_win`（读写） | 是否已执行过解救检定（任务 8，仅一次） |
-| `card_discard_failed` | Bool | `card_discard_watch`（`triggers` 声明的实例写、`lose_conditions` 声明的实例读） | 监视卡被弃置且 `on_discard: lose` 时置 true（双声明共享，`check_lose` 依据此键判定失败） |
+| `card_discard_failed` | Bool | `card_discard_watch`（`on_discard: lose`） | 监视卡被弃置且判负时置 true |
+| `card_death_failed` | Bool | `card_discard_watch`（`on_death: lose`） | 监视卡持有者死亡时置 true，`check_lose` 依据此键 |
+| `virus_uploaded` | Bool | `upload_virus`（写） | 任务 9 已执行上传病毒（进度面板 state_flag） |
 | `first_enter_done_<block_name>` | Bool | `first_enter_draw_boss`（读写） | 指定地块是否已有玩家首次抵达（全队共享一次，键名按 `block_name` 拼接） |
 | `scientist_rescued` | Bool | `spend_action_rescue`（写）、`escort_equipment_at_block`（读） | 科学家（或解救目标卡）是否已被解救 |
 | `scientist_holder` | Player | `spend_action_rescue`（写）、`escort_equipment_at_block`（读） | 解救目标的持有者玩家 |
 
-> 说明：新组件新增 `mission_state` 键时，须同步本表。`spend_action_rescue` 与 `escort_equipment_at_block` 的键名可通过 `params` 的 `rescued_key` / `holder_key` 改写，默认即上表键名。`kill_monsters` 与 `card_discard_watch` 需在 `triggers` 与 `win_conditions` / `lose_conditions` 两处声明（两个实例共享同一 `mission_state`）。
+> 说明：新组件新增 `mission_state` 键时，须同步本表。`spend_action_rescue` 与 `escort_equipment_at_block` 的键名可通过 `params` 的 `rescued_key` / `holder_key` 改写，默认即上表键名。`kill_monsters` 与 `card_discard_watch` 需在 `triggers` 与 `win_conditions` / `lose_conditions` 两处声明（两个实例共享同一 `mission_state`）。任务 1/3/9 的科学家监视为 `on_discard: ignore` + `on_death: lose`（弃置不判负，持有者死亡判负）。

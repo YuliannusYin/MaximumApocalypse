@@ -1,4 +1,4 @@
-extends GutTest
+extends TestBase
 
 ## DataManager 单元测试。
 ## 验证 has_survivor / has_mission / 数据加载与查询接口。

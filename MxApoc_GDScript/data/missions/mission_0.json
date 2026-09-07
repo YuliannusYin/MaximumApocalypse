@@ -4,9 +4,8 @@
   "mission_name": "0. 教程",
   "english_name": "tutorial",
   "difficulty": "tutorial",
-  "van_fuel_required": 4,
-  "intro_text": "当一切陷入地狱之前，我们只听到了警报的声音。我们很幸运，离一家购物中心很近，但是现在，我们已经没有食物了并且援助还没到。我们要知道外面到底发生了什么。",
-  "objective_text": "给“面包车”添加“燃料”(0/4)；回合结束时，所有存活玩家在“面包车”上且“面包车”上没有任何怪物，获得胜利。",
+  "intro_text": "当一切陷入地狱之前，我们只听到了警报的声音。我们很幸运，离一家购物中心很近，但是现在，我们已经没有食物了并且援助还没到。我们要知道外面到底发生了什么。\n目标：找到 4 桶燃料并逃到你们从屋顶上看到的一辆远处的面包车里。当所有人都成功上车并且你们有足够的燃料，你们就能开车逃离这里了。",
+  "objective_text": "给“面包车”添加“燃料”(0/4)；回合结束时，所有存活玩家在地图块“面包车”上，且“面包车”上没有任何怪物，就获得胜利。",
   "special_setup": "将怪物牌堆中的首领级怪物牌随机分布到怪物牌堆中的下半部分。",
   "monster_pack_type": "zombie",
   "map_blocks_config": {
@@ -64,8 +63,15 @@
       { "card_name": "一无所获", "count": 1 }
     ]
   },
+  "win_conditions": [
+    { "component": "state_flag", "params": { "key": "van_fueled" } },
+    { "component": "all_players_at_block", "params": { "block_name": "面包车", "no_monster": true } }
+  ],
+  "actions": [
+    { "component": "add_van_fuel", "params": { "block_name": "面包车", "card_name": "燃料", "count": 4 } }
+  ],
   "progress_conditions": [
-    { "text": "给\"面包车\"添加\"燃料\"", "type": "van_fuel" },
-    { "text": "回合结束时，所有存活玩家在地图块\"面包车\"上，且\"面包车\"上没有任何怪物，就获得胜利", "type": "van_boarding" }
+    { "text": "给\"面包车\"添加\"燃料\"", "type": "state_count", "params": { "key": "van_fuel", "target": 4 } },
+    { "text": "回合结束时，所有存活玩家在地图块\"面包车\"上，且\"面包车\"上没有任何怪物，就获得胜利", "type": "all_at_block", "params": { "block_name": "面包车", "no_monster": true } }
   ]
 }
