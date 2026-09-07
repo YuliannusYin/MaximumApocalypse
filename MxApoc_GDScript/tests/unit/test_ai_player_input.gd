@@ -224,6 +224,42 @@ func test_choose_block_inline_empty_when_already_at_dest() -> void:
 	assert_eq(picked.size(), 0, "已在行进目标时多步移动应停")
 
 
+func test_choose_block_inline_detours_hole() -> void:
+	var coords: Array = [
+		[2, 0], [3, 0], [4, 0],
+		[1, 1], [2, 1], [4, 1], [5, 1],
+		[2, 2], [3, 2], [4, 2],
+	]
+	var by_coord: Dictionary = {}
+	var map_area: Array = []
+	for c in coords:
+		var block_name: String = "旷野"
+		if int(c[0]) == 5 and int(c[1]) == 1:
+			block_name = "面包车"
+		var block: MapBlock = _make_block(block_name, int(c[0]), int(c[1]), true)
+		map_area.append(block)
+		by_coord["%d,%d" % [int(c[0]), int(c[1])]] = block
+	Game.map_area = map_area
+	var rally := MissionComponentAllPlayersAtBlock.new()
+	rally.params = {"block_name": "面包车"}
+	var mc := MissionConfig.new()
+	mc.win_condition_components = [rally]
+	Game.mission_config = mc
+	mc.setup_components(Game)
+	var p: Player = _make_player("AI")
+	p.current_block = by_coord["2,1"]
+	Game.players = [p]
+	var input = AIPlayerInputScript.new()
+	input.set_request_owner(p)
+	var picked: Array = await input.choose_block_inline(
+		[by_coord["2,0"], by_coord["1,1"], by_coord["2,2"]],
+		"耐力",
+		1
+	)
+	assert_eq(picked.size(), 1, "绕空洞时应选出更近的邻格")
+	assert_true(picked[0] == by_coord["2,0"] or picked[0] == by_coord["2,2"], "应走北或南，而不是西")
+
+
 func _push_card_only_context(player: Player) -> void:
 	player._operation_context_stack.append({
 		"kind": "limited_action",
@@ -324,4 +360,36 @@ func test_ai_uses_equipped_lighter_before_equipping_shotgun() -> void:
 	assert_true(choice is Dictionary)
 	assert_eq(choice.get("type"), "skill", "已有可用武器时应攻击而不是再装备")
 	assert_eq(choice.get("skill").english_name, "lighter")
+
+
+func test_choose_card_overflow_skips_needed_fuel() -> void:
+	var mc := MissionConfig.new()
+	var fuel_comp := MissionComponentAddVanFuel.new()
+	fuel_comp.params = {"block_name": "面包车", "card_name": "燃料", "count": 4}
+	mc.action_components = [fuel_comp]
+	Game.mission_config = mc
+	mc.setup_components(Game)
+	var p: Player = _make_player("AI")
+	var keep: Card = _make_card("燃料")
+	keep.ai = {"order": 0, "useful": 90, "tags": ["fuel"]}
+	var junk: Card = _make_card("游侠帽")
+	junk.ai = {"order": 3, "useful": 58, "tags": ["equip"]}
+	var input = AIPlayerInputScript.new()
+	input.set_request_owner(p)
+	var picked: Array = await input.choose_card(1, [keep, junk], null, "\"装备栏超限\": 请弃置装备区中的装备以容纳新装备")
+	assert_eq(picked.size(), 1)
+	assert_eq(picked[0], junk, "溢出弃置有非任务候选时不应丢燃料")
+
+
+func test_ai_last_ap_prefers_punch_over_equip() -> void:
+	var p: Player = _ready_combat_player()
+	p.action_count = 1
+	p.hand.append(_weapon_card("猎枪"))
+	var input = AIPlayerInputScript.new()
+	input.think_seconds = 0.0
+	p.input = input
+	var choice: Variant = await input.wait_action(p)
+	assert_true(choice is Dictionary)
+	assert_eq(choice.get("type"), "skill", "最后 1 点行动应出拳打而不是换装")
+	assert_eq(choice.get("skill").english_name, "punch")
 

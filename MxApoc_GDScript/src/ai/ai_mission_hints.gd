@@ -102,14 +102,14 @@ func nearest_travel_block(player: Variant, game: Variant = null) -> Variant:
 	if player == null or not is_instance_valid(player):
 		return null
 	var current: Variant = player.get_current_block() if player.has_method("get_current_block") else player.get("current_block")
-	if current == null or not is_instance_valid(current) or not current.has_method("distance_to"):
+	if current == null or not is_instance_valid(current):
 		return null
 	var best: Variant = null
 	var best_d: int = 99
 	for block in travel_destination_blocks(player, game):
-		if block == null or not is_instance_valid(block) or not current.has_method("distance_to"):
+		if block == null or not is_instance_valid(block):
 			continue
-		var d: int = current.distance_to(block)
+		var d: int = path_distance(current, block)
 		if d < best_d:
 			best_d = d
 			best = block
@@ -120,12 +120,25 @@ func nearest_objective_distance(player: Variant, game: Variant = null) -> int:
 	if player == null or not is_instance_valid(player):
 		return 99
 	var current: Variant = player.get_current_block() if player.has_method("get_current_block") else player.get("current_block")
-	if current == null or not is_instance_valid(current) or not current.has_method("distance_to"):
+	if current == null or not is_instance_valid(current):
 		return 99
 	var dest: Variant = nearest_travel_block(player, game)
 	if dest == null or not is_instance_valid(dest):
 		return 99
-	return current.distance_to(dest)
+	return path_distance(current, dest)
+
+
+## 行进用图距离：沿邻格绕空洞 / 摧毁格。无邻接表时退回曼哈顿。
+func path_distance(from_block: Variant, to_block: Variant) -> int:
+	if from_block == null or to_block == null:
+		return 99
+	if not is_instance_valid(from_block) or not is_instance_valid(to_block):
+		return 99
+	if from_block.has_method("path_distance_to"):
+		return int(from_block.path_distance_to(to_block))
+	if from_block.has_method("distance_to"):
+		return int(from_block.distance_to(to_block))
+	return 99
 
 
 func is_needed_card(card: Variant, game: Variant = null) -> bool:
@@ -134,6 +147,40 @@ func is_needed_card(card: Variant, game: Variant = null) -> bool:
 	var card_name: String = str(card.get("card_name"))
 	for family in needed_item_families(game):
 		if matches_item_family(card_name, family):
+			return true
+	return false
+
+
+## 手牌或装备区持有尚未提交满额的任务物资（持有者应去交付，而不是继续采）。
+func player_holds_needed_item(player: Variant, game: Variant = null) -> bool:
+	if player == null or not is_instance_valid(player):
+		return false
+	game = _resolve_game(game)
+	for family in needed_item_families(game):
+		var required: int = _required_count(str(family), game)
+		if required <= 0:
+			continue
+		if _submitted_count(str(family), game) >= required:
+			continue
+		if _player_held_count(player, str(family)) > 0:
+			return true
+	return false
+
+
+func pile_has_food(pile_key: String, game: Variant = null) -> bool:
+	var color: String = _color_of_pile_key(pile_key)
+	if color == "":
+		return false
+	game = _resolve_game(game)
+	if game == null or not game.has_method("get_scavenge_pile"):
+		return false
+	var pile: Variant = game.get_scavenge_pile(color)
+	if pile == null or not is_instance_valid(pile) or pile.get("cards") == null:
+		return false
+	for card in pile.cards:
+		if card == null:
+			continue
+		if matches_item_family(str(card.get("card_name")), "食物"):
 			return true
 	return false
 

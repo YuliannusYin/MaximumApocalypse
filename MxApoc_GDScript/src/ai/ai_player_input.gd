@@ -86,9 +86,15 @@ func choose_card(n: int, param: Variant = "hand", filter: Variant = null, prompt
 	if candidates.is_empty():
 		return []
 	var discard: bool = prompt.contains("弃") or prompt.contains("制衡")
+	var retrieve: bool = prompt.contains("维修") or prompt.contains("神通广大")
+	var overflow: bool = prompt.contains("装备栏超限")
+	if overflow:
+		candidates = _prefer_non_needed_discards(player, candidates)
 	var scored: Array = []
 	for card in candidates:
 		var value: float = scorer.useful(player, card)
+		if retrieve:
+			value = scorer.retrieve_card_score(player, card)
 		if discard:
 			value = -value
 		scored.append({"card": card, "score": value})
@@ -126,15 +132,8 @@ func choose_target(n: int, skill: Variant, prompt: String = "", min_n: int = -1)
 	if n < 0:
 		return candidates.duplicate()
 	var scored: Array = []
-	var grant: bool = scorer.has_tag(skill, "grant_action")
 	for target in candidates:
-		var score: float = 0.0
-		if damage:
-			score = scorer.score_damage_target(player, skill, target)
-		elif grant:
-			score = scorer.score_grant_target(player, target, skill)
-		else:
-			score = scorer.effect(player, skill, target)
+		var score: float = scorer.score_skill_target(player, skill, target)
 		scored.append({"target": target, "score": score})
 	scored.sort_custom(func(a, b): return float(a["score"]) > float(b["score"]))
 	var exact: bool = min_n < 0
@@ -176,12 +175,12 @@ func choose_block_inline(valid_blocks: Array, prompt: String, count: int) -> Arr
 	if player != null and player.has_method("get_current_block"):
 		current = player.get_current_block()
 	var current_dist: int = 99
-	if current != null and dest != null and is_instance_valid(dest) and current.has_method("distance_to"):
-		current_dist = current.distance_to(dest)
+	if current != null and dest != null and is_instance_valid(dest):
+		current_dist = scorer.hints.path_distance(current, dest)
 	var scored: Array = []
 	for block in valid_blocks:
-		if dest != null and is_instance_valid(dest) and block != null and block.has_method("distance_to"):
-			if block.distance_to(dest) >= current_dist:
+		if dest != null and is_instance_valid(dest) and block != null:
+			if scorer.hints.path_distance(block, dest) >= current_dist:
 				continue
 		var score: float = scorer.score_block(player, block)
 		scored.append({"block": block, "score": score})
@@ -420,3 +419,13 @@ func _hand_has_weapon(player: Variant) -> bool:
 			if scorer.has_tag(skill, "weapon"):
 				return true
 	return false
+
+
+func _prefer_non_needed_discards(player: Variant, candidates: Array) -> Array:
+	var others: Array = []
+	for card in candidates:
+		if not scorer.hints.is_needed_card(card, Game):
+			others.append(card)
+	if others.is_empty():
+		return candidates
+	return others

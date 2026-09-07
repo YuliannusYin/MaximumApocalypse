@@ -613,6 +613,9 @@
           "ai": {
             "order": 5,
             "useful": 0,
+            "tags": [
+              "ammo"
+            ],
             "effect": {
               "player": 1,
               "target": 0

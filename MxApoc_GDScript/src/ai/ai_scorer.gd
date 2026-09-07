@@ -18,6 +18,16 @@ const GENERIC_USEFUL_CAP := 62.0
 const BALANCE_USEFUL_WEIGHT := 0.08
 const GRANT_ACTION_WEIGHT := 0.45
 const ENGAGED_WEAPON_EQUIP_BONUS := 16.0
+const COURIER_MOVE_BONUS := 8.0
+const COURIER_IDLE_PENALTY := 8.0
+const NEEDED_TARGET_PENALTY := -99.0
+const STARVE_FOOD_BONUS := 4.0
+const STARVE_SCAVENGE_FOOD_BONUS := 6.0
+const PULL_BASE := 2.0
+const CAMOUFLAGE_ESCAPE := 2.0
+const SKIP_HUNGER_SCORE := 6.0
+const DUPLICATE_EQUIP_PENALTY := 40.0
+const REPAIR_DUPLICATE_PENALTY := 8.0
 
 var hints = AiMissionHintsScript.new()
 var _score_depth: int = 0
@@ -154,13 +164,36 @@ func check_item(player: Variant, obj: Variant, item: Variant) -> float:
 		return float(obj.ai_check.call(player, item, event, Game))
 	if item != null and item.has_method("is_monster") and item.is_monster():
 		return _monster_threat(item)
-	if item != null and item.get("card_type") != null:
+	if _is_card_like(item):
+		if _should_avoid_needed_target(obj, item):
+			return NEEDED_TARGET_PENALTY
 		return useful(player, item)
 	if item != null and item.has_method("is_map_block") and item.is_map_block():
 		return score_block(player, item)
 	if item != null and item.has_method("is_player") and item.is_player():
+		if obj != null and (has_tag(obj, "pull") or _is_pull_skill(obj)):
+			return score_pull_target(player, item)
 		return attitude(player, item)
 	return 0.0
+
+
+func retrieve_card_score(player: Variant, card: Variant) -> float:
+	var value: float = useful(player, card)
+	if _has_same_name_equipped(player, card) and not _is_fuel_card(card):
+		value -= DUPLICATE_EQUIP_PENALTY
+	return value
+
+
+func score_skill_target(player: Variant, skill: Variant, target: Variant) -> float:
+	if is_damage_obj(skill):
+		return score_damage_target(player, skill, target)
+	if has_tag(skill, "grant_action"):
+		return score_grant_target(player, target, skill)
+	if has_tag(skill, "pull") or _is_pull_skill(skill):
+		return score_pull_target(player, target)
+	if _should_avoid_needed_target(skill, target):
+		return NEEDED_TARGET_PENALTY
+	return effect(player, skill, target)
 
 
 func score_action(player: Variant, action: Dictionary) -> float:
@@ -179,7 +212,10 @@ func score_action(player: Variant, action: Dictionary) -> float:
 
 
 func score_grant_target(_player: Variant, target: Variant, skill: Variant = null) -> float:
-	return _peek_best_action_score(target, _grant_types_of(skill))
+	var peeked: Dictionary = _peek_best_action(target, _grant_types_of(skill))
+	if _is_unproductive_grant_peek(peeked):
+		return 0.0
+	return score_action(target, peeked)
 
 
 func score_block(player: Variant, block: Variant) -> float:
@@ -188,8 +224,8 @@ func score_block(player: Variant, block: Variant) -> float:
 	var score: float = 0.0
 	var dest: Variant = hints.nearest_travel_block(player)
 	var obj_dist: int = hints.nearest_objective_distance(player)
-	if dest != null and is_instance_valid(dest) and block.has_method("distance_to"):
-		var after: int = block.distance_to(dest)
+	if dest != null and is_instance_valid(dest):
+		var after: int = hints.path_distance(block, dest)
 		score += float(obj_dist - after) * 2.0
 	if block.has_method("has_objective_mark") and block.has_objective_mark():
 		score += 3.0
@@ -207,27 +243,24 @@ func _score_card_action(player: Variant, card: Variant) -> float:
 	if base == 0.0 and skill != null:
 		base = ai_order(skill)
 	if str(card.get("card_type")) == "equipment":
-		base += 0.05 * useful(player, card)
-		if _equipment_would_overflow(player, card) and not _has_same_name_equipped(player, card):
-			base -= 4.0
-			if not _is_weapon_card(card) and not hints.is_needed_card(card, _game_of(player)):
-				base -= 8.0
-		if not _is_weapon_card(card) and hints.is_staying_to_gather(player):
-			base -= 6.0
-		if _is_weapon_card(card) and _should_boost_weapon_equip(player):
-			base += ENGAGED_WEAPON_EQUIP_BONUS
-		return base
+		return _score_equip_card(player, card, base)
 	if skill != null and has_tag(skill, "heal"):
 		return _score_heal(player, skill)
 	if skill != null and has_tag(skill, "food"):
 		return _score_food(player, skill)
 	if (skill != null and has_tag(skill, "grant_action")) or has_tag(card, "grant_action"):
 		return _score_grant_action(player, skill if skill != null else card)
+	if skill != null and (has_tag(skill, "skip_hunger") or has_tag(card, "skip_hunger") or _is_skip_hunger_skill(skill)):
+		return _score_skip_hunger(player)
+	if skill != null and (has_tag(skill, "pull") or _is_pull_skill(skill)):
+		return _score_pull(player, skill)
 	if skill != null:
 		base += _best_target_effect(player, skill)
 		base += _situational_skill_bonus(player, skill)
 	else:
 		base += 0.025 * useful(player, card)
+	if _is_courier(player) and _is_courier_idle_obj(skill if skill != null else card):
+		base -= COURIER_IDLE_PENALTY
 	return base
 
 
@@ -242,6 +275,12 @@ func _score_skill_action(player: Variant, skill: Variant) -> float:
 		return _score_grant_action(player, skill)
 	if has_tag(skill, "hunger_ap"):
 		return _score_hunger_ap(player, skill)
+	if has_tag(skill, "skip_hunger") or _is_skip_hunger_skill(skill):
+		return _score_skip_hunger(player)
+	if has_tag(skill, "pull") or _is_pull_skill(skill):
+		return _score_pull(player, skill)
+	if _is_camouflage_discard(skill):
+		return _score_camouflage_discard(player)
 	if _is_balance_skill(skill):
 		return _score_balance(player, skill)
 	if _is_reveal_obj(skill) and not _has_unrevealed_for_skill(player, skill):
@@ -252,6 +291,8 @@ func _score_skill_action(player: Variant, skill: Variant) -> float:
 		base += 4.0
 	base += _best_target_effect(player, skill)
 	base += _situational_skill_bonus(player, skill)
+	if _is_courier(player) and _is_courier_idle_obj(skill):
+		base -= COURIER_IDLE_PENALTY
 	return base
 
 
@@ -261,26 +302,34 @@ func _score_move(player: Variant, block: Variant) -> float:
 	if hints.nearest_objective_distance(player) == 0:
 		return 0.0
 	var dest: Variant = hints.nearest_travel_block(player)
-	if dest != null and is_instance_valid(dest) and block != null and block.has_method("distance_to"):
+	if dest != null and is_instance_valid(dest) and block != null:
 		var current_d: int = hints.nearest_objective_distance(player)
-		if block.distance_to(dest) >= current_d:
+		if hints.path_distance(block, dest) >= current_d:
 			return 0.0
 	var score: float = 4.0 + score_block(player, block)
+	if _is_courier(player):
+		score += COURIER_MOVE_BONUS
 	if player != null and player.get_effective_action_count() <= 1:
 		score -= 1.0
 	return score
 
 
 func _score_pile_draw(player: Variant, pile_key: String) -> float:
+	if pile_key == "game_deck" and _player_is_starving(player):
+		return 0.0
 	var score: float = 3.5
 	if player != null and player.hand != null and player.hand.size() >= 8:
 		score -= 2.0
 	if pile_key != "game_deck":
 		score += 0.5
-	if player != null and player.hunger >= 4:
+	if player != null and int(player.get("hunger")) >= 4:
 		score += 1.0
 	if pile_key != "game_deck" and hints.is_staying_to_gather(player) and hints.pile_has_needed_items(pile_key):
 		score += GATHER_SCAVENGE_BONUS
+	if pile_key != "game_deck" and _player_is_starving(player) and hints.pile_has_food(pile_key):
+		score += STARVE_SCAVENGE_FOOD_BONUS
+	if _is_courier(player):
+		score -= COURIER_IDLE_PENALTY
 	return score
 
 
@@ -320,6 +369,8 @@ func _situational_skill_bonus(player: Variant, skill: Variant) -> float:
 		bonus -= MISSION_REFUEL_PENALTY
 	if has_tag(skill, "damage") and player != null and player.monster_zone != null and player.monster_zone.size() > 0:
 		bonus += 3.0
+	if _is_repair_skill(skill) and _repair_best_is_duplicate(player):
+		bonus -= REPAIR_DUPLICATE_PENALTY
 	return bonus
 
 
@@ -456,6 +507,8 @@ func _score_food(player: Variant, skill: Variant) -> float:
 		value = _best_target_effect(player, skill)
 	if value <= 0.0:
 		return 0.0
+	if _player_is_starving(player):
+		value += STARVE_FOOD_BONUS
 	return ai_order(skill) + value
 
 
@@ -495,7 +548,7 @@ func _food_hunger_value(hunger: int) -> float:
 	if hunger <= 1:
 		return 0.0
 	if hunger >= 5:
-		return 8.0
+		return 8.0 + STARVE_FOOD_BONUS
 	if hunger >= 3:
 		return 5.0
 	return 1.5
@@ -509,7 +562,10 @@ func _score_grant_action(player: Variant, skill: Variant) -> float:
 	for target in player.get_skill_valid_targets(skill):
 		if not is_player_target(target):
 			continue
-		var s: float = _peek_best_action_score(target, grant_types)
+		var peeked: Dictionary = _peek_best_action(target, grant_types)
+		if _is_unproductive_grant_peek(peeked):
+			continue
+		var s: float = score_action(target, peeked)
 		if s > best:
 			best = s
 	if best <= 0.0:
@@ -524,6 +580,8 @@ func _grant_types_of(skill: Variant) -> Array:
 
 func _should_boost_weapon_equip(player: Variant) -> bool:
 	if player == null or player.monster_zone == null or player.monster_zone.size() <= 0:
+		return false
+	if player.has_method("get_effective_action_count") and player.get_effective_action_count() <= 1:
 		return false
 	return not _has_usable_equipped_weapon_attack(player)
 
@@ -632,24 +690,33 @@ func _has_unrevealed_for_skill(player: Variant, skill: Variant) -> bool:
 
 
 func _peek_best_action_score(player: Variant, allowed_types: Variant = null) -> float:
+	var peeked: Dictionary = _peek_best_action(player, allowed_types)
+	if peeked.is_empty():
+		return 0.0
+	return score_action(player, peeked)
+
+
+func _peek_best_action(player: Variant, allowed_types: Variant = null) -> Dictionary:
 	if player == null or not is_instance_valid(player):
-		return 0.0
+		return {}
 	if _score_depth >= 1:
-		return 0.0
+		return {}
 	_score_depth += 1
 	var saved_phase: String = str(player.get("in_phase"))
 	var saved_ap: int = int(player.get("action_count"))
 	player.in_phase = "action"
 	if player.get_effective_action_count() < 1:
 		player.action_count = 1
-	var best: float = 0.0
+	var best: Dictionary = {}
+	var best_score: float = 0.0
 	var actions: Array = LegalActionsScript.enumerate(player, allowed_types)
 	for action in actions:
 		if _should_skip_peek(action):
 			continue
 		var score: float = score_action(player, action)
-		if score > best:
-			best = score
+		if score > best_score:
+			best_score = score
+			best = action
 	player.action_count = saved_ap
 	player.in_phase = saved_phase
 	_score_depth -= 1
@@ -670,3 +737,245 @@ func _should_skip_peek(action: Dictionary) -> bool:
 
 func _game_of(_player: Variant) -> Variant:
 	return Game
+
+
+func _is_courier(player: Variant) -> bool:
+	return hints.player_holds_needed_item(player, _game_of(player))
+
+
+func _score_equip_card(player: Variant, card: Variant, base: float) -> float:
+	if _has_same_name_equipped(player, card) and not _is_fuel_card(card):
+		return 0.0
+	if _overflow_would_discard_needed(player, card) and not _may_drop_needed_for_weapon(player, card):
+		return 0.0
+	base += 0.05 * useful(player, card)
+	if _equipment_would_overflow(player, card) and not _has_same_name_equipped(player, card):
+		base -= 4.0
+		if not _is_weapon_card(card) and not hints.is_needed_card(card, _game_of(player)):
+			base -= 8.0
+	if not _is_weapon_card(card) and hints.is_staying_to_gather(player):
+		base -= 6.0
+	if not _is_weapon_card(card) and _is_courier(player):
+		base -= COURIER_IDLE_PENALTY
+	if _is_weapon_card(card) and _should_boost_weapon_equip(player):
+		base += ENGAGED_WEAPON_EQUIP_BONUS
+	return base
+
+
+func _may_drop_needed_for_weapon(player: Variant, card: Variant) -> bool:
+	if not _is_weapon_card(card):
+		return false
+	if player == null or player.monster_zone == null:
+		return false
+	return player.monster_zone.size() > 0
+
+
+func _overflow_would_discard_needed(player: Variant, card: Variant) -> bool:
+	if player == null or card == null or player.equipment_zone == null:
+		return false
+	if not _equipment_would_overflow(player, card):
+		return false
+	var kept: Array = []
+	var used: int = 0
+	for e in player.equipment_zone:
+		if e == null:
+			continue
+		if not _is_fuel_card(card) and str(e.get("card_name")) == str(card.get("card_name")):
+			continue
+		kept.append(e)
+		used += _card_size(e)
+	var cap: int = _equipment_capacity(player)
+	var need: int = used + _card_size(card) - cap
+	if need <= 0:
+		return false
+	kept.sort_custom(func(a, b): return useful(player, a) < useful(player, b))
+	var freed: int = 0
+	for e in kept:
+		freed += _card_size(e)
+		if hints.is_needed_card(e, _game_of(player)):
+			return true
+		if freed >= need:
+			return false
+	return false
+
+
+func _should_avoid_needed_target(obj: Variant, target: Variant) -> bool:
+	if obj == null:
+		return false
+	if has_tag(obj, "mission") or str(obj.get("skill_type")) == "任务":
+		return false
+	if not _is_card_like(target):
+		return false
+	return hints.is_needed_card(target, Game)
+
+
+func _is_card_like(item: Variant) -> bool:
+	if item == null:
+		return false
+	if item.get("card_type") != null:
+		return true
+	if item.get("card_name") != null and item.get("in_equipment_area") == true:
+		return true
+	return false
+
+
+func _is_fuel_card(card: Variant) -> bool:
+	if card == null:
+		return false
+	return str(card.get("english_name")) == "fuel" or hints.matches_item_family(str(card.get("card_name")), "燃料")
+
+
+func _is_courier_idle_obj(obj: Variant) -> bool:
+	if obj == null:
+		return false
+	if has_tag(obj, "draw") or has_tag(obj, "reveal"):
+		return true
+	var english_name: String = str(obj.get("english_name"))
+	return english_name == "repair" or english_name == "scout" or english_name == "resourceful" or english_name == "binoculars"
+
+
+func _player_is_starving(player: Variant) -> bool:
+	if player == null:
+		return false
+	if int(player.get("hunger")) >= 5:
+		return true
+	if player.has_method("has_mark") and player.has_mark("hunger_damage_level"):
+		return true
+	if player.has_method("count_mark") and int(player.count_mark("hunger_damage_level")) > 0:
+		return true
+	return false
+
+
+func _player_has_food(player: Variant) -> bool:
+	if player == null or player.get("hand") == null:
+		return false
+	for card in player.hand:
+		if card == null:
+			continue
+		if has_tag(card, "food"):
+			return true
+		var skill: Variant = _primary_play_skill(card)
+		if skill != null and has_tag(skill, "food"):
+			return true
+		if hints.matches_item_family(str(card.get("card_name")), "食物"):
+			return true
+	return false
+
+
+func _score_skip_hunger(player: Variant) -> float:
+	if not _player_is_starving(player):
+		return 0.0
+	if _player_has_food(player):
+		return 0.0
+	return SKIP_HUNGER_SCORE
+
+
+func _is_skip_hunger_skill(skill: Variant) -> bool:
+	if skill == null:
+		return false
+	return str(skill.get("english_name")) == "energy_drink"
+
+
+func _is_pull_skill(skill: Variant) -> bool:
+	if skill == null:
+		return false
+	return str(skill.get("english_name")) == "stretcher" or str(skill.get("skill_name")) == "轮床"
+
+
+func score_pull_target(player: Variant, target: Variant) -> float:
+	if player == null or target == null or not is_instance_valid(target):
+		return 0.0
+	if not is_player_target(target) or target == player:
+		return 0.0
+	if target.get("monster_zone") != null and target.monster_zone.size() > 0:
+		return 0.0
+	var dest: Variant = hints.nearest_travel_block(target)
+	if dest == null or not is_instance_valid(dest):
+		return 0.0
+	var ally_block: Variant = target.get_current_block() if target.has_method("get_current_block") else target.get("current_block")
+	var self_block: Variant = player.get_current_block() if player.has_method("get_current_block") else player.get("current_block")
+	if ally_block == null or self_block == null:
+		return 0.0
+	var ally_dist: int = hints.path_distance(ally_block, dest)
+	if ally_dist < 2:
+		return 0.0
+	var self_dist: int = hints.path_distance(self_block, dest)
+	if self_dist >= ally_dist:
+		return 0.0
+	return PULL_BASE + minf(float(ally_dist - self_dist), 2.0)
+
+
+func _score_pull(player: Variant, skill: Variant) -> float:
+	if player == null or not player.has_method("get_skill_valid_targets"):
+		return 0.0
+	var best: float = 0.0
+	for target in player.get_skill_valid_targets(skill):
+		var s: float = score_pull_target(player, target)
+		if s > best:
+			best = s
+	return best
+
+
+func _is_camouflage_discard(skill: Variant) -> bool:
+	if skill == null:
+		return false
+	return str(skill.get("english_name")) == "camouflage_discard" or str(skill.get("skill_name")) == "伪装"
+
+
+func _score_camouflage_discard(player: Variant) -> float:
+	if player == null or player.monster_zone == null or player.monster_zone.size() <= 0:
+		return 0.0
+	var hp: int = int(player.get_hp()) if player.has_method("get_hp") else int(player.get("hp"))
+	if hp <= 3:
+		return 0.0
+	if _has_usable_equipped_weapon_attack(player):
+		return 0.0
+	var min_hp: int = 99
+	for monster in player.monster_zone:
+		if monster == null:
+			continue
+		var mhp: int = int(monster.get("hp")) if monster.get("hp") != null else 0
+		if mhp > 0 and mhp < min_hp:
+			min_hp = mhp
+	var ap: int = player.get_effective_action_count() if player.has_method("get_effective_action_count") else 0
+	if ap * 2 >= min_hp:
+		return 0.0
+	return CAMOUFLAGE_ESCAPE
+
+
+func _is_repair_skill(skill: Variant) -> bool:
+	if skill == null:
+		return false
+	return str(skill.get("english_name")) == "repair" or str(skill.get("skill_name")) == "维修"
+
+
+func _repair_best_is_duplicate(player: Variant) -> bool:
+	var game: Variant = _game_of(player)
+	if game == null or not game.has_method("get_all_discard_pile_equipments"):
+		return false
+	var list: Array = game.get_all_discard_pile_equipments()
+	if list.is_empty():
+		return false
+	var best_card: Variant = null
+	var best_u: float = -1.0
+	for card in list:
+		if card == null:
+			continue
+		var u: float = useful(player, card)
+		if u > best_u:
+			best_u = u
+			best_card = card
+	if best_card == null:
+		return false
+	return _has_same_name_equipped(player, best_card)
+
+
+func _is_unproductive_grant_peek(action: Dictionary) -> bool:
+	if action.is_empty():
+		return true
+	var action_type: String = str(action.get("type", ""))
+	if action_type == "pile_draw" and str(action.get("pile_key", "")) == "game_deck":
+		return true
+	if has_tag(action.get("skill"), "grant_action") or has_tag(action.get("card"), "grant_action"):
+		return true
+	return false

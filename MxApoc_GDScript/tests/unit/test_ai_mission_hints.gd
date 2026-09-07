@@ -156,3 +156,46 @@ func test_remaining_needed_count_drops_when_party_holds_fuel() -> void:
 	assert_eq(hints.remaining_needed_count("燃料"), 4, "无人持有时应缺 4")
 	p.hand.append(_make_card("燃料"))
 	assert_eq(hints.remaining_needed_count("燃料"), 3, "持有 1 桶后应缺 3")
+
+
+func test_player_holds_needed_item_when_fuel_not_submitted() -> void:
+	_setup_fuel_only()
+	var p: Player = _make_player("AI")
+	Game.players = [p]
+	var hints = AiMissionHintsScript.new()
+	assert_false(hints.player_holds_needed_item(p), "没拿燃料时应为假")
+	p.hand.append(_make_card("燃料"))
+	assert_true(hints.player_holds_needed_item(p), "手里有未交满的燃料时应为真")
+	p.equipment_zone.append(_make_equipment("燃料"))
+	assert_true(hints.player_holds_needed_item(p), "装备区有燃料也应为真")
+
+
+func test_path_distance_around_hole_to_van() -> void:
+	var coords: Array = [
+		[2, 0], [3, 0], [4, 0],
+		[1, 1], [2, 1], [4, 1], [5, 1],
+		[2, 2], [3, 2], [4, 2],
+	]
+	var by_coord: Dictionary = {}
+	var map_area: Array = []
+	for c in coords:
+		var block_name: String = "旷野"
+		if int(c[0]) == 5 and int(c[1]) == 1:
+			block_name = "面包车"
+		var block: MapBlock = _make_block(block_name, int(c[0]), int(c[1]), true)
+		map_area.append(block)
+		by_coord["%d,%d" % [int(c[0]), int(c[1])]] = block
+	Game.map_area = map_area
+	var rally := MissionComponentAllPlayersAtBlock.new()
+	rally.params = {"block_name": "面包车"}
+	var mc := MissionConfig.new()
+	mc.win_condition_components = [rally]
+	Game.mission_config = mc
+	mc.setup_components(Game)
+	var p: Player = _make_player("AI")
+	p.current_block = by_coord["2,1"]
+	var hints = AiMissionHintsScript.new()
+	assert_eq(hints.nearest_travel_block(p), by_coord["5,1"])
+	assert_eq(hints.nearest_objective_distance(p), 5, "曼哈顿 3，绕空洞图距离 5")
+	assert_eq(hints.path_distance(by_coord["2,0"], by_coord["5,1"]), 4)
+	assert_eq(hints.path_distance(by_coord["1,1"], by_coord["5,1"]), 6)

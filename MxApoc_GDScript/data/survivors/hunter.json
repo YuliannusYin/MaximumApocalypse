@@ -18,8 +18,11 @@
       "defer_action_cost": true,
       "content": "var max_reveal = 2\nvar count = 0\nwhile count < max_reveal:\n\tvar prompt = \"\\\"侦察\\\": （\" + str(count + 1) + \"/\" + str(max_reveal) + \") 选择相邻地图块\"\n\tvar _candidates = player.get_current_block().get_blocks_in_range(\"medium\")\n\tvar _valid = []\n\tfor _b in _candidates:\n\t\ttarget = _b\n\t\tif target.is_revealed() == false:\n\t\t\t_valid.append(_b)\n\t\ttarget = _b\n\tvar _blocks = await player.choose_block_inline(_valid, prompt, 1)\n\ttarget = _blocks[0] if _blocks.size() > 0 else null\n\tif target == null:\n\t\tif count == 0:\n\t\t\tEventSystem.cancel(event)\n\t\t\treturn\n\t\tbreak\n\tif count == 0:\n\t\tactions.consume_action(player, 1)\n\tactions.reveal(target, false, player)\n\tcount += 1",
       "ai": {
-        "order": 5,
+        "order": 3,
         "useful": 0,
+        "tags": [
+          "reveal"
+        ],
         "effect": {
           "player": 1,
           "target": 0
@@ -471,8 +474,11 @@
           "defer_action_cost": true,
           "content": "var list = game.get_all_discard_pile_equipments()\nvar _selected = await player.choose_card(1, list, null, \"\\\"神通广大\\\": 选取一张装备牌\")\nif _selected.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar card = _selected[0]\nvar _targets = await player.choose_target(1, {\"filter_target\": \"return target.is_player()\", \"filter_target_range\": \"infinity\"}, \"\\\"神通广大\\\": 选取置入装备牌的玩家\")\nif _targets.is_empty():\n\tEventSystem.cancel(event)\n\treturn\ntarget = _targets[0]\nactions.consume_action(player, 1)\nvar original_pile = game.take_card_from_discard_piles(card)\nvar success = await target.equip(card)\nif not success and original_pile != null:\n\toriginal_pile.add(card)",
           "ai": {
-            "order": 5,
+            "order": 3,
             "useful": 0,
+            "tags": [
+              "draw"
+            ],
             "effect": {
               "player": 1,
               "target": 0
@@ -481,8 +487,11 @@
         }
       ],
       "ai": {
-        "order": 5,
+        "order": 3,
         "useful": 58,
+        "tags": [
+          "draw"
+        ],
         "effect": {
           "player": 1,
           "target": 0
@@ -523,14 +532,14 @@
           "window_prompt": "\"伪装\": 选择目标",
           "content": "actions.discard(player, \"camouflage\", \"equipment\")\nactions.damage(player, 3, player)\nplayer.monster_zone.erase(target)\nif game.monster_discard_pile != null:\n\tgame.monster_discard_pile.add(target.monster_card)\nif player.current_block != null:\n\tactions.add_monster_mark(player.current_block, 1)",
           "ai": {
-            "order": 9,
+            "order": 2,
             "useful": 0,
             "tags": [
-              "damage"
+              "stealth"
             ],
             "effect": {
               "player": 0,
-              "target": 2
+              "target": 0
             }
           }
         }

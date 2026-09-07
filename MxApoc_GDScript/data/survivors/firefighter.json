@@ -281,7 +281,7 @@
             "order": 4,
             "useful": 0,
             "tags": [
-              "draw"
+              "skip_hunger"
             ],
             "effect": {
               "player": 1,
@@ -294,7 +294,7 @@
         "order": 4,
         "useful": 58,
         "tags": [
-          "draw"
+          "skip_hunger"
         ],
         "effect": {
           "player": 1,

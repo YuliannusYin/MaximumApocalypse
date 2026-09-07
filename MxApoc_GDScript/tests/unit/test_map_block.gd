@@ -142,6 +142,31 @@ func test_distance_to_same_block() -> void:
 	assert_eq(b1.distance_to(b2), 0)
 
 
+func test_path_distance_detours_hole() -> void:
+	var stuck: MapBlock = _make_block("城市街道", 2, 1)
+	var north: MapBlock = _make_block("北", 2, 0)
+	var south: MapBlock = _make_block("南", 2, 2)
+	var west: MapBlock = _make_block("西", 1, 1)
+	var n_east: MapBlock = _make_block("东北", 3, 0)
+	var n_ee: MapBlock = _make_block("北东东", 4, 0)
+	var van_west: MapBlock = _make_block("车西", 4, 1)
+	var van: MapBlock = _make_block("面包车", 5, 1)
+	var s_east: MapBlock = _make_block("东南", 3, 2)
+	var s_ee: MapBlock = _make_block("南东东", 4, 2)
+	_setup_game_map([stuck, north, south, west, n_east, n_ee, van_west, van, s_east, s_ee])
+	assert_eq(stuck.distance_to(van), 3, "曼哈顿仍穿过空洞")
+	assert_eq(stuck.path_distance_to(van), 5, "图距离应绕过 (3,1) 空洞")
+	assert_eq(north.path_distance_to(van), 4, "北邻应更接近面包车")
+	assert_eq(west.path_distance_to(van), 6, "西邻应更远")
+
+
+func test_path_distance_falls_back_without_neighbors() -> void:
+	var a: MapBlock = _make_block("A", 0, 0)
+	var b: MapBlock = _make_block("B", 3, 0)
+	_setup_game_map([a, b])
+	assert_eq(a.path_distance_to(b), 3, "无邻接时应退回曼哈顿")
+
+
 # === 5. 相邻地块查询 ===
 
 func test_get_adjacent_blocks_four_directions() -> void:

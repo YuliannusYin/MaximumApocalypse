@@ -214,9 +214,42 @@ func get_adjacent_blocks() -> Array:
 	return adjacent
 
 
-## 计算到目标地块的曼哈顿距离。
+## 计算到目标地块的曼哈顿距离（战斗射程用）。行进绕路请用 path_distance_to。
 func distance_to(other: MapBlock) -> int:
 	return absi(coordinate["x"] - other.coordinate["x"]) + absi(coordinate["y"] - other.coordinate["y"])
+
+
+## 沿四向相邻存活地块的最短路长度（BFS）。不可达返回 99。
+## 邻接表为空时（测试夹具未接入 Game.map_area）退回曼哈顿。
+func path_distance_to(other: MapBlock) -> int:
+	if other == null or not is_instance_valid(other):
+		return 99
+	var manhattan: int = distance_to(other)
+	if manhattan == 0:
+		return 0
+	if Game == null or not is_instance_valid(Game):
+		return manhattan
+	var goal: String = "%d,%d" % [other.coordinate["x"], other.coordinate["y"]]
+	var start: String = "%d,%d" % [coordinate["x"], coordinate["y"]]
+	var dist: Dictionary = {start: 0}
+	var queue: Array = [self]
+	var head: int = 0
+	while head < queue.size():
+		var cur: MapBlock = queue[head]
+		head += 1
+		var ck: String = "%d,%d" % [cur.coordinate["x"], cur.coordinate["y"]]
+		var cd: int = int(dist[ck])
+		if ck == goal:
+			return cd
+		for nb in cur.get_adjacent_blocks():
+			var nk: String = "%d,%d" % [nb.coordinate["x"], nb.coordinate["y"]]
+			if dist.has(nk):
+				continue
+			dist[nk] = cd + 1
+			queue.append(nb)
+	if dist.size() <= 1:
+		return manhattan
+	return 99
 
 
 ## 返回指定射程范围内的所有存活地块。

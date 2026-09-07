@@ -114,6 +114,50 @@ func test_score_block_prefers_neighbor_toward_police() -> void:
 	)
 
 
+func _setup_mission0_hole_map() -> Dictionary:
+	var coords: Array = [
+		[0, 0], [1, 0], [2, 0], [3, 0], [4, 0],
+		[0, 1], [1, 1], [2, 1], [4, 1], [5, 1],
+		[1, 2], [2, 2], [3, 2], [4, 2],
+	]
+	var by_coord: Dictionary = {}
+	var map_area: Array = []
+	for c in coords:
+		var block_name: String = "旷野"
+		if int(c[0]) == 5 and int(c[1]) == 1:
+			block_name = "面包车"
+		var block: MapBlock = _make_block(block_name, int(c[0]), int(c[1]), true)
+		map_area.append(block)
+		by_coord["%d,%d" % [int(c[0]), int(c[1])]] = block
+	Game.map_area = map_area
+	var rally := MissionComponentAllPlayersAtBlock.new()
+	rally.params = {"block_name": "面包车"}
+	var mc := MissionConfig.new()
+	mc.win_condition_components = [rally]
+	Game.mission_config = mc
+	mc.setup_components(Game)
+	return by_coord
+
+
+func test_score_move_detours_hole_instead_of_camping() -> void:
+	var blocks: Dictionary = _setup_mission0_hole_map()
+	var p: Player = _make_player("AI")
+	p.current_block = blocks["2,1"]
+	p.action_count = 4
+	var scorer = AiScorerScript.new()
+	assert_eq(scorer.hints.nearest_objective_distance(p), 5, "到面包车的图距离应为 5")
+	assert_gt(
+		scorer.score_action(p, {"type": "move", "target": blocks["2,0"]}),
+		0.0,
+		"东侧有空洞时应绕北/南走，而不是所有移动为 0"
+	)
+	assert_lte(
+		scorer.score_action(p, {"type": "move", "target": blocks["1,1"]}),
+		0.0,
+		"西邻离面包车更远，移动分应 ≤ 0"
+	)
+
+
 func test_score_move_zero_when_already_at_travel_dest() -> void:
 	_setup_rescue_fuel_map()
 	var p: Player = _make_player("AI")
@@ -484,4 +528,214 @@ func test_grant_action_includes_self() -> void:
 		return target != null and target.has_method("is_player") and target.is_player()
 	grant.ai = {"order": 5, "useful": 0, "tags": ["grant_action"], "effect": {"player": 1, "target": 0}}
 	assert_gt(scorer.score_action(p, {"type": "skill", "skill": grant}), 0.0, "可自用的支援牌在自己有实着时应为正")
+
+
+func _setup_fuel_van_east() -> Dictionary:
+	var mc := MissionConfig.new()
+	var fuel := MissionComponentAddVanFuel.new()
+	fuel.params = {"block_name": "面包车", "card_name": "燃料", "count": 4}
+	var rally := MissionComponentAllPlayersAtBlock.new()
+	rally.params = {"block_name": "面包车"}
+	mc.action_components = [fuel]
+	mc.win_condition_components = [rally]
+	Game.mission_config = mc
+	mc.setup_components(Game)
+	var van: MapBlock = _make_block("面包车", 0, 0, true)
+	var east: MapBlock = _make_block("旷野", 1, 0, true)
+	var far: MapBlock = _make_block("农场", 2, 0, true)
+	Game.map_area = [van, east, far]
+	return {"van": van, "east": east, "far": far}
+
+
+func test_courier_move_beats_scout_draw_and_repair() -> void:
+	var blocks: Dictionary = _setup_fuel_van_east()
+	var p: Player = _make_player("AI")
+	p.current_block = blocks["east"]
+	p.action_count = 4
+	p.in_phase = "action"
+	p.hand.append(_make_card("燃料"))
+	Game.players = [p]
+	p.game_deck.add(_make_card("junk"))
+	var scout := Skill.new()
+	scout.english_name = "scout"
+	scout.ai = {"order": 3, "useful": 0, "tags": ["reveal"], "effect": {"player": 1, "target": 0}}
+	var repair := Skill.new()
+	repair.english_name = "repair"
+	repair.ai = {"order": 4, "useful": 0, "tags": ["draw"], "effect": {"player": 1, "target": 0}}
+	p.add_skill(scout)
+	p.add_skill(repair)
+	var scorer = AiScorerScript.new()
+	var move_score: float = scorer.score_action(p, {"type": "move", "target": blocks["van"]})
+	assert_gt(move_score, scorer.score_action(p, {"type": "skill", "skill": scout}), "持有燃料时朝面包车走应高于侦察")
+	assert_gt(move_score, scorer.score_action(p, {"type": "pile_draw", "pile_key": "game_deck"}), "持有燃料时朝面包车走应高于抽游戏牌")
+	assert_gt(move_score, scorer.score_action(p, {"type": "skill", "skill": repair}), "持有燃料时朝面包车走应高于维修")
+
+
+func test_equip_that_would_discard_fuel_scores_zero_unless_engaged_weapon() -> void:
+	_setup_fuel_van_east()
+	var scorer = AiScorerScript.new()
+	var p: Player = _make_player("AI")
+	p.role_card = RoleCard.new()
+	p.role_card.equipment_capacity = 1
+	p.in_phase = "action"
+	p.action_count = 4
+	var fuel: EquipmentCard = _make_equipment("燃料")
+	fuel.english_name = "fuel"
+	fuel.size = 1
+	fuel.charge_type = "fuel"
+	fuel.ai = {"order": 0, "useful": 90, "tags": ["fuel"]}
+	p.equipment_zone.append(fuel)
+	Game.players = [p]
+	var binoculars: EquipmentCard = _make_equipment("双筒望远镜")
+	binoculars.size = 1
+	binoculars.card_type = "equipment"
+	binoculars.ai = {"order": 3, "useful": 58, "tags": ["equip"]}
+	assert_lte(scorer.score_action(p, {"type": "card", "card": binoculars}), 0.0, "没纠缠时挤掉燃料的装备分应 ≤ 0")
+	var gun: EquipmentCard = _make_equipment("猎枪")
+	gun.weapon = true
+	gun.size = 1
+	gun.ai = {"order": 8, "useful": 80, "tags": ["equip", "weapon"]}
+	var monster: Monster = Monster.new()
+	monster.hp = 5
+	monster.max_hp = 5
+	monster.ai_threat = 40
+	p.monster_zone.append(monster)
+	assert_gt(scorer.score_action(p, {"type": "card", "card": gun}), 0.0, "纠缠时装武器即使会挤燃料仍可为正")
+
+
+func test_stretcher_zero_when_same_tile_positive_when_pull_helps() -> void:
+	var blocks: Dictionary = _setup_fuel_van_east()
+	var scorer = AiScorerScript.new()
+	var doc: Player = _make_player("Doc")
+	var ally: Player = _make_player("Ally")
+	doc.in_phase = "action"
+	doc.action_count = 4
+	ally.in_phase = "action"
+	ally.action_count = 4
+	doc.current_block = blocks["van"]
+	ally.current_block = blocks["van"]
+	Game.players = [doc, ally]
+	var pull := Skill.new()
+	pull.english_name = "stretcher"
+	pull.skill_name = "轮床"
+	pull.select_target = 1
+	pull.filter_target_range = "long"
+	pull.filter_target = func(_player, target, _event, _game) -> bool:
+		return target != null and target.has_method("is_player") and target.is_player() and target != _player
+	pull.ai = {"order": 1, "useful": 0, "tags": ["pull"], "effect": {"player": 1, "target": 0}}
+	doc.add_skill(pull)
+	assert_lte(scorer.score_action(doc, {"type": "skill", "skill": pull}), 0.0, "同格轮床分应 ≤ 0")
+	assert_lte(scorer.score_pull_target(doc, ally), 0.0, "同格拉近目标分应 ≤ 0")
+	ally.current_block = blocks["far"]
+	assert_gt(scorer.score_pull_target(doc, ally), 0.0, "队友远离目标且拉近有效时应为正")
+	assert_gt(scorer.score_action(doc, {"type": "skill", "skill": pull}), 0.0, "有效轮床行动分应为正")
+
+
+func test_camouflage_scores_below_equipped_weapon_attack() -> void:
+	var scorer = AiScorerScript.new()
+	var p: Player = _ready_combat_player()
+	var axe := Skill.new()
+	axe.english_name = "reliable_axe"
+	axe.active = "action"
+	axe.select_target = 1
+	axe.filter_target_range = "short"
+	axe.ai = {"order": 9, "useful": 0, "tags": ["damage", "weapon"], "effect": {"player": 0, "target": 4}}
+	p.add_skill(axe)
+	var camo := Skill.new()
+	camo.english_name = "camouflage_discard"
+	camo.skill_name = "伪装"
+	camo.ai = {"order": 2, "useful": 0, "tags": ["stealth"], "effect": {"player": 0, "target": 0}}
+	p.add_skill(camo)
+	assert_gt(
+		scorer.score_action(p, {"type": "skill", "skill": axe}),
+		scorer.score_action(p, {"type": "skill", "skill": camo}),
+		"伪装应低于已装备武器攻击"
+	)
+
+
+func test_last_ap_punch_beats_weapon_equip() -> void:
+	var scorer = AiScorerScript.new()
+	var p: Player = _ready_combat_player()
+	p.action_count = 1
+	var gun: EquipmentCard = _make_equipment("猎枪")
+	gun.weapon = true
+	gun.ai = {"order": 8, "useful": 80, "tags": ["equip", "weapon"]}
+	p.hand.append(gun)
+	assert_gt(
+		scorer.score_action(p, {"type": "skill", "skill": p.skills[0]}),
+		scorer.score_action(p, {"type": "card", "card": gun}),
+		"最后 1 点行动应优先出伤害而不是换装"
+	)
+
+
+func test_skip_hunger_only_when_starving_without_food() -> void:
+	var scorer = AiScorerScript.new()
+	var p: Player = _make_player("AI")
+	p.hunger = 2
+	p.in_phase = "action"
+	p.action_count = 4
+	var drink := Skill.new()
+	drink.english_name = "energy_drink"
+	drink.ai = {"order": 4, "useful": 0, "tags": ["skip_hunger"], "effect": {"player": 1, "target": 0}}
+	assert_lte(scorer.score_action(p, {"type": "skill", "skill": drink}), 0.0, "不饿时能量饮料应 ≤ 0")
+	p.hunger = 6
+	assert_gt(scorer.score_action(p, {"type": "skill", "skill": drink}), 0.0, "饥饿且没食物时能量饮料应为正")
+	var food: Card = _make_card("食物（小额）")
+	food.ai = {"order": 5, "useful": 70, "tags": ["food"]}
+	p.hand.append(food)
+	assert_lte(scorer.score_action(p, {"type": "skill", "skill": drink}), 0.0, "手里有食物时不应靠能量饮料拖饥饿")
+
+
+func test_grant_action_zero_when_best_peek_is_game_deck() -> void:
+	var scorer = AiScorerScript.new()
+	var p: Player = _make_player("AI")
+	p.in_phase = "action"
+	p.action_count = 4
+	var idle: Player = _make_player("Idle")
+	idle.in_phase = "action"
+	idle.action_count = 4
+	idle.game_deck.add(_make_card("junk"))
+	var block: MapBlock = _make_block("旷野", 0, 0, true)
+	Game.map_area = [block]
+	Game.players = [p, idle]
+	p.current_block = block
+	idle.current_block = block
+	var grant := Skill.new()
+	grant.english_name = "walkie_talkie"
+	grant.select_target = 1
+	grant.filter_target_range = "infinity"
+	grant.filter_target = func(_player, target, _event, _game) -> bool:
+		return target != null and target.has_method("is_player") and target.is_player()
+	grant.ai = {"order": 4, "useful": 0, "tags": ["grant_action"], "effect": {"player": 1, "target": 0}}
+	p.add_skill(grant)
+	assert_lte(scorer.score_action(p, {"type": "skill", "skill": grant}), 0.0, "支援若只能抽游戏牌应 ≤ 0")
+
+
+func test_needed_equipment_target_is_penalized() -> void:
+	_setup_fuel_van_east()
+	var scorer = AiScorerScript.new()
+	var p: Player = _make_player("AI")
+	var fuel: EquipmentCard = _make_equipment("燃料")
+	fuel.english_name = "fuel"
+	fuel.in_equipment_area = true
+	var gun: EquipmentCard = _make_equipment("自动炮塔")
+	gun.in_equipment_area = true
+	var skill := Skill.new()
+	skill.english_name = "homemade_bullets"
+	skill.ai = {"order": 5, "useful": 0, "tags": ["ammo"], "effect": {"player": 1, "target": 0}}
+	assert_lt(scorer.score_skill_target(p, skill, fuel), scorer.score_skill_target(p, skill, gun), "自制子弹不应优先打任务燃料")
+
+
+func test_same_name_weapon_reequip_scores_zero() -> void:
+	var scorer = AiScorerScript.new()
+	var p: Player = _ready_combat_player()
+	var turret: EquipmentCard = _make_equipment("自动炮塔")
+	turret.weapon = true
+	turret.ai = {"order": 8, "useful": 80, "tags": ["equip", "weapon"]}
+	p.equipment_zone.append(turret)
+	var turret2: EquipmentCard = _make_equipment("自动炮塔")
+	turret2.weapon = true
+	turret2.ai = {"order": 8, "useful": 80, "tags": ["equip", "weapon"]}
+	p.hand.append(turret2)
+	assert_lte(scorer.score_action(p, {"type": "card", "card": turret2}), 0.0, "已装备同名武器再装应 ≤ 0")
 

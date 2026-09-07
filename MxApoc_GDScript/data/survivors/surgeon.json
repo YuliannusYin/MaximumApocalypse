@@ -97,8 +97,11 @@
           "filter_target_range": "long",
           "content": "actions.consume_action(player, 1)\ntarget.pull_toward_one_block_no_effect(player)",
           "ai": {
-            "order": 5,
+            "order": 1,
             "useful": 0,
+            "tags": [
+              "pull"
+            ],
             "effect": {
               "player": 1,
               "target": 0
