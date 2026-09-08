@@ -52,7 +52,7 @@ const SELF_LAYOUT: Dictionary = {
 	"J": Rect2(240, 716, 60, 32),
 	"K": Rect2(240, 750, 60, 30),
 }
-# 队友：立绘 100 + 属性列 50；set_panel_index 以 165 步进
+# 队友：立绘 100 + 属性列 50；set_panel_index 以 TEAMMATE_PANEL_STEP 步进
 const TEAMMATE_LAYOUT: Dictionary = {
 	"A": Rect2(10, 10, 18, 18),
 	"B": Rect2(10, 10, 100, 175),
@@ -64,13 +64,15 @@ const TEAMMATE_LAYOUT: Dictionary = {
 	"J": Rect2(110, 136, 50, 24),
 	"K": Rect2(110, 161, 50, 24),
 }
+const DOG_PANEL_GAP := 6
+const TEAMMATE_PANEL_STEP := 165
 
 var _player: Variant = null
 var _is_self: bool = false
 var _is_current_turn: bool = false
 var _is_operation_focus: bool = false
 var _layout: Dictionary = {}
-var _x_offset: int = 0  # 队友面板的 x 偏移（idx 2 起每档 +165）
+var _x_offset: int = 0  # 队友面板的 x 偏移（idx 2 起每档 +TEAMMATE_PANEL_STEP）
 var _y_offset: int = 0
 
 # 元素节点引用
@@ -95,6 +97,11 @@ var _monster_button: Button
 var _equipment_button: Button
 var _hand_button: Button
 var _border: Panel
+var _dog_badge: Control
+var _dog_badge_panel: Panel
+var _dog_badge_texture: TextureRect
+var _dog_badge_hp: Label
+var _dog_badge_hunger: Label
 
 # === 反馈动画状态 ===
 var _feedback_tween: Tween = null
@@ -108,11 +115,11 @@ func _ready() -> void:
 	_build_layout()
 
 
-## 设置面板索引（0=self, 1~5=队友），队友按 165px 横向排列。
+## 设置面板索引（0=self, 1~5=队友），队友按 TEAMMATE_PANEL_STEP 横向排列。
 func set_panel_index(idx: int) -> void:
 	var new_x: int = 0
 	if idx >= 2:
-		new_x = (idx - 1) * 165
+		new_x = (idx - 1) * TEAMMATE_PANEL_STEP
 	if new_x != _x_offset or _y_offset != 0:
 		_x_offset = new_x
 		_y_offset = 0
@@ -168,6 +175,7 @@ func refresh(show_current_highlight: bool = true) -> void:
 	_update_hp()
 	_update_sneak()
 	_update_hunger()
+	_update_dog_badge()
 	_update_action()
 	_update_monster_zone()
 	_update_equipment_zone()
@@ -176,7 +184,11 @@ func refresh(show_current_highlight: bool = true) -> void:
 
 func _set_visible(v: bool) -> void:
 	for child in get_children():
+		if child == _dog_badge:
+			continue
 		child.visible = v
+	if _dog_badge != null and is_instance_valid(_dog_badge) and not v:
+		_dog_badge.visible = false
 
 
 # === 布局构建 ===
@@ -311,6 +323,77 @@ func _build_portrait() -> void:
 	_marks_label.add_theme_color_override("font_color", TEXT_DIM)
 	_marks_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_nameplate.add_child(_marks_label)
+	_build_dog_badge()
+
+
+func _dog_badge_size() -> Vector2:
+	return TEAMMATE_LAYOUT["B"].size
+
+
+func _build_dog_badge() -> void:
+	var sz: Vector2 = _dog_badge_size()
+	var font_size: int = 10
+	var label_h: float = 14.0
+	_dog_badge = Control.new()
+	_dog_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_dog_badge.z_index = 3
+	_dog_badge.visible = false
+	add_child(_dog_badge)
+	var frame_w: int = HudTheme.FRAME_WIDTH
+	_dog_badge_panel = Panel.new()
+	_dog_badge_panel.position = Vector2.ZERO
+	_dog_badge_panel.clip_contents = true
+	_dog_badge_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_dog_badge_panel.add_theme_stylebox_override("panel", HudTheme.make_picture_frame_style(CARD_BG))
+	_dog_badge.add_child(_dog_badge_panel)
+	_dog_badge_texture = TextureRect.new()
+	_dog_badge_texture.set_anchors_preset(PRESET_FULL_RECT)
+	_dog_badge_texture.offset_left = frame_w
+	_dog_badge_texture.offset_top = frame_w
+	_dog_badge_texture.offset_right = -frame_w
+	_dog_badge_texture.offset_bottom = -frame_w
+	_dog_badge_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_dog_badge_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_dog_badge_texture.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	_dog_badge_texture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_dog_badge_panel.add_child(_dog_badge_texture)
+	var label_pos_x: float = float(frame_w + 2)
+	var label_w: float = sz.x - float(frame_w * 2) - 4.0
+	_dog_badge_hp = _make_dog_badge_label(Vector2(label_pos_x, float(frame_w + 2)), Vector2(label_w, label_h), font_size)
+	_dog_badge_panel.add_child(_dog_badge_hp)
+	_dog_badge_hunger = _make_dog_badge_label(Vector2(label_pos_x, float(frame_w + 2) + label_h), Vector2(label_w, label_h), font_size)
+	_dog_badge_panel.add_child(_dog_badge_hunger)
+	_layout_dog_badge()
+
+
+func _layout_dog_badge() -> void:
+	if _dog_badge == null or not is_instance_valid(_dog_badge):
+		return
+	var sz: Vector2 = _dog_badge_size()
+	var content: Rect2 = _compute_content_rect()
+	_dog_badge.size = sz
+	_dog_badge.position = Vector2(
+		content.position.x + float(_x_offset) - float(DOG_PANEL_GAP) - sz.x,
+		content.position.y + float(_y_offset) + content.size.y - sz.y
+	)
+	_dog_badge_panel.size = sz
+
+
+func _make_dog_badge_label(pos: Vector2, label_size: Vector2, font_size: int) -> Label:
+	var label := Label.new()
+	label.position = pos
+	label.size = label_size
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.clip_text = true
+	label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override("font_color", TEXT_MAIN)
+	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+	label.add_theme_constant_override("outline_size", 2)
+	label.add_theme_stylebox_override("normal", _make_fill_style(NAMEPLATE_BG, 0, 0))
+	return label
 
 
 # === 数据更新 ===
@@ -413,35 +496,11 @@ func _update_marks() -> void:
 func _update_hp() -> void:
 	if _player == null:
 		return
-	if _player.has_method("has_companion_bodies") and _player.has_companion_bodies():
-		var parts: PackedStringArray = []
-		var controller: Variant = _player.get_controller_body() if _player.has_method("get_controller_body") else null
-		var bar_hp: int = 0
-		var bar_max: int = 1
-		for body in _player.bodies:
-			if body == null or not is_instance_valid(body):
-				continue
-			var bhp: int = int(body.get("hp"))
-			var bmax: int = int(body.get("max_hp"))
-			var tag: String = str(body.get("player_name"))
-			if not body.is_alive():
-				parts.append("%s死" % tag)
-			else:
-				parts.append("%s♥%d/%d" % [tag, bhp, bmax])
-			if body == controller:
-				bar_hp = bhp
-				bar_max = bmax
-		_hp_label.text = " ".join(parts)
-		_hp_label.add_theme_font_size_override("font_size", 8 if _is_self else 7)
-		var ratio: float = float(bar_hp) / float(bar_max) if bar_max > 0 else 0.0
-		_set_bar_ratio(_hp_fill, _hp_track, ratio)
-		if bar_max > 0 and bar_hp * 2 <= bar_max:
-			_hp_label.add_theme_color_override("font_color", Color(1.0, 0.55, 0.55, 1.0))
-		else:
-			_hp_label.add_theme_color_override("font_color", TEXT_MAIN)
+	var source: Variant = _display_stat_body()
+	if source == null or not is_instance_valid(source):
 		return
-	var hp: int = int(_player.get("hp"))
-	var max_hp: int = int(_player.get("max_hp"))
+	var hp: int = int(source.get("hp"))
+	var max_hp: int = int(source.get("max_hp"))
 	_hp_label.text = "♥ %d/%d" % [hp, max_hp]
 	_hp_label.add_theme_font_size_override("font_size", 11 if _is_self else 9)
 	var ratio: float = float(hp) / float(max_hp) if max_hp > 0 else 0.0
@@ -454,25 +513,6 @@ func _update_hp() -> void:
 
 func _update_sneak() -> void:
 	if _player == null:
-		return
-	if _player.has_method("has_companion_bodies") and _player.has_companion_bodies():
-		var parts: PackedStringArray = []
-		for body in _player.bodies:
-			if body == null or not is_instance_valid(body):
-				continue
-			var sneak_value: int = body.get_sneak() if body.has_method("get_sneak") else 0
-			var block: Variant = _player.get("current_block")
-			if block != null and is_instance_valid(block):
-				if block.has_method("count_monster"):
-					sneak_value -= block.count_monster()
-				if block.has_method("count_monster_mark"):
-					sneak_value -= block.count_monster_mark()
-			var tag: String = str(body.get("player_name"))
-			if not body.is_alive():
-				parts.append("%s死" % tag)
-			else:
-				parts.append("%s%d" % [tag.substr(0, 1), sneak_value])
-		_sneak_label.text = "潜行 " + " ".join(parts)
 		return
 	var sneak_value: int = _player.get_sneak()
 	var block: Variant = _player.get("current_block")
@@ -487,32 +527,10 @@ func _update_sneak() -> void:
 func _update_hunger() -> void:
 	if _player == null:
 		return
-	if _player.has_method("has_companion_bodies") and _player.has_companion_bodies():
-		var parts: PackedStringArray = []
-		var bar_hunger: int = 1
-		var controller: Variant = _player.get_controller_body() if _player.has_method("get_controller_body") else null
-		for body in _player.bodies:
-			if body == null or not is_instance_valid(body):
-				continue
-			var h: int = int(body.get("hunger"))
-			var tag: String = str(body.get("player_name"))
-			if not body.is_alive():
-				parts.append("%s死" % tag)
-			else:
-				parts.append("%s%d" % [tag.substr(0, 1), h])
-			if body == controller:
-				bar_hunger = h
-		_hunger_label.text = "饥饿 " + " ".join(parts)
-		_hunger_label.add_theme_font_size_override("font_size", 8 if _is_self else 7)
-		_set_bar_ratio(_hunger_fill, _hunger_track, float(bar_hunger) / 6.0)
-		if bar_hunger >= 5:
-			_hunger_label.add_theme_color_override("font_color", Color(1.0, 0.65, 0.15))
-			_hunger_fill.color = HUNGER_FILL_WARN
-		else:
-			_hunger_label.add_theme_color_override("font_color", TEXT_MAIN)
-			_hunger_fill.color = HUNGER_FILL
+	var source: Variant = _display_stat_body()
+	if source == null or not is_instance_valid(source):
 		return
-	var hunger: int = int(_player.get("hunger"))
+	var hunger: int = int(source.get("hunger"))
 	_hunger_label.add_theme_font_size_override("font_size", 11 if _is_self else 9)
 	_hunger_label.text = "饥饿 %d/6" % hunger
 	_set_bar_ratio(_hunger_fill, _hunger_track, float(hunger) / 6.0)
@@ -522,6 +540,60 @@ func _update_hunger() -> void:
 	else:
 		_hunger_label.add_theme_color_override("font_color", TEXT_MAIN)
 		_hunger_fill.color = HUNGER_FILL
+
+
+func _should_show_dog_badge() -> bool:
+	if not _is_self:
+		return false
+	if _player == null or not is_instance_valid(_player):
+		return false
+	if not _player.has_method("has_companion_bodies") or not _player.has_companion_bodies():
+		return false
+	if not _player.has_method("is_body_alive"):
+		return false
+	return _player.is_body_alive("veteran_human") and _player.is_body_alive("dog")
+
+
+func _display_stat_body() -> Variant:
+	if _player != null and is_instance_valid(_player) and _player.has_method("has_companion_bodies") and _player.has_companion_bodies() and _player.has_method("get_controller_body"):
+		var controller: Variant = _player.get_controller_body()
+		if controller != null and is_instance_valid(controller):
+			return controller
+	return _player
+
+
+func _update_dog_badge() -> void:
+	if _dog_badge == null or not is_instance_valid(_dog_badge):
+		return
+	if not _should_show_dog_badge():
+		_dog_badge.visible = false
+		return
+	var dog: Variant = _player.get_body("dog") if _player.has_method("get_body") else null
+	if dog == null or not is_instance_valid(dog):
+		_dog_badge.visible = false
+		return
+	_dog_badge.visible = true
+	var role: Variant = dog.get("role_card")
+	var is_front: bool = true
+	if role != null and is_instance_valid(role):
+		is_front = bool(role.get("is_front_side"))
+	var tex: Texture2D = ImageCache.get_role_card_texture("dog", is_front)
+	_dog_badge_texture.texture = tex
+	var bg: Color = CARD_BG_HUNGER if not is_front else CARD_BG
+	_dog_badge_panel.add_theme_stylebox_override("panel", HudTheme.make_picture_frame_style(bg))
+	var hp: int = int(dog.get("hp"))
+	var max_hp: int = int(dog.get("max_hp"))
+	_dog_badge_hp.text = "♥ %d/%d" % [hp, max_hp]
+	if max_hp > 0 and hp * 2 <= max_hp:
+		_dog_badge_hp.add_theme_color_override("font_color", Color(1.0, 0.55, 0.55, 1.0))
+	else:
+		_dog_badge_hp.add_theme_color_override("font_color", TEXT_MAIN)
+	var hunger: int = int(dog.get("hunger"))
+	_dog_badge_hunger.text = "饥饿 %d/6" % hunger
+	if hunger >= 5:
+		_dog_badge_hunger.add_theme_color_override("font_color", Color(1.0, 0.65, 0.15))
+	else:
+		_dog_badge_hunger.add_theme_color_override("font_color", TEXT_MAIN)
 
 
 func _update_action() -> void:
@@ -710,14 +782,16 @@ func get_role_card_global_position() -> Vector2:
 	return _role_card_panel.global_position + _role_card_panel.size * 0.5
 
 
-## 双子座位按身体取动画终点：老兵偏生命条，狗偏饥饿条。
+## 双子座位按身体取动画终点：狗在角标上，老兵偏生命条。
 func get_body_target_global_position(body: Variant = null) -> Vector2:
 	var base: Vector2 = get_role_card_global_position()
 	if body == null or not is_instance_valid(body):
 		return base
 	var eng: String = str(body.get("english_name"))
-	if eng == "dog" and _hunger_track != null and is_instance_valid(_hunger_track):
-		return _hunger_track.global_position + _hunger_track.size * 0.5
+	if eng == "dog":
+		if _dog_badge != null and is_instance_valid(_dog_badge) and _dog_badge.visible:
+			return _dog_badge.global_position + _dog_badge.size * 0.5
+		return base
 	if eng == "veteran_human" and _hp_track != null and is_instance_valid(_hp_track):
 		return _hp_track.global_position + _hp_track.size * 0.5
 	return base
