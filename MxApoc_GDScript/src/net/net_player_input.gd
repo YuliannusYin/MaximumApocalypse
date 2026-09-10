@@ -1,0 +1,230 @@
+class_name NetworkPlayerInput
+extends IPlayerInput
+
+## 房主为远程真人座位创建的输入实现。
+## 规则协程仍运行在房主，只有输入值通过 ENet 往返。
+const NetProtocol = preload("res://src/net/net_protocol.gd")
+const NetInputCodec = preload("res://src/net/net_input_codec.gd")
+
+signal response_arrived(request_id: int, value: Variant)
+signal visual_requested(request_type: String, seat_id: int, payload: Dictionary)
+
+var _request_counter: int = 0
+var _pending: Dictionary = {}
+var _request_owner: Variant = null
+
+func _init() -> void:
+	if NetSession != null:
+		NetSession.message_received.connect(_on_network_message)
+
+func set_request_owner(player: Variant) -> void:
+	_request_owner = player
+
+func wait_action(player: Variant) -> Variant:
+	return await _request(player, "action", {})
+
+func choose(options: Array, prompt: String = "") -> Variant:
+	return await _request(_request_owner, "choose", {"options": options, "prompt": prompt})
+
+func choose_card(n: int, param: Variant = "hand", filter: Variant = null,
+		prompt: String = "", min_n: int = -1) -> Array:
+	var candidates := _get_card_candidates(param, filter)
+	var result = await _request(_request_owner, "choose_card", {
+		"n": n, "param": param if param is String else "candidates",
+		"cards": candidates,
+		"selection_field": "cards",
+		"prompt": prompt, "min_n": min_n,
+	})
+	return result if result is Array else []
+
+func choose_target(n: int, skill: Variant, prompt: String = "", min_n: int = -1) -> Array:
+	var candidates: Array = []
+	if _request_owner != null and is_instance_valid(_request_owner) \
+			and _request_owner.has_method("get_skill_valid_targets"):
+		candidates = _request_owner.get_skill_valid_targets(skill)
+	if candidates.is_empty():
+		return []
+	var display_n := n
+	var preselect_all := false
+	if n == -1 or n >= candidates.size():
+		display_n = candidates.size()
+		preselect_all = true
+		if Settings.skip_target_selection:
+			return candidates
+	var result = await _request(_request_owner, "choose_target", {
+		"n": display_n, "targets": candidates, "selection_field": "targets",
+		"preselect_all": preselect_all,
+		"prompt": prompt, "min_n": min_n,
+	})
+	return result if result is Array else []
+
+func choose_map_block(blocks: Array, prompt: String = "") -> Variant:
+	return await _request(_request_owner, "choose_block", {
+		"blocks": blocks, "selection_field": "blocks", "prompt": prompt,
+	})
+
+func choose_block_inline(valid_blocks: Array, prompt: String, count: int) -> Array:
+	var result = await _request(_request_owner, "choose_block_inline", {
+		"blocks": valid_blocks, "selection_field": "blocks",
+		"prompt": prompt, "count": count,
+	})
+	return result if result is Array else []
+
+func confirm(message: String) -> bool:
+	return bool(await _request(_request_owner, "confirm", {"message": message}))
+
+func show_card(card: Card, target: Variant) -> void:
+	await _request(target, "show_card", {"card": card})
+
+func set_prompt(text: String) -> void:
+	var owner: Variant = _request_owner
+	_request_owner = null
+	var seat_id := _seat_id_for_player(owner)
+	var owner_id := _controller_for_seat(seat_id)
+	if owner_id != "":
+		NetSession.broadcast_input_request(
+			-1, seat_id, owner_id, "set_prompt", {"text": text})
+
+func wait_redraw_decision(player: Variant) -> bool:
+	var hand: Array = player.hand if player != null and "hand" in player else []
+	return bool(await _request(player, "redraw_decision", {"hand": hand}))
+
+func wait_judge_confirm(player: Variant, prompt: String, allow_cancel: bool) -> bool:
+	return bool(await _request(player, "judge_confirm", {
+		"prompt": prompt, "allow_cancel": allow_cancel,
+	}))
+
+func play_dice_animation(d1: int, d2: int, label: String, outcome: String) -> void:
+	await _request(_request_owner, "dice_animation", {
+		"d1": d1, "d2": d2, "label": label, "outcome": outcome,
+	})
+
+func play_monster_draw_animation(player: Variant, card: Variant) -> void:
+	await _request(player, "monster_draw_animation", {"card": card})
+
+func play_scavenge_draw_animation(player: Variant, card: Variant) -> void:
+	await _request(player, "scavenge_draw_animation", {"card": card})
+
+func play_card_destroy_animation(card: Card) -> void:
+	await _request(_request_owner, "card_destroy_animation", {"card": card})
+
+func play_monster_skill_trigger_animation(monster: Variant) -> void:
+	await _request(_request_owner, "monster_skill_animation", {"monster": monster})
+
+func play_monster_attack_animation(monster: Variant, targets: Array) -> void:
+	var target_seats: Array = []
+	for target in targets:
+		if target != null and target.has_method("get"):
+			var seat_value: Variant = target.get("seat_number")
+			if seat_value != null:
+				target_seats.append(int(seat_value))
+	await _request(_request_owner, "monster_attack_animation", {
+		"monster": monster,
+		"targets": target_seats,
+	})
+
+func _get_card_candidates(param: Variant, filter: Variant) -> Array:
+	var owner: Variant = _request_owner
+	var candidates: Array = []
+	if param is Array:
+		candidates = param.duplicate()
+	elif owner != null and is_instance_valid(owner) and owner.has_method("get_cards"):
+		candidates = owner.get_cards(param)
+	if not (filter is Callable) or not filter.is_valid():
+		return candidates
+	var filtered: Array = []
+	for card in candidates:
+		if filter.call(owner, card, {}, Game):
+			filtered.append(card)
+	return filtered
+
+func _request(player: Variant, request_type: String, payload: Dictionary) -> Variant:
+	var seat_id := _seat_id_for_player(player)
+	var owner_id := _controller_for_seat(seat_id)
+	if owner_id == "" or seat_id < 0:
+		return null
+	if request_type in [
+		"show_card", "dice_animation", "monster_draw_animation", "scavenge_draw_animation",
+		"card_destroy_animation", "monster_skill_animation", "monster_attack_animation",
+	]:
+		var visual_payload := payload.duplicate(true)
+		visual_payload["seat_id"] = seat_id
+		NetSession.broadcast_game_event(request_type, visual_payload)
+		visual_requested.emit(request_type, seat_id, visual_payload)
+	_request_counter += 1
+	var request_id := _request_counter
+	var request_payload := payload.duplicate(true)
+	var selection_map: Dictionary = {}
+	var selection_field := String(request_payload.get("selection_field", ""))
+	if not selection_field.is_empty():
+		var candidates: Variant = request_payload.get(selection_field, [])
+		if candidates is Array:
+			var selection_tokens: Array = []
+			for index in range(candidates.size()):
+				var token := str(index)
+				selection_tokens.append(token)
+				selection_map[token] = candidates[index]
+			request_payload["selection_tokens"] = selection_tokens
+	var state := {
+		"value": null,
+		"received": false,
+		"selection_map": selection_map,
+	}
+	_pending[request_id] = state
+	NetSession.broadcast_input_request(
+		request_id, seat_id, owner_id, request_type, request_payload)
+	while _pending.has(request_id) and not bool(_pending[request_id].received):
+		await response_arrived
+	var result = _pending.get(request_id, {}).get("value", null)
+	var completed_state: Dictionary = _pending.get(request_id, {})
+	_pending.erase(request_id)
+	if not completed_state.get("selection_map", {}).is_empty():
+		result = _decode_selection_result(result, completed_state.selection_map)
+	else:
+		result = NetInputCodec.decode(result, Game)
+	if request_type == "choose_target" and result is Array:
+		NetSession.broadcast_game_event("target_links", {
+			"source_seat": seat_id,
+			"targets": result,
+		})
+	return result
+
+func _decode_selection_result(result: Variant, selection_map: Dictionary) -> Variant:
+	if result is Array:
+		var decoded: Array = []
+		for token in result:
+			var key := String(token)
+			if not selection_map.has(key):
+				continue
+			var candidate: Variant = selection_map[key]
+			if not decoded.has(candidate):
+				decoded.append(candidate)
+		return decoded
+	var key := String(result)
+	return selection_map.get(key, null)
+
+func _on_network_message(message: Dictionary) -> void:
+	if String(message.get("message_type", "")) != NetProtocol.INPUT_RESPONSE:
+		return
+	var request_id := int(message.get("request_id", -1))
+	if not _pending.has(request_id):
+		return
+	var payload: Dictionary = message.get("payload", {})
+	_pending[request_id].value = payload.get("value", null)
+	_pending[request_id].received = true
+	response_arrived.emit(request_id, payload.get("value", null))
+
+
+func _seat_id_for_player(player: Variant) -> int:
+	if player == null:
+		return -1
+	if player is int:
+		return int(player)
+	var value: Variant = player.get("seat_number") if player.has_method("get") else null
+	return int(value) if value != null else -1
+
+func _controller_for_seat(seat_id: int) -> String:
+	if NetSession == null or seat_id < 0 or seat_id >= NetSession.registry.seats.size():
+		return ""
+	return String(NetSession.registry.seats[seat_id].get("controller_id", ""))
+

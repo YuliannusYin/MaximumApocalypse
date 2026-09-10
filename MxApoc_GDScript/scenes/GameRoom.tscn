@@ -86,6 +86,34 @@ text = "高级设置"
 layout_mode = 2
 text = "在线多人游戏"
 
+[node name="HostNameLabel" type="Label" parent="MissionSelectArea/ScrollContainer/VBoxContainer/AdvancedSection"]
+layout_mode = 2
+text = "房主昵称"
+
+[node name="HostNameEdit" type="LineEdit" parent="MissionSelectArea/ScrollContainer/VBoxContainer/AdvancedSection"]
+layout_mode = 2
+placeholder_text = "输入房主昵称"
+max_length = 24
+
+[node name="PortLabel" type="Label" parent="MissionSelectArea/ScrollContainer/VBoxContainer/AdvancedSection"]
+layout_mode = 2
+text = "监听端口"
+
+[node name="PortEdit" type="LineEdit" parent="MissionSelectArea/ScrollContainer/VBoxContainer/AdvancedSection"]
+layout_mode = 2
+placeholder_text = "例如 7777"
+max_length = 5
+virtual_keyboard_type = 2
+
+[node name="StartServerButton" type="Button" parent="MissionSelectArea/ScrollContainer/VBoxContainer/AdvancedSection"]
+layout_mode = 2
+text = "启动服务器"
+
+[node name="NetworkHintLabel" type="Label" parent="MissionSelectArea/ScrollContainer/VBoxContainer/AdvancedSection"]
+custom_minimum_size = Vector2(0, 24)
+layout_mode = 2
+autowrap_mode = 2
+
 [node name="MissionDetailArea" type="PanelContainer" parent="."]
 layout_mode = 1
 offset_left = 420.0

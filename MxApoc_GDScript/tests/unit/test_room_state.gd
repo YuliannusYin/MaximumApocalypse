@@ -236,6 +236,31 @@ func test_missing_online_multiplayer_field_defaults_false() -> void:
 	RoomState.load_from(PLAYER_PATH)
 	assert_false(RoomState.online_multiplayer)
 
+func test_network_host_settings_roundtrip() -> void:
+	RoomState.host_name = "测试房主"
+	RoomState.listen_port = 7788
+	RoomState.save_to(PLAYER_PATH)
+	RoomState.clear()
+	RoomState.load_from(PLAYER_PATH)
+	assert_eq(RoomState.host_name, "测试房主")
+	assert_eq(RoomState.listen_port, 7788)
+
+func test_invalid_network_host_settings_use_defaults() -> void:
+	var payload := {
+		"mission_is_random": true,
+		"mission_id": -1,
+		"variants": {},
+		"seats": [{"type": "human", "survivor": ""}],
+		"host_name": "",
+		"listen_port": 70000,
+	}
+	var file := FileAccess.open(PLAYER_PATH, FileAccess.WRITE)
+	file.store_string(JSON.stringify(payload))
+	file.close()
+	RoomState.load_from(PLAYER_PATH)
+	assert_eq(RoomState.host_name, "")
+	assert_eq(RoomState.listen_port, 7777)
+
 
 func test_corrupt_file_falls_back_to_defaults() -> void:
 	var file := FileAccess.open(PLAYER_PATH, FileAccess.WRITE)

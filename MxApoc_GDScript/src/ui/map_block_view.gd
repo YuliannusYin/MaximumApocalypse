@@ -296,7 +296,9 @@ func play_mark_pulse(added: bool) -> void:
 			_anim_tween.tween_property(self, "scale", Vector2.ONE, 0.15)
 	else:
 		# 标记减少：对剩余标记（无则地块整体）快速淡出闪烁后复位
-		var nodes: Array = mark_cells.duplicate()
+		var nodes: Array[Control] = []
+		for mark_cell in mark_cells:
+			nodes.append(mark_cell)
 		if nodes.is_empty():
 			nodes.append(self)
 		_anim_tween = create_tween().set_parallel(true)

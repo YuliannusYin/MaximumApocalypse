@@ -40,7 +40,7 @@ func _ready() -> void:
 	HudTheme.apply_slot_button(wiki_button, 10, HudTheme.SLOT_BORDER, HudTheme.GOLD_TEXT)
 	HudTheme.apply_slot_button(achievement_button, 10, HudTheme.SLOT_BORDER, HudTheme.GOLD_TEXT)
 	HudTheme.apply_slot_button(github_button, 10)
-	version_label.text = str(ProjectSettings.get_setting("application/config/version", "v0.36.0"))
+	version_label.text = str(ProjectSettings.get_setting("application/config/version", "v0.37.0"))
 	version_label.add_theme_color_override("font_color", HudTheme.TEXT_DIM)
 	create_room_button.pressed.connect(_on_create_room_pressed)
 	join_room_button.pressed.connect(_on_join_room_pressed)
@@ -53,6 +53,11 @@ func _ready() -> void:
 	# EditorButton 保持禁用占位，不连接信号
 
 func _on_create_room_pressed() -> void:
+	# 创建房间必须从全新的 host 会话开始，避免上一次客机连接残留导致
+	# GameRoom 把本机误判为客机并禁用高级设置。
+	if NetSession != null and (NetSession.session_role != "none"
+			or NetSession.multiplayer.multiplayer_peer != null):
+		NetSession.close_session()
 	get_tree().change_scene_to_file("res://scenes/GameRoom.tscn")
 
 func _on_join_room_pressed() -> void:

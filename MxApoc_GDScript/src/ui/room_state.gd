@@ -1,5 +1,6 @@
 extends Node
 
+const NetProtocol = preload("res://src/net/net_protocol.gd")
 ## 房间状态（autoload）。任务 / 变体 / 座位在游戏房间中编辑，
 ## 按开发者模式分别写入 user://room.json 与 user://room_debug.json。
 ## 打完一局或重启游戏后再进房间，恢复上次配置。
@@ -20,6 +21,9 @@ var variants: Dictionary = DEFAULT_VARIANTS.duplicate()
 var seats: Array = []
 ## 是否作为在线多人房间（本轮仅配置，不启动网络）。
 var online_multiplayer: bool = false
+## 在线房间监听名称与端口；仅房主创建时使用，不包含 peer_id。
+var host_name: String = ""
+var listen_port: int = 7777
 
 var _path_player: String = CONFIG_PATH_PLAYER
 var _path_debug: String = CONFIG_PATH_DEBUG
@@ -39,6 +43,8 @@ func clear() -> void:
 	variants = DEFAULT_VARIANTS.duplicate()
 	seats = [{"type": "human", "survivor": null}]
 	online_multiplayer = false
+	host_name = ""
+	listen_port = 7777
 
 
 ## 重置为默认并覆盖当前模式的已保存配置。
@@ -168,6 +174,8 @@ func _to_serialized() -> Dictionary:
 		"variants": variants.duplicate(),
 		"seats": seat_rows,
 		"online_multiplayer": online_multiplayer,
+		"host_name": host_name,
+		"listen_port": listen_port,
 	}
 
 
@@ -207,6 +215,13 @@ func _apply_serialized(data: Dictionary) -> void:
 	if seats.is_empty():
 		seats = [{"type": "human", "survivor": null}]
 	online_multiplayer = bool(data.get("online_multiplayer", false))
+	host_name = NetProtocol.normalize_nickname(String(data.get("host_name", "")))
+	# 兼容旧版本把“房主”作为默认昵称写入的配置。
+	if not data.has("host_name"):
+		host_name = ""
+	listen_port = int(data.get("listen_port", 7777))
+	if listen_port < 1 or listen_port > 65535:
+		listen_port = 7777
 
 
 func _sanitize_seat(raw: Dictionary, available_ids: Dictionary) -> Dictionary:

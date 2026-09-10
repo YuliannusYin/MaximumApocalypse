@@ -1,5 +1,6 @@
 extends Control
 
+const NetProtocol = preload("res://src/net/net_protocol.gd")
 const SEAT_ITEM_SCENE := preload("res://scenes/SeatItem.tscn")
 const LoadingScreenScript := preload("res://src/ui/loading_screen.gd")
 const MAX_SEATS := 6
@@ -11,6 +12,10 @@ const RANDOM_MISSION_IDX := 0
 @onready var _mission_option: OptionButton = $MissionSelectArea/ScrollContainer/VBoxContainer/MissionSection/MissionOption
 @onready var _variant_list: VBoxContainer = $MissionSelectArea/ScrollContainer/VBoxContainer/VariantSection/VariantList
 @onready var _online_multiplayer_checkbox: CheckBox = $MissionSelectArea/ScrollContainer/VBoxContainer/AdvancedSection/OnlineMultiplayerCheckBox
+@onready var _host_name_edit: LineEdit = $MissionSelectArea/ScrollContainer/VBoxContainer/AdvancedSection/HostNameEdit
+@onready var _port_edit: LineEdit = $MissionSelectArea/ScrollContainer/VBoxContainer/AdvancedSection/PortEdit
+@onready var _start_server_button: Button = $MissionSelectArea/ScrollContainer/VBoxContainer/AdvancedSection/StartServerButton
+@onready var _network_hint_label: Label = $MissionSelectArea/ScrollContainer/VBoxContainer/AdvancedSection/NetworkHintLabel
 @onready var _mission_name_label: Label = $MissionDetailArea/VBoxContainer/MissionNameLabel
 @onready var _difficulty_label: Label = $MissionDetailArea/VBoxContainer/DifficultyLabel
 @onready var _detail_view: MissionDetailView = $MissionDetailArea/VBoxContainer/ScrollContainer/DetailView
@@ -38,7 +43,12 @@ func _ready() -> void:
 	HudTheme.apply_section_panel($PlayerSettingArea, Color("#211f1a"))
 	HudTheme.apply_slot_button(_mission_option, 14, HudTheme.GOLD_BORDER, HudTheme.GOLD_TEXT)
 	HudTheme.apply_slot_button(_online_multiplayer_checkbox, 13)
-	_online_multiplayer_checkbox.tooltip_text = "开启后将允许其他玩家通过「加入房间」连入。当前联机尚未实现。"
+	_online_multiplayer_checkbox.tooltip_text = "开启后将允许其他玩家通过「加入房间」连入。默认端口：7777"
+	_style_network_edit(_host_name_edit)
+	_style_network_edit(_port_edit)
+	HudTheme.apply_slot_button(_start_server_button, 13, HudTheme.GOLD_BORDER, HudTheme.GOLD_TEXT)
+	_network_hint_label.add_theme_color_override("font_color", Color("#e26d6d"))
+	$MissionSelectArea/ScrollContainer/VBoxContainer/AdvancedSection/HostNameLabel.text = "昵称"
 	HudTheme.apply_slot_button(_add_seat_button, 14, HudTheme.SLOT_BORDER, HudTheme.TEXT_MAIN)
 	HudTheme.apply_slot_button(_remove_seat_button, 14, HudTheme.SLOT_BORDER, HudTheme.TEXT_MAIN)
 	HudTheme.apply_slot_button(_back_button, 13)
@@ -46,10 +56,13 @@ func _ready() -> void:
 	HudTheme.apply_mission_slot_button(_start_game_button, 13)
 	_mission_name_label.add_theme_color_override("font_color", HudTheme.GOLD_TEXT)
 	_difficulty_label.add_theme_color_override("font_color", HudTheme.GOLD_TEXT_DIM)
-	RoomState.load_from_disk()
+	if NetSession == null or NetSession.is_host or NetSession.multiplayer.multiplayer_peer == null:
+		RoomState.load_from_disk()
 	_populate_missions()
 	_populate_variants()
 	_restore_state()
+	_host_name_edit.text = RoomState.host_name
+	_port_edit.text = str(RoomState.listen_port)
 	_rebuild_seats()
 	_update_start_button()
 	RoomState.save()
@@ -57,9 +70,21 @@ func _ready() -> void:
 	_reset_button.pressed.connect(_on_reset)
 	_mission_option.item_selected.connect(_on_mission_selected)
 	_online_multiplayer_checkbox.toggled.connect(_on_online_multiplayer_toggled)
+	_host_name_edit.text_changed.connect(_on_host_name_changed)
+	_port_edit.text_changed.connect(_on_port_changed)
+	_start_server_button.pressed.connect(_on_start_server_pressed)
+	NetSession.network_error.connect(_on_network_error)
 	_start_game_button.pressed.connect(_on_start_game)
 	_add_seat_button.pressed.connect(_on_add_seat)
 	_remove_seat_button.pressed.connect(_on_remove_seat)
+	NetSession.session_changed.connect(_on_network_snapshot)
+	NetSession.message_received.connect(_on_network_message)
+	if RoomState.online_multiplayer and NetSession.multiplayer.multiplayer_peer == null:
+		_update_server_controls()
+	if NetSession.session_role == "client":
+		_set_client_view()
+	else:
+		_update_server_controls()
 
 ## 填充任务下拉框：恒显示全部任务；玩家模式下未解锁任务置灰不可选并附解锁提示，
 ## “随机任务”选项仅在全部任务通关（或开发者模式）后出现。
@@ -111,6 +136,7 @@ func _restore_state() -> void:
 	for key in _variant_checkboxes:
 		_variant_checkboxes[key].set_pressed_no_signal(RoomState.variants.get(key, false))
 	_online_multiplayer_checkbox.set_pressed_no_signal(RoomState.online_multiplayer)
+	_set_network_settings_visible(RoomState.online_multiplayer)
 	_refresh_detail_panel()
 
 ## “随机任务”选项当前是否存在（存在时必为第 0 项，metadata 为 null）。
@@ -144,10 +170,23 @@ func _rebuild_seats() -> void:
 		_seat_list.remove_child(child)
 		child.queue_free()
 	for i in range(RoomState.seats.size()):
-		var seat = RoomState.seats[i]
+		var seat: Dictionary = RoomState.seats[i]
+		var online_seat: bool = RoomState.online_multiplayer \
+			and NetSession.registry.seats.size() == RoomState.seats.size()
+		if online_seat:
+			seat = NetSession.registry.seats[i]
 		var item: SeatItem = SEAT_ITEM_SCENE.instantiate()
 		item.seat_index = i
 		_seat_list.add_child(item)
+		if online_seat:
+			var controller_id := String(seat.get("controller_id", ""))
+			var can_edit_survivor := controller_id == NetSession.local_player_id \
+				or controller_id.is_empty()
+			item.configure_controller_options(
+				NetSession.registry.players.values(),
+				controller_id,
+				NetSession.is_host,
+				can_edit_survivor)
 		item.setup(seat)
 		item.changed.connect(_on_seat_changed)
 	_refresh_seats_disabled()
@@ -196,21 +235,119 @@ func _on_mission_selected(idx: int) -> void:
 		RoomState.selected_mission_is_random = false
 		RoomState.selected_mission = meta
 	_refresh_detail_panel()
+	if NetSession != null and NetSession.is_host:
+		NetSession.sync_room_config()
 	RoomState.save()
 
 func _on_variant_toggled(id: String, toggled: bool) -> void:
 	RoomState.variants[id] = toggled
+	if NetSession != null and NetSession.is_host:
+		NetSession.sync_room_config()
 	RoomState.save()
+
+func _style_network_edit(edit: LineEdit) -> void:
+	edit.add_theme_color_override("font_color", HudTheme.TEXT_MAIN)
+	edit.add_theme_color_override("font_placeholder_color", HudTheme.TEXT_DIM)
+	edit.add_theme_stylebox_override("normal",
+		HudTheme.make_slot_style(HudTheme.SLOT_BG, HudTheme.SLOT_BORDER))
+	edit.add_theme_stylebox_override("focus",
+		HudTheme.make_slot_style(HudTheme.SLOT_BG_HOVER, HudTheme.GOLD_BORDER))
+
+func _on_host_name_changed(value: String) -> void:
+	RoomState.host_name = NetProtocol.normalize_nickname(value)
+	RoomState.save()
+
+func _on_port_changed(value: String) -> void:
+	if value.is_valid_int():
+		var port := int(value)
+		if port >= 1 and port <= NetProtocol.MAX_PORT:
+			RoomState.listen_port = port
+			RoomState.save()
 
 func _on_online_multiplayer_toggled(toggled: bool) -> void:
 	RoomState.online_multiplayer = toggled
+	_set_network_settings_visible(toggled)
+	if not toggled and NetSession.is_host:
+		NetSession.close_session()
+	_update_server_controls()
 	RoomState.save()
+
+func _set_network_settings_visible(visible: bool) -> void:
+	$MissionSelectArea/ScrollContainer/VBoxContainer/AdvancedSection/HostNameLabel.visible = visible
+	_host_name_edit.visible = visible
+	$MissionSelectArea/ScrollContainer/VBoxContainer/AdvancedSection/PortLabel.visible = visible
+	_port_edit.visible = visible
+	_start_server_button.visible = visible
+	_network_hint_label.visible = visible
+
+func _update_server_controls() -> void:
+	if NetSession != null and NetSession.session_role == "client":
+		_host_name_edit.editable = false
+		_port_edit.editable = false
+		_start_server_button.disabled = true
+		_start_server_button.text = "客机模式"
+		return
+	var server_started := NetSession != null and NetSession.session_role == "host"
+	_host_name_edit.editable = not server_started
+	_port_edit.editable = not server_started
+	_start_server_button.disabled = server_started
+	_start_server_button.text = "服务器已启动" if server_started else "启动服务器"
+
+func _on_start_server_pressed() -> void:
+	if NetSession.session_role == "client":
+		_show_network_hint("当前是加入房间的客机，不能启动服务器")
+		return
+	if not _validate_network_settings():
+		return
+	if not RoomState.online_multiplayer:
+		_show_network_hint("请先勾选在线多人游戏")
+		return
+	if NetSession.create_host(RoomState.host_name, RoomState.listen_port, RoomState.seats):
+		RoomState.save()
+		NetSession.sync_room_config()
+		_rebuild_seats()
+		_update_server_controls()
+		_network_hint_label.add_theme_color_override("font_color", Color("#65d47a"))
+		_show_network_hint("服务器已启动，地址端口：%d" % RoomState.listen_port)
+
+func _validate_network_settings() -> bool:
+	var host_name := NetProtocol.normalize_nickname(_host_name_edit.text)
+	if host_name.is_empty():
+		_show_network_hint("房主昵称不能为空")
+		return false
+	if not _port_edit.text.is_valid_int():
+		_show_network_hint("端口必须是数字")
+		return false
+	var port := int(_port_edit.text)
+	if port < 1 or port > NetProtocol.MAX_PORT:
+		_show_network_hint("端口范围必须为 1-65535")
+		return false
+	RoomState.host_name = host_name
+	RoomState.listen_port = port
+	_host_name_edit.text = host_name
+	_port_edit.text = str(port)
+	_network_hint_label.text = ""
+	return true
+
+func _show_network_hint(text: String) -> void:
+	_network_hint_label.text = text
+
+func _on_network_error(code: String, detail: String) -> void:
+	_network_hint_label.add_theme_color_override("font_color", Color("#e26d6d"))
+	if code == NetProtocol.ERROR_PORT_IN_USE or code == NetProtocol.ERROR_INVALID_PORT:
+		RoomState.online_multiplayer = false
+		_online_multiplayer_checkbox.set_pressed_no_signal(false)
+	_update_server_controls()
+	_show_network_hint(detail)
 
 func _on_add_seat() -> void:
 	if RoomState.seats.size() >= MAX_SEATS:
 		return
 	RoomState.seats.append({"type": "ai", "survivor": null})
+	if NetSession != null and NetSession.is_host:
+		NetSession.registry.replace_seats(RoomState.seats, NetSession.local_player_id)
 	_rebuild_seats()
+	_sync_network_seats()
 	_update_start_button()
 	RoomState.save()
 
@@ -218,15 +355,43 @@ func _on_remove_seat() -> void:
 	if RoomState.seats.size() <= MIN_SEATS:
 		return
 	RoomState.seats.pop_back()
+	if NetSession != null and NetSession.is_host:
+		NetSession.registry.replace_seats(RoomState.seats, NetSession.local_player_id)
 	_rebuild_seats()
+	_sync_network_seats()
 	_update_start_button()
 	RoomState.save()
 
-func _on_seat_changed(_idx: int) -> void:
+func _on_seat_changed(idx: int) -> void:
 	_refresh_seats_disabled()
 	_sync_seats_to_state()
+	if NetSession != null and NetSession.session_role == "client":
+		var data: Dictionary = _seat_list.get_child(idx).collect()
+		if String(data.get("controller_id", "")) == NetSession.local_player_id:
+			var survivor = data.get("survivor", null)
+			NetSession.send_room_command("set_survivor", {
+				"seat_id": idx,
+				"survivor_id": String(survivor.english_name) if survivor != null else "",
+			})
+	else:
+		_sync_network_seats()
 	_update_start_button()
 	RoomState.save()
+
+func _sync_network_seats() -> void:
+	if NetSession == null or not NetSession.is_host or NetSession.registry.phase != "lobby":
+		return
+	for i in range(_seat_list.get_child_count()):
+		var data: Dictionary = _seat_list.get_child(i).collect()
+		var controller_id := String(data.get("controller_id", NetSession.local_player_id))
+		var survivor = data.get("survivor", null)
+		NetSession.registry.bind_seat(
+			i,
+			controller_id,
+			String(survivor.english_name) if survivor != null else "",
+			controller_id.is_empty())
+	NetSession.session_changed.emit(NetSession.registry.snapshot())
+	NetSession._broadcast(NetProtocol.ROOM_SNAPSHOT, NetSession.registry.snapshot())
 
 func _refresh_detail_panel() -> void:
 	if RoomState.selected_mission_is_random:
@@ -245,17 +410,73 @@ func _refresh_detail_panel() -> void:
 	_detail_view.populate(mission)
 
 func _update_start_button() -> void:
+	if NetSession != null and NetSession.session_role == "client":
+		_start_game_button.disabled = true
+		return
 	_start_game_button.disabled = not RoomState.is_ready_to_start()
 
 func _on_start_game() -> void:
 	if not RoomState.is_ready_to_start():
 		return
+	if RoomState.online_multiplayer:
+		if not _validate_network_settings():
+			return
+		if not NetSession.is_host:
+			_show_network_hint("请先启动服务器")
+			return
+		if NetSession.registry.phase == "lobby":
+			NetSession.send_room_command("start")
 	LoadingScreenScript.go_enter_game(get_tree())
 
+func _set_client_view() -> void:
+	_add_seat_button.disabled = true
+	_remove_seat_button.disabled = true
+	_start_game_button.disabled = true
+	_online_multiplayer_checkbox.disabled = true
+	_host_name_edit.editable = false
+	_port_edit.editable = false
+	_start_server_button.disabled = true
+
+func _on_network_snapshot(snapshot: Dictionary) -> void:
+	if NetSession.is_host:
+		_rebuild_seats()
+		_update_start_button()
+		return
+	_apply_network_room_config(snapshot)
+	_online_multiplayer_checkbox.set_pressed_no_signal(true)
+	_host_name_edit.text = String(snapshot.get("host_name", NetSession.registry.host_name))
+	_port_edit.text = str(int(snapshot.get("port", NetSession.registry.port)))
+	_rebuild_seats()
+	_update_server_controls()
+	_update_start_button()
+	if String(snapshot.get("phase", "")) == "playing":
+		_start_game_button.disabled = true
+
+func _apply_network_room_config(snapshot: Dictionary) -> void:
+	var mission_config: Dictionary = snapshot.get("mission", {})
+	RoomState.selected_mission_is_random = String(mission_config.get("mode", "random")) == "random"
+	if RoomState.selected_mission_is_random and _has_random_option():
+		_mission_option.select(RANDOM_MISSION_IDX)
+	elif not RoomState.selected_mission_is_random and RoomState.selected_mission != null:
+		_select_mission_if_enabled(RoomState.selected_mission.mission_id)
+	for key in _variant_checkboxes:
+		_variant_checkboxes[key].set_pressed_no_signal(RoomState.variants.get(key, false))
+	_refresh_detail_panel()
+
+func _on_network_message(message: Dictionary) -> void:
+	if NetSession.is_host:
+		return
+	if String(message.get("message_type", "")) == NetProtocol.MATCH_START:
+		LoadingScreenScript.go_enter_game(get_tree())
+
 func _on_back() -> void:
+	if NetSession != null and NetSession.multiplayer.multiplayer_peer != null:
+		NetSession.leave_room()
 	get_tree().change_scene_to_file("res://scenes/MainMenu.tscn")
 
 func _on_reset() -> void:
+	if NetSession != null and NetSession.is_host:
+		NetSession.close_session()
 	RoomState.reset_to_default()
 	# 刷新任务选择下拉框选中项（随机任务未解锁时回退到第一个可选任务）
 	_select_default_mission()
@@ -263,6 +484,11 @@ func _on_reset() -> void:
 	for key in _variant_checkboxes:
 		_variant_checkboxes[key].set_pressed_no_signal(false)
 	_online_multiplayer_checkbox.set_pressed_no_signal(RoomState.online_multiplayer)
+	_host_name_edit.text = RoomState.host_name
+	_port_edit.text = str(RoomState.listen_port)
+	_set_network_settings_visible(RoomState.online_multiplayer)
+	_network_hint_label.text = ""
+	_update_server_controls()
 	# 重建座位
 	_rebuild_seats()
 	# 刷新详情面板与开始按钮状态

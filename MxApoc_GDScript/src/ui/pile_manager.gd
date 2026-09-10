@@ -23,6 +23,7 @@ var _ui_layer: CanvasLayer
 var _selected_pile_key: String = ""
 var _acting_player: Variant = null
 var _event_scheduler: Variant = null
+var _network_action_available: Variant = null
 
 
 func setup(ui_layer: CanvasLayer) -> void:
@@ -38,6 +39,16 @@ func set_acting_player(player: Variant) -> void:
 func set_event_scheduler(scheduler: Variant) -> void:
 	_event_scheduler = scheduler
 	refresh_pile_counts()
+	refresh_pile_highlights()
+
+## 客机网络输入模式下，由 action INPUT_REQUEST 驱动牌堆可操作状态。
+## null 表示单机/房主本地模式，继续使用玩家 phase 判断。
+func set_network_action_available(available: bool) -> void:
+	_network_action_available = available
+	refresh_pile_highlights()
+
+func clear_network_action_mode() -> void:
+	_network_action_available = null
 	refresh_pile_highlights()
 
 
@@ -224,7 +235,11 @@ func is_pile_clickable(pile_key: String) -> bool:
 	var current: Variant = _get_acting_player()
 	if current == null or not is_instance_valid(current):
 		return false
-	var in_action: bool = current.get_effective_phase() == "action" if current.has_method("get_effective_phase") else current.get("in_phase") == "action"
+	var in_action: bool
+	if _network_action_available != null:
+		in_action = bool(_network_action_available)
+	else:
+		in_action = current.get_effective_phase() == "action" if current.has_method("get_effective_phase") else current.get("in_phase") == "action"
 	var action_count: int = current.get_effective_action_count() if current.has_method("get_effective_action_count") else current.get("action_count")
 	if not in_action or action_count <= 0:
 		return false

@@ -2,6 +2,7 @@ extends Node
 
 const EventSchedulerScript = preload("res://src/core/event_scheduler.gd")
 const AIPlayerInputScript = preload("res://src/ai/ai_player_input.gd")
+const GameStateSerializer = preload("res://src/net/game_state_serializer.gd")
 
 ## Game 游戏全局类（autoload）。
 ## 全局区域 + build_map + destroy_map_block + 状态机委托。
@@ -81,6 +82,10 @@ func log_message(message: String) -> void:
 	log_list.append(message)
 	if EventBus != null and is_instance_valid(EventBus):
 		EventBus.publish_log(message)
+	if NetSession != null and is_instance_valid(NetSession) and NetSession.is_host \
+			and RoomState != null and RoomState.online_multiplayer:
+		NetSession.broadcast_game_event("log", {"message": message})
+		NetSession.broadcast_state_snapshot(GameStateSerializer.snapshot(self))
 
 
 ## 记录日志消息（log_message 的别名，供 content 代码统一调用）。
@@ -422,6 +427,8 @@ func destroy_map_block(block: MapBlock, source: Variant, runtime: Variant = null
 				await player.trigger("on_destroy_block", event)
 		# 5. 地块状态变更，从地图区域移除
 		block.block_state = "destroyed"
+		if EventBus != null and is_instance_valid(EventBus):
+			EventBus.block_destroyed.emit(block, source)
 		map_area.erase(block)
 		log_message(LogColors.block(block.block_name) + " 被摧毁了")
 		# 6. 摧毁地块后（通知）

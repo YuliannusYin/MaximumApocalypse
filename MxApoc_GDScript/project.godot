@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="MaximumApocalypse"
-config/version="v0.36.0"
+config/version="v0.37.0"
 run/main_scene="res://scenes/MainMenu.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
 config/icon="res://icon.svg"
@@ -28,6 +28,7 @@ Game="*res://src/game/game.gd"
 ArchiveManager="*res://src/core/archive_manager.gd"
 RoomState="*res://src/ui/room_state.gd"
 Settings="*res://src/ui/settings.gd"
+NetSession="*res://src/net/net_session.gd"
 
 [display]
 

@@ -41,6 +41,7 @@ var _timer_duration: float = 0.0
 var _timer_on_timeout: Callable = Callable()
 var _acting_player: Variant = null
 var _event_scheduler: Variant = null
+var _network_action_available: Variant = null
 
 
 func setup(ui_layer: Node) -> void:
@@ -60,6 +61,16 @@ func set_acting_player(player: Variant) -> void:
 ## 注入 EventScheduler 观察器；控制器不再猜测当前输入玩家。
 func set_event_scheduler(scheduler: Variant) -> void:
 	_event_scheduler = scheduler
+	refresh_confirm_cancel_buttons()
+
+## 客机网络输入模式下，由 NetClientInput 的 action 请求驱动可操作状态。
+## null 表示单机/房主本地模式，继续使用玩家自身 phase 判断。
+func set_network_action_available(available: bool) -> void:
+	_network_action_available = available
+	refresh_confirm_cancel_buttons()
+
+func clear_network_action_mode() -> void:
+	_network_action_available = null
 	refresh_confirm_cancel_buttons()
 
 
@@ -94,6 +105,14 @@ func _is_domain_locked() -> bool:
 
 func _is_player_move_mode() -> bool:
 	return _move_select_mode and not _card_move_mode
+
+func _is_action_available(current: Variant) -> bool:
+	if _network_action_available != null:
+		return bool(_network_action_available)
+	if current == null or not is_instance_valid(current):
+		return false
+	return current.get_effective_phase() == "action" if current.has_method("get_effective_phase") \
+		else current.get("in_phase") == "action"
 
 
 ## 清空控制器手牌选中；有手牌区时同步清视觉。不负责 prompt（避免误擦其它模式）。
@@ -418,7 +437,7 @@ func refresh_confirm_cancel_buttons() -> void:
 	var in_action: bool = false
 	var action_count: int = 0
 	if current != null and is_instance_valid(current):
-		in_action = current.get_effective_phase() == "action" if current.has_method("get_effective_phase") else current.get("in_phase") == "action"
+		in_action = _is_action_available(current)
 		action_count = current.get_effective_action_count() if current.has_method("get_effective_action_count") else current.get("action_count")
 	# 确定按钮：有选中卡牌或牌堆 + 行动阶段 + 行动次数>0 + 选中卡牌 filter 通过
 	if _confirm_button != null and is_instance_valid(_confirm_button):
@@ -475,7 +494,7 @@ func enter_block_select_mode(prompt: String, valid_blocks: Array, count: int, so
 			return
 		if current.has_method("is_action_type_allowed") and not current.is_action_type_allowed("move"):
 			return
-		var in_action: bool = current.get_effective_phase() == "action" if current.has_method("get_effective_phase") else current.get("in_phase") == "action"
+		var in_action: bool = _is_action_available(current)
 		var action_count: int = current.get_effective_action_count() if current.has_method("get_effective_action_count") else current.get("action_count")
 		if not in_action or action_count <= 0:
 			return
