@@ -17,6 +17,7 @@ var _waiting_for_peers: bool = false
 var _game_prepared: bool = false
 var _wait_started_ms: int = 0
 var _visual_relays_connected: bool = false
+var _last_monster_mark_counts: Dictionary = {}
 
 
 func is_active() -> bool:
@@ -220,25 +221,87 @@ func _seat_is_ai(seat_number: int) -> bool:
 func _connect_visual_relays() -> void:
 	if _visual_relays_connected or EventBus == null:
 		return
-	EventBus.player_moved.connect(_relay_player_moved)
-	EventBus.block_revealed.connect(_relay_block_revealed)
-	EventBus.block_destroyed.connect(_relay_block_destroyed)
-	EventBus.game_over.connect(_relay_game_over)
+	_bind_visual_relay(EventBus.player_moved, _relay_player_moved)
+	_bind_visual_relay(EventBus.block_revealed, _relay_block_revealed)
+	_bind_visual_relay(EventBus.block_destroyed, _relay_block_destroyed)
+	_bind_visual_relay(EventBus.game_over, _relay_game_over)
+	_bind_visual_relay(EventBus.turn_started, _relay_turn_started)
+	_bind_visual_relay(EventBus.phase_changed, _relay_phase_changed)
+	_bind_visual_relay(EventBus.monster_mark_changed, _relay_block_mark_changed)
+	_bind_visual_relay(EventBus.objective_mark_changed, _relay_block_mark_changed)
+	_bind_visual_relay(EventBus.monster_died, _relay_monster_died)
+	_bind_visual_relay(EventBus.monster_spawned, _relay_monster_spawned)
+	_bind_visual_relay(EventBus.monster_engaged_target_changed, _relay_monster_engaged)
+	_bind_visual_relay(EventBus.player_hp_changed, _relay_player_state_changed)
+	_bind_visual_relay(EventBus.player_died, _relay_player_state_changed)
+	_bind_visual_relay(EventBus.equipment_equipped, _relay_player_state_changed)
+	_bind_visual_relay(EventBus.equipment_unequipped, _relay_player_state_changed)
+	_bind_visual_relay(EventBus.card_drawn, _relay_player_state_changed)
+	_bind_visual_relay(EventBus.card_discarded, _relay_player_state_changed)
+	_bind_visual_relay(EventBus.card_used, _relay_player_state_changed)
+	_bind_visual_relay(EventBus.card_settlement_started, _relay_player_state_changed)
+	_bind_visual_relay(EventBus.card_settlement_finished, _relay_player_state_changed)
+	_bind_visual_relay(EventBus.scavenge_drawn, _relay_player_state_changed)
+	_bind_visual_relay(EventBus.monster_card_drawn, _relay_player_state_changed)
+	_bind_visual_relay(EventBus.damage_taken, _relay_damage_taken)
+	_bind_visual_relay(EventBus.hp_recovered, _relay_hp_recovered)
+	_bind_visual_relay(EventBus.player_hunger_changed, _relay_hunger_changed)
+	_bind_visual_relay(EventBus.action_consumed, _relay_action_consumed)
+	_seed_monster_mark_counts()
 	_visual_relays_connected = true
 
 
 func _disconnect_visual_relays() -> void:
 	if not _visual_relays_connected or EventBus == null:
 		return
-	if EventBus.player_moved.is_connected(_relay_player_moved):
-		EventBus.player_moved.disconnect(_relay_player_moved)
-	if EventBus.block_revealed.is_connected(_relay_block_revealed):
-		EventBus.block_revealed.disconnect(_relay_block_revealed)
-	if EventBus.block_destroyed.is_connected(_relay_block_destroyed):
-		EventBus.block_destroyed.disconnect(_relay_block_destroyed)
-	if EventBus.game_over.is_connected(_relay_game_over):
-		EventBus.game_over.disconnect(_relay_game_over)
+	_unbind_visual_relay(EventBus.player_moved, _relay_player_moved)
+	_unbind_visual_relay(EventBus.block_revealed, _relay_block_revealed)
+	_unbind_visual_relay(EventBus.block_destroyed, _relay_block_destroyed)
+	_unbind_visual_relay(EventBus.game_over, _relay_game_over)
+	_unbind_visual_relay(EventBus.turn_started, _relay_turn_started)
+	_unbind_visual_relay(EventBus.phase_changed, _relay_phase_changed)
+	_unbind_visual_relay(EventBus.monster_mark_changed, _relay_block_mark_changed)
+	_unbind_visual_relay(EventBus.objective_mark_changed, _relay_block_mark_changed)
+	_unbind_visual_relay(EventBus.monster_died, _relay_monster_died)
+	_unbind_visual_relay(EventBus.monster_spawned, _relay_monster_spawned)
+	_unbind_visual_relay(EventBus.monster_engaged_target_changed, _relay_monster_engaged)
+	_unbind_visual_relay(EventBus.player_hp_changed, _relay_player_state_changed)
+	_unbind_visual_relay(EventBus.player_died, _relay_player_state_changed)
+	_unbind_visual_relay(EventBus.equipment_equipped, _relay_player_state_changed)
+	_unbind_visual_relay(EventBus.equipment_unequipped, _relay_player_state_changed)
+	_unbind_visual_relay(EventBus.card_drawn, _relay_player_state_changed)
+	_unbind_visual_relay(EventBus.card_discarded, _relay_player_state_changed)
+	_unbind_visual_relay(EventBus.card_used, _relay_player_state_changed)
+	_unbind_visual_relay(EventBus.card_settlement_started, _relay_player_state_changed)
+	_unbind_visual_relay(EventBus.card_settlement_finished, _relay_player_state_changed)
+	_unbind_visual_relay(EventBus.scavenge_drawn, _relay_player_state_changed)
+	_unbind_visual_relay(EventBus.monster_card_drawn, _relay_player_state_changed)
+	_unbind_visual_relay(EventBus.damage_taken, _relay_damage_taken)
+	_unbind_visual_relay(EventBus.hp_recovered, _relay_hp_recovered)
+	_unbind_visual_relay(EventBus.player_hunger_changed, _relay_hunger_changed)
+	_unbind_visual_relay(EventBus.action_consumed, _relay_action_consumed)
+	_last_monster_mark_counts.clear()
 	_visual_relays_connected = false
+
+
+func _bind_visual_relay(sig: Signal, callback: Callable) -> void:
+	if not sig.is_connected(callback):
+		sig.connect(callback)
+
+
+func _unbind_visual_relay(sig: Signal, callback: Callable) -> void:
+	if sig.is_connected(callback):
+		sig.disconnect(callback)
+
+
+func _seed_monster_mark_counts() -> void:
+	_last_monster_mark_counts.clear()
+	if Game == null or not is_instance_valid(Game):
+		return
+	for block in Game.map_area:
+		if block == null or not is_instance_valid(block):
+			continue
+		_last_monster_mark_counts[_block_mark_key(block)] = _monster_mark_count(block)
 
 
 func _relay_player_moved(player: Variant, source_block: Variant, target_block: Variant) -> void:
@@ -270,6 +333,129 @@ func _relay_game_over(result: int) -> void:
 	})
 	if NetSession != null and is_instance_valid(NetSession):
 		NetSession.request_state_snapshot()
+
+
+func _relay_turn_started(player: Variant) -> void:
+	_broadcast_visual("turn_started", {
+		"seat_id": _seat_of(player),
+	})
+
+
+func _relay_phase_changed(player: Variant, old_phase: String, new_phase: String) -> void:
+	_broadcast_visual("phase_changed", {
+		"seat_id": _seat_of(player),
+		"old_phase": old_phase,
+		"new_phase": new_phase,
+	})
+
+
+func _relay_block_mark_changed(block: Variant) -> void:
+	if block == null or not is_instance_valid(block):
+		return
+	var key := _block_mark_key(block)
+	var new_count := _monster_mark_count(block)
+	var old_count := int(_last_monster_mark_counts.get(key, 0))
+	_last_monster_mark_counts[key] = new_count
+	if new_count == old_count:
+		return
+	_broadcast_visual("block_mark_pulse", {
+		"block": block,
+		"increased": new_count > old_count,
+	})
+
+
+func _relay_monster_died(monster: Variant, _source: Variant) -> void:
+	var holder: Variant = _find_monster_holder(monster)
+	if holder == null:
+		return
+	_broadcast_visual("monster_died_feedback", {
+		"seat_id": _seat_of(holder),
+	})
+
+
+func _relay_monster_spawned(_monster: Variant, player: Variant) -> void:
+	_relay_player_state_changed(player)
+
+
+func _relay_monster_engaged(_monster: Variant, old_target: Variant, new_target: Variant) -> void:
+	_relay_player_state_changed(old_target)
+	if new_target != old_target:
+		_relay_player_state_changed(new_target)
+
+
+func _relay_player_state_changed(player: Variant, _arg1: Variant = null, _arg2: Variant = null) -> void:
+	_broadcast_visual("player_state_changed", {
+		"seat_id": _seat_of(player),
+	})
+
+
+func _relay_damage_taken(target: Variant, source: Variant, amount: int) -> void:
+	var shake := false
+	if source != null and is_instance_valid(source) and source.has_method("get"):
+		shake = source.get("monster_type") != null
+	_broadcast_visual("player_damage_feedback", {
+		"seat_id": _seat_of(target),
+		"amount": amount,
+		"shake": shake,
+	})
+
+
+func _relay_hp_recovered(player: Variant, amount: int) -> void:
+	_broadcast_visual("player_heal_feedback", {
+		"seat_id": _seat_of(player),
+		"amount": amount,
+	})
+
+
+func _relay_hunger_changed(player: Variant, _old_value: int, _new_value: int) -> void:
+	_relay_player_state_changed(player)
+	_broadcast_visual("player_hunger_feedback", {
+		"seat_id": _seat_of(player),
+	})
+
+
+func _relay_action_consumed(player: Variant, _num: int) -> void:
+	_relay_player_state_changed(player)
+	_broadcast_visual("player_action_feedback", {
+		"seat_id": _seat_of(player),
+	})
+
+
+func _seat_of(entity: Variant) -> int:
+	if entity == null or not is_instance_valid(entity) or not entity.has_method("get"):
+		return -1
+	var seat_value: Variant = entity.get("seat_number")
+	return int(seat_value) if seat_value != null else -1
+
+
+func _block_mark_key(block: Variant) -> String:
+	var coordinate: Dictionary = {}
+	if block != null and block.has_method("get"):
+		var raw: Variant = block.get("coordinate")
+		if raw is Dictionary:
+			coordinate = raw
+	return "%d,%d" % [int(coordinate.get("x", 0)), int(coordinate.get("y", 0))]
+
+
+func _monster_mark_count(block: Variant) -> int:
+	if block != null and is_instance_valid(block) and block.has_method("count_monster_mark"):
+		return int(block.count_monster_mark())
+	return 0
+
+
+func _find_monster_holder(monster: Variant) -> Variant:
+	if monster == null or not is_instance_valid(monster):
+		return null
+	if Game != null and is_instance_valid(Game):
+		for player in Game.players:
+			if player == null or not is_instance_valid(player):
+				continue
+			if "monster_zone" in player and player.monster_zone.has(monster):
+				return player
+	var engaged: Variant = monster.get("attack_target") if monster.has_method("get") else null
+	if engaged != null and is_instance_valid(engaged):
+		return engaged
+	return null
 
 
 func _authority_stats_payload() -> Dictionary:

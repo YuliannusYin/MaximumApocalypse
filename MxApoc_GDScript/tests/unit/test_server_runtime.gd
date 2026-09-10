@@ -89,6 +89,14 @@ func test_visual_relays_bind_and_unbind_event_bus() -> void:
 	assert_true(EventBus.block_revealed.is_connected(runtime._relay_block_revealed))
 	assert_true(EventBus.block_destroyed.is_connected(runtime._relay_block_destroyed))
 	assert_true(EventBus.game_over.is_connected(runtime._relay_game_over))
+	assert_true(EventBus.turn_started.is_connected(runtime._relay_turn_started))
+	assert_true(EventBus.phase_changed.is_connected(runtime._relay_phase_changed))
+	assert_true(EventBus.monster_mark_changed.is_connected(runtime._relay_block_mark_changed))
+	assert_true(EventBus.damage_taken.is_connected(runtime._relay_damage_taken))
+	assert_true(EventBus.hp_recovered.is_connected(runtime._relay_hp_recovered))
+	assert_true(EventBus.player_hunger_changed.is_connected(runtime._relay_hunger_changed))
+	assert_true(EventBus.action_consumed.is_connected(runtime._relay_action_consumed))
+	assert_true(EventBus.monster_died.is_connected(runtime._relay_monster_died))
 	assert_eq(EventBus.player_moved.get_connections().size(), before + 1)
 	runtime._connect_visual_relays()
 	assert_eq(EventBus.player_moved.get_connections().size(), before + 1,
@@ -98,6 +106,8 @@ func test_visual_relays_bind_and_unbind_event_bus() -> void:
 	assert_false(EventBus.block_revealed.is_connected(runtime._relay_block_revealed))
 	assert_false(EventBus.block_destroyed.is_connected(runtime._relay_block_destroyed))
 	assert_false(EventBus.game_over.is_connected(runtime._relay_game_over))
+	assert_false(EventBus.turn_started.is_connected(runtime._relay_turn_started))
+	assert_false(EventBus.damage_taken.is_connected(runtime._relay_damage_taken))
 	assert_eq(EventBus.player_moved.get_connections().size(), before)
 	runtime.free()
 

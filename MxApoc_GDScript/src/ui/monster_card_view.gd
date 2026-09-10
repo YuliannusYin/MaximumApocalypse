@@ -125,12 +125,10 @@ func set_monster(m: Variant) -> void:
 	if name_val == null or not (name_val is String) or name_val == "":
 		name_val = m.get("card_name")
 	var mon_name: String = name_val if name_val is String else ""
-	var max_hp_val: Variant = m.get("max_hp")
-	var max_hp: int = max_hp_val if max_hp_val is int else 0
+	var max_hp: int = _to_int(m.get("max_hp"), 0)
 	var hp_val: Variant = m.get("hp")
-	var hp: int = hp_val if hp_val is int else max_hp
-	var dmg_val: Variant = m.get("damage_value")
-	var dmg: int = dmg_val if dmg_val is int else 0
+	var hp: int = max_hp if hp_val == null else _to_int(hp_val, max_hp)
+	var dmg: int = _to_int(m.get("damage_value"), 0)
 	var range_val: Variant = m.get("range")
 	var range_str: String = range_val if range_val is String else ""
 	var stunned: bool = bool(m.get("stunned")) if m.get("stunned") != null else false
@@ -161,6 +159,15 @@ func set_monster(m: Variant) -> void:
 ## 返回基准内卡面板（供外部叠加标签，如"纠缠: 玩家名"）。
 func get_inner() -> Panel:
 	return _inner
+
+
+## RPC/JSON 数字常为 float；卡面按 int 显示，缺字段回退 fallback。
+func _to_int(value: Variant, fallback: int = 0) -> int:
+	if value is int:
+		return value
+	if value is float:
+		return int(value)
+	return fallback
 
 
 ## 选中态高亮外框（金色描边），供目标选择弹窗复用。

@@ -59,6 +59,7 @@ var _match_view_ready: bool = false
 var _network_entity_ctx: Dictionary = {}
 var _pending_map_refresh_after_visual: bool = false
 var _pending_network_snapshot: Dictionary = {}
+var _pending_mark_pulses: Array = []
 var _game_over_started: bool = false
 
 # === 设置弹出菜单 ===
@@ -1548,13 +1549,30 @@ func _handle_network_block_revealed(payload: Dictionary) -> void:
 func _handle_network_block_mark_pulse(payload: Dictionary) -> void:
 	if _is_visual_playing():
 		_pending_map_refresh_after_visual = true
+		_pending_mark_pulses.append(payload)
 		return
+	_play_network_block_mark_pulse(payload)
+
+
+func _play_network_block_mark_pulse(payload: Dictionary) -> void:
 	var block: Variant = payload.get("block")
 	if block == null or not is_instance_valid(block):
 		return
 	var view: Variant = _table_map_controller.get_block_view(block)
-	if view != null and is_instance_valid(view):
-		view.play_mark_pulse(bool(payload.get("increased", false)))
+	if view == null or not is_instance_valid(view):
+		return
+	var old_count: int = view.get_last_mark_count()
+	var new_count: int = block.count_monster_mark()
+	var current: Variant = _display_game().get_current_player()
+	var current_block: Variant = null
+	if current != null and is_instance_valid(current):
+		current_block = current.get("current_block")
+	var is_current: bool = (current_block != null and is_instance_valid(current_block)
+		and block == current_block)
+	view.refresh(is_current, current, _get_acting_player())
+	if payload.has("increased") or new_count != old_count:
+		view.play_mark_pulse(bool(payload.get("increased", new_count > old_count)))
+	_refresh_all_panels()
 
 
 func _handle_network_block_destroyed(payload: Dictionary) -> void:
@@ -1695,11 +1713,17 @@ func _defer_or_refresh_map() -> void:
 
 
 func _flush_deferred_map_refresh() -> void:
-	if not _pending_map_refresh_after_visual:
+	var had_pending := _pending_map_refresh_after_visual or not _pending_mark_pulses.is_empty()
+	if not had_pending:
 		return
 	_pending_map_refresh_after_visual = false
 	_table_map_controller.refresh_map(_get_local_display_player())
 	_refresh_all_panels()
+	var pulses: Array = _pending_mark_pulses.duplicate()
+	_pending_mark_pulses.clear()
+	for payload in pulses:
+		if payload is Dictionary:
+			_play_network_block_mark_pulse(payload)
 
 
 func _flush_deferred_network_snapshot() -> void:
@@ -1800,6 +1824,10 @@ func _on_player_stat_changed(player: Variant, _arg1: Variant = null, _arg2: Vari
 	_broadcast_visual_event("player_state_changed", {
 		"seat_id": int(player.get("seat_number")) if player != null else -1,
 	})
+	_apply_player_stat_changed_ui(player)
+
+
+func _apply_player_stat_changed_ui(player: Variant) -> void:
 	_refresh_panel_for_player(player)
 	if _pile_manager != null and is_instance_valid(_pile_manager):
 		_pile_manager.refresh_pile_counts()
@@ -1953,10 +1981,13 @@ func _on_network_message(message: Dictionary) -> void:
 			await _play_player_moved(moved_player, source_block, target_block)
 		_flush_deferred_after_visual()
 	elif event_name == "player_state_changed":
-		var state_player: Variant = _network_player_for_seat(
-			int(event_payload.get("seat_id", -1)))
-		_refresh_panel_for_player(state_player)
-		_refresh_hand_area()
+		_apply_player_stat_changed_ui(_network_player_for_seat(
+			int(event_payload.get("seat_id", -1))))
+	elif event_name == "phase_changed":
+		_on_phase_changed(
+			_network_player_for_seat(int(event_payload.get("seat_id", -1))),
+			String(event_payload.get("old_phase", "")),
+			String(event_payload.get("new_phase", "")))
 	elif event_name == "player_damage_feedback":
 		var damage_player: Variant = _network_player_for_seat(
 			int(event_payload.get("seat_id", -1)))
@@ -2045,6 +2076,7 @@ func _apply_network_game_snapshot(snapshot: Dictionary) -> void:
 	_defer_or_refresh_map()
 	_refresh_all_panels()
 	_pile_manager.refresh_pile_counts()
+	_pile_manager.refresh_pile_highlights()
 	_sync_network_action_ui()
 	_maybe_enter_game_over_from_display()
 

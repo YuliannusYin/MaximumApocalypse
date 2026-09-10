@@ -160,7 +160,7 @@ static func _serialize_player(player: Variant) -> Dictionary:
 		"equipment": equipment,
 		"discard": _serialize_pile_cards(player.game_discard_pile if "game_discard_pile" in player else null),
 		"game_deck": _pile_size(player.game_deck if "game_deck" in player else null),
-		"monsters": _serialize_array(player.monster_zone if "monster_zone" in player else []),
+		"monsters": _serialize_monster_list(player.monster_zone if "monster_zone" in player else []),
 	}
 
 
@@ -260,12 +260,40 @@ static func _serialize_array(items: Array) -> Array:
 				row["card_name"] = _string_property(item, "card_name")
 				if String(row["card_name"]) == "" and not monster_name.is_empty():
 					row["card_name"] = monster_name
-				row["monster_type"] = _string_property(item, "monster_type")
-				row["monster_level"] = _string_property(item, "monster_level")
-				row["hp"] = int(item.get("hp")) if item.get("hp") != null else 0
-				row["max_hp"] = int(item.get("max_hp")) if item.get("max_hp") != null else 0
 			result.append(row)
 	return result
+
+
+static func _serialize_monster_list(items: Array) -> Array:
+	var result: Array = []
+	for item in items:
+		if item is Dictionary:
+			result.append(item.duplicate(true))
+		elif item != null:
+			result.append(_serialize_monster(item))
+	return result
+
+
+static func _serialize_monster(item: Variant) -> Dictionary:
+	var row: Dictionary = {
+		"net_id": _entity_net_id(item),
+	}
+	if item == null or not item.has_method("get"):
+		return row
+	row["english_name"] = _string_property(item, "english_name")
+	var monster_name := _string_property(item, "monster_name")
+	row["monster_name"] = monster_name
+	row["card_name"] = _string_property(item, "card_name")
+	if String(row["card_name"]) == "" and not monster_name.is_empty():
+		row["card_name"] = monster_name
+	row["monster_type"] = _string_property(item, "monster_type")
+	row["monster_level"] = _string_property(item, "monster_level")
+	row["hp"] = int(item.get("hp")) if item.get("hp") != null else 0
+	row["max_hp"] = int(item.get("max_hp")) if item.get("max_hp") != null else 0
+	row["damage_value"] = int(item.get("damage_value")) if item.get("damage_value") != null else 0
+	row["range"] = _string_property(item, "range")
+	row["stunned"] = bool(item.get("stunned"))
+	return row
 
 static func _serialize_piles(game: Variant) -> Dictionary:
 	return {

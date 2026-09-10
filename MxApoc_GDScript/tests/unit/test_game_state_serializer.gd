@@ -52,12 +52,51 @@ func test_snapshot_monster_keeps_monster_name() -> void:
 	monster.monster_name = "丧尸"
 	monster.hp = 2
 	monster.max_hp = 3
+	monster.damage_value = 4
+	monster.range = "short"
+	monster.stunned = true
 	player.monster_zone = [monster]
 	Game.players = [player]
 	Game.map_area = []
 	var snapshot: Dictionary = GameStateSerializerScript.snapshot(Game)
-	assert_eq(snapshot["players"][0]["monsters"][0]["monster_name"], "丧尸")
-	assert_eq(snapshot["players"][0]["monsters"][0]["card_name"], "丧尸")
+	var row: Dictionary = snapshot["players"][0]["monsters"][0]
+	assert_eq(row["monster_name"], "丧尸")
+	assert_eq(row["card_name"], "丧尸")
+	assert_eq(row["hp"], 2)
+	assert_eq(row["max_hp"], 3)
+	assert_eq(row["damage_value"], 4)
+	assert_eq(row["range"], "short")
+	assert_true(row["stunned"])
+
+
+func test_apply_monster_restores_combat_stats() -> void:
+	var player: Player = _make_player("Hunter")
+	player.seat_number = 0
+	player.net_id = 1
+	Game.players = [player]
+	Game.map_area = []
+	var snapshot: Dictionary = GameStateSerializerScript.snapshot(Game)
+	snapshot["players"][0]["monsters"] = [{
+		"net_id": 31,
+		"english_name": "zombie",
+		"monster_name": "丧尸",
+		"card_name": "丧尸",
+		"monster_type": "zombie",
+		"monster_level": "normal",
+		"hp": 1,
+		"max_hp": 5,
+		"damage_value": 3,
+		"range": "medium",
+		"stunned": true,
+	}]
+	GameStateSerializerScript.apply(Game, snapshot, {1: player})
+	assert_eq(player.monster_zone.size(), 1)
+	var monster: Monster = player.monster_zone[0]
+	assert_eq(monster.hp, 1)
+	assert_eq(monster.max_hp, 5)
+	assert_eq(monster.damage_value, 3)
+	assert_eq(monster.range, "medium")
+	assert_true(monster.stunned)
 
 
 func test_snapshot_includes_map_block_variants() -> void:

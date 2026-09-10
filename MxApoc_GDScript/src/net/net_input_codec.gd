@@ -49,6 +49,7 @@ static func encode(value: Variant) -> Variant:
 			"max_hp": int(value.get("max_hp")),
 			"damage_value": int(value.get("damage_value")),
 			"range": _string_property(value, "range"),
+			"stunned": bool(value.get("stunned")),
 			"holder_seat": holder_seat,
 			"zone_index": zone_index,
 		}
@@ -319,6 +320,8 @@ static func _apply_monster_payload(monster: Variant, value: Dictionary) -> void:
 		monster.damage_value = int(value.get("damage_value", monster.damage_value))
 	if value.has("range"):
 		monster.range = String(value.get("range", monster.range))
+	if value.has("stunned"):
+		monster.stunned = bool(value.get("stunned"))
 
 
 ## 将网络技能描述解析回房主/客机已经创建的真实 Skill 实例。

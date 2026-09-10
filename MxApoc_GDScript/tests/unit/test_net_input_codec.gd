@@ -6,9 +6,18 @@ extends TestBase
 func test_encode_monster_keeps_monster_name() -> void:
 	var monster: Monster = _make_monster("丧尸")
 	monster.english_name = "zombie"
+	monster.hp = 2
+	monster.max_hp = 4
+	monster.damage_value = 3
+	monster.range = "short"
+	monster.stunned = true
 	var encoded: Variant = NetInputCodec.encode(monster)
 	assert_eq(encoded["__kind"], "monster")
 	assert_eq(encoded["monster_name"], "丧尸")
+	assert_eq(encoded["hp"], 2)
+	assert_eq(encoded["damage_value"], 3)
+	assert_eq(encoded["range"], "short")
+	assert_true(encoded["stunned"])
 
 
 func test_decode_monster_patches_live_zone_name() -> void:
