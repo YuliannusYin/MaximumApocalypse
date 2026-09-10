@@ -74,6 +74,7 @@ func _ready() -> void:
 	_port_edit.text_changed.connect(_on_port_changed)
 	_start_server_button.pressed.connect(_on_start_server_pressed)
 	NetSession.network_error.connect(_on_network_error)
+	NetSession.connection_state_changed.connect(_on_connection_state_changed)
 	_start_game_button.pressed.connect(_on_start_game)
 	_add_seat_button.pressed.connect(_on_add_seat)
 	_remove_seat_button.pressed.connect(_on_remove_seat)
@@ -81,8 +82,12 @@ func _ready() -> void:
 	NetSession.message_received.connect(_on_network_message)
 	if RoomState.online_multiplayer and NetSession.multiplayer.multiplayer_peer == null:
 		_update_server_controls()
-	if NetSession.session_role == "client":
+	if NetSession.is_remote_client():
 		_set_client_view()
+		if String(NetSession.registry.phase) == "playing" \
+				and not NetSession.has_active_server_runtime():
+			LoadingScreenScript.go_enter_game(get_tree())
+			return
 	else:
 		_update_server_controls()
 
@@ -180,12 +185,12 @@ func _rebuild_seats() -> void:
 		_seat_list.add_child(item)
 		if online_seat:
 			var controller_id := String(seat.get("controller_id", ""))
-			var can_edit_survivor := controller_id == NetSession.local_player_id \
-				or controller_id.is_empty()
+			var can_edit_survivor := NetSession.is_room_owner() \
+				or controller_id == NetSession.local_player_id
 			item.configure_controller_options(
 				NetSession.registry.players.values(),
 				controller_id,
-				NetSession.is_host,
+				NetSession.is_room_owner(),
 				can_edit_survivor)
 		item.setup(seat)
 		item.changed.connect(_on_seat_changed)
@@ -194,6 +199,10 @@ func _rebuild_seats() -> void:
 	_update_seat_buttons()
 
 func _update_seat_buttons() -> void:
+	if NetSession != null and NetSession.is_remote_client():
+		_add_seat_button.disabled = true
+		_remove_seat_button.disabled = true
+		return
 	var count := RoomState.seats.size()
 	_add_seat_button.disabled = (count >= MAX_SEATS)
 	_remove_seat_button.disabled = (count <= MIN_SEATS)
@@ -235,13 +244,13 @@ func _on_mission_selected(idx: int) -> void:
 		RoomState.selected_mission_is_random = false
 		RoomState.selected_mission = meta
 	_refresh_detail_panel()
-	if NetSession != null and NetSession.is_host:
+	if NetSession != null and NetSession.is_authority():
 		NetSession.sync_room_config()
 	RoomState.save()
 
 func _on_variant_toggled(id: String, toggled: bool) -> void:
 	RoomState.variants[id] = toggled
-	if NetSession != null and NetSession.is_host:
+	if NetSession != null and NetSession.is_authority():
 		NetSession.sync_room_config()
 	RoomState.save()
 
@@ -267,7 +276,7 @@ func _on_port_changed(value: String) -> void:
 func _on_online_multiplayer_toggled(toggled: bool) -> void:
 	RoomState.online_multiplayer = toggled
 	_set_network_settings_visible(toggled)
-	if not toggled and NetSession.is_host:
+	if not toggled and NetSession.is_authority():
 		NetSession.close_session()
 	_update_server_controls()
 	RoomState.save()
@@ -281,21 +290,25 @@ func _set_network_settings_visible(visible: bool) -> void:
 	_network_hint_label.visible = visible
 
 func _update_server_controls() -> void:
-	if NetSession != null and NetSession.session_role == "client":
+	if NetSession != null and NetSession.is_remote_client():
 		_host_name_edit.editable = false
 		_port_edit.editable = false
 		_start_server_button.disabled = true
 		_start_server_button.text = "客机模式"
 		return
-	var server_started := NetSession != null and NetSession.session_role == "host"
+	var server_started := NetSession != null and (NetSession.has_listen_server() \
+			or NetSession.is_room_owner())
 	_host_name_edit.editable = not server_started
 	_port_edit.editable = not server_started
 	_start_server_button.disabled = server_started
 	_start_server_button.text = "服务器已启动" if server_started else "启动服务器"
 
 func _on_start_server_pressed() -> void:
-	if NetSession.session_role == "client":
+	if NetSession.is_remote_client():
 		_show_network_hint("当前是加入房间的客机，不能启动服务器")
+		return
+	if NetSession.has_listen_server() or NetSession.is_room_owner():
+		_show_network_hint("服务器已启动")
 		return
 	if not _validate_network_settings():
 		return
@@ -307,8 +320,9 @@ func _on_start_server_pressed() -> void:
 		NetSession.sync_room_config()
 		_rebuild_seats()
 		_update_server_controls()
+		_update_start_button()
 		_network_hint_label.add_theme_color_override("font_color", Color("#65d47a"))
-		_show_network_hint("服务器已启动，地址端口：%d" % RoomState.listen_port)
+		_show_network_hint("服务器已启动，正在连入本机房间…")
 
 func _validate_network_settings() -> bool:
 	var host_name := NetProtocol.normalize_nickname(_host_name_edit.text)
@@ -341,10 +355,12 @@ func _on_network_error(code: String, detail: String) -> void:
 	_show_network_hint(detail)
 
 func _on_add_seat() -> void:
+	if NetSession != null and NetSession.is_remote_client():
+		return
 	if RoomState.seats.size() >= MAX_SEATS:
 		return
 	RoomState.seats.append({"type": "ai", "survivor": null})
-	if NetSession != null and NetSession.is_host:
+	if NetSession != null and NetSession.is_authority():
 		NetSession.registry.replace_seats(RoomState.seats, NetSession.local_player_id)
 	_rebuild_seats()
 	_sync_network_seats()
@@ -352,10 +368,12 @@ func _on_add_seat() -> void:
 	RoomState.save()
 
 func _on_remove_seat() -> void:
+	if NetSession != null and NetSession.is_remote_client():
+		return
 	if RoomState.seats.size() <= MIN_SEATS:
 		return
 	RoomState.seats.pop_back()
-	if NetSession != null and NetSession.is_host:
+	if NetSession != null and NetSession.is_authority():
 		NetSession.registry.replace_seats(RoomState.seats, NetSession.local_player_id)
 	_rebuild_seats()
 	_sync_network_seats()
@@ -365,7 +383,7 @@ func _on_remove_seat() -> void:
 func _on_seat_changed(idx: int) -> void:
 	_refresh_seats_disabled()
 	_sync_seats_to_state()
-	if NetSession != null and NetSession.session_role == "client":
+	if NetSession != null and NetSession.is_remote_client():
 		var data: Dictionary = _seat_list.get_child(idx).collect()
 		if String(data.get("controller_id", "")) == NetSession.local_player_id:
 			var survivor = data.get("survivor", null)
@@ -379,19 +397,32 @@ func _on_seat_changed(idx: int) -> void:
 	RoomState.save()
 
 func _sync_network_seats() -> void:
-	if NetSession == null or not NetSession.is_host or NetSession.registry.phase != "lobby":
+	if NetSession == null or not NetSession.is_room_owner() \
+			or NetSession.registry.phase != "lobby":
+		return
+	if NetSession.is_awaiting_room_accept():
 		return
 	for i in range(_seat_list.get_child_count()):
 		var data: Dictionary = _seat_list.get_child(i).collect()
 		var controller_id := String(data.get("controller_id", NetSession.local_player_id))
 		var survivor = data.get("survivor", null)
+		var survivor_id := String(survivor.english_name) if survivor != null else ""
+		if NetSession.uses_network_view():
+			NetSession.send_room_command("bind_seat", {
+				"seat_id": i,
+				"controller_id": controller_id,
+				"survivor_id": survivor_id,
+				"is_ai": controller_id.is_empty(),
+			})
+			continue
 		NetSession.registry.bind_seat(
 			i,
 			controller_id,
-			String(survivor.english_name) if survivor != null else "",
+			survivor_id,
 			controller_id.is_empty())
-	NetSession.session_changed.emit(NetSession.registry.snapshot())
-	NetSession._broadcast(NetProtocol.ROOM_SNAPSHOT, NetSession.registry.snapshot())
+	if not NetSession.uses_network_view():
+		NetSession.session_changed.emit(NetSession.registry.snapshot())
+		NetSession._broadcast(NetProtocol.ROOM_SNAPSHOT, NetSession.registry.snapshot())
 
 func _refresh_detail_panel() -> void:
 	if RoomState.selected_mission_is_random:
@@ -410,7 +441,11 @@ func _refresh_detail_panel() -> void:
 	_detail_view.populate(mission)
 
 func _update_start_button() -> void:
-	if NetSession != null and NetSession.session_role == "client":
+	if NetSession != null and NetSession.is_remote_client():
+		_start_game_button.disabled = true
+		return
+	if RoomState.online_multiplayer and NetSession != null \
+			and NetSession.is_room_owner() and NetSession.is_awaiting_room_accept():
 		_start_game_button.disabled = true
 		return
 	_start_game_button.disabled = not RoomState.is_ready_to_start()
@@ -421,11 +456,16 @@ func _on_start_game() -> void:
 	if RoomState.online_multiplayer:
 		if not _validate_network_settings():
 			return
-		if not NetSession.is_host:
+		if not NetSession.is_room_owner():
 			_show_network_hint("请先启动服务器")
+			return
+		if NetSession.is_awaiting_room_accept():
+			_show_network_hint("正在连入本机房间，请稍候")
 			return
 		if NetSession.registry.phase == "lobby":
 			NetSession.send_room_command("start")
+			_show_network_hint("正在开始对局…")
+		return
 	LoadingScreenScript.go_enter_game(get_tree())
 
 func _set_client_view() -> void:
@@ -438,14 +478,11 @@ func _set_client_view() -> void:
 	_start_server_button.disabled = true
 
 func _on_network_snapshot(snapshot: Dictionary) -> void:
-	if NetSession.is_host:
-		_rebuild_seats()
-		_update_start_button()
-		return
-	_apply_network_room_config(snapshot)
-	_online_multiplayer_checkbox.set_pressed_no_signal(true)
-	_host_name_edit.text = String(snapshot.get("host_name", NetSession.registry.host_name))
-	_port_edit.text = str(int(snapshot.get("port", NetSession.registry.port)))
+	if NetSession.uses_network_view():
+		_apply_network_room_config(snapshot)
+		_online_multiplayer_checkbox.set_pressed_no_signal(true)
+		_host_name_edit.text = String(snapshot.get("host_name", NetSession.registry.host_name))
+		_port_edit.text = str(int(snapshot.get("port", NetSession.registry.port)))
 	_rebuild_seats()
 	_update_server_controls()
 	_update_start_button()
@@ -464,10 +501,21 @@ func _apply_network_room_config(snapshot: Dictionary) -> void:
 	_refresh_detail_panel()
 
 func _on_network_message(message: Dictionary) -> void:
-	if NetSession.is_host:
-		return
 	if String(message.get("message_type", "")) == NetProtocol.MATCH_START:
 		LoadingScreenScript.go_enter_game(get_tree())
+
+
+func _on_connection_state_changed(state: String, detail: String) -> void:
+	if state == "connecting":
+		_show_network_hint(detail if detail != "" else "正在连接房间")
+		_update_start_button()
+		return
+	if state == "joined" and NetSession.is_room_owner():
+		_network_hint_label.add_theme_color_override("font_color", Color("#65d47a"))
+		_show_network_hint("服务器已启动，已连入本机房间，端口：%d" % RoomState.listen_port)
+		_rebuild_seats()
+		_update_server_controls()
+		_update_start_button()
 
 func _on_back() -> void:
 	if NetSession != null and NetSession.multiplayer.multiplayer_peer != null:
@@ -475,7 +523,7 @@ func _on_back() -> void:
 	get_tree().change_scene_to_file("res://scenes/MainMenu.tscn")
 
 func _on_reset() -> void:
-	if NetSession != null and NetSession.is_host:
+	if NetSession != null and NetSession.is_authority():
 		NetSession.close_session()
 	RoomState.reset_to_default()
 	# 刷新任务选择下拉框选中项（随机任务未解锁时回退到第一个可选任务）

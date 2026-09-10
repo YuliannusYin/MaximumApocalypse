@@ -26,6 +26,12 @@ var _event_scheduler: Variant = null
 var _network_action_available: Variant = null
 
 
+func _game() -> Node:
+	if NetSession != null:
+		return NetSession.get_display_game()
+	return Game
+
+
 func setup(ui_layer: CanvasLayer) -> void:
 	_ui_layer = ui_layer
 
@@ -59,7 +65,7 @@ func _get_acting_player() -> Variant:
 			return request.owner
 	if _acting_player != null and is_instance_valid(_acting_player):
 		return _acting_player
-	return Game.get_current_player()
+	return _game().get_current_player()
 
 
 func wire_pile_nodes() -> void:
@@ -119,12 +125,12 @@ func get_piles_union_rect(keys: Array) -> Rect2:
 
 
 func refresh_pile_counts() -> void:
-	_set_pile_count("red_scavenge", _get_pile_count(Game.red_scavenge_pile))
-	_set_pile_count("green_scavenge", _get_pile_count(Game.green_scavenge_pile))
-	_set_pile_count("blue_scavenge", _get_pile_count(Game.blue_scavenge_pile))
+	_set_pile_count("red_scavenge", _get_pile_count(_game().red_scavenge_pile))
+	_set_pile_count("green_scavenge", _get_pile_count(_game().green_scavenge_pile))
+	_set_pile_count("blue_scavenge", _get_pile_count(_game().blue_scavenge_pile))
 	_set_pile_count("game_deck", _get_current_player_deck_count())
-	_set_pile_count("monster_pile", _get_pile_count(Game.monster_pile))
-	_set_pile_count("scavenge_discard", _get_pile_count(Game.scavenge_discard_pile))
+	_set_pile_count("monster_pile", _get_pile_count(_game().monster_pile))
+	_set_pile_count("scavenge_discard", _get_pile_count(_game().scavenge_discard_pile))
 	_set_pile_count("game_discard", _get_current_player_discard_count())
 
 
@@ -261,11 +267,11 @@ func is_pile_clickable(pile_key: String) -> bool:
 			var pile: Variant = null
 			match pile_key:
 				"red_scavenge":
-					pile = Game.red_scavenge_pile
+					pile = _game().red_scavenge_pile
 				"green_scavenge":
-					pile = Game.green_scavenge_pile
+					pile = _game().green_scavenge_pile
 				"blue_scavenge":
-					pile = Game.blue_scavenge_pile
+					pile = _game().blue_scavenge_pile
 			return _get_pile_count(pile) > 0
 		_:
 			return false

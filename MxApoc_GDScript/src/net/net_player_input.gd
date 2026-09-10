@@ -19,6 +19,38 @@ func _init() -> void:
 func set_request_owner(player: Variant) -> void:
 	_request_owner = player
 
+
+func detach() -> void:
+	abort_pending()
+	if NetSession != null and NetSession.message_received.is_connected(_on_network_message):
+		NetSession.message_received.disconnect(_on_network_message)
+
+
+## 解开死等，让规则协程继续；随后由 AI 接管后续请求。
+func abort_pending() -> void:
+	if _pending.is_empty():
+		return
+	for request_id in _pending.keys():
+		var state: Dictionary = _pending[request_id]
+		if bool(state.get("received", false)):
+			continue
+		state["value"] = _abort_value_for(String(state.get("request_type", "")))
+		state["received"] = true
+		_pending[request_id] = state
+	response_arrived.emit(-1, null)
+
+
+func _abort_value_for(request_type: String) -> Variant:
+	match request_type:
+		"choose_card", "choose_target", "choose_block_inline":
+			return []
+		"confirm", "redraw_decision":
+			return false
+		"judge_confirm":
+			return true
+		_:
+			return null
+
 func wait_action(player: Variant) -> Variant:
 	return await _request(player, "action", {})
 
@@ -169,6 +201,7 @@ func _request(player: Variant, request_type: String, payload: Dictionary) -> Var
 		"value": null,
 		"received": false,
 		"selection_map": selection_map,
+		"request_type": request_type,
 	}
 	_pending[request_id] = state
 	NetSession.broadcast_input_request(

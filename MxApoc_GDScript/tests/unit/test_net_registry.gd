@@ -75,3 +75,55 @@ func test_connected_human_ids_and_timeout_convert() -> void:
 	assert_eq(registry.seats[1].control_mode, "ai")
 	assert_eq(registry.players[guest.player_id].connection_state, "disconnected")
 	assert_false(registry.is_player_live_bound(guest.player_id))
+
+
+func test_bind_seat_rejected_while_playing() -> void:
+	var registry := NetRegistry.new()
+	var survivor = DataManager.get_survivor("firefighter")
+	var credentials := registry.create_host("房主", 7777, [
+		{"type": "human", "survivor": survivor},
+		{"type": "ai", "survivor": null},
+	])
+	registry.start_match()
+	assert_false(registry.bind_seat(1, credentials.player_id, "hunter"))
+	assert_false(registry.set_seat_survivor(0, "hunter"))
+
+
+func test_disconnect_in_lobby_keeps_seat_and_allows_reconnect() -> void:
+	var registry := NetRegistry.new()
+	var survivor_a = DataManager.get_survivor("firefighter")
+	var survivor_b = DataManager.get_survivor("hunter")
+	registry.create_host("房主", 7777, [
+		{"type": "human", "survivor": survivor_a},
+		{"type": "ai", "survivor": survivor_b},
+	])
+	var guest := registry.add_player("客机", 3)
+	registry.bind_seat(1, guest.player_id, "hunter")
+	registry.disconnect_player(guest.player_id)
+	assert_eq(String(registry.players[guest.player_id].connection_state), "disconnected")
+	assert_eq(String(registry.seats[1].controller_id), guest.player_id)
+	assert_eq(String(registry.seats[1].control_mode), "ai")
+	assert_eq(registry.reconnect_error_for_token(guest.reconnect_token), "")
+	assert_eq(registry.reconnect_player_by_token(guest.reconnect_token, 8),
+		guest.player_id)
+	assert_eq(String(registry.seats[1].control_mode), "human")
+
+
+func test_disconnect_while_playing_keeps_controller_and_allows_reconnect() -> void:
+	var registry := NetRegistry.new()
+	var survivor_a = DataManager.get_survivor("firefighter")
+	var survivor_b = DataManager.get_survivor("hunter")
+	registry.create_host("房主", 7777, [
+		{"type": "human", "survivor": survivor_a},
+		{"type": "ai", "survivor": survivor_b},
+	])
+	var guest := registry.add_player("客机", 3)
+	registry.bind_seat(1, guest.player_id, "hunter")
+	registry.start_match()
+	registry.disconnect_player(guest.player_id)
+	assert_eq(String(registry.seats[1].controller_id), guest.player_id)
+	assert_eq(String(registry.seats[1].control_mode), "ai")
+	assert_eq(registry.reconnect_error_for_token(guest.reconnect_token), "")
+	assert_eq(registry.reconnect_player_by_token(guest.reconnect_token, 8),
+		guest.player_id)
+	assert_eq(String(registry.seats[1].control_mode), "human")

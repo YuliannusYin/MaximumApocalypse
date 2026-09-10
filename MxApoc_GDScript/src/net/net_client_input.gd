@@ -4,6 +4,7 @@ extends RefCounted
 ## 客机输入请求适配器。UI 可订阅 requested，再通过 respond 返回基本类型。
 const NetProtocol = preload("res://src/net/net_protocol.gd")
 const NetInputCodec = preload("res://src/net/net_input_codec.gd")
+const NetViewSync = preload("res://src/net/net_view_sync.gd")
 
 signal requested(request_id: int, seat_id: int, request_type: String, payload: Dictionary)
 signal request_state_changed()
@@ -37,6 +38,7 @@ func get_current_request(seat_id: int = -1) -> Dictionary:
 			"request_id": int(request_id),
 			"seat_id": int(request.get("seat_id", -1)),
 			"request_type": String(request.get("request_type", "")),
+			"decoded_payload": request.get("decoded_payload", {}),
 		}
 		if seat_id >= 0:
 			break
@@ -96,11 +98,14 @@ func _on_message(message: Dictionary) -> void:
 	if String(message.get("message_type", "")) != NetProtocol.INPUT_REQUEST:
 		return
 	var payload: Dictionary = message.get("payload", {})
+	var request_type := String(payload.get("request_type", ""))
+	if request_type in NetViewSync.VISUAL_EVENT_NAMES:
+		return
 	var request_id := int(message.get("request_id", -1))
 	if request_id < 0:
 		return
 	var decoded_payload: Variant = NetInputCodec.decode(
-		payload.get("payload", {}), Game)
+		payload.get("payload", {}), NetSession.get_display_game() if NetSession != null else Game)
 	var seat_id := int(payload.get("seat_id", -1))
 	_drop_seat_requests(seat_id)
 	_active_requests[request_id] = {

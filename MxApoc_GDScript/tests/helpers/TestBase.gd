@@ -32,6 +32,8 @@ func _clear_game() -> void:
 		Game.state_machine.init()
 	if Game.event_scheduler != null:
 		Game.event_scheduler.reset()
+	if Game.stats_tracker != null:
+		Game.stats_tracker.reset([])
 
 
 func before_each() -> void:

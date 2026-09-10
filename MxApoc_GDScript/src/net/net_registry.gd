@@ -17,7 +17,6 @@ var server_sequence: int = 0
 var mission_mode: String = "random"
 var mission_id: int = -1
 var variants: Dictionary = {}
-const RECONNECT_TIMEOUT_MS := 5 * 60 * 1000
 const MATCH_READY_TIMEOUT_MS := 15 * 1000
 var players: Dictionary = {}
 var seats: Array = []
@@ -130,14 +129,8 @@ func _player_has_human_seat(player_id: String) -> bool:
 
 
 func reconnect_player_by_token(token: String, peer_id: int) -> String:
-	var token_hash := _hash_token(token)
-	var player_id := ""
-	for candidate_id in players:
-		var candidate: Dictionary = players[candidate_id]
-		if String(candidate.get("reconnect_token_hash", "")) == token_hash:
-			player_id = String(candidate_id)
-			break
-	if player_id.is_empty():
+	var player_id := player_id_for_token(token)
+	if player_id.is_empty() or not can_reconnect(player_id):
 		return ""
 	var player: Dictionary = players[player_id]
 	player["peer_id"] = peer_id
@@ -149,22 +142,36 @@ func reconnect_player_by_token(token: String, peer_id: int) -> String:
 			seat["control_mode"] = "human"
 	return player_id
 
-func expire_disconnected(now_ms: int = -1) -> Array:
-	var now := Time.get_ticks_msec() if now_ms < 0 else now_ms
-	var expired: Array = []
-	for player_id in players:
-		var player: Dictionary = players[player_id]
-		if String(player.get("connection_state", "")) != "disconnected":
-			continue
-		if now - int(player.get("last_seen_ms", now)) < RECONNECT_TIMEOUT_MS:
-			continue
-		player["connection_state"] = "left"
-		player["reconnect_token_hash"] = ""
-		players[player_id] = player
-		expired.append(player_id)
-	return expired
+
+func player_id_for_token(token: String) -> String:
+	if token.is_empty():
+		return ""
+	var token_hash := _hash_token(token)
+	for candidate_id in players:
+		var candidate: Dictionary = players[candidate_id]
+		if String(candidate.get("reconnect_token_hash", "")) == token_hash:
+			return String(candidate_id)
+	return ""
+
+
+func can_reconnect(player_id: String) -> bool:
+	if not players.has(player_id):
+		return false
+	return not String(players[player_id].get("reconnect_token_hash", "")).is_empty()
+
+
+func reconnect_error_for_token(token: String) -> String:
+	var player_id := player_id_for_token(token)
+	if player_id.is_empty():
+		return NetProtocol.ERROR_INVALID_TOKEN
+	if not can_reconnect(player_id):
+		return NetProtocol.ERROR_TOKEN_EXPIRED
+	return ""
+
 
 func bind_seat(seat_id: int, controller_id: String, survivor_id: String, is_ai: bool = false) -> bool:
+	if phase == "playing":
+		return false
 	if seat_id < 0 or seat_id >= seats.size():
 		return false
 	if not is_ai and not players.has(controller_id):
@@ -182,6 +189,8 @@ func bind_seat(seat_id: int, controller_id: String, survivor_id: String, is_ai: 
 	return true
 
 func set_seat_survivor(seat_id: int, survivor_id: String) -> bool:
+	if phase == "playing":
+		return false
 	if seat_id < 0 or seat_id >= seats.size():
 		return false
 	for i in range(seats.size()):

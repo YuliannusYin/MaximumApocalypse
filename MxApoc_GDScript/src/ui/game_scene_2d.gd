@@ -3,6 +3,7 @@ extends Control
 const NetProtocol = preload("res://src/net/net_protocol.gd")
 const NetInputCodec = preload("res://src/net/net_input_codec.gd")
 const GameStateSerializer = preload("res://src/net/game_state_serializer.gd")
+const NetViewSync = preload("res://src/net/net_view_sync.gd")
 ## 2D 试玩版游戏主场景。
 ## 层结构：TableLayer（桌子+地图，可平移）/ UILayer（固定 UI）/ PopupLayer（弹窗）。
 ## 游戏流程：加载页 initialize_game → 本场景搭 UI、注入输入 → start_game()。
@@ -52,10 +53,13 @@ var _last_local_focus_player: Variant = null
 var _pending_popup_request_id: int = -1
 var _pending_popup_request_owner: Variant = null
 var _network_card_cache: Dictionary = {}
-var _last_network_server_sequence: int = 0
+var _last_network_snapshot_sequence: int = 0
+var _seen_game_events: Dictionary = {}
+var _match_view_ready: bool = false
 var _network_entity_ctx: Dictionary = {}
 var _pending_map_refresh_after_visual: bool = false
 var _pending_network_snapshot: Dictionary = {}
+var _game_over_started: bool = false
 
 # === 设置弹出菜单 ===
 var _settings_popup: PopupMenu
@@ -158,7 +162,7 @@ func _build_cheat_menu() -> void:
 func _cheat_refresh_ui(player: Variant = null) -> void:
 	if player != null and is_instance_valid(player):
 		_refresh_panel_for_player(player)
-		var current: Variant = Game.get_current_player()
+		var current: Variant = _display_game().get_current_player()
 		if current != null and is_instance_valid(current) and player == current:
 			_refresh_hand_area()
 	else:
@@ -166,28 +170,38 @@ func _cheat_refresh_ui(player: Variant = null) -> void:
 	_pile_manager.refresh_pile_counts()
 
 
+func _display_game() -> Node:
+	if NetSession != null:
+		return NetSession.get_display_game()
+	return Game
+
+
+func _uses_network_display() -> bool:
+	return RoomState != null and RoomState.online_multiplayer \
+			and NetSession != null and NetSession.uses_network_view()
+
+
 # === 游戏流程 ===
 
 func _start_game_flow() -> void:
 	# 正常路径由 LoadingScreen 完成 initialize_game；直接进本场景（编辑器试玩）时补一次。
 	var runtime_active := NetSession != null and NetSession.has_active_server_runtime()
-	var online_client_ui := RoomState != null and RoomState.online_multiplayer \
-			and NetSession != null and NetSession.session_role == "client"
-	if Game.players.is_empty() and not runtime_active:
+	var online_client_ui := _uses_network_display()
+	var wait_for_snapshot := online_client_ui
+	if Game.players.is_empty() and not runtime_active and not wait_for_snapshot:
 		Game.initialize_from_room_state()
-	_table_map_controller.build_table_and_map()
 	# 任务进度面板：常驻 UI 层右侧固定位置，_process 自刷新任务条件进度
 	_progress_panel = MissionProgressPanel.new()
 	_ui_layer.add_child(_progress_panel)
 	_build_player_panels()
-	_build_hand_area()
-	_assign_player_panels()
-	_pile_manager.refresh_pile_counts()
+	if not wait_for_snapshot:
+		_realize_match_view()
 
 	_gui_input = GUIPlayerInput.new()
-	_gui_input.set_event_scheduler(Game.event_scheduler)
+	var display_game: Node = _display_game()
+	_gui_input.set_event_scheduler(display_game.event_scheduler)
 	# UI 模块只观察 EventScheduler 的当前 InputRequest；不再各自猜测操作玩家。
-	var event_scheduler: Variant = Game.event_scheduler
+	var event_scheduler: Variant = display_game.event_scheduler
 	_popup_manager.set_event_scheduler(event_scheduler)
 	_pile_manager.set_event_scheduler(event_scheduler)
 	_seat_hud_manager.set_event_scheduler(event_scheduler)
@@ -223,7 +237,7 @@ func _start_game_flow() -> void:
 	_seat_hud_manager.redraw_decision_responded.connect(_on_redraw_decision_responded)
 	_seat_hud_manager.judge_confirm_responded.connect(_on_judge_confirm_responded)
 	if not runtime_active:
-		for player in Game.players:
+		for player in _display_game().players:
 			if player == null or not is_instance_valid(player):
 				continue
 			if player.is_ai:
@@ -235,35 +249,36 @@ func _start_game_flow() -> void:
 				player.input = _gui_input
 
 	if EventBus != null and is_instance_valid(EventBus):
-		EventBus.turn_started.connect(_on_turn_started)
-		EventBus.phase_changed.connect(_on_phase_changed)
-		EventBus.log_message.connect(_on_log_message)
-		EventBus.log_message.connect(_event_log_panel.add_message)
-		_event_log_panel.set_messages(_event_log)
-		EventBus.game_over.connect(_on_game_over)
-		EventBus.player_moved.connect(_on_player_moved)
-		EventBus.block_revealed.connect(_on_block_revealed)
-		EventBus.block_destroyed.connect(_on_block_destroyed)
-		EventBus.monster_mark_changed.connect(_on_block_mark_changed)
-		EventBus.objective_mark_changed.connect(_on_block_mark_changed)
-		EventBus.monster_spawned.connect(_on_monster_changed)
-		EventBus.monster_died.connect(_on_monster_died)
-		EventBus.monster_engaged_target_changed.connect(_on_monster_engaged_target_changed)
-		EventBus.player_hp_changed.connect(_on_player_stat_changed)
-		EventBus.damage_taken.connect(_on_damage_taken)
-		EventBus.hp_recovered.connect(_on_hp_recovered)
-		EventBus.player_hunger_changed.connect(_on_hunger_changed)
-		EventBus.player_died.connect(_on_player_stat_changed)
-		EventBus.equipment_equipped.connect(_on_player_stat_changed)
-		EventBus.equipment_unequipped.connect(_on_player_stat_changed)
-		EventBus.action_consumed.connect(_on_action_consumed)
-		EventBus.card_drawn.connect(_on_player_stat_changed)
-		EventBus.card_discarded.connect(_on_player_stat_changed)
-		EventBus.card_used.connect(_on_player_stat_changed)
-		EventBus.card_settlement_started.connect(_on_player_stat_changed)
-		EventBus.card_settlement_finished.connect(_on_player_stat_changed)
-		EventBus.scavenge_drawn.connect(_on_pile_drawn)
-		EventBus.monster_card_drawn.connect(_on_pile_drawn)
+		if not online_client_ui:
+			EventBus.game_over.connect(_on_game_over)
+			EventBus.turn_started.connect(_on_turn_started)
+			EventBus.phase_changed.connect(_on_phase_changed)
+			EventBus.log_message.connect(_on_log_message)
+			EventBus.log_message.connect(_event_log_panel.add_message)
+			_event_log_panel.set_messages(_event_log)
+			EventBus.player_moved.connect(_on_player_moved)
+			EventBus.block_revealed.connect(_on_block_revealed)
+			EventBus.block_destroyed.connect(_on_block_destroyed)
+			EventBus.monster_mark_changed.connect(_on_block_mark_changed)
+			EventBus.objective_mark_changed.connect(_on_block_mark_changed)
+			EventBus.monster_spawned.connect(_on_monster_changed)
+			EventBus.monster_died.connect(_on_monster_died)
+			EventBus.monster_engaged_target_changed.connect(_on_monster_engaged_target_changed)
+			EventBus.player_hp_changed.connect(_on_player_stat_changed)
+			EventBus.damage_taken.connect(_on_damage_taken)
+			EventBus.hp_recovered.connect(_on_hp_recovered)
+			EventBus.player_hunger_changed.connect(_on_hunger_changed)
+			EventBus.player_died.connect(_on_player_stat_changed)
+			EventBus.equipment_equipped.connect(_on_player_stat_changed)
+			EventBus.equipment_unequipped.connect(_on_player_stat_changed)
+			EventBus.action_consumed.connect(_on_action_consumed)
+			EventBus.card_drawn.connect(_on_player_stat_changed)
+			EventBus.card_discarded.connect(_on_player_stat_changed)
+			EventBus.card_used.connect(_on_player_stat_changed)
+			EventBus.card_settlement_started.connect(_on_player_stat_changed)
+			EventBus.card_settlement_finished.connect(_on_player_stat_changed)
+			EventBus.scavenge_drawn.connect(_on_pile_drawn)
+			EventBus.monster_card_drawn.connect(_on_pile_drawn)
 	if online_client_ui:
 		if not NetSession.message_received.is_connected(_on_network_message):
 			NetSession.message_received.connect(_on_network_message)
@@ -277,19 +292,49 @@ func _start_game_flow() -> void:
 		tutorial_manager.start(tutorial_dialog, get_tutorial_hole)
 
 	# 开局抓牌/第 0 轮之前就要亮出本机手牌和大状态区，不能等 turn_started。
-	_show_local_seat_hud()
+	if not wait_for_snapshot:
+		_show_local_seat_hud()
 
+	# 主机也走客机输入通道：必须先挂上再 start_game，否则第一份 INPUT_REQUEST 会丢掉。
+	if online_client_ui:
+		_network_client_input = NetClientInputScript.new()
+		_network_client_input.attach()
+		_network_client_input.request_state_changed.connect(_on_network_request_state_changed)
+		_network_client_input.requested.connect(_on_network_input_requested)
+		if wait_for_snapshot and NetSession != null:
+			NetSession.request_resync()
 	if runtime_active:
 		NetSession.server_runtime.start_game()
 	elif not online_client_ui:
 		Game.start_game()
 	elif NetSession.registry.phase == "playing":
 		_event_log_panel.add_message("已连接到房主，等待同步对局状态")
-	if online_client_ui:
-		_network_client_input = NetClientInputScript.new()
-		_network_client_input.attach()
-		_network_client_input.request_state_changed.connect(_on_network_request_state_changed)
-		_network_client_input.requested.connect(_on_network_input_requested)
+
+
+func _realize_match_view() -> void:
+	if _match_view_ready:
+		return
+	_table_map_controller.build_table_and_map()
+	_build_hand_area()
+	_assign_player_panels()
+	_pile_manager.refresh_pile_counts()
+	_show_local_seat_hud()
+	_match_view_ready = true
+	_replay_pending_network_request()
+
+
+func _replay_pending_network_request() -> void:
+	if _network_client_input == null or not is_instance_valid(_network_client_input):
+		return
+	var current: Dictionary = _network_client_input.get_current_request()
+	if current.is_empty():
+		return
+	var payload: Variant = current.get("decoded_payload", {})
+	_on_network_input_requested(
+		int(current.get("request_id", -1)),
+		int(current.get("seat_id", -1)),
+		String(current.get("request_type", "")),
+		payload if payload is Dictionary else {})
 
 
 func _on_network_request_state_changed() -> void:
@@ -341,7 +386,7 @@ func _on_network_input_requested(request_id: int, seat_id: int,
 	_network_request_seat_id = seat_id
 	_network_request_type = request_type
 	var player: Variant = null
-	for candidate in Game.players:
+	for candidate in _display_game().players:
 		if int(candidate.seat_number) == seat_id:
 			player = candidate
 			break
@@ -352,12 +397,11 @@ func _on_network_input_requested(request_id: int, seat_id: int,
 			player.in_phase = "action"
 		if request_type == "redraw_decision":
 			_apply_network_hand_snapshot(player, payload.get("hand", []))
-		if NetSession != null and NetSession.session_role == "client":
-			# 客机只在收到本机角色的操作请求时切换主手牌区；
-			# 请求结束后仍保留最后一次操作角色，直到下一次请求。
+		if _uses_network_display():
 			_acting_player = player
 			_last_local_focus_player = player
-		if NetSession == null or NetSession.session_role == "client" or player == _acting_player:
+			_activate_seat_hud(player)
+		elif player == _acting_player:
 			_activate_seat_hud(player)
 	if request_type in ["choose_block_inline", "redraw_decision", "judge_confirm", "confirm"] \
 			and (_action_selection_controller == null \
@@ -397,16 +441,12 @@ func _on_network_input_requested(request_id: int, seat_id: int,
 		"confirm":
 			_action_selection_controller.set_confirm_mode(String(payload.get("message",
 				payload.get("prompt", ""))))
-		"show_card", "dice_animation", "monster_draw_animation", "scavenge_draw_animation", "card_destroy_animation", "monster_skill_animation", "monster_attack_animation":
-			# 播完演出再 ACK，避免房主在骰子未结束时推进规则并刷新地图。
-			await _handle_network_visual_request(request_id, seat_id, request_type, payload)
 	_sync_network_action_ui()
 
 
 func _handle_network_visual_request(request_id: int, seat_id: int,
 		request_type: String, payload: Dictionary) -> void:
-	if request_id >= 0 and (NetSession == null or NetSession.session_role != "client" \
-			or _network_client_input == null):
+	if request_id >= 0 and (not _uses_network_display() or _network_client_input == null):
 		return
 	match request_type:
 		"show_card":
@@ -450,8 +490,7 @@ func _handle_network_visual_request(request_id: int, seat_id: int,
 					target_positions.append(target_panel.get_role_card_global_position())
 			if attack_monster is Monster and is_instance_valid(attack_monster):
 				await _animation_controller.play_monster_attack(attack_monster, target_positions)
-	_flush_deferred_network_snapshot()
-	_flush_deferred_map_refresh()
+	_flush_deferred_after_visual()
 	if request_id >= 0:
 		_network_client_input.respond(request_id, seat_id, null)
 		if _network_request_id == request_id:
@@ -462,14 +501,8 @@ func _handle_network_visual_request(request_id: int, seat_id: int,
 			_restore_network_action_request()
 
 
-func _on_host_network_visual_requested(request_type: String, seat_id: int,
-		payload: Dictionary) -> void:
-	# NetworkPlayerInput 已经把同一事件广播给客机；房主本地也消费一次。
-	_handle_network_visual_request(-1, seat_id, request_type, payload)
-
-
 func _network_player_for_seat(seat_id: int) -> Variant:
-	for player in Game.players:
+	for player in _display_game().players:
 		if player != null and is_instance_valid(player) and int(player.seat_number) == seat_id:
 			return player
 	return null
@@ -551,7 +584,7 @@ func _try_respond_network_action(player: Variant, action: Dictionary) -> bool:
 func _should_start_tutorial() -> bool:
 	if Settings.tutorial_mode:
 		return true
-	var mission: Variant = Game.current_mission
+	var mission: Variant = _display_game().current_mission
 	if mission == null:
 		return false
 	return int(mission.get("mission_id")) == 0
@@ -630,12 +663,12 @@ func _build_player_panels() -> void:
 ## 将玩家分配到面板：当前回合玩家 → self 面板，其他玩家 → teammate 面板（按座位顺序）。
 func _assign_player_panels(focus_player: Variant = null) -> void:
 	_player_to_panel_idx.clear()
-	var current: Variant = Game.get_current_player()
+	var current: Variant = _display_game().get_current_player()
 	var focus: Variant = focus_player
 	if focus == null or not is_instance_valid(focus):
 		focus = current
 	var others: Array = []
-	for player in Game.players:
+	for player in _display_game().players:
 		if player == null or not is_instance_valid(player):
 			continue
 		if focus != null and is_instance_valid(focus) and player == focus:
@@ -700,7 +733,7 @@ func _refresh_all_panels() -> void:
 # === 座位私有 HUD ===
 
 func _build_hand_area() -> void:
-	_seat_hud_manager.build(Game.players)
+	_seat_hud_manager.build(_display_game().players)
 
 
 func _get_seat_hud(player: Variant) -> SeatHud:
@@ -760,11 +793,11 @@ func _get_local_display_player() -> Variant:
 	if _last_local_focus_player != null and is_instance_valid(_last_local_focus_player):
 		return _last_local_focus_player
 	var current: Variant = _acting_player if _acting_player != null \
-		and is_instance_valid(_acting_player) else Game.get_current_player()
+		and is_instance_valid(_acting_player) else _display_game().get_current_player()
 	if _is_local_controlled_player(current):
 		_last_local_focus_player = current
 		return current
-	for player in Game.players:
+	for player in _display_game().players:
 		if _is_local_controlled_player(player):
 			_last_local_focus_player = player
 			return player
@@ -789,12 +822,11 @@ func _is_local_controlled_player(player: Variant) -> bool:
 
 func _get_acting_player() -> Variant:
 	var request_owner: Variant = _get_input_request_owner()
-	if request_owner != null and (NetSession == null or NetSession.session_role == "client"
-			or request_owner == _acting_player):
+	if request_owner != null and (_uses_network_display() or request_owner == _acting_player):
 		return request_owner
 	if _acting_player != null and is_instance_valid(_acting_player):
 		return _acting_player
-	return Game.get_current_player()
+	return _display_game().get_current_player()
 
 
 func _get_input_request() -> Variant:
@@ -858,10 +890,10 @@ func _on_request_owner_changed(player: Variant) -> void:
 		_table_map_controller.refresh_map(player)
 		return
 	_acting_player = player
-	_activate_seat_hud(player if player != null else Game.get_current_player())
+	_activate_seat_hud(player if player != null else _display_game().get_current_player())
 	if _action_selection_controller == null or not is_instance_valid(_action_selection_controller):
 		return
-	_action_selection_controller.set_acting_player(player if player != null else Game.get_current_player())
+	_action_selection_controller.set_acting_player(player if player != null else _display_game().get_current_player())
 	_pile_manager.set_acting_player(player)
 	_refresh_hand_area()
 	if player != null and is_instance_valid(player):
@@ -872,7 +904,7 @@ func _on_request_owner_changed(player: Variant) -> void:
 	_action_selection_controller.refresh_confirm_cancel_buttons()
 	_pile_manager.refresh_pile_counts()
 	_pile_manager.refresh_pile_highlights()
-	_table_map_controller.refresh_map(player if player != null else Game.get_current_player())
+	_table_map_controller.refresh_map(player if player != null else _display_game().get_current_player())
 	if _seat_switch_label != null and is_instance_valid(_seat_switch_label):
 		if player != null and is_instance_valid(player):
 			_seat_switch_label.text = "请 %s 操作" % player.player_name
@@ -1475,6 +1507,7 @@ func _handle_network_target_links(payload: Dictionary) -> void:
 	var source: Variant = _network_player_for_seat(int(payload.get("source_seat", -1)))
 	var source_panel: PlayerPanel = _get_panel_for_player(source)
 	if source_panel == null:
+		_flush_deferred_after_visual()
 		return
 	var player_positions: Array[Vector2] = []
 	var monsters: Array = []
@@ -1485,8 +1518,12 @@ func _handle_network_target_links(payload: Dictionary) -> void:
 				player_positions.append(target_panel.get_role_card_global_position())
 		elif target is Monster and is_instance_valid(target):
 			monsters.append(target)
+	if player_positions.is_empty() and monsters.is_empty():
+		_flush_deferred_after_visual()
+		return
 	await _animation_controller.play_target_links(
 		source_panel.get_role_card_global_position(), player_positions, monsters)
+	_flush_deferred_after_visual()
 
 
 func _handle_network_turn_started(payload: Dictionary) -> void:
@@ -1594,6 +1631,12 @@ func _on_player_moved(player: Variant, source_block: Variant, target_block: Vari
 		"source_block": source_block,
 		"target_block": target_block,
 	})
+	if _uses_network_display():
+		return
+	await _play_player_moved(player, source_block, target_block)
+
+
+func _play_player_moved(player: Variant, source_block: Variant, target_block: Variant) -> void:
 	var src_view: Variant = _table_map_controller.get_block_view(source_block)
 	var dst_view: Variant = _table_map_controller.get_block_view(target_block)
 	if src_view != null and dst_view != null and player != null and is_instance_valid(player):
@@ -1608,14 +1651,13 @@ func _on_player_moved(player: Variant, source_block: Variant, target_block: Vari
 func _on_block_revealed(block: Variant, _player: Variant) -> void:
 	# refresh 前先取该地块视图，refresh 后播放翻入动画（叠加在揭示样式之上）
 	_broadcast_visual_event("block_revealed", {"block": block})
-	var view: Variant = _table_map_controller.get_block_view(block)
-	_table_map_controller.refresh_map(_get_acting_player())
-	if view != null and is_instance_valid(view):
-		view.play_reveal_animation()
+	if _uses_network_display():
+		return
+	_handle_network_block_revealed({"block": block})
 
 
 func _on_block_destroyed(block: Variant, _source: Variant) -> void:
-	# 已摧毁的地块从 Game.map_area 移除，但仍保留视图显示"已摧毁"状态
+	# 已摧毁的地块从 _display_game().map_area 移除，但仍保留视图显示"已摧毁"状态
 	if block == null or not is_instance_valid(block):
 		return
 	var coordinate: Dictionary = block.get("coordinate")
@@ -1632,6 +1674,17 @@ func _on_block_destroyed(block: Variant, _source: Variant) -> void:
 
 func _is_visual_playing() -> bool:
 	return _animation_controller != null and _animation_controller.is_busy()
+
+
+func _process(_delta: float) -> void:
+	if _is_visual_playing():
+		return
+	_flush_deferred_after_visual()
+
+
+func _flush_deferred_after_visual() -> void:
+	_flush_deferred_network_snapshot()
+	_flush_deferred_map_refresh()
 
 
 func _defer_or_refresh_map() -> void:
@@ -1682,7 +1735,7 @@ func _on_block_mark_changed(block: Variant) -> void:
 				"block": block,
 				"increased": new_count > old_count,
 			})
-		var current: Variant = Game.get_current_player()
+		var current: Variant = _display_game().get_current_player()
 		var current_block: Variant = null
 		if current != null and is_instance_valid(current):
 			current_block = current.get("current_block")
@@ -1723,7 +1776,7 @@ func _find_monster_holder(monster: Variant) -> Variant:
 	if monster == null or not is_instance_valid(monster):
 		return null
 	if Game != null and is_instance_valid(Game):
-		for p in Game.players:
+		for p in _display_game().players:
 			if p == null or not is_instance_valid(p):
 				continue
 			if "monster_zone" in p and p.monster_zone.has(monster):
@@ -1866,25 +1919,14 @@ func _on_log_message(message: String) -> void:
 func _on_network_message(message: Dictionary) -> void:
 	var message_type := String(message.get("message_type", ""))
 	if message_type == NetProtocol.JOIN_ACCEPTED:
-		_last_network_server_sequence = 0
+		_last_network_snapshot_sequence = 0
+		_seen_game_events.clear()
 	var server_sequence := int(message.get("server_sequence", 0))
-	if server_sequence > 0 and server_sequence <= _last_network_server_sequence \
-			and message_type in [NetProtocol.GAME_EVENT, NetProtocol.STATE_SNAPSHOT]:
-		return
-	if server_sequence > 0 and message_type in [NetProtocol.GAME_EVENT, NetProtocol.STATE_SNAPSHOT]:
-		_last_network_server_sequence = server_sequence
-	if NetSession != null and NetSession.has_active_server_runtime():
-		if message_type == NetProtocol.STATE_SNAPSHOT:
-			return
-		if message_type == NetProtocol.GAME_EVENT:
-			var runtime_event := String(message.get("payload", {}).get("event_name", ""))
-			if runtime_event not in [
-				"show_card", "dice_animation", "monster_draw_animation",
-				"scavenge_draw_animation", "card_destroy_animation",
-				"monster_skill_animation", "monster_attack_animation", "target_links",
-			]:
-				return
 	if message_type == NetProtocol.STATE_SNAPSHOT:
+		if not NetViewSync.should_apply_snapshot(server_sequence, _last_network_snapshot_sequence):
+			return
+		if server_sequence > 0:
+			_last_network_snapshot_sequence = server_sequence
 		var snapshot: Dictionary = message.get("payload", {}).get("game_snapshot", {})
 		if not snapshot.is_empty():
 			_apply_network_game_snapshot(snapshot)
@@ -1893,14 +1935,23 @@ func _on_network_message(message: Dictionary) -> void:
 		return
 	var payload: Dictionary = message.get("payload", {})
 	var event_name := String(payload.get("event_name", ""))
+	var dedup_key := NetViewSync.event_dedup_key(
+		server_sequence, event_name, payload.get("payload", {}))
+	if _seen_game_events.has(dedup_key):
+		return
+	_seen_game_events[dedup_key] = true
+	if _seen_game_events.size() > 400:
+		_seen_game_events.clear()
+		_seen_game_events[dedup_key] = true
 	var event_payload: Dictionary = NetInputCodec.decode(
-		payload.get("payload", {}), Game)
+		payload.get("payload", {}), _display_game())
 	if event_name == "player_moved":
 		var moved_player: Variant = event_payload.get("player")
 		var source_block: Variant = event_payload.get("source_block")
 		var target_block: Variant = event_payload.get("target_block")
 		if moved_player != null and source_block != null and target_block != null:
-			_on_player_moved(moved_player, source_block, target_block)
+			await _play_player_moved(moved_player, source_block, target_block)
+		_flush_deferred_after_visual()
 	elif event_name == "player_state_changed":
 		var state_player: Variant = _network_player_for_seat(
 			int(event_payload.get("seat_id", -1)))
@@ -1936,7 +1987,7 @@ func _on_network_message(message: Dictionary) -> void:
 		_handle_network_visual_request(-1, int(event_payload.get("seat_id", -1)),
 			event_name, event_payload)
 	elif event_name == "target_links":
-		_handle_network_target_links(event_payload)
+		await _handle_network_target_links(event_payload)
 	elif event_name == "turn_started":
 		_handle_network_turn_started(event_payload)
 	elif event_name == "block_revealed":
@@ -1954,6 +2005,8 @@ func _on_network_message(message: Dictionary) -> void:
 		_on_log_message(String(event_payload.get("message", "")))
 		if _event_log_panel != null and is_instance_valid(_event_log_panel):
 			_event_log_panel.add_message(String(event_payload.get("message", "")))
+	elif event_name == "game_over":
+		_handle_network_game_over(event_payload)
 
 
 
@@ -1968,7 +2021,14 @@ func _apply_network_game_snapshot(snapshot: Dictionary) -> void:
 	if _is_visual_playing():
 		_pending_network_snapshot = snapshot
 		return
-	GameStateSerializer.apply(Game, snapshot, _network_entity_ctx)
+	NetSession.apply_display_game_snapshot(snapshot, _network_entity_ctx)
+	var display_game: Node = _display_game()
+	if not _match_view_ready and not display_game.players.is_empty() \
+			and not display_game.map_area.is_empty():
+		_realize_match_view()
+		_sync_network_action_ui()
+		_maybe_enter_game_over_from_display()
+		return
 	if _hand_area == null or not is_instance_valid(_hand_area):
 		_show_local_seat_hud()
 	for row in snapshot.get("players", []):
@@ -1986,10 +2046,11 @@ func _apply_network_game_snapshot(snapshot: Dictionary) -> void:
 	_refresh_all_panels()
 	_pile_manager.refresh_pile_counts()
 	_sync_network_action_ui()
+	_maybe_enter_game_over_from_display()
 
 
 func _network_block_at(x: int, y: int) -> Variant:
-	for block in Game.map_area:
+	for block in _display_game().map_area:
 		if block == null or not is_instance_valid(block):
 			continue
 		var coordinate: Dictionary = block.get("coordinate")
@@ -2000,7 +2061,52 @@ func _network_block_at(x: int, y: int) -> Variant:
 
 # === Game over ===
 
+func _handle_network_game_over(payload: Dictionary) -> void:
+	_apply_network_stats(payload.get("stats", {}))
+	_present_game_over(int(payload.get("result", -1)))
+
+
+func _apply_network_stats(stats_data: Variant) -> void:
+	if not (stats_data is Dictionary) or stats_data.is_empty():
+		return
+	var world: Node = _display_game()
+	if world == null or world.stats_tracker == null:
+		return
+	if not world.stats_tracker.has_method("apply_network_snapshot"):
+		return
+	world.stats_tracker.apply_network_snapshot(world.players, stats_data)
+
+
+func _maybe_enter_game_over_from_display() -> void:
+	var world: Node = _display_game()
+	if world == null or world.state_machine == null:
+		return
+	if not world.state_machine.is_game_over():
+		return
+	_present_game_over(int(world.state_machine.game_result))
+
+
+func _present_game_over(result: int) -> void:
+	if _game_over_started:
+		return
+	var world: Node = _display_game()
+	if world != null and world.state_machine != null:
+		world.state_machine.current_state = GameStateMachine.GameState.GAME_OVER
+		if result == GameStateMachine.GameResult.WIN \
+				or result == GameStateMachine.GameResult.LOSE:
+			world.state_machine.game_result = result
+		world.game_over_called = true
+		if int(world.state_machine.game_result) == GameStateMachine.GameResult.WIN:
+			world.game_result = "win"
+		elif int(world.state_machine.game_result) == GameStateMachine.GameResult.LOSE:
+			world.game_result = "lose"
+	_on_game_over(result)
+
+
 func _on_game_over(_result: int) -> void:
+	if _game_over_started:
+		return
+	_game_over_started = true
 	_popup_manager.close_popup()
 	# 黑色全屏覆盖层，渐变过渡到结算场景
 	var overlay := ColorRect.new()

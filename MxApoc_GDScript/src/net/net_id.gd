@@ -26,6 +26,8 @@ static func should_allocate() -> bool:
 	var net: Node = tree.root.get_node_or_null("NetSession")
 	if net == null:
 		return true
+	if bool(net.get("applying_display_snapshot")):
+		return false
 	if net.has_method("has_active_server_runtime") and bool(net.call("has_active_server_runtime")):
 		return true
 	if String(net.get("session_role")) == "client":

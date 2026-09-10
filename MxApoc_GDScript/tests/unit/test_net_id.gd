@@ -15,6 +15,7 @@ func before_each() -> void:
 func after_each() -> void:
 	NetSession.session_role = _saved_session_role
 	NetSession.server_runtime = _saved_server_runtime
+	NetSession.applying_display_snapshot = false
 	super.after_each()
 
 
@@ -62,3 +63,11 @@ func test_should_allocate_true_for_host_role() -> void:
 	assert_true(NetId.should_allocate(), "大厅房主应分配 net_id")
 	NetSession.session_role = saved_role
 	NetSession.server_runtime = saved_runtime
+
+
+func test_should_allocate_false_while_applying_display_snapshot() -> void:
+	var saved_flag := bool(NetSession.applying_display_snapshot)
+	NetSession.applying_display_snapshot = true
+	NetSession.session_role = "host"
+	assert_false(NetId.should_allocate(), "往只读场面盖快照时不能分配 net_id")
+	NetSession.applying_display_snapshot = saved_flag

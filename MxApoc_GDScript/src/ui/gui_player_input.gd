@@ -54,7 +54,11 @@ func set_event_scheduler(scheduler: Variant) -> void:
 
 
 func _get_event_scheduler() -> Variant:
-	return _scheduler if _scheduler != null else Game.event_scheduler
+	if _scheduler != null:
+		return _scheduler
+	if NetSession != null:
+		return NetSession.get_display_game().event_scheduler
+	return Game.event_scheduler
 
 
 ## 创建请求并入栈。仅当当前活动请求可抢占（wait_action）时才将其压栈暂停。

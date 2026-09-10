@@ -3,7 +3,7 @@ extends Panel
 
 ## 任务进度面板。
 ## 常驻 UI 层右侧固定位置：实时显示当前任务全部进度条件的求值结果。
-## 条件数据源为 Game.current_mission.progress_conditions（每项 {text, type, params?}），
+## 条件数据源为 _game().current_mission.progress_conditions（每项 {text, type, params?}），
 ## 支持类型：state_flag / state_count / hold_items / submitted_count /
 ## all_at_block / escort_at_block / marks_cleared / all_revealed。
 ## 求值核心（build_lines / build_lines_from / _eval_condition）为纯数据方法，
@@ -16,7 +16,13 @@ const CONTENT_MIN_WIDTH: int = 176  # 内容 Label 最小宽度（面板宽 200 
 
 var _content_label: Label = null
 var _cached_text: String = ""
-var _reported_errors: Dictionary = {}  # 已报错的配置错误（_process 每帧调用，避免同一错误刷屏）
+var _reported_errors: Dictionary = {}
+
+
+func _game() -> Node:
+	if NetSession != null:
+		return NetSession.get_display_game()
+	return Game
 
 
 func _ready() -> void:
@@ -24,7 +30,8 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
-	if Game == null or not is_instance_valid(Game) or Game.current_mission == null:
+	var world: Node = _game()
+	if world == null or not is_instance_valid(world) or world.current_mission == null:
 		visible = false
 		return
 	visible = true
@@ -84,13 +91,13 @@ func _build_ui() -> void:
 
 # === 进度求值（纯数据方法，供单元测试直接调用） ===
 
-## 计算全部条件行的显示文本（不含标题）。默认数据路径：Game.current_mission.progress_conditions；
+## 计算全部条件行的显示文本（不含标题）。默认数据路径：_game().current_mission.progress_conditions；
 ## Game / 当前任务 / mission_config 缺失时返回空数组。
 func build_lines() -> Array:
 	if Game == null or not is_instance_valid(Game):
 		return []
-	var mission: Variant = Game.current_mission
-	if mission == null or Game.mission_config == null:
+	var mission: Variant = _game().current_mission
+	if mission == null or _game().mission_config == null:
 		return []
 	# is_instance_valid 对 Dictionary 恒为 false，需先放行 Dictionary 分支（current_mission 可能是 Dictionary 或 Object）
 	if not (mission is Dictionary) and not is_instance_valid(mission):
@@ -105,7 +112,7 @@ func build_lines() -> Array:
 	return build_lines_from(conditions)
 
 
-## 参数化版本：对传入条件数组计算全部显示行，不依赖 Game.current_mission（可测入口）。
+## 参数化版本：对传入条件数组计算全部显示行，不依赖 _game().current_mission（可测入口）。
 ## 每行格式："{序号}. {✔ 前缀}{文案}{(x/n) 后缀}"，序号按显示行自动从 1 递增。
 ## 未知类型的条件行报错并跳过（不显示、不占序号）。
 func build_lines_from(conditions: Array) -> Array:
@@ -256,12 +263,12 @@ func _eval_escort_at_block(params: Dictionary) -> Dictionary:
 func _eval_marks_cleared(params: Dictionary) -> Dictionary:
 	var target: int = int(params.get("count", 0))
 	var removed: int = 0
-	if Game != null and is_instance_valid(Game) and Game.mission_config != null:
+	if Game != null and is_instance_valid(Game) and _game().mission_config != null:
 		var remaining: int = 0
-		for block in Game.map_area:
+		for block in _game().map_area:
 			if block != null and is_instance_valid(block) and block.is_alive():
 				remaining += block.objective_marks.size()
-		removed = maxi(Game.mission_config.initial_objective_mark_count - remaining, 0)
+		removed = maxi(_game().mission_config.initial_objective_mark_count - remaining, 0)
 	return _result_count(removed, target)
 
 
@@ -271,7 +278,7 @@ func _eval_all_revealed() -> Dictionary:
 		return _result_binary(false)
 	var total: int = 0
 	var revealed_count: int = 0
-	for block in Game.map_area:
+	for block in _game().map_area:
 		if block == null or not is_instance_valid(block) or not block.is_alive():
 			continue
 		total += 1
@@ -292,16 +299,16 @@ func _matches_item_family(card_name: String, item_name: String) -> bool:
 
 ## 当前任务运行时状态 mission_state（Game / mission_config 缺失时返回空 Dictionary）。
 func _get_mission_state() -> Dictionary:
-	if Game == null or not is_instance_valid(Game) or Game.mission_config == null:
+	if Game == null or not is_instance_valid(Game) or _game().mission_config == null:
 		return {}
-	return Game.mission_config.mission_state
+	return _game().mission_config.mission_state
 
 
 ## 存活玩家列表（Game 无效时返回空数组）。
 func _get_alive_players() -> Array:
 	if Game == null or not is_instance_valid(Game):
 		return []
-	return Game.get_alive_players()
+	return _game().get_alive_players()
 
 
 ## 地块是否无怪：无怪物标记（count_monster_mark）且同地块存活玩家 monster_zone 之和为 0。

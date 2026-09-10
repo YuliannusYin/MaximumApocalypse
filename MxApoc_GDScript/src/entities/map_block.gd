@@ -196,9 +196,21 @@ func is_map_block() -> bool:
 	return true
 
 
+## 显示副本上的地块必须查显示世界，不能查权威 Game，否则头像/邻接会对不上。
+func _world_game() -> Node:
+	if NetSession != null:
+		var display: Node = NetSession.get_display_game()
+		if display != null and is_instance_valid(display) and display != Game:
+			var display_map: Array = display.map_area if "map_area" in display else []
+			if display_map.has(self):
+				return display
+	return Game
+
+
 ## 返回四向相邻的存活地块（上下左右）。
 func get_adjacent_blocks() -> Array:
 	var adjacent: Array = []
+	var world: Node = _world_game()
 	var directions: Array = [
 		[0, -1],  # 上
 		[0, 1],   # 下
@@ -208,7 +220,8 @@ func get_adjacent_blocks() -> Array:
 	for dir in directions:
 		var x: int = coordinate["x"] + dir[0]
 		var y: int = coordinate["y"] + dir[1]
-		var neighbor: MapBlock = Game.get_block_by_coord(x, y) if Game != null and is_instance_valid(Game) else null
+		var neighbor: MapBlock = world.get_block_by_coord(x, y) \
+			if world != null and is_instance_valid(world) else null
 		if neighbor != null and neighbor.is_alive():
 			adjacent.append(neighbor)
 	return adjacent
@@ -227,7 +240,8 @@ func path_distance_to(other: MapBlock) -> int:
 	var manhattan: int = distance_to(other)
 	if manhattan == 0:
 		return 0
-	if Game == null or not is_instance_valid(Game):
+	var world: Node = _world_game()
+	if world == null or not is_instance_valid(world):
 		return manhattan
 	var goal: String = "%d,%d" % [other.coordinate["x"], other.coordinate["y"]]
 	var start: String = "%d,%d" % [coordinate["x"], coordinate["y"]]
@@ -257,9 +271,10 @@ func path_distance_to(other: MapBlock) -> int:
 ## for_monster: 怪物"长距离"包含同地块（d=0），玩家"长距离"不含
 func get_blocks_in_range(range_str: String, for_monster: bool = false) -> Array:
 	var result: Array = []
-	if Game == null or not is_instance_valid(Game):
+	var world: Node = _world_game()
+	if world == null or not is_instance_valid(world):
 		return result
-	for b in Game.map_area:
+	for b in world.map_area:
 		if not b.is_alive():
 			continue
 		var d: int = distance_to(b)
@@ -290,9 +305,10 @@ func get_players_in_range(range_str: String, for_monster: bool = false) -> Array
 ## 返回该地块上的所有存活玩家。
 func get_players() -> Array:
 	var players: Array = []
-	if Game == null or not is_instance_valid(Game):
+	var world: Node = _world_game()
+	if world == null or not is_instance_valid(world):
 		return players
-	for player in Game.players:
+	for player in world.players:
 		if player != null and is_instance_valid(player) and player.is_alive():
 			if player.get_current_block() == self:
 				players.append(player)

@@ -15,6 +15,13 @@ func test_new_request_replaces_stale_request_for_same_seat() -> void:
 	assert_eq(int(input.get_action_request(1).get("request_id", -1)), 7)
 
 
+func test_visual_input_requests_are_ignored() -> void:
+	var input := NetClientInput.new()
+	input._on_message(_make_input_request(9, 0, "dice_animation"))
+	assert_eq(input.get_current_request(0), {})
+	assert_false(input.is_action_available(0))
+
+
 func test_other_seat_requests_do_not_block() -> void:
 	var input := NetClientInput.new()
 	input._on_message(_make_input_request(1, 0, "action"))

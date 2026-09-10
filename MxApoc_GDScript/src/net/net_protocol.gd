@@ -60,12 +60,21 @@ static func make_message(message_type: String, payload: Dictionary = {},
 		"payload": payload.duplicate(true),
 	}
 
-static func is_valid_message(message: Variant) -> bool:
+static func has_message_envelope(message: Variant) -> bool:
 	if not message is Dictionary:
 		return false
 	return String(message.get("message_type", "")) != "" \
-		and int(message.get("protocol_version", -1)) == VERSION \
 		and message.get("payload", {}) is Dictionary
+
+
+static func is_valid_message(message: Variant) -> bool:
+	return has_message_envelope(message) \
+		and int(message.get("protocol_version", -1)) == VERSION
+
+
+static func is_protocol_mismatch(message: Variant) -> bool:
+	return has_message_envelope(message) \
+		and int(message.get("protocol_version", -1)) != VERSION
 
 static func normalize_nickname(value: String) -> String:
 	var result := value.strip_edges()

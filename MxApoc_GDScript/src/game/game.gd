@@ -228,9 +228,19 @@ func get_blocks_by_name(block_name: String) -> Array:
 	return result
 
 
-## 返回地块的四向相邻存活地块。
+## 返回地块的四向相邻存活地块。用 self 的地图，主机显示副本也能对上邻接。
 func get_adjacent_alive_blocks(block: MapBlock) -> Array:
-	return block.get_adjacent_blocks()
+	var adjacent: Array = []
+	if block == null or not is_instance_valid(block):
+		return adjacent
+	var coordinate: Dictionary = block.coordinate
+	var directions: Array = [[0, -1], [0, 1], [-1, 0], [1, 0]]
+	for dir in directions:
+		var neighbor: MapBlock = get_block_by_coord(
+			int(coordinate["x"]) + int(dir[0]), int(coordinate["y"]) + int(dir[1]))
+		if neighbor != null and neighbor.is_alive():
+			adjacent.append(neighbor)
+	return adjacent
 
 
 ## 根据任务包配置构建游戏地图。
@@ -893,6 +903,24 @@ func _create_skill_from_data(skill_data: SkillData) -> Skill:
 ## 不存在时返回 null。
 func get_sub_skill_data(english_name: String) -> SkillData:
 	return sub_skill_registry.get(english_name, null)
+
+
+## 客机快照建场：挂角色卡和固有/通用技能，不创建游戏牌堆、不抽任务。
+func hydrate_view_player(player: Player, survivor: SurvivorData) -> void:
+	if player == null or survivor == null:
+		return
+	if player.player_name.is_empty():
+		player.player_name = survivor.character_name
+	if player.role_card != null:
+		return
+	player.role_card = _create_role_card_from_survivor(survivor)
+	if player.max_hp <= 0:
+		player.max_hp = survivor.max_hp
+	for skill_data in DataManager.get_common_skills():
+		player.add_skill(_create_skill_from_data(skill_data))
+	if player.role_card != null:
+		for skill in player.role_card.intrinsic_skills:
+			player.add_skill(skill)
 
 
 ## 从 SurvivorData 创建 RoleCard 实例。

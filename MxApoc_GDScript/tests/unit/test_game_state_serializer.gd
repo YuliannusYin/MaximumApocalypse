@@ -202,3 +202,166 @@ func test_apply_copies_mission_state() -> void:
 	GameStateSerializerScript.apply(Game, snapshot, {})
 	assert_eq(int(Game.mission_config.mission_state.get("van_fuel", 0)), 2,
 		"客机任务进度应套用快照里的 mission_state")
+
+
+func test_apply_copies_game_over_result_and_last_player() -> void:
+	var player: Player = _make_player("Hunter")
+	player.seat_number = 0
+	Game.players = [player]
+	Game.map_area = []
+	Game.state_machine.current_state = GameStateMachine.GameState.PLAYING
+	Game.state_machine.game_result = -1
+	Game.state_machine.last_player = null
+	Game.game_over_called = false
+	Game.game_result = ""
+	GameStateSerializerScript.apply(Game, {
+		"players": [],
+		"map": [],
+		"state_machine": {
+			"state": GameStateMachine.GameState.GAME_OVER,
+			"game_result": GameStateMachine.GameResult.WIN,
+			"current_player_seat": -1,
+			"last_player_seat": 0,
+			"turn_number": 4,
+		},
+	}, {})
+	assert_eq(Game.state_machine.current_state, GameStateMachine.GameState.GAME_OVER)
+	assert_eq(Game.state_machine.game_result, GameStateMachine.GameResult.WIN)
+	assert_eq(Game.state_machine.last_player, player)
+	assert_true(Game.game_over_called)
+	assert_eq(Game.game_result, "win")
+
+
+func test_snapshot_includes_game_over_fields() -> void:
+	var player: Player = _make_player("Hunter")
+	player.seat_number = 1
+	Game.players = [player]
+	Game.map_area = []
+	Game.state_machine.current_state = GameStateMachine.GameState.GAME_OVER
+	Game.state_machine.game_result = GameStateMachine.GameResult.LOSE
+	Game.state_machine.last_player = player
+	var packed: Dictionary = GameStateSerializerScript.snapshot(Game).get("state_machine", {})
+	assert_eq(int(packed.get("state", -1)), GameStateMachine.GameState.GAME_OVER)
+	assert_eq(int(packed.get("game_result", -2)), GameStateMachine.GameResult.LOSE)
+	assert_eq(int(packed.get("last_player_seat", -1)), 1)
+
+
+func test_apply_resizes_unrevealed_piles_from_counts() -> void:
+	Game.players = []
+	Game.map_area = []
+	Game.red_scavenge_pile = Pile.new()
+	Game.monster_pile = null
+	var snapshot: Dictionary = {
+		"players": [],
+		"map": [],
+		"piles": {
+			"monster": 4,
+			"red": 2,
+			"green": 0,
+			"blue": 1,
+		},
+	}
+	GameStateSerializerScript.apply(Game, snapshot, {})
+	assert_eq(Game.monster_pile.size(), 4)
+	assert_eq(Game.red_scavenge_pile.size(), 2)
+	assert_eq(Game.green_scavenge_pile.size(), 0)
+	assert_eq(Game.blue_scavenge_pile.size(), 1)
+
+
+func test_apply_creates_player_and_game_deck_count_from_empty_game() -> void:
+	Game.players = []
+	Game.map_area = []
+	var snapshot: Dictionary = {
+		"players": [{
+			"net_id": 7,
+			"seat_number": 0,
+			"player_name": "客机位",
+			"hp": 5,
+			"max_hp": 8,
+			"hunger": 1,
+			"hand": [],
+			"equipment": [],
+			"discard": [],
+			"monsters": [],
+			"game_deck": 3,
+			"current_block": {},
+		}],
+		"map": [],
+		"piles": {},
+	}
+	GameStateSerializerScript.apply(Game, snapshot, {})
+	assert_eq(Game.players.size(), 1)
+	assert_eq(int(Game.players[0].net_id), 7)
+	assert_eq(String(Game.players[0].player_name), "客机位")
+	assert_eq(int(Game.players[0].hp), 5)
+	assert_eq(Game.players[0].game_deck.size(), 3)
+
+
+func test_display_game_add_van_fuel_usable_with_equipped_fuel() -> void:
+	MissionComponentRegistry.reset()
+	var mission: MissionData = DataManager.get_mission(0)
+	assert_not_null(mission, "应能加载任务 0")
+	var van: MapBlock = _make_block("面包车", 0, 0, true)
+	var player: Player = _make_player("Hunter")
+	player.seat_number = 0
+	player.action_count = 2
+	player.in_phase = "action"
+	player.current_block = van
+	var fuel: EquipmentCard = _make_equipment("燃料")
+	fuel.english_name = "fuel"
+	player.equipment_zone.append(fuel)
+	Game.players = [player]
+	Game.map_area = [van]
+	Game.current_mission = mission
+	Game.mission_config = MissionConfig.new()
+	Game.mission_config.mission_state = {"van_fuel": 0, "van_fueled": false}
+	var snapshot: Dictionary = GameStateSerializerScript.snapshot(Game)
+	var display: Node = load("res://src/game/game.gd").new()
+	GameStateSerializerScript.apply(display, snapshot, {})
+	assert_false(display.mission_config.action_components.is_empty(), "显示世界应挂上任务行动组件")
+	var fuel_component: Variant = null
+	for component in display.mission_config.action_components:
+		if component is MissionComponentAddVanFuel:
+			fuel_component = component
+			break
+	assert_not_null(fuel_component, "显示世界应有添加燃料组件")
+	assert_not_null(fuel_component._mission_config, "显示世界添加燃料组件应已 setup")
+	assert_eq(display.players.size(), 1)
+	var display_player: Player = display.players[0]
+	var skill: Variant = null
+	for candidate in display_player.skills:
+		if candidate != null and String(candidate.get("skill_name")) == "添加燃料":
+			skill = candidate
+			break
+	assert_not_null(skill, "走到面包车后显示世界应挂上添加燃料")
+	assert_true(display_player.can_use_active_skill(skill),
+		"装备区有燃料且有行动点时添加燃料应可确认")
+	display.free()
+	MissionComponentRegistry.reset()
+
+
+func test_snapshot_and_apply_copy_player_stats() -> void:
+	var player: Player = _make_player("Hunter")
+	player.seat_number = 0
+	var role := RoleCard.new()
+	role.english_name = "hunter"
+	player.role_card = role
+	Game.players = [player]
+	Game.map_area = []
+	Game.stats_tracker.reset([player])
+	EventBus.damage_dealt.emit(player, _make_monster("丧尸"), 6)
+	EventBus.healing_done.emit(player, player, 2)
+	Game.stats_tracker.game_duration_msec = 777
+	var snapshot: Dictionary = GameStateSerializerScript.snapshot(Game)
+	assert_true(snapshot.has("stats"), "快照应带本局统计")
+	assert_eq(int(snapshot["stats"]["players"]["0"]["damage_dealt"]), 6)
+	assert_eq(int(snapshot["stats"]["duration_msec"]), 777)
+	var guest: Player = _make_player("Hunter")
+	guest.seat_number = 0
+	guest.role_card = role
+	Game.players = [guest]
+	Game.stats_tracker.reset([guest])
+	GameStateSerializerScript.apply(Game, snapshot, {})
+	assert_eq(Game.stats_tracker.get_stats(guest).damage_dealt, 6)
+	assert_eq(Game.stats_tracker.get_stats(guest).healing_done, 2)
+	assert_eq(Game.stats_tracker.game_duration_msec, 777)

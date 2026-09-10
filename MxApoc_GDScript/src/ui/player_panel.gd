@@ -158,7 +158,8 @@ func refresh(show_current_highlight: bool = true) -> void:
 		return
 	_set_visible(true)
 	if show_current_highlight:
-		var current: Variant = Game.get_current_player()
+		var current: Variant = NetSession.get_display_game().get_current_player() \
+				if NetSession != null else Game.get_current_player()
 		_is_current_turn = (current != null and is_instance_valid(current) and current == _player)
 		set_turn_highlight(_is_current_turn)
 	_apply_border()

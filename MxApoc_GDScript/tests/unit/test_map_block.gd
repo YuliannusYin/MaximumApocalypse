@@ -318,6 +318,25 @@ func test_get_players_excludes_dead() -> void:
 	assert_eq(players.size(), 0, "死亡玩家不应被包含")
 
 
+func test_get_players_uses_display_game_for_view_blocks() -> void:
+	var view_block: MapBlock = _make_block("V", 0, 0)
+	var display: Node = load("res://src/game/game.gd").new()
+	var p: MockPlayer = MockPlayer.new()
+	p.current_block = view_block
+	display.map_area = [view_block]
+	display.players = [p]
+	Game.players = []
+	var saved_view: Node = NetSession._view_game
+	NetSession._view_game = display
+	var players: Array = view_block.get_players()
+	var count: int = players.size()
+	var first: Variant = players[0] if count > 0 else null
+	NetSession._view_game = saved_view
+	display.free()
+	assert_eq(count, 1, "显示地块应读取显示世界的玩家")
+	assert_eq(first, p)
+
+
 func test_has_player() -> void:
 	var b: MapBlock = _make_block("B", 0, 0)
 	_setup_game_map([b])

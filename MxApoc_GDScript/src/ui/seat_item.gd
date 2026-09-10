@@ -80,9 +80,7 @@ func _select_controller(controller_id: String) -> void:
 
 func _on_selection_changed(_idx: int) -> void:
 	if _online_mode and _controller_editable:
-		var controller_id := String(_type_option.get_item_metadata(_type_option.selected))
-		_survivor_editable = controller_id == "__ai__" \
-			or controller_id == NetSession.local_player_id
+		_survivor_editable = true
 	_update_survivor_enabled()
 	changed.emit(seat_index)
 

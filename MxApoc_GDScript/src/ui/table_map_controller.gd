@@ -72,13 +72,19 @@ var _table_layer: CanvasLayer
 var _avatar_anim_busy: bool = false  # 头像移动动画播放中（防重入）
 
 
+func _game() -> Node:
+	if NetSession != null:
+		return NetSession.get_display_game()
+	return Game
+
+
 func setup(table_layer: CanvasLayer) -> void:
 	_table_layer = table_layer
 
 
 func build_table_and_map() -> void:
-	var mw: int = max(Game.map_width, 1)
-	var mh: int = max(Game.map_height, 1)
+	var mw: int = max(_game().map_width, 1)
+	var mh: int = max(_game().map_height, 1)
 	var map_pw: float = mw * (BLOCK_SIZE + BLOCK_GAP) - BLOCK_GAP
 	var map_ph: float = mh * (BLOCK_SIZE + BLOCK_GAP) - BLOCK_GAP
 	_table_size = Vector2(map_pw + TABLE_MARGIN * 2, map_ph + TABLE_MARGIN * 2)
@@ -95,7 +101,7 @@ func build_table_and_map() -> void:
 	_map_container.add_child(_table_bg)
 	_table_bg.queue_redraw()
 
-	for block in Game.map_area:
+	for block in _game().map_area:
 		if block == null or not is_instance_valid(block):
 			continue
 		var view := MapBlockView.new()
@@ -114,11 +120,11 @@ func build_table_and_map() -> void:
 
 
 func refresh_map(interactive_player: Variant = null) -> void:
-	var current: Variant = Game.get_current_player()
+	var current: Variant = _game().get_current_player()
 	var current_block: Variant = null
 	if current != null and is_instance_valid(current):
 		current_block = current.get("current_block")
-	for block in Game.map_area:
+	for block in _game().map_area:
 		if block == null or not is_instance_valid(block):
 			continue
 		var view: Variant = _block_views.get(block.get_instance_id())
@@ -189,7 +195,7 @@ func refresh_move_highlights(active: bool, valid_blocks: Array, selected_blocks:
 			if view != null and is_instance_valid(view):
 				view.set_move_highlight("none")
 		return
-	for block in Game.map_area:
+	for block in _game().map_area:
 		if block == null or not is_instance_valid(block):
 			continue
 		var view: Variant = _block_views.get(block.get_instance_id())
@@ -227,7 +233,7 @@ func get_block_view(block: Variant) -> Variant:
 
 ## 教程挖洞：当前玩家在地图上的头像（或所在地块）。
 func get_current_player_avatar_rect(player: Variant = null) -> Rect2:
-	var current: Variant = player if player != null else Game.get_current_player()
+	var current: Variant = player if player != null else _game().get_current_player()
 	if current == null or not is_instance_valid(current):
 		return Rect2()
 	var block: Variant = current.get("current_block")
@@ -240,7 +246,7 @@ func get_current_player_avatar_rect(player: Variant = null) -> Rect2:
 ## 教程挖洞：带怪物标记的地块包围盒。
 func get_marked_blocks_rect() -> Rect2:
 	var merged := Rect2()
-	for block in Game.map_area:
+	for block in _game().map_area:
 		if block == null or not is_instance_valid(block):
 			continue
 		if int(block.get("monster_marks")) <= 0:

@@ -81,7 +81,7 @@ func _get_acting_player() -> Variant:
 			return request.owner
 	if _acting_player != null and is_instance_valid(_acting_player):
 		return _acting_player
-	return Game.get_current_player()
+	return NetSession.get_display_game().get_current_player() if NetSession != null else Game.get_current_player()
 
 
 # === 状态查询 ===

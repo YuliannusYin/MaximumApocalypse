@@ -49,6 +49,22 @@ static func go_restart_game(tree: SceneTree) -> void:
 	tree.change_scene_to_file(SCENE_PATH)
 
 
+## 单机才在加载页 initialize。联机客机等权威快照；有 Runtime 的进程由 Runtime 开局。
+static func should_initialize_from_room_state(session: Variant, room_state: Variant) -> bool:
+	if session is Object and session.has_method("has_active_server_runtime") \
+			and bool(session.call("has_active_server_runtime")):
+		return false
+	var online := false
+	if room_state is Object or room_state is Dictionary:
+		online = bool(room_state.get("online_multiplayer"))
+	var role := ""
+	if session is Object or session is Dictionary:
+		role = String(session.get("session_role"))
+	if online and role == "client":
+		return false
+	return true
+
+
 func _ready() -> void:
 	_destination = _next_scene_path
 	_should_abort = _abort_session
@@ -101,17 +117,14 @@ func _run_loading() -> void:
 	if _should_abort and Game != null and is_instance_valid(Game):
 		Game.abort_session()
 		if NetSession != null and is_instance_valid(NetSession):
-			if NetSession.is_authority():
-				NetSession.leave_room()
-			else:
-				NetSession.close_session()
+			NetSession.leave_room()
 	if _should_prepare_game and Game != null and is_instance_valid(Game):
 		if NetSession != null and NetSession.has_active_server_runtime():
 			var prepared: bool = await NetSession.server_runtime.wait_until_match_prepared()
 			if not prepared:
 				get_tree().change_scene_to_file(MENU_SCENE_PATH)
 				return
-		else:
+		elif should_initialize_from_room_state(NetSession, RoomState):
 			Game.initialize_from_room_state()
 	while is_inside_tree():
 		var status: ResourceLoader.ThreadLoadStatus = ResourceLoader.load_threaded_get_status(_destination)

@@ -191,6 +191,21 @@ func test_filter_add_van_fuel() -> void:
 	assert_false(decl["filter"].call(p), "满额后应灰化")
 
 
+func test_filter_add_van_fuel_requires_setup() -> void:
+	MissionComponentRegistry.reset()
+	var component: MissionComponent = MissionComponentRegistry.create("add_van_fuel", {"count": 4})
+	var decl: Variant = component.get_action_skill_decl()
+	var p: Player = _make_player("P")
+	p.action_count = 3
+	p.hand.append(_make_card("燃料"))
+	assert_false(decl["filter"].call(p), "未 setup 时添加燃料 filter 应失败")
+	var mc: MissionConfig = MissionConfig.new()
+	mc.action_components.append(component)
+	mc.setup_action_components(Game)
+	assert_true(decl["filter"].call(p), "setup 后持有燃料应可用")
+	MissionComponentRegistry.reset()
+
+
 func test_filter_repair_van() -> void:
 	var ctx: Dictionary = _setup_component("repair_van", {})
 	var decl: Variant = ctx["component"].get_action_skill_decl()

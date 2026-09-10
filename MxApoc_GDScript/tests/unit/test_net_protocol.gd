@@ -23,3 +23,11 @@ func test_message_envelope_has_protocol_version() -> void:
 	assert_true(NetProtocol.is_valid_message(message))
 	assert_eq(message.protocol_version, NetProtocol.VERSION)
 	assert_eq(message.payload.value, 1)
+
+
+func test_protocol_mismatch_is_detected() -> void:
+	var message := NetProtocol.make_message(NetProtocol.JOIN_REQUEST, {"display_name": "x"})
+	assert_false(NetProtocol.is_protocol_mismatch(message))
+	message["protocol_version"] = NetProtocol.VERSION + 1
+	assert_true(NetProtocol.is_protocol_mismatch(message))
+	assert_false(NetProtocol.is_valid_message(message))

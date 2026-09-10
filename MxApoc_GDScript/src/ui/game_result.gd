@@ -169,6 +169,7 @@ func _fill_stats(all_stats: Dictionary, current_player: Variant, players: Array)
 ## 结算归档：仅玩家模式（Settings.dev_mode == false）且取得有效胜负结果时执行。
 ## 将本局统计（Game.stats_tracker 汇总）写入 ArchiveManager 并立即落盘，
 ## 取回本局新达成成就列表供 _fill_new_achievements 展示。
+## 联机时击杀/伤害/治疗/怪物击杀只录入本机操作的座位；任务通关与胜负仍按全队。
 ## result 非 WIN/LOSE（未结算/异常直入结算页）时不归档。
 ## _archive_recorded 防重入：同一结算页实例只归档一次；重新开局后的结算页
 ## 是新实例，标记重置，正常再次归档。
@@ -190,7 +191,17 @@ func _record_archive(result: int) -> void:
 	else:
 		return
 	var summary: Dictionary = Game.stats_tracker.get_archive_summary(result_str)
+	if _should_filter_online_archive() and NetSession != null:
+		var local_players: Array = NetSession.filter_local_controlled_players(Game.players)
+		summary = Game.stats_tracker.get_archive_summary_for_players(local_players, result_str)
 	_new_achievements = ArchiveManager.record_game_result(summary)
+
+
+## 联机对局（含环回房主）各自往本机档案写入，不把队友/AI 的战斗统计算进来。
+func _should_filter_online_archive() -> bool:
+	if RoomState == null or not RoomState.online_multiplayer:
+		return false
+	return NetSession != null and NetSession.uses_network_view()
 
 
 ## 新达成成就区块：在结算页右侧（统计表旁）动态构建，

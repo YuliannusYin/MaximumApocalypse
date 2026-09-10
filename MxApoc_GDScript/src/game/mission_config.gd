@@ -47,6 +47,13 @@ func setup_components(game: Game) -> void:
 		mission_script_instance.setup(game, self)
 
 
+## 仅注入行动组件。显示世界（ViewGame）不要 setup 触发器，避免和权威抢 EventBus。
+func setup_action_components(game: Game) -> void:
+	for component in action_components:
+		if component != null:
+			component.setup(game, self)
+
+
 ## 任务胜利条件判定。所有胜利组件为 true 且（无脚本或脚本为 true）才为 true；
 ## 无组件且无脚本时返回 true（空真）。
 func check_win(game: Game) -> bool:

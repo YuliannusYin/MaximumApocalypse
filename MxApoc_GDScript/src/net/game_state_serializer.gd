@@ -21,6 +21,7 @@ static func snapshot(game: Variant) -> Dictionary:
 		result.players.append(_serialize_player(player))
 	for block in game.map_area:
 		result.map.append(_serialize_block(block))
+	result.stats = _serialize_stats(game)
 	return result
 
 
@@ -28,15 +29,15 @@ static func snapshot(game: Variant) -> Dictionary:
 static func apply(game: Variant, snapshot: Dictionary, ctx: Dictionary) -> void:
 	if game == null or snapshot.is_empty():
 		return
+	_ensure_mission(game, snapshot)
 	var previous_blocks: Dictionary = _current_blocks_by_player(game)
 	var rebuilt_blocks: Dictionary = _apply_map(game, snapshot.get("map", []), ctx)
 	for row in snapshot.get("players", []):
 		if not row is Dictionary:
 			continue
-		var player: Variant = _player_by_seat(game, int(row.get("seat_number", -1)))
+		var player: Variant = _ensure_player(game, row, ctx)
 		if player == null:
 			continue
-		_stamp(player, int(row.get("net_id", 0)), ctx)
 		player.hp = int(row.get("hp", player.hp))
 		player.max_hp = int(row.get("max_hp", player.max_hp))
 		player.hunger = int(row.get("hunger", player.hunger))
@@ -50,6 +51,8 @@ static func apply(game: Variant, snapshot: Dictionary, ctx: Dictionary) -> void:
 			row.get("hand", []), ctx, game)
 		_apply_discard_pile(player, row.get("discard", null), ctx, game)
 		_apply_equipment_zone(player, row.get("equipment", []), ctx, game)
+		if row.has("game_deck"):
+			player.game_deck = _resize_unrevealed_pile(player.game_deck, int(row.get("game_deck", 0)))
 		player.monster_zone = _apply_monster_list(
 			player.monster_zone if "monster_zone" in player else [],
 			row.get("monsters", []), ctx, player)
@@ -67,11 +70,24 @@ static func apply(game: Variant, snapshot: Dictionary, ctx: Dictionary) -> void:
 			machine.current_state = int(state_data.get("state", machine.current_state))
 		if state_data.has("turn_number"):
 			machine.turn_number = int(state_data.get("turn_number", machine.turn_number))
+		if state_data.has("game_result"):
+			machine.game_result = int(state_data.get("game_result", machine.game_result))
 		var current_seat := int(state_data.get("current_player_seat", -1))
 		machine.current_player = _player_by_seat(game, current_seat) \
 			if current_seat >= 0 else null
+		var last_seat := int(state_data.get("last_player_seat", -1))
+		if last_seat >= 0 and "last_player" in machine:
+			machine.last_player = _player_by_seat(game, last_seat)
+		if int(machine.current_state) == GameStateMachine.GameState.GAME_OVER:
+			game.game_over_called = true
+			if int(machine.game_result) == GameStateMachine.GameResult.WIN:
+				game.game_result = "win"
+			elif int(machine.game_result) == GameStateMachine.GameResult.LOSE:
+				game.game_result = "lose"
+	_apply_unrevealed_piles(game, snapshot.get("piles", {}))
 	_apply_scavenge_discard(game, snapshot.get("piles", {}), ctx)
 	_apply_mission(game, snapshot)
+	_apply_stats(game, snapshot)
 	_sync_location_skills(game, previous_blocks, rebuilt_blocks)
 	_prune_ctx(ctx, snapshot)
 
@@ -143,8 +159,33 @@ static func _serialize_player(player: Variant) -> Dictionary:
 		"hand": hand,
 		"equipment": equipment,
 		"discard": _serialize_pile_cards(player.game_discard_pile if "game_discard_pile" in player else null),
+		"game_deck": _pile_size(player.game_deck if "game_deck" in player else null),
 		"monsters": _serialize_array(player.monster_zone if "monster_zone" in player else []),
 	}
+
+
+static func _serialize_stats(game: Variant) -> Dictionary:
+	if game == null:
+		return {}
+	var tracker: Variant = game.get("stats_tracker")
+	if tracker == null or not tracker.has_method("to_network_dict"):
+		return {}
+	var players: Array = game.players if "players" in game else []
+	return tracker.to_network_dict(players)
+
+
+static func _apply_stats(game: Variant, snapshot: Dictionary) -> void:
+	if not snapshot.has("stats"):
+		return
+	var tracker: Variant = game.get("stats_tracker") if game != null else null
+	if tracker == null or not tracker.has_method("apply_network_snapshot"):
+		return
+	var stats_data: Variant = snapshot.get("stats", {})
+	if not (stats_data is Dictionary):
+		return
+	var players: Array = game.players if "players" in game else []
+	tracker.apply_network_snapshot(players, stats_data)
+
 
 static func _serialize_block(block: Variant) -> Dictionary:
 	if block == null:
@@ -254,10 +295,13 @@ static func _serialize_state_machine(machine: Variant) -> Dictionary:
 		return {}
 	var current_player: Variant = machine.current_player \
 		if "current_player" in machine else null
+	var last_player: Variant = machine.last_player if "last_player" in machine else null
 	return {
 		"state": int(machine.current_state) if "current_state" in machine else 0,
 		"current_player_seat": int(current_player.seat_number)
 			if current_player != null and "seat_number" in current_player else -1,
+		"last_player_seat": int(last_player.seat_number)
+			if last_player != null and "seat_number" in last_player else -1,
 		"turn_number": int(machine.turn_number) if "turn_number" in machine else 0,
 		"game_result": int(machine.game_result) if "game_result" in machine else -1,
 	}
@@ -304,6 +348,123 @@ static func _player_by_seat(game: Variant, seat_number: int) -> Variant:
 		if player != null and int(player.seat_number) == seat_number:
 			return player
 	return null
+
+
+static func _ensure_player(game: Variant, row: Dictionary, ctx: Dictionary) -> Variant:
+	var net_id := int(row.get("net_id", 0))
+	var seat_number := int(row.get("seat_number", -1))
+	var player: Variant = ctx.get(net_id, null) if net_id > 0 else null
+	if player == null:
+		player = _player_by_seat(game, seat_number)
+	if player == null:
+		player = Player.new()
+		player.seat_number = seat_number
+		player.game_deck = Pile.new()
+		player.game_discard_pile = Pile.new()
+		_hydrate_view_player(game, player, row)
+		if game.get("players") == null:
+			game.players = []
+		game.players.append(player)
+	_stamp(player, net_id, ctx)
+	return player
+
+
+static func _hydrate_view_player(game: Variant, player: Variant, row: Dictionary) -> void:
+	if player == null:
+		return
+	player.player_name = String(row.get("player_name", player.player_name))
+	player.is_ai = bool(row.get("is_ai", player.is_ai))
+	if game == null or not game.has_method("hydrate_view_player"):
+		return
+	var survivor: Variant = _survivor_for_seat(int(row.get("seat_number", -1)))
+	if survivor != null:
+		game.hydrate_view_player(player, survivor)
+
+
+static func _survivor_for_seat(seat_number: int) -> Variant:
+	if seat_number < 0:
+		return null
+	if RoomState != null and seat_number < RoomState.seats.size():
+		var seat: Dictionary = RoomState.seats[seat_number]
+		var survivor: Variant = seat.get("survivor", null)
+		if survivor != null:
+			return survivor
+	if NetSession == null or seat_number >= NetSession.registry.seats.size():
+		return null
+	var survivor_id := String(NetSession.registry.seats[seat_number].get("survivor_id", ""))
+	if survivor_id.is_empty() or DataManager == null:
+		return null
+	return DataManager.get_survivor(survivor_id)
+
+
+static func _ensure_mission(game: Variant, snapshot: Dictionary) -> void:
+	if game == null:
+		return
+	var mission_id := int(snapshot.get("mission_id", -1))
+	if mission_id < 0:
+		return
+	if game.get("current_mission") != null and _mission_id(game.current_mission) == mission_id:
+		return
+	if DataManager == null:
+		return
+	var mission: Variant = DataManager.get_mission(mission_id)
+	if mission == null:
+		return
+	game.current_mission = mission
+	if game.get("mission_config") == null:
+		game.mission_config = MissionConfig.new()
+		game.mission_config.no_initial_monster_draw = mission.no_initial_monster_draw
+		game.mission_config.mission_state = {}
+		if game.has_method("_mount_mission_components"):
+			game._mount_mission_components(mission)
+		_setup_mission_components_for_world(game)
+
+
+## 权威/客机本机 Game 全量 setup；房主 ViewGame 只 setup 行动组件，避免触发器吃权威 EventBus。
+static func _setup_mission_components_for_world(game: Variant) -> void:
+	if game == null:
+		return
+	var config: Variant = game.mission_config if "mission_config" in game else null
+	if config == null:
+		return
+	if game == Game:
+		if config.has_method("setup_components"):
+			config.setup_components(game)
+		return
+	if config.has_method("setup_action_components"):
+		config.setup_action_components(game)
+
+
+static func _apply_unrevealed_piles(game: Variant, piles: Variant) -> void:
+	if game == null or not piles is Dictionary:
+		return
+	var data: Dictionary = piles
+	if data.has("monster"):
+		game.monster_pile = _resize_unrevealed_pile(game.monster_pile, int(data.get("monster", 0)))
+	if data.has("monster_discard"):
+		game.monster_discard_pile = _resize_unrevealed_pile(
+			game.monster_discard_pile, int(data.get("monster_discard", 0)))
+	if data.has("red"):
+		game.red_scavenge_pile = _resize_unrevealed_pile(game.red_scavenge_pile, int(data.get("red", 0)))
+	if data.has("green"):
+		game.green_scavenge_pile = _resize_unrevealed_pile(
+			game.green_scavenge_pile, int(data.get("green", 0)))
+	if data.has("blue"):
+		game.blue_scavenge_pile = _resize_unrevealed_pile(game.blue_scavenge_pile, int(data.get("blue", 0)))
+
+
+static func _resize_unrevealed_pile(pile: Variant, count: int) -> Variant:
+	if count < 0:
+		return pile
+	if pile == null:
+		pile = Pile.new()
+	var cards: Array = pile.cards if "cards" in pile else []
+	while cards.size() > count:
+		cards.pop_back()
+	while cards.size() < count:
+		cards.append(Card.new())
+	pile.cards = cards
+	return pile
 
 
 static func _block_at(game: Variant, x: int, y: int) -> Variant:

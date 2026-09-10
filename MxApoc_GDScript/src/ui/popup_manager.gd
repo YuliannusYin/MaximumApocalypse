@@ -974,7 +974,7 @@ func show_block_detail_popup(block: Variant) -> void:
 # === 详情弹窗（任务 #91） ===
 
 func show_mission_detail_popup() -> void:
-	var mission: Variant = Game.current_mission
+	var mission: Variant = NetSession.get_display_game().current_mission if NetSession != null else Game.current_mission
 	if mission == null:
 		return
 	if mission is Object and not is_instance_valid(mission):
@@ -1100,8 +1100,9 @@ func show_event_log_popup(event_log: Array) -> void:
 
 func show_scavenge_discard_popup() -> void:
 	var cards: Array = []
-	if Game.scavenge_discard_pile != null and is_instance_valid(Game.scavenge_discard_pile):
-		cards = Game.scavenge_discard_pile.get("cards")
+	var display_game: Node = NetSession.get_display_game() if NetSession != null else Game
+	if display_game.scavenge_discard_pile != null and is_instance_valid(display_game.scavenge_discard_pile):
+		cards = display_game.scavenge_discard_pile.get("cards")
 	var overlay := _create_modal_overlay()
 	var panel := Panel.new()
 	panel.position = Vector2(315, 100)
@@ -1156,7 +1157,7 @@ func show_game_discard_popup(player: Variant = null) -> void:
 	var request_owner: Variant = get_input_request_owner()
 	var current: Variant = player if player != null else request_owner
 	if current == null or not is_instance_valid(current):
-		current = Game.get_current_player()
+		current = NetSession.get_display_game().get_current_player() if NetSession != null else Game.get_current_player()
 	if current != null and is_instance_valid(current):
 		var pile: Variant = current.get("game_discard_pile")
 		if pile != null and is_instance_valid(pile):

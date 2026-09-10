@@ -66,7 +66,7 @@ func refresh(player: Variant) -> void:
 		else:
 			HudTheme.apply_slot_button(btn, 12)
 		btn.clip_text = true
-		btn.disabled = not skill.is_usable() or not has_action
+		btn.disabled = not _is_skill_usable(player, skill) or not has_action
 		btn.pressed.connect(_on_skill_button_pressed.bind(skill))
 		_active_skill_grid.add_child(btn)
 		_active_skill_buttons.append(btn)
@@ -104,6 +104,12 @@ func clear() -> void:
 
 func _on_skill_button_pressed(skill: Variant) -> void:
 	skill_pressed.emit(skill)
+
+
+func _is_skill_usable(player: Variant, skill: Variant) -> bool:
+	if player != null and is_instance_valid(player) and player.has_method("can_use_active_skill"):
+		return bool(player.can_use_active_skill(skill))
+	return skill != null and skill.has_method("is_usable") and bool(skill.is_usable())
 
 
 ## 超过 5 个字时取前 4 字加省略号；4～5 字原样显示。

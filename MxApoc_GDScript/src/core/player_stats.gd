@@ -94,3 +94,19 @@ func to_dict() -> Dictionary:
 		"skill_uses": skill_uses,
 		"turns_played": turns_played,
 	}
+
+
+## 从字典回填 12 个整型字段；缺失键视为 0。未知键忽略。
+func from_dict(data: Dictionary) -> void:
+	damage_dealt = int(data.get("damage_dealt", 0))
+	damage_taken = int(data.get("damage_taken", 0))
+	kills = int(data.get("kills", 0))
+	moves = int(data.get("moves", 0))
+	draw_count = int(data.get("draw_count", 0))
+	scavenge_count = int(data.get("scavenge_count", 0))
+	hunger_reduced = int(data.get("hunger_reduced", 0))
+	hp_recovered = int(data.get("hp_recovered", 0))
+	healing_done = int(data.get("healing_done", 0))
+	cards_used = int(data.get("cards_used", 0))
+	skill_uses = int(data.get("skill_uses", 0))
+	turns_played = int(data.get("turns_played", 0))

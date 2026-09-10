@@ -117,8 +117,10 @@ func _on_connection_state_changed(state: String, detail: String) -> void:
 	if state == "joined":
 		_confirm_button.disabled = false
 		get_tree().change_scene_to_file("res://scenes/GameRoom.tscn")
-	elif state == "connecting":
-		_hint_label.text = detail
+	elif state == "connecting" or state == "connected":
+		_hint_label.add_theme_color_override("font_color", HudTheme.GOLD_TEXT)
+		if detail != "":
+			_hint_label.text = detail
 
 func _on_network_error(code: String, _detail: String) -> void:
 	_confirm_button.disabled = false

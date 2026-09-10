@@ -164,6 +164,61 @@ func test_archive_summary_structure() -> void:
 	assert_eq(summary["monsters"].get("zombie_dog", 0), 1, "monsters 应按单个怪物 english_name 统计")
 
 
+func test_filtered_archive_summary_keeps_party_size_and_local_combat() -> void:
+	var local_p: Player = _make_test_player("firefighter")
+	local_p.seat_number = 0
+	var other_p: Player = _make_test_player("hunter")
+	other_p.seat_number = 1
+	_tracker.reset([local_p, other_p])
+	EventBus.damage_dealt.emit(local_p, _make_monster_with_level("zombie_dog", "normal"), 8)
+	EventBus.damage_dealt.emit(other_p, _make_monster_with_level("zombie_dog", "normal"), 20)
+	EventBus.healing_done.emit(local_p, local_p, 2)
+	EventBus.healing_done.emit(other_p, other_p, 9)
+	EventBus.monster_died.emit(_make_monster_with_level("zombie_dog", "normal"), local_p)
+	EventBus.monster_died.emit(_make_monster_with_level("zombie_queen", "boss"), other_p)
+	EventBus.monster_died.emit(_make_monster_with_level("robot_scout", "normal"), null)
+	_tracker.game_duration_msec = 5000
+	Game.current_mission = MissionData.new({"mission_id": 3})
+	var filtered: Dictionary = _tracker.get_archive_summary_for_players([local_p], "win")
+	assert_eq(filtered["player_count"], 2, "任务分档仍按全队人数")
+	assert_eq(filtered["mission_id"], 3, "任务 id 全队共享")
+	assert_eq(filtered["duration_msec"], 5000, "时长全队共享")
+	assert_eq(filtered["result"], "win")
+	assert_true(filtered["survivors"].has("firefighter"), "应录入本机求生者")
+	assert_false(filtered["survivors"].has("hunter"), "不应录入队友求生者")
+	assert_eq(filtered["survivors"]["firefighter"]["damage"], 8)
+	assert_eq(filtered["survivors"]["firefighter"]["kills"], 1)
+	assert_eq(filtered["survivors"]["firefighter"]["healing"], 2)
+	assert_eq(filtered["survivors"]["firefighter"]["boss_kills"], 0)
+	assert_eq(filtered["monsters"].get("zombie_dog", 0), 1, "怪物击杀只计本机座位")
+	assert_eq(filtered["monsters"].get("zombie_queen", 0), 0, "队友首领击杀不应计入本机")
+	assert_eq(filtered["monsters"].get("robot_scout", 0), 0, "无来源击杀不应计入本机")
+	var full: Dictionary = _tracker.get_archive_summary("win")
+	assert_eq(full["monsters"].get("robot_scout", 0), 1, "单机全量仍计无来源击杀")
+	assert_eq(full["survivors"]["hunter"]["damage"], 20)
+
+
+func test_network_stats_snapshot_roundtrip_ignores_event_bus() -> void:
+	var p: Player = _make_test_player("mechanic")
+	p.seat_number = 2
+	_tracker.reset([p])
+	EventBus.damage_dealt.emit(p, _make_monster_with_level("zombie_dog", "normal"), 4)
+	EventBus.monster_died.emit(_make_monster_with_level("zombie_dog", "normal"), p)
+	_tracker.game_duration_msec = 321
+	var packed: Dictionary = _tracker.to_network_dict([p])
+	assert_eq(int(packed["players"]["2"]["damage_dealt"]), 4)
+	assert_eq(int(packed["players"]["2"]["kills"]), 1)
+	assert_eq(int(packed["players"]["2"]["monster_kills"]["zombie_dog"]), 1)
+	var mirror := StatsTracker.new()
+	var copy: Player = _make_test_player("mechanic")
+	copy.seat_number = 2
+	mirror.apply_network_snapshot([copy], packed)
+	assert_eq(mirror.get_stats(copy).damage_dealt, 4)
+	assert_eq(mirror.get_archive_summary_for_players([copy], "lose")["monsters"].get("zombie_dog", 0), 1)
+	EventBus.damage_dealt.emit(copy, _make_monster_with_level("zombie_dog", "normal"), 50)
+	assert_eq(mirror.get_stats(copy).damage_dealt, 4, "显示世界灌入后不应再听 EventBus")
+
+
 func test_archive_summary_result_fallback_and_override() -> void:
 	var p: Player = _make_test_player("hunter")
 	_tracker.reset([p])

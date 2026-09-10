@@ -18,3 +18,18 @@ func test_visual_methods_do_not_block_on_input_response() -> void:
 	assert_eq(seen[0].type, "monster_draw_animation")
 	assert_eq(seen[1].type, "dice_animation")
 	assert_eq(input._pending.size(), 0, "演出不应进入 pending")
+
+
+func test_abort_pending_unblocks_without_waiting_for_client() -> void:
+	var input := NetworkPlayerInput.new()
+	input._pending[3] = {
+		"value": null,
+		"received": false,
+		"selection_map": {},
+		"request_type": "action",
+	}
+	input.abort_pending()
+	assert_true(bool(input._pending[3].received))
+	assert_eq(input._pending[3].value, null)
+	input.detach()
+	assert_eq(input._pending[3].received, true)
