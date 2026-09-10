@@ -43,8 +43,16 @@ func _build_ui() -> void:
 
 
 ## 播放居中卡牌焚毁动画；调用方可 await 本方法以阻塞后续结算。
+## GAME_EVENT 与 INPUT_REQUEST 可能同时触发：已在播时只等待当前轮结束，不重播。
+func is_playing() -> bool:
+	return _playing
+
+
 func play(card: Card) -> void:
-	if _playing or card == null or not is_instance_valid(card):
+	if _playing:
+		await _await_current_play()
+		return
+	if card == null or not is_instance_valid(card):
 		return
 	_playing = true
 	_card.set_card(card)
@@ -65,6 +73,14 @@ func play(card: Card) -> void:
 
 	visible = false
 	_playing = false
+
+
+func _await_current_play() -> void:
+	while _playing:
+		var tree := Engine.get_main_loop() as SceneTree
+		if tree == null:
+			return
+		await tree.process_frame
 
 
 func _reset() -> void:

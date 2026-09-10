@@ -53,9 +53,14 @@ func _build_ui() -> void:
 ## monster：要展示的 Monster 实例（无效或非 Monster 直接返回，不播）。
 ## 时间轴：scale 1.0 立即显示 → 突然放大至 1.4（0.12s，TRANS_BACK + EASE_OUT 打击感）
 ## → 并行缩小至 0.6 与淡出至 0（0.35s）→ 隐藏并复位，总时长约 0.47s。
+## GAME_EVENT 与 INPUT_REQUEST 可能同时触发：已在播时只等待当前轮结束，不重播。
+func is_playing() -> bool:
+	return _playing
+
+
 func play(monster: Variant) -> void:
-	# 防重入：播放中再次调用直接返回
 	if _playing:
+		await _await_current_play()
 		return
 	# 参数校验：仅接受有效的 Monster 实例
 	if monster == null or not is_instance_valid(monster) or not monster is Monster:
@@ -81,6 +86,14 @@ func play(monster: Variant) -> void:
 	visible = false
 	_reset_card()
 	_playing = false
+
+
+func _await_current_play() -> void:
+	while _playing:
+		var tree := Engine.get_main_loop() as SceneTree
+		if tree == null:
+			return
+		await tree.process_frame
 
 
 # === 内部辅助 ===

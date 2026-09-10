@@ -158,9 +158,14 @@ func _build_ui() -> void:
 ## 播放一次完整的"抓取时"技能触发动画（协程，可 await，播完整轮后才返回）。
 ## card：要展示的拾荒卡。
 ## 时间轴：淡入 0.15s → 翻面 0.4s → 定格停留 0.8s → 原地放大淡出 0.5s，总时长约 1.85s。
+## GAME_EVENT 与 INPUT_REQUEST 可能同时触发：已在播时只等待当前轮结束，不重播。
+func is_playing() -> bool:
+	return _playing
+
+
 func play(card: Card) -> void:
-	# 防重入：播放中再次调用直接返回
 	if _playing:
+		await _await_current_play()
 		return
 	_playing = true
 	# --- 准备：填充卡面数据、显示牌背、复位变换 ---
@@ -195,6 +200,14 @@ func play(card: Card) -> void:
 	visible = false
 	_reset_card()
 	_playing = false
+
+
+func _await_current_play() -> void:
+	while _playing:
+		var tree := Engine.get_main_loop() as SceneTree
+		if tree == null:
+			return
+		await tree.process_frame
 
 
 # === 内部辅助 ===

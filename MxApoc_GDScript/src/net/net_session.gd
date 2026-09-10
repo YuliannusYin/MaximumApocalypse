@@ -4,6 +4,8 @@ extends Node
 const NetProtocol = preload("res://src/net/net_protocol.gd")
 const NetRegistry = preload("res://src/net/net_registry.gd")
 const NetInputCodec = preload("res://src/net/net_input_codec.gd")
+const GameStateSerializer = preload("res://src/net/game_state_serializer.gd")
+const ServerRuntimeScript = preload("res://src/net/server_runtime.gd")
 
 signal session_changed(snapshot: Dictionary)
 signal connection_state_changed(state: String, detail: String)
@@ -19,6 +21,15 @@ var _client_sequence: int = 0
 var _connected_address: String = ""
 var _pending_nickname: String = ""
 var _saved_identity: Dictionary = {}
+var _state_snapshot_dirty: bool = false
+var _request_id_counter: int = 0
+var server_runtime: Node = null
+var _client_api: MultiplayerAPI = null
+var _closing: bool = false
+
+
+func is_authority() -> bool:
+	return has_active_server_runtime() or (is_host and session_role == "host")
 
 func _ready() -> void:
 	multiplayer.peer_connected.connect(_on_peer_connected)
@@ -29,17 +40,19 @@ func _ready() -> void:
 	_load_saved_identity()
 
 func _process(_delta: float) -> void:
-	if not is_host:
+	if _client_api != null:
+		_client_api.poll()
+	if not is_authority():
 		return
 	var expired: Array = registry.expire_disconnected()
-	if expired.is_empty():
-		return
-	for player_id in expired:
-		_broadcast(NetProtocol.PLAYER_DISCONNECTED, {
-			"player_id": player_id,
-			"expired": true,
-		})
-	_emit_snapshot()
+	if not expired.is_empty():
+		for player_id in expired:
+			_broadcast(NetProtocol.PLAYER_DISCONNECTED, {
+				"player_id": player_id,
+				"expired": true,
+			})
+		_emit_snapshot()
+	_flush_pending_state_snapshot()
 
 func create_host(host_name: String, port: int, seats: Array) -> bool:
 	close_session()
@@ -54,6 +67,7 @@ func create_host(host_name: String, port: int, seats: Array) -> bool:
 	var credentials := registry.create_host(host_name, port, seats)
 	local_player_id = String(credentials.get("player_id", ""))
 	local_reconnect_token = String(credentials.get("reconnect_token", ""))
+	_save_identity()
 	connection_state_changed.emit("host", "房间已创建")
 	_emit_snapshot()
 	return true
@@ -78,9 +92,14 @@ func join(address: String, nickname: String) -> bool:
 	return true
 
 func close_session() -> void:
-	if multiplayer.multiplayer_peer != null:
+	if _closing:
+		return
+	_closing = true
+	stop_server_runtime()
+	_teardown_loopback_client()
+	if multiplayer != null and multiplayer.multiplayer_peer != null:
 		multiplayer.multiplayer_peer.close()
-	multiplayer.multiplayer_peer = null
+		multiplayer.multiplayer_peer = null
 	is_host = false
 	session_role = "none"
 	local_player_id = ""
@@ -88,7 +107,126 @@ func close_session() -> void:
 	_pending_nickname = ""
 	_connected_address = ""
 	registry = NetRegistry.new()
+	_state_snapshot_dirty = false
+	_request_id_counter = 0
 	connection_state_changed.emit("closed", "")
+	_closing = false
+
+
+func ensure_server_runtime() -> Node:
+	if server_runtime != null and is_instance_valid(server_runtime):
+		return server_runtime
+	server_runtime = ServerRuntimeScript.new()
+	server_runtime.name = "ServerRuntime"
+	var root: Node = get_tree().root if get_tree() != null else self
+	root.add_child(server_runtime)
+	return server_runtime
+
+
+func has_active_server_runtime() -> bool:
+	return server_runtime != null and is_instance_valid(server_runtime) \
+			and server_runtime.has_method("is_active") and server_runtime.is_active()
+
+
+func stop_server_runtime() -> void:
+	if server_runtime != null and is_instance_valid(server_runtime):
+		server_runtime.stop()
+	server_runtime = null
+
+
+func next_request_id() -> int:
+	_request_id_counter += 1
+	return _request_id_counter
+
+
+func begin_online_match() -> void:
+	ensure_server_runtime()
+	server_runtime.begin_match_from_lobby()
+	_broadcast(NetProtocol.MATCH_START, {
+		"match_id": registry.match_id,
+		"match_seed": registry.match_seed,
+		"room_snapshot": registry.snapshot(),
+	})
+	_enter_host_loopback()
+
+
+func close_authority_room(reason: String) -> void:
+	_broadcast(NetProtocol.ROOM_CLOSED, {"reason": reason})
+	close_session()
+
+
+func _enter_host_loopback() -> void:
+	var port := int(registry.port)
+	if port <= 0:
+		port = NetProtocol.DEFAULT_PORT
+	var client_peer := ENetMultiplayerPeer.new()
+	var result := client_peer.create_client("127.0.0.1", port)
+	if result != OK:
+		if server_runtime != null and is_instance_valid(server_runtime):
+			server_runtime.abort_owner_loopback_failed()
+		return
+	_client_api = MultiplayerAPI.create_default_interface()
+	_client_api.multiplayer_peer = client_peer
+	if _client_api is SceneMultiplayer:
+		(_client_api as SceneMultiplayer).root_path = NodePath("/root")
+	_client_api.connected_to_server.connect(_on_loopback_connected)
+	_client_api.connection_failed.connect(_on_loopback_failed)
+	_client_api.server_disconnected.connect(_on_loopback_disconnected)
+	is_host = false
+	session_role = "client"
+	connection_state_changed.emit("connecting", "本机环回连接中")
+
+
+func _teardown_loopback_client() -> void:
+	if _client_api != null:
+		if _client_api.connected_to_server.is_connected(_on_loopback_connected):
+			_client_api.connected_to_server.disconnect(_on_loopback_connected)
+		if _client_api.connection_failed.is_connected(_on_loopback_failed):
+			_client_api.connection_failed.disconnect(_on_loopback_failed)
+		if _client_api.server_disconnected.is_connected(_on_loopback_disconnected):
+			_client_api.server_disconnected.disconnect(_on_loopback_disconnected)
+		if _client_api.multiplayer_peer != null:
+			_client_api.multiplayer_peer.close()
+			_client_api.multiplayer_peer = null
+		_client_api = null
+
+
+func _on_loopback_connected() -> void:
+	connection_state_changed.emit("connected", "本机环回已连接")
+	var peer_id := _loopback_peer_id()
+	if peer_id <= 1:
+		if server_runtime != null and is_instance_valid(server_runtime):
+			server_runtime.abort_owner_loopback_failed()
+		return
+	_handle_message(NetProtocol.make_message(NetProtocol.RECONNECT_REQUEST, {
+		"reconnect_token": local_reconnect_token,
+	}), peer_id)
+
+
+func _on_loopback_failed() -> void:
+	if server_runtime != null and is_instance_valid(server_runtime):
+		server_runtime.abort_owner_loopback_failed()
+
+
+func _on_loopback_disconnected() -> void:
+	if server_runtime != null and is_instance_valid(server_runtime) \
+			and String(server_runtime.lifetime) == "owner":
+		close_authority_room("owner_left")
+
+
+func _is_loopback_peer(peer_id: int) -> bool:
+	return _client_api != null and peer_id > 1 and _loopback_peer_id() == peer_id
+
+
+func _loopback_peer_id() -> int:
+	if _client_api == null:
+		return 0
+	return int(_client_api.get_unique_id())
+
+
+func _deliver_to_loopback_ui(message: Dictionary) -> void:
+	_handle_loopback_ui_message(message)
+
 
 func send_room_command(command: String, payload: Dictionary = {}) -> void:
 	_send_to_host(NetProtocol.ROOM_COMMAND, {
@@ -118,12 +256,13 @@ func request_resync() -> void:
 	_send_to_host(NetProtocol.RESYNC_REQUEST)
 
 func leave_room() -> void:
-	if is_host:
-		_broadcast(NetProtocol.ROOM_CLOSED, {"reason": "host_closed"})
+	if is_authority():
+		close_authority_room("host_closed")
+		return
 	close_session()
 
 func broadcast_game_event(event_name: String, payload: Dictionary) -> void:
-	if not is_host:
+	if not is_authority():
 		return
 	var sequence := registry.next_server_sequence()
 	_broadcast(NetProtocol.GAME_EVENT, {
@@ -131,18 +270,36 @@ func broadcast_game_event(event_name: String, payload: Dictionary) -> void:
 		"payload": NetInputCodec.encode(payload),
 	}, -1, sequence)
 
-func broadcast_state_snapshot(snapshot: Dictionary) -> void:
-	if not is_host:
+func broadcast_state_snapshot(_snapshot: Dictionary = {}) -> void:
+	request_state_snapshot()
+
+
+## 标记对局状态已变。真正的 STATE_SNAPSHOT 在本帧末尾最多发送一份，避免日志把演出堵住。
+func request_state_snapshot() -> void:
+	if not is_authority():
 		return
+	_state_snapshot_dirty = true
+
+
+func has_pending_state_snapshot() -> bool:
+	return _state_snapshot_dirty
+
+
+func _flush_pending_state_snapshot() -> bool:
+	if not is_authority() or not _state_snapshot_dirty:
+		return false
+	_state_snapshot_dirty = false
+	var snapshot: Dictionary = GameStateSerializer.snapshot(Game)
 	var sequence := registry.next_server_sequence()
 	_broadcast(NetProtocol.STATE_SNAPSHOT, {
 		"room_snapshot": registry.snapshot(),
 		"game_snapshot": snapshot,
 	}, -1, sequence)
+	return true
 
 func broadcast_input_request(request_id: int, seat_id: int, owner_id: String,
 		request_type: String, payload: Dictionary) -> void:
-	if not is_host:
+	if not is_authority():
 		return
 	var owner: Dictionary = registry.players.get(owner_id, {})
 	var peer_id := int(owner.get("peer_id", 0))
@@ -154,68 +311,121 @@ func broadcast_input_request(request_id: int, seat_id: int, owner_id: String,
 		"request_type": request_type,
 		"payload": NetInputCodec.encode(payload),
 	}, "", registry.match_id, 0, registry.server_sequence, request_id)
-	rpc_id(peer_id, "receive_message", message)
+	if _is_loopback_peer(peer_id):
+		_deliver_to_loopback_ui(message)
+		return
+	_rpc_id_if_ready(peer_id, message)
 
 func _send_to_host(message_type: String, payload: Dictionary = {}, request_id: int = -1) -> void:
 	if is_host:
 		_handle_message(NetProtocol.make_message(message_type, payload,
 			local_player_id, registry.match_id, _next_client_sequence(), registry.server_sequence, request_id), 1)
 		return
+	var message := NetProtocol.make_message(message_type, payload,
+		local_player_id, registry.match_id, _next_client_sequence(), registry.server_sequence, request_id)
+	if _client_api != null:
+		var peer_id := _loopback_peer_id()
+		if peer_id <= 1:
+			network_error.emit(NetProtocol.ERROR_CONNECTION_REFUSED, "本机环回尚未就绪")
+			return
+		_handle_message(message, peer_id)
+		return
 	if multiplayer.multiplayer_peer == null:
 		network_error.emit(NetProtocol.ERROR_CONNECTION_REFUSED, "当前未连接房间")
 		return
-	var message := NetProtocol.make_message(message_type, payload,
-		local_player_id, registry.match_id, _next_client_sequence(), registry.server_sequence, request_id)
 	rpc_id(1, "receive_message", message)
 
 @rpc("any_peer", "reliable")
 func receive_message(message: Dictionary) -> void:
 	if not NetProtocol.is_valid_message(message):
 		return
-	var sender_id := multiplayer.get_remote_sender_id()
-	if sender_id == 0:
-		sender_id = 1
+	if _is_incoming_authority_rpc():
+		_handle_message(message, _authority_sender_id())
+		return
+	if is_authority():
+		_handle_loopback_ui_message(message)
+		return
+	message_received.emit(message)
+	var message_type := String(message.get("message_type", ""))
+	var payload: Dictionary = message.get("payload", {})
+	if message_type == NetProtocol.JOIN_ACCEPTED:
+		local_player_id = String(payload.get("player_id", ""))
+		local_reconnect_token = String(payload.get("reconnect_token", ""))
+		_save_identity()
+		_apply_snapshot(payload.get("room_snapshot", {}))
+		session_changed.emit(payload.get("room_snapshot", {}))
+		connection_state_changed.emit("joined", "已加入房间")
+	elif message_type == NetProtocol.ROOM_SNAPSHOT:
+		_apply_snapshot(payload)
+		session_changed.emit(payload)
+	elif message_type == NetProtocol.STATE_SNAPSHOT:
+		_apply_snapshot(payload.get("room_snapshot", payload))
+		session_changed.emit(payload.get("room_snapshot", payload))
+		if local_player_id != "":
+			connection_state_changed.emit("joined", "已重连房间")
+	elif message_type == NetProtocol.MATCH_START:
+		_apply_snapshot(payload.get("room_snapshot", {}))
+		session_changed.emit(payload.get("room_snapshot", {}))
+		connection_state_changed.emit("match_started", "房主已开始对局")
+	elif message_type == NetProtocol.ROOM_CLOSED:
+		connection_state_changed.emit("closed", String(payload.get("reason", "房间已关闭")))
+		close_session()
+	elif message_type == NetProtocol.ERROR:
+		var error_code := String(payload.get("code", NetProtocol.ERROR_INVALID_COMMAND))
+		if error_code == NetProtocol.ERROR_INVALID_TOKEN \
+				or error_code == NetProtocol.ERROR_TOKEN_EXPIRED:
+			_saved_identity.clear()
+			_delete_saved_identity()
+			rpc_id(1, "receive_message", NetProtocol.make_message(NetProtocol.JOIN_REQUEST, {
+				"display_name": _pending_nickname,
+			}))
+			connection_state_changed.emit("connecting", "重连凭证已失效，正在重新加入")
+		else:
+			network_error.emit(error_code,
+				String(payload.get("detail", "网络请求被拒绝")))
+
+
+func _handle_loopback_ui_message(message: Dictionary) -> void:
+	message_received.emit(message)
+	var message_type := String(message.get("message_type", ""))
+	if message_type != NetProtocol.ERROR:
+		return
+	var error_code := String(message.get("payload", {}).get("code", ""))
+	if error_code == NetProtocol.ERROR_INVALID_TOKEN \
+			or error_code == NetProtocol.ERROR_TOKEN_EXPIRED \
+			or error_code == NetProtocol.ERROR_CONNECTION_REFUSED:
+		if server_runtime != null and is_instance_valid(server_runtime):
+			server_runtime.abort_owner_loopback_failed()
+
+
+func _server_api() -> MultiplayerAPI:
+	if get_tree() != null:
+		var api: MultiplayerAPI = get_tree().get_multiplayer()
+		if api != null:
+			return api
+	return multiplayer
+
+
+func _authority_sender_id() -> int:
+	var sender_id := 0
+	var api := _server_api()
+	if api != null:
+		sender_id = int(api.get_remote_sender_id())
+	if sender_id == 0 and multiplayer != null:
+		sender_id = int(multiplayer.get_remote_sender_id())
+	return sender_id if sender_id > 0 else 1
+
+
+func _is_incoming_authority_rpc() -> bool:
+	if not is_authority():
+		return false
+	var tree_sender := 0
+	var api := _server_api()
+	if api != null:
+		tree_sender = int(api.get_remote_sender_id())
 	if is_host:
-		_handle_message(message, sender_id)
-	else:
-		message_received.emit(message)
-		var message_type := String(message.get("message_type", ""))
-		var payload: Dictionary = message.get("payload", {})
-		if message_type == NetProtocol.JOIN_ACCEPTED:
-			local_player_id = String(payload.get("player_id", ""))
-			local_reconnect_token = String(payload.get("reconnect_token", ""))
-			_save_identity()
-			_apply_snapshot(payload.get("room_snapshot", {}))
-			session_changed.emit(payload.get("room_snapshot", {}))
-			connection_state_changed.emit("joined", "已加入房间")
-		elif message_type == NetProtocol.ROOM_SNAPSHOT:
-			_apply_snapshot(payload)
-			session_changed.emit(payload)
-		elif message_type == NetProtocol.STATE_SNAPSHOT:
-			_apply_snapshot(payload.get("room_snapshot", payload))
-			session_changed.emit(payload.get("room_snapshot", payload))
-			if local_player_id != "":
-				connection_state_changed.emit("joined", "已重连房间")
-		elif message_type == NetProtocol.MATCH_START:
-			_apply_snapshot(payload.get("room_snapshot", {}))
-			session_changed.emit(payload.get("room_snapshot", {}))
-			connection_state_changed.emit("match_started", "房主已开始对局")
-		elif message_type == NetProtocol.ROOM_CLOSED:
-			connection_state_changed.emit("closed", String(payload.get("reason", "房间已关闭")))
-			close_session()
-		elif message_type == NetProtocol.ERROR:
-			var error_code := String(payload.get("code", NetProtocol.ERROR_INVALID_COMMAND))
-			if error_code == NetProtocol.ERROR_INVALID_TOKEN \
-					or error_code == NetProtocol.ERROR_TOKEN_EXPIRED:
-				_saved_identity.clear()
-				_delete_saved_identity()
-				rpc_id(1, "receive_message", NetProtocol.make_message(NetProtocol.JOIN_REQUEST, {
-					"display_name": _pending_nickname,
-				}))
-				connection_state_changed.emit("connecting", "重连凭证已失效，正在重新加入")
-			else:
-				network_error.emit(error_code,
-					String(payload.get("detail", "网络请求被拒绝")))
+		return tree_sender > 0 or (multiplayer != null and multiplayer.get_remote_sender_id() > 0)
+	return tree_sender > 1
 
 func _handle_message(message: Dictionary, sender_id: int) -> void:
 	var message_type := String(message.get("message_type", ""))
@@ -236,7 +446,7 @@ func _handle_message(message: Dictionary, sender_id: int) -> void:
 			_reject(sender_id, NetProtocol.ERROR_INVALID_COMMAND, "不支持的网络命令")
 
 func _handle_join(message: Dictionary, sender_id: int) -> void:
-	if not is_host or registry.phase != "lobby":
+	if not is_authority() or registry.phase != "lobby":
 		_reject(sender_id, NetProtocol.ERROR_ROOM_ALREADY_STARTED, "房间已开始")
 		return
 	var payload: Dictionary = message.get("payload", {})
@@ -249,7 +459,7 @@ func _handle_join(message: Dictionary, sender_id: int) -> void:
 		"reconnect_token": credentials.reconnect_token,
 		"room_snapshot": registry.snapshot(),
 	}, "", registry.match_id)
-	rpc_id(sender_id, "receive_message", accept)
+	_rpc_id_if_ready(sender_id, accept)
 	_emit_snapshot()
 
 func _handle_reconnect(message: Dictionary, sender_id: int) -> void:
@@ -259,8 +469,12 @@ func _handle_reconnect(message: Dictionary, sender_id: int) -> void:
 	if player_id.is_empty():
 		_reject(sender_id, NetProtocol.ERROR_INVALID_TOKEN, "重连凭证无效或已过期")
 		return
-	rpc_id(sender_id, "receive_message", NetProtocol.make_message(
-		NetProtocol.STATE_SNAPSHOT, {"room_snapshot": registry.snapshot()}, "", registry.match_id))
+	var snapshot_message := NetProtocol.make_message(
+		NetProtocol.STATE_SNAPSHOT, {"room_snapshot": registry.snapshot()}, "", registry.match_id)
+	if _is_loopback_peer(sender_id):
+		_deliver_to_loopback_ui(snapshot_message)
+	else:
+		_rpc_id_if_ready(sender_id, snapshot_message)
 	_broadcast(NetProtocol.PLAYER_RECONNECTED, {"player_id": player_id})
 	_emit_snapshot()
 
@@ -273,15 +487,11 @@ func _handle_room_command(message: Dictionary, sender_id: int) -> void:
 	var command := String(payload.get("command", ""))
 	var args: Dictionary = payload.get("payload", {})
 	if command == "start":
-		if sender_id != 1 or not registry.phase == "lobby":
+		if sender_id != 1 or registry.phase != "lobby":
 			_reject(sender_id, NetProtocol.ERROR_INVALID_COMMAND, "只有房主可开始")
 			return
-		registry.start_match()
-		_broadcast(NetProtocol.MATCH_START, {
-			"match_id": registry.match_id,
-			"match_seed": registry.match_seed,
-			"room_snapshot": registry.snapshot(),
-		})
+		begin_online_match()
+		return
 	elif command == "bind_seat":
 		if sender_id != 1:
 			_reject(sender_id, NetProtocol.ERROR_INVALID_COMMAND, "只有房主可分配座位")
@@ -344,18 +554,46 @@ func _emit_snapshot() -> void:
 	_broadcast(NetProtocol.ROOM_SNAPSHOT, snapshot)
 
 func _send_snapshot_to(peer_id: int) -> void:
-	rpc_id(peer_id, "receive_message", NetProtocol.make_message(
-		NetProtocol.ROOM_SNAPSHOT, registry.snapshot(), "", registry.match_id))
+	var message := NetProtocol.make_message(
+		NetProtocol.ROOM_SNAPSHOT, registry.snapshot(), "", registry.match_id)
+	if _is_loopback_peer(peer_id):
+		_deliver_to_loopback_ui(message)
+		return
+	_rpc_id_if_ready(peer_id, message)
 
 func _broadcast(message_type: String, payload: Dictionary = {}, request_id: int = -1,
 		server_sequence: int = 0) -> void:
 	var message := NetProtocol.make_message(message_type, payload, "", registry.match_id,
 		0, server_sequence, request_id)
-	rpc("receive_message", message)
+	_rpc_if_ready(message)
+	if _client_api != null:
+		_deliver_to_loopback_ui(message)
 
 func _reject(peer_id: int, code: String, detail: String) -> void:
-	rpc_id(peer_id, "receive_message", NetProtocol.make_message(
-		NetProtocol.ERROR, {"code": code, "detail": detail}))
+	var message := NetProtocol.make_message(
+		NetProtocol.ERROR, {"code": code, "detail": detail})
+	if _is_loopback_peer(peer_id):
+		_deliver_to_loopback_ui(message)
+		return
+	_rpc_id_if_ready(peer_id, message)
+
+
+func _rpc_if_ready(message: Dictionary) -> void:
+	if not is_inside_tree() or multiplayer == null or multiplayer.multiplayer_peer == null:
+		return
+	for peer_id in multiplayer.get_peers():
+		if _is_loopback_peer(int(peer_id)):
+			continue
+		rpc_id(int(peer_id), "receive_message", message)
+
+
+func _rpc_id_if_ready(peer_id: int, message: Dictionary) -> void:
+	if not is_inside_tree() or multiplayer == null or multiplayer.multiplayer_peer == null:
+		return
+	if _is_loopback_peer(peer_id):
+		_deliver_to_loopback_ui(message)
+		return
+	rpc_id(peer_id, "receive_message", message)
 
 func _apply_snapshot(snapshot: Dictionary) -> void:
 	registry.room_id = String(snapshot.get("room_id", ""))
@@ -400,18 +638,18 @@ func _apply_snapshot(snapshot: Dictionary) -> void:
 			room_state.seats = mirrored_seats
 
 func _on_peer_connected(peer_id: int) -> void:
-	if is_host:
+	if is_authority():
 		connection_state_changed.emit("peer_connected", str(peer_id))
 
 func _on_peer_disconnected(peer_id: int) -> void:
-	if is_host:
+	if is_authority():
 		var player_id := _player_for_peer(peer_id)
 		if player_id != "":
 			registry.disconnect_player(player_id)
 			_broadcast(NetProtocol.PLAYER_DISCONNECTED, {"player_id": player_id})
 			_emit_snapshot()
-	else:
-		connection_state_changed.emit("disconnected", "与房主的连接已断开")
+		return
+	connection_state_changed.emit("disconnected", "与房主的连接已断开")
 
 func _on_connected_to_server() -> void:
 	connection_state_changed.emit("connected", "已连接房间")

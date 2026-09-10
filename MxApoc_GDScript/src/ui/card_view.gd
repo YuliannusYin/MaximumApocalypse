@@ -318,7 +318,7 @@ func _build_content() -> void:
 
 
 func _refresh() -> void:
-	if _card == null or not is_instance_valid(_card):
+	if not _has_card_payload(_card):
 		_name_label.text = ""
 		_type_label.text = ""
 		_cost_label.text = ""
@@ -332,7 +332,7 @@ func _refresh() -> void:
 			_charge_label.visible = false
 		_apply_style()
 		return
-	var card_name: String = _card.get("card_name")
+	var card_name: String = _card_display_name(_card)
 	var tex: Texture2D = ImageCache.get_card_texture(card_name)
 	if tex != null:
 		_apply_image_layout(tex)
@@ -347,7 +347,7 @@ func _apply_image_layout(tex: Texture2D) -> void:
 	_texture_rect.texture = tex
 	_texture_rect.visible = true
 	# 牌名移到中下
-	_name_label.text = _card.get("card_name")
+	_name_label.text = _card_display_name(_card)
 	_name_label.position = Vector2(4, CARD_H - 58)
 	_name_label.size = Vector2(CARD_W - 8, 26)
 	_name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -375,7 +375,7 @@ func _apply_image_layout(tex: Texture2D) -> void:
 func _apply_text_layout() -> void:
 	_texture_rect.visible = false
 	_badge_label.visible = false
-	_name_label.text = _card.get("card_name")
+	_name_label.text = _card_display_name(_card)
 	_name_label.position = Vector2(4, 4)
 	_name_label.size = Vector2(CARD_W - 8, 36)
 	_name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -428,7 +428,7 @@ func _apply_badge() -> void:
 func _apply_charge_display() -> void:
 	if _charge_label == null or not is_instance_valid(_charge_label):
 		return
-	if _card == null or not is_instance_valid(_card):
+	if not _has_card_payload(_card):
 		_charge_label.visible = false
 		return
 	var charge_max_val: Variant = _card.get("charge_max")
@@ -500,6 +500,27 @@ func _effect_display() -> String:
 	if desc.length() > 80:
 		desc = desc.substr(0, 77) + "..."
 	return desc
+
+
+## Dictionary 解码残留也可按 card_name 取图；Object 仍走 is_instance_valid。
+func _has_card_payload(card: Variant) -> bool:
+	if card == null:
+		return false
+	if card is Dictionary:
+		return true
+	return is_instance_valid(card)
+
+
+func _card_display_name(card: Variant) -> String:
+	if card is Dictionary:
+		var name_val: String = String(card.get("card_name", ""))
+		if name_val.is_empty():
+			name_val = String(card.get("id", ""))
+		return name_val
+	if card != null and is_instance_valid(card) and card.has_method("get"):
+		var name_val: Variant = card.get("card_name")
+		return "" if name_val == null else str(name_val)
+	return ""
 
 
 ## 安全获取 String 字段（null → ""）。

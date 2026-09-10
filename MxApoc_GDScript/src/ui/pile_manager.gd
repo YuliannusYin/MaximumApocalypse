@@ -240,9 +240,12 @@ func is_pile_clickable(pile_key: String) -> bool:
 		in_action = bool(_network_action_available)
 	else:
 		in_action = current.get_effective_phase() == "action" if current.has_method("get_effective_phase") else current.get("in_phase") == "action"
-	var action_count: int = current.get_effective_action_count() if current.has_method("get_effective_action_count") else current.get("action_count")
-	if not in_action or action_count <= 0:
+	if not in_action:
 		return false
+	if _network_action_available == null:
+		var action_count: int = current.get_effective_action_count() if current.has_method("get_effective_action_count") else current.get("action_count")
+		if action_count <= 0:
+			return false
 	if current.has_method("is_action_type_allowed") and not current.is_action_type_allowed("pile_draw"):
 		return false
 	match pile_key:

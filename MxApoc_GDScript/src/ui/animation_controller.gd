@@ -56,6 +56,22 @@ func _build_animation_views() -> void:
 	_target_link_layer.add_child(_target_link_view)
 
 
+## 骰子全屏演出是否正在播放（供地图刷新推迟判断）。
+func is_dice_playing() -> bool:
+	return _dice_view != null and _dice_view.is_playing()
+
+
+## 全屏对局演出是否正在播放（不含回合横幅）。客机据此推迟整包快照，避免卡顿。
+func is_busy() -> bool:
+	return is_dice_playing() \
+		or (_monster_draw_view != null and _monster_draw_view.is_playing()) \
+		or (_skill_trigger_view != null and _skill_trigger_view.is_playing()) \
+		or (_monster_skill_trigger_view != null and _monster_skill_trigger_view.is_playing()) \
+		or (_monster_attack_view != null and _monster_attack_view.is_playing()) \
+		or (_card_destroy_view != null and _card_destroy_view.is_playing()) \
+		or (_target_link_view != null and _target_link_view.is_playing())
+
+
 ## 以下方法是统一的公共契约，均可 await；完成后才返回。
 func play_dice(d1: int, d2: int, label: String, outcome: String) -> void:
 	await _dice_view.play(d1, d2, label, outcome)

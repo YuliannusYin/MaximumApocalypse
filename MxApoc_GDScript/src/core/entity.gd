@@ -12,6 +12,9 @@ var skills: Array[Skill] = []
 ## 实体上的标记集合。Dictionary[String, Mark]，键 = 标记名，值 = Mark 对象。
 var marks: Dictionary = {}
 
+## 对局内稳定网络 id。0 表示尚未由权威分配。
+var net_id: int = 0
+
 
 # === 1. 事件触发 ===
 

@@ -16,9 +16,11 @@ static func encode(value: Variant) -> Variant:
 		for key in value:
 			result[String(key)] = encode(value[key])
 		return result
+	var net_id := _entity_net_id(value)
 	if value is MonsterCard:
 		return {
 			"__kind": "monster_card",
+			"net_id": net_id,
 			"id": _string_property(value, "english_name"),
 			"card_name": _string_property(value, "card_name"),
 			"card_type": _string_property(value, "card_type"),
@@ -38,6 +40,7 @@ static func encode(value: Variant) -> Variant:
 			zone_index = holder.monster_zone.find(value)
 		return {
 			"__kind": "monster",
+			"net_id": net_id,
 			"id": _string_property(value, "english_name"),
 			"monster_name": _string_property(value, "monster_name"),
 			"monster_type": _string_property(value, "monster_type"),
@@ -58,6 +61,7 @@ static func encode(value: Variant) -> Variant:
 			equipment_index = owner.equipment_zone.find(value)
 		return {
 			"__kind": "equipment",
+			"net_id": net_id,
 			"id": _string_property(value, "english_name"),
 			"card_name": _string_property(value, "card_name"),
 			"card_type": _string_property(value, "card_type"),
@@ -74,6 +78,7 @@ static func encode(value: Variant) -> Variant:
 	if value is Card:
 		return {
 			"__kind": "card",
+			"net_id": net_id,
 			"id": _string_property(value, "english_name"),
 			"card_name": _string_property(value, "card_name"),
 			"card_type": _string_property(value, "card_type"),
@@ -86,14 +91,28 @@ static func encode(value: Variant) -> Variant:
 			"skill_name": _string_property(value, "skill_name"),
 		}
 	if value is Player:
-		return {"__kind": "player", "seat_id": int(value.seat_number)}
+		var role_english_name := ""
+		var role_card: Variant = value.get("role_card")
+		if role_card != null and is_instance_valid(role_card):
+			role_english_name = _string_property(role_card, "english_name")
+		return {
+			"__kind": "player",
+			"net_id": net_id,
+			"seat_id": int(value.seat_number),
+			"role_english_name": role_english_name,
+		}
 	if value is MapBlock:
 		var coordinate: Dictionary = value.coordinate
-		return {"__kind": "block", "x": int(coordinate.get("x", 0)), "y": int(coordinate.get("y", 0))}
+		return {
+			"__kind": "block",
+			"net_id": net_id,
+			"x": int(coordinate.get("x", 0)),
+			"y": int(coordinate.get("y", 0)),
+		}
 	if value.has_method("get"):
 		var english_name: Variant = value.get("english_name")
 		if english_name != null:
-			return {"__kind": "entity", "id": String(english_name)}
+			return {"__kind": "entity", "net_id": net_id, "id": String(english_name)}
 	return str(value)
 
 static func decode(value: Variant, game: Variant = null) -> Variant:
@@ -112,6 +131,13 @@ static func decode(value: Variant, game: Variant = null) -> Variant:
 		return result_dict
 	if game == null:
 		return value
+	var net_id := int(value.get("net_id", 0))
+	if net_id > 0:
+		var live: Variant = GameStateSerializer.find_by_net_id(game, net_id)
+		if live != null:
+			if kind == "monster":
+				apply_monster_payload(live, value)
+			return live
 	match kind:
 		"monster":
 			var holder_seat := int(value.get("holder_seat", -1))
@@ -121,16 +147,11 @@ static func decode(value: Variant, game: Variant = null) -> Variant:
 					if int(player.seat_number) == holder_seat \
 							and "monster_zone" in player \
 							and zone_index < player.monster_zone.size():
-						return player.monster_zone[zone_index]
+						var live_monster: Variant = player.monster_zone[zone_index]
+						_apply_monster_payload(live_monster, value)
+						return live_monster
 			var monster := Monster.new()
-			monster.english_name = String(value.get("id", ""))
-			monster.monster_name = String(value.get("monster_name", ""))
-			monster.monster_type = String(value.get("monster_type", ""))
-			monster.monster_level = String(value.get("monster_level", "normal"))
-			monster.hp = int(value.get("hp", 0))
-			monster.max_hp = int(value.get("max_hp", monster.hp))
-			monster.damage_value = int(value.get("damage_value", 0))
-			monster.range = String(value.get("range", "none"))
+			_apply_monster_payload(monster, value)
 			return monster
 		"equipment":
 			var owner_seat := int(value.get("owner_seat", -1))
@@ -185,6 +206,11 @@ static func decode(value: Variant, game: Variant = null) -> Variant:
 static func resolve_card(value: Dictionary, game: Variant) -> Variant:
 	if game == null:
 		return null
+	var net_id := int(value.get("net_id", 0))
+	if net_id > 0:
+		var live: Variant = GameStateSerializer.find_by_net_id(game, net_id)
+		if live != null:
+			return live
 	var card_id := String(value.get("id", value.get("english_name", "")))
 	for player in game.players:
 		if player == null or not is_instance_valid(player):
@@ -206,8 +232,22 @@ static func resolve_card(value: Dictionary, game: Variant) -> Variant:
 				if card != null and is_instance_valid(card) \
 						and String(card.get("english_name")) == card_id:
 					return card
+	if game.get("scavenge_discard_pile") != null:
+		var scavenge_discard: Variant = game.scavenge_discard_pile
+		if scavenge_discard != null and "cards" in scavenge_discard:
+			for card in scavenge_discard.cards:
+				if card != null and is_instance_valid(card) \
+						and String(card.get("english_name")) == card_id:
+					return card
+	return create_card_from_payload(value, game)
+
+
+## 不复用场上实例，从静态数据或 payload 新建卡牌（快照重建用，避免与手牌别名）。
+static func create_card_from_payload(value: Dictionary, game: Variant) -> Variant:
+	var card_id := String(value.get("id", value.get("english_name", "")))
 	var source_name := String(value.get("source", ""))
-	if DataManager != null and is_instance_valid(DataManager):
+	var card_type := String(value.get("card_type", ""))
+	if game != null and DataManager != null and is_instance_valid(DataManager):
 		if source_name == "game":
 			for survivor in DataManager.get_all_survivors():
 				for raw_card in survivor.deck:
@@ -216,6 +256,9 @@ static func resolve_card(value: Dictionary, game: Variant) -> Variant:
 						var game_card: Variant = game.call(
 							"_create_game_card_from_dict", raw_card)
 						if game_card != null and is_instance_valid(game_card):
+							var payload_net_id := int(value.get("net_id", 0))
+							if payload_net_id > 0:
+								game_card.net_id = payload_net_id
 							return game_card
 		elif source_name == "scavenge":
 			for color in ["red", "green", "blue", "gray"]:
@@ -225,13 +268,58 @@ static func resolve_card(value: Dictionary, game: Variant) -> Variant:
 					var scavenge_card: Variant = game.call(
 						"_create_scavenge_card_from_data", card_data, color)
 					if scavenge_card != null and is_instance_valid(scavenge_card):
+						var payload_net_id := int(value.get("net_id", 0))
+						if payload_net_id > 0:
+							scavenge_card.net_id = payload_net_id
 						return scavenge_card
-	var card := Card.new()
+	var card: Card
+	if card_type == "equipment":
+		card = EquipmentCard.new()
+	else:
+		card = Card.new()
 	card.english_name = card_id
 	card.card_name = String(value.get("card_name", card_id))
-	card.card_type = String(value.get("card_type", ""))
+	card.card_type = card_type
 	card.source = source_name
+	var payload_net_id := int(value.get("net_id", 0))
+	if payload_net_id > 0:
+		card.net_id = payload_net_id
 	return card
+
+
+static func apply_monster_payload(monster: Variant, value: Dictionary) -> void:
+	_apply_monster_payload(monster, value)
+
+
+static func _apply_monster_payload(monster: Variant, value: Dictionary) -> void:
+	if monster == null:
+		return
+	var payload_net_id := int(value.get("net_id", 0))
+	if payload_net_id > 0:
+		monster.net_id = payload_net_id
+	var english_name := String(value.get("id", value.get("english_name", "")))
+	if not english_name.is_empty():
+		monster.english_name = english_name
+	var monster_name := String(value.get("monster_name", ""))
+	if monster_name.is_empty():
+		monster_name = String(value.get("card_name", ""))
+	if not monster_name.is_empty():
+		monster.monster_name = monster_name
+	var monster_type := String(value.get("monster_type", ""))
+	if not monster_type.is_empty():
+		monster.monster_type = monster_type
+	var monster_level := String(value.get("monster_level", ""))
+	if not monster_level.is_empty():
+		monster.monster_level = monster_level
+	if value.has("hp"):
+		monster.hp = int(value.get("hp", monster.hp))
+	if value.has("max_hp"):
+		monster.max_hp = int(value.get("max_hp", monster.max_hp))
+	if value.has("damage_value"):
+		monster.damage_value = int(value.get("damage_value", monster.damage_value))
+	if value.has("range"):
+		monster.range = String(value.get("range", monster.range))
+
 
 ## 将网络技能描述解析回房主/客机已经创建的真实 Skill 实例。
 ## 技能的 content/filter 等 Callable 不通过网络传输，始终使用本地编译版本。
@@ -259,6 +347,13 @@ static func _find_skill_in_array(skills: Variant, skill_id: String) -> Variant:
 		if nested != null:
 			return nested
 	return null
+
+static func _entity_net_id(value: Variant) -> int:
+	if value == null or not value.has_method("get"):
+		return 0
+	var raw: Variant = value.get("net_id")
+	return int(raw) if raw != null else 0
+
 
 static func _string_property(value: Variant, property_name: String) -> String:
 	if value == null or not value.has_method("get"):

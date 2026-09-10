@@ -32,8 +32,14 @@ func _ready() -> void:
 
 
 ## 播放怪物攻击动画：中央怪物牌同时向多个目标射出箭头，全部箭头共享一条时间轴。
+## GAME_EVENT 与 INPUT_REQUEST 可能同时触发：已在播时只等待当前轮结束，不重播。
+func is_playing() -> bool:
+	return _playing
+
+
 func play(monster: Variant, target_positions: Array) -> void:
 	if _playing:
+		await _await_current_play()
 		return
 	if monster == null or not is_instance_valid(monster) or not monster is Monster:
 		return
@@ -52,6 +58,14 @@ func play(monster: Variant, target_positions: Array) -> void:
 	_clear_monster_card()
 	visible = false
 	_playing = false
+
+
+func _await_current_play() -> void:
+	while _playing:
+		var tree := Engine.get_main_loop() as SceneTree
+		if tree == null:
+			return
+		await tree.process_frame
 
 
 ## 所有箭头共享同一条时间轴与同一个进度值，确保多目标同时出现、移动与淡出。

@@ -1667,6 +1667,32 @@ func test_choose_target_accepts_dictionary_skill_config() -> void:
 	assert_eq(result.size(), 0, "CLI 队列注入空数组时应返回空数组")
 
 
+func test_get_skill_valid_targets_dictionary_players() -> void:
+	var hunter: Player = _make_combat_player()
+	hunter.player_name = "Hunter"
+	hunter.seat_number = 0
+	var ally: Player = _make_combat_player()
+	ally.player_name = "Ally"
+	ally.seat_number = 1
+	var block: MapBlock = _make_block("营地", 0, 0, true)
+	hunter.current_block = block
+	ally.current_block = block
+	Game.players = [hunter, ally]
+	Game.map_area = [block]
+	var targets: Array = hunter.get_skill_valid_targets({
+		"filter_target": "return target.is_player()",
+		"filter_target_range": "infinity",
+	})
+	assert_eq(targets.size(), 2, "infinity + is_player 应包含场上全部玩家")
+	assert_true(targets.has(hunter))
+	assert_true(targets.has(ally))
+
+
+func test_get_skill_valid_targets_rejects_invalid_skill_object() -> void:
+	var p: Player = _make_combat_player()
+	assert_eq(p.get_skill_valid_targets(null).size(), 0)
+
+
 # 测试: has_ammo_weapon 按装备区判定（弹药武器 / 非弹药装备 / 空区）
 func test_has_ammo_weapon_by_equipment() -> void:
 	# 装备弹药武器 → true

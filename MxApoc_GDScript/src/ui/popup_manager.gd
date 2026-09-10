@@ -147,8 +147,13 @@ func _is_all_card_targets(targets: Array) -> bool:
 	if targets.is_empty():
 		return false
 	for target in targets:
-		if not (target is Card or target is Equipment):
-			return false
+		if target is Card or target is Equipment:
+			continue
+		if target is Dictionary:
+			var kind := String(target.get("__kind", ""))
+			if kind == "card" or kind == "equipment" or target.has("card_name"):
+				continue
+		return false
 	return true
 
 
@@ -1289,9 +1294,27 @@ func _build_player_card(p: Variant, w: int, h: int) -> Panel:
 	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(inner)
 
+	var art_eng := _player_role_english_name(p)
+	var tex: Texture2D = null
+	if not art_eng.is_empty():
+		tex = ImageCache.get_role_card_texture(art_eng, true)
+		if tex == null:
+			tex = ImageCache.get_player_avatar(art_eng)
+	if tex != null:
+		var img := TextureRect.new()
+		img.position = Vector2.ZERO
+		img.size = Vector2(w, h)
+		img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		img.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		img.texture = tex
+		img.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+		inner.add_child(img)
+
 	# 玩家名（中下）
 	var name_lbl := Label.new()
-	name_lbl.text = p.get("player_name")
+	var player_name_val: Variant = p.get("player_name")
+	name_lbl.text = "" if player_name_val == null else str(player_name_val)
 	name_lbl.position = Vector2(4, h - 52)
 	name_lbl.size = Vector2(w - 8, 20)
 	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1314,7 +1337,12 @@ func _build_player_card(p: Variant, w: int, h: int) -> Panel:
 
 	# HP/MaxHP（右上角）
 	var hp_lbl := Label.new()
-	hp_lbl.text = "%d/%d" % [p.get("hp"), p.get("max_hp")]
+	var hp_val: Variant = p.get("hp")
+	var max_hp_val: Variant = p.get("max_hp")
+	hp_lbl.text = "%d/%d" % [
+		int(hp_val) if hp_val != null else 0,
+		int(max_hp_val) if max_hp_val != null else 0,
+	]
 	hp_lbl.position = Vector2(w - 58, 4)
 	hp_lbl.size = Vector2(54, 16)
 	hp_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -1324,6 +1352,22 @@ func _build_player_card(p: Variant, w: int, h: int) -> Panel:
 	inner.add_child(hp_lbl)
 
 	return card
+
+
+func _player_role_english_name(p: Variant) -> String:
+	if p == null:
+		return ""
+	if p is Dictionary:
+		return String(p.get("role_english_name", ""))
+	if not p.has_method("get"):
+		return ""
+	var role: Variant = p.get("role_card")
+	if role != null and is_instance_valid(role):
+		var eng: Variant = role.get("english_name")
+		if eng != null and str(eng) != "":
+			return str(eng)
+	var fallback: Variant = p.get("role_english_name")
+	return "" if fallback == null else str(fallback)
 
 
 ## 设置实体卡选中态（金色边框）。

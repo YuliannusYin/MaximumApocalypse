@@ -226,6 +226,8 @@ func confirm(message: String) -> bool:
 func show_card(card: Card, target: Variant) -> void:
 	if animation_input != null:
 		animation_input.show_card(card, target)
+		return
+	_broadcast_ai_visual("show_card", {"card": card}, target)
 
 
 func set_prompt(text: String) -> void:
@@ -265,36 +267,59 @@ func play_dice_animation(d1: int, d2: int, label: String, outcome: String) -> vo
 	if animation_input != null:
 		_bind_animation_owner()
 		await animation_input.play_dice_animation(d1, d2, label, outcome)
+		return
+	_broadcast_ai_visual("dice_animation", {
+		"d1": d1, "d2": d2, "label": label, "outcome": outcome,
+	})
 
 
 func play_monster_draw_animation(player: Variant, card: Variant) -> void:
 	if animation_input != null:
 		_bind_animation_owner(player)
 		await animation_input.play_monster_draw_animation(player, card)
+		return
+	_broadcast_ai_visual("monster_draw_animation", {"card": card}, player)
 
 
 func play_scavenge_draw_animation(player: Variant, card: Variant) -> void:
 	if animation_input != null:
 		_bind_animation_owner(player)
 		await animation_input.play_scavenge_draw_animation(player, card)
+		return
+	_broadcast_ai_visual("scavenge_draw_animation", {"card": card}, player)
 
 
 func play_card_destroy_animation(card: Card) -> void:
 	if animation_input != null:
 		_bind_animation_owner()
 		await animation_input.play_card_destroy_animation(card)
+		return
+	_broadcast_ai_visual("card_destroy_animation", {"card": card})
 
 
 func play_monster_skill_trigger_animation(monster: Variant) -> void:
 	if animation_input != null:
 		_bind_animation_owner()
 		await animation_input.play_monster_skill_trigger_animation(monster)
+		return
+	_broadcast_ai_visual("monster_skill_animation", {"monster": monster})
 
 
 func play_monster_attack_animation(monster: Variant, targets: Array) -> void:
 	if animation_input != null:
 		_bind_animation_owner()
 		await animation_input.play_monster_attack_animation(monster, targets)
+		return
+	var target_seats: Array = []
+	for target in targets:
+		if target != null and target.has_method("get"):
+			var seat_value: Variant = target.get("seat_number")
+			if seat_value != null:
+				target_seats.append(int(seat_value))
+	_broadcast_ai_visual("monster_attack_animation", {
+		"monster": monster,
+		"targets": target_seats,
+	})
 
 
 ## 动画走共享 GUI 输入栈，必须先写入所属玩家；否则会落入 `"__system__"` 字符串 owner。
@@ -304,6 +329,16 @@ func _bind_animation_owner(player: Variant = null) -> void:
 	var who: Variant = player if player != null else _owner
 	if who != null:
 		animation_input.set_request_owner(who)
+
+
+func _broadcast_ai_visual(event_name: String, payload: Dictionary, player: Variant = null) -> void:
+	if NetSession == null or not NetSession.is_authority():
+		return
+	var who: Variant = player if player != null else _owner
+	var visual_payload := payload.duplicate(true)
+	if who != null and who.has_method("get"):
+		visual_payload["seat_id"] = int(who.get("seat_number"))
+	NetSession.broadcast_game_event(event_name, visual_payload)
 
 
 func _think() -> void:

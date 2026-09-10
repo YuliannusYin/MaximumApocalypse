@@ -167,13 +167,20 @@ func _build_ui() -> void:
 
 # === 动画播放 ===
 
+## 当前是否正在播放骰子演出。
+func is_playing() -> bool:
+	return _playing
+
+
 ## 播放一次完整的骰子投掷动画（协程，可 await，播完整轮后才返回）。
 ## d1/d2：定格点数；label：检定名称；outcome：成败标注（如"成功"/"失败"，可为空）。
 ## 时间轴：淡入 0.15s → 翻滚 2.0s → 定格复位 0.2s → 停留 0.9s → 淡出 0.25s。
+## GAME_EVENT 与 INPUT_REQUEST 可能同时触发：已在播时只等待当前轮结束，不重播。
 func play(d1: int, d2: int, label: String, outcome: String) -> void:
-	# 防重入：等待上一轮播放结束
-	while _playing:
-		await (Engine.get_main_loop() as SceneTree).process_frame
+	if _playing:
+		while _playing:
+			await (Engine.get_main_loop() as SceneTree).process_frame
+		return
 	_playing = true
 	# --- 准备：设置文案、随机初始面、复位变换、淡入 ---
 	_name_label.text = label

@@ -25,6 +25,7 @@ var _move_highlight_panel: Panel  # 移动选取高亮覆盖层（绿色/金黄�
 var _frame_panel: Panel  # 地块实体边框，覆盖在图片上方
 var _objective_mark_icon: TextureRect  # 任务标记图标（固定位置）
 var _block_texture: Texture2D  # 缓存已选中的地块变体纹理（revealed 后锁定，destroyed 复用）
+var _block_texture_key: String = ""  # block_name|colors|spawn，变体变化时作废缓存
 var _anim_tween: Tween = null  # 当前动画 Tween（翻入/标记/摧毁共用，新动画 kill 旧动画重启）
 var _hidden_players: Dictionary = {}  # 隐藏头像的玩家 instance_id -> true（头像移动动画期间）
 var _last_mark_count: int = -1  # 上次刷新记录的怪物标记数（供外部对比增减，未变则不播动画）
@@ -61,6 +62,10 @@ func refresh(
 ) -> void:
 	if _block == null or not is_instance_valid(_block):
 		return
+	var variant_key := _variant_texture_key()
+	if variant_key != _block_texture_key:
+		_block_texture = null
+		_block_texture_key = variant_key
 	if _block.is_destroyed():
 		_apply_destroyed_style()
 	elif _block.is_revealed():
@@ -229,6 +234,12 @@ func _apply_revealed_style() -> void:
 	_name_label.visible = true
 	add_theme_stylebox_override("panel", _make_fill_style(Color(0.38, 0.40, 0.44, 1.0)))
 	_set_frame_style(Color(0.58, 0.48, 0.30, 0.95))
+
+
+func _variant_texture_key() -> String:
+	var colors: PackedStringArray = _block.scavenge_colors if _block != null else PackedStringArray()
+	return "%s|%s|%d" % [_block.block_name if _block != null else "", ",".join(colors),
+		int(_block.monster_spawn_value) if _block != null else 0]
 
 
 func _apply_destroyed_style() -> void:

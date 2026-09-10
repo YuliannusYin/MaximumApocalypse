@@ -35,8 +35,16 @@ func _ready() -> void:
 
 
 ## 播放目标确认动画。玩家目标逐一播放，怪物目标共享中央临时卡牌组并同步播放。
+## GAME_EVENT 与 INPUT_REQUEST 可能同时触发：已在播时只等待当前轮结束，不重播。
+func is_playing() -> bool:
+	return _playing
+
+
 func play(source_position: Vector2, player_target_positions: Array[Vector2], monsters: Array) -> void:
-	if _playing or source_position == Vector2.ZERO or not source_position.is_finite():
+	if _playing:
+		await _await_current_play()
+		return
+	if source_position == Vector2.ZERO or not source_position.is_finite():
 		return
 	_playing = true
 	visible = true
@@ -51,6 +59,14 @@ func play(source_position: Vector2, player_target_positions: Array[Vector2], mon
 	_clear_monster_cards()
 	visible = false
 	_playing = false
+
+
+func _await_current_play() -> void:
+	while _playing:
+		var tree := Engine.get_main_loop() as SceneTree
+		if tree == null:
+			return
+		await tree.process_frame
 
 
 ## 同一批目标共用一条时间轴，确保多怪物箭头同时出现、移动与淡出。

@@ -20,38 +20,35 @@ func detach() -> void:
 	_active_requests.clear()
 	request_state_changed.emit()
 
-## 客机当前是否拥有指定座位的 action 请求，且没有更内层的输入请求阻塞它。
-## action 请求本身会在卡牌/技能结算期间保留；只有所有内层请求都完成后才重新开放普通行动入口。
+## 权威侧 NetworkPlayerInput 同一座位同时只等一个请求。
+## 新请求到达时丢掉该座位的旧 id，避免已完成的 action 残留，把后续 wait_action 点死。
 func is_action_available(seat_id: int = -1) -> bool:
-	var has_action := false
-	for request_id in _active_requests:
-		var request: Dictionary = _active_requests[request_id]
-		var request_seat := int(request.get("seat_id", -1))
-		if seat_id >= 0 and request_seat != seat_id:
-			continue
-		var request_type := String(request.get("request_type", ""))
-		if request_type == "action":
-			has_action = true
-		elif request_type != "":
-			return false
-	return has_action
+	var current: Dictionary = get_current_request(seat_id)
+	return not current.is_empty() and String(current.get("request_type", "")) == "action"
 
-## 返回当前保留中的 action 请求，供内层输入结束后恢复外层 action 请求身份。
-func get_action_request(seat_id: int = -1) -> Dictionary:
+
+func get_current_request(seat_id: int = -1) -> Dictionary:
 	var result: Dictionary = {}
 	for request_id in _active_requests:
 		var request: Dictionary = _active_requests[request_id]
-		if String(request.get("request_type", "")) != "action":
-			continue
 		if seat_id >= 0 and int(request.get("seat_id", -1)) != seat_id:
 			continue
 		result = {
 			"request_id": int(request_id),
 			"seat_id": int(request.get("seat_id", -1)),
-			"request_type": "action",
+			"request_type": String(request.get("request_type", "")),
 		}
-		break
+		if seat_id >= 0:
+			break
 	return result
+
+
+## 当前座位若正等待 action，返回该请求；否则空。
+func get_action_request(seat_id: int = -1) -> Dictionary:
+	var current: Dictionary = get_current_request(seat_id)
+	if String(current.get("request_type", "")) != "action":
+		return {}
+	return current
 
 func respond(request_id: int, seat_id: int, value: Variant) -> void:
 	if not _active_requests.has(request_id):
@@ -104,14 +101,26 @@ func _on_message(message: Dictionary) -> void:
 		return
 	var decoded_payload: Variant = NetInputCodec.decode(
 		payload.get("payload", {}), Game)
+	var seat_id := int(payload.get("seat_id", -1))
+	_drop_seat_requests(seat_id)
 	_active_requests[request_id] = {
-		"seat_id": int(payload.get("seat_id", -1)),
+		"seat_id": seat_id,
 		"request_type": String(payload.get("request_type", "")),
 		"decoded_payload": decoded_payload,
 	}
 	request_state_changed.emit()
 	requested.emit(
 		request_id,
-		int(payload.get("seat_id", -1)),
+		seat_id,
 		String(payload.get("request_type", "")),
 		decoded_payload)
+
+
+func _drop_seat_requests(seat_id: int) -> void:
+	var stale: Array = []
+	for existing_id in _active_requests:
+		var request: Dictionary = _active_requests[existing_id]
+		if int(request.get("seat_id", -1)) == seat_id:
+			stale.append(existing_id)
+	for existing_id in stale:
+		_active_requests.erase(existing_id)

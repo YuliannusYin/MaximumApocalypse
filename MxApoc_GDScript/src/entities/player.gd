@@ -2526,11 +2526,21 @@ func use_active_skill(skill: Skill, operation_runtime: Variant = null) -> void:
 
 
 ## 内部方法：用 skill.filter_target 过滤候选目标列表。
-func _filter_targets(skill: Skill, candidates: Array, event: Variant) -> Array:
+## skill 可为 Skill（Callable）或 Dictionary（代码字符串）。
+func _filter_targets(skill: Variant, candidates: Array, event: Variant) -> Array:
+	var filter_callable: Callable = Callable()
+	if skill is Dictionary:
+		var fc_str: Variant = skill.get("filter_target", null)
+		if fc_str is String and not String(fc_str).is_empty():
+			filter_callable = CodeExecutor.compile_filter_target(String(fc_str))
+		elif fc_str is Callable:
+			filter_callable = fc_str
+	elif skill != null and is_instance_valid(skill):
+		filter_callable = skill.filter_target
 	var filtered: Array = []
 	for candidate in candidates:
-		if skill.filter_target.is_valid():
-			if skill.filter_target.call(self, candidate, event, Game):
+		if filter_callable.is_valid():
+			if filter_callable.call(self, candidate, event, Game):
 				filtered.append(candidate)
 		else:
 			filtered.append(candidate)
@@ -2556,12 +2566,21 @@ func get_equipment_candidates(range_str: String) -> Array:
 
 
 ## 构建技能的合法目标候选列表（按 target_type 与 filter_target_range 构建并经 filter_target 过滤）。
+## skill 可为 Skill 实例或 Dictionary（content 内联 choose_target 配置）。
 ## 逻辑与 game_scene_2d.gd._on_choose_target_requested 保持一致，供可用性判断复用。
 func get_skill_valid_targets(skill: Variant) -> Array:
-	if skill == null or not is_instance_valid(skill):
+	if skill == null:
 		return []
-	var target_type: String = skill.target_type
-	var raw_filter_target_range: String = skill.filter_target_range
+	if not (skill is Dictionary) and not is_instance_valid(skill):
+		return []
+	var target_type: String = ""
+	var raw_filter_target_range: String = ""
+	if skill is Dictionary:
+		target_type = str(skill.get("target_type", ""))
+		raw_filter_target_range = str(skill.get("filter_target_range", ""))
+	else:
+		target_type = skill.target_type
+		raw_filter_target_range = skill.filter_target_range
 	var filter_target_range: String = raw_filter_target_range
 	if filter_target_range == "":
 		filter_target_range = "short"

@@ -100,6 +100,7 @@ func instantiate(player: Player = null) -> Equipment:
 	eq.equipped_player = player
 	for s in skills:
 		eq.add_skill(s)
+	NetId.assign(eq)
 	return eq
 
 

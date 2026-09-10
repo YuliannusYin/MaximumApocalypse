@@ -15,8 +15,9 @@ var _network_action_available: Variant = null
 func setup(grid: GridContainer) -> void:
 	_active_skill_grid = grid
 
-## 客机网络输入模式下，由 action INPUT_REQUEST 驱动技能栏显示。
-## null 表示单机/房主本地模式，继续使用玩家 phase 判断。
+## 客机网络输入模式下，可点性由 action INPUT_REQUEST 驱动。
+## 栏是否显示仍看玩家 phase，避免打出卡牌后结算间隙把技能栏清空。
+## null 表示单机/房主本地模式，显示与可点都用玩家 phase / 行动点。
 func set_network_action_available(available: bool) -> void:
 	_network_action_available = available
 
@@ -32,19 +33,15 @@ func refresh(player: Variant) -> void:
 
 	if player == null or not is_instance_valid(player):
 		return
-	var in_action: bool
-	if _network_action_available != null:
-		in_action = bool(_network_action_available)
-	else:
-		in_action = player.get_effective_phase() == "action" if player.has_method("get_effective_phase") else player.get("in_phase") == "action"
+	var in_action: bool = player.get_effective_phase() == "action" \
+		if player.has_method("get_effective_phase") else player.get("in_phase") == "action"
 	if not in_action:
 		return
 	if player.has_method("is_action_type_allowed") and not player.is_action_type_allowed("skill"):
 		return
 	var has_action: bool
 	if _network_action_available != null:
-		has_action = player.get_effective_action_count() >= 1 \
-			if player.has_method("get_effective_action_count") else player.get("action_count") > 0
+		has_action = bool(_network_action_available)
 	else:
 		has_action = player.is_action_available(1) if player.has_method("is_action_available") \
 			else player.get("action_count") > 0

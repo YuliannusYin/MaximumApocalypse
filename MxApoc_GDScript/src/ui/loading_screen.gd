@@ -1,7 +1,6 @@
 extends Control
 
 ## 加载界面：灰屏 + 中间白色小球旋转 + "加载中..."文字。
-const GameStateSerializer = preload("res://src/net/game_state_serializer.gd")
 ## 开局/再开：真正执行 initialize_game，并异步加载下一场景；至少显示 MIN_DURATION。
 ## 退出：对局场景卸掉后 abort_session，同样至少显示 MIN_DURATION，再进主菜单。
 
@@ -101,10 +100,19 @@ func _run_loading() -> void:
 	ResourceLoader.load_threaded_request(_destination)
 	if _should_abort and Game != null and is_instance_valid(Game):
 		Game.abort_session()
+		if NetSession != null and is_instance_valid(NetSession):
+			if NetSession.is_authority():
+				NetSession.leave_room()
+			else:
+				NetSession.close_session()
 	if _should_prepare_game and Game != null and is_instance_valid(Game):
-		Game.initialize_from_room_state()
-		if NetSession != null and NetSession.is_host and RoomState.online_multiplayer:
-			NetSession.broadcast_state_snapshot(GameStateSerializer.snapshot(Game))
+		if NetSession != null and NetSession.has_active_server_runtime():
+			var prepared: bool = await NetSession.server_runtime.wait_until_match_prepared()
+			if not prepared:
+				get_tree().change_scene_to_file(MENU_SCENE_PATH)
+				return
+		else:
+			Game.initialize_from_room_state()
 	while is_inside_tree():
 		var status: ResourceLoader.ThreadLoadStatus = ResourceLoader.load_threaded_get_status(_destination)
 		if status == ResourceLoader.THREAD_LOAD_FAILED:

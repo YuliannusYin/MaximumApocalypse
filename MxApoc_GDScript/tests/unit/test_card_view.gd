@@ -39,3 +39,17 @@ func test_empty_zone_label_is_hidden() -> void:
 	assert_true(view._zone_label.visible)
 	view.set_zone_label("")
 	assert_false(view._zone_label.visible, "空文本应隐藏区域标签")
+
+
+func test_dictionary_card_payload_shows_name() -> void:
+	var view := CardView.new()
+	var payload := {
+		"card_name": "迷彩服",
+		"card_type": "equipment",
+		"id": "camouflage",
+	}
+	view.set_card(payload)
+	assert_true(view._has_card_payload(view.get_card()), "Dictionary 描述应视为有效卡牌数据")
+	assert_eq(view._card_display_name(view.get_card()), "迷彩服", "Dictionary 卡牌描述应显示牌名而不是留白")
+	view.free()
+

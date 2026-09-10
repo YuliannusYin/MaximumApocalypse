@@ -9,7 +9,6 @@ const NetInputCodec = preload("res://src/net/net_input_codec.gd")
 signal response_arrived(request_id: int, value: Variant)
 signal visual_requested(request_type: String, seat_id: int, payload: Dictionary)
 
-var _request_counter: int = 0
 var _pending: Dictionary = {}
 var _request_owner: Variant = null
 
@@ -74,7 +73,7 @@ func confirm(message: String) -> bool:
 	return bool(await _request(_request_owner, "confirm", {"message": message}))
 
 func show_card(card: Card, target: Variant) -> void:
-	await _request(target, "show_card", {"card": card})
+	_emit_visual(target, "show_card", {"card": card})
 
 func set_prompt(text: String) -> void:
 	var owner: Variant = _request_owner
@@ -95,21 +94,21 @@ func wait_judge_confirm(player: Variant, prompt: String, allow_cancel: bool) -> 
 	}))
 
 func play_dice_animation(d1: int, d2: int, label: String, outcome: String) -> void:
-	await _request(_request_owner, "dice_animation", {
+	_emit_visual(_request_owner, "dice_animation", {
 		"d1": d1, "d2": d2, "label": label, "outcome": outcome,
 	})
 
 func play_monster_draw_animation(player: Variant, card: Variant) -> void:
-	await _request(player, "monster_draw_animation", {"card": card})
+	_emit_visual(player, "monster_draw_animation", {"card": card})
 
 func play_scavenge_draw_animation(player: Variant, card: Variant) -> void:
-	await _request(player, "scavenge_draw_animation", {"card": card})
+	_emit_visual(player, "scavenge_draw_animation", {"card": card})
 
 func play_card_destroy_animation(card: Card) -> void:
-	await _request(_request_owner, "card_destroy_animation", {"card": card})
+	_emit_visual(_request_owner, "card_destroy_animation", {"card": card})
 
 func play_monster_skill_trigger_animation(monster: Variant) -> void:
-	await _request(_request_owner, "monster_skill_animation", {"monster": monster})
+	_emit_visual(_request_owner, "monster_skill_animation", {"monster": monster})
 
 func play_monster_attack_animation(monster: Variant, targets: Array) -> void:
 	var target_seats: Array = []
@@ -118,7 +117,7 @@ func play_monster_attack_animation(monster: Variant, targets: Array) -> void:
 			var seat_value: Variant = target.get("seat_number")
 			if seat_value != null:
 				target_seats.append(int(seat_value))
-	await _request(_request_owner, "monster_attack_animation", {
+	_emit_visual(_request_owner, "monster_attack_animation", {
 		"monster": monster,
 		"targets": target_seats,
 	})
@@ -138,21 +137,22 @@ func _get_card_candidates(param: Variant, filter: Variant) -> Array:
 			filtered.append(card)
 	return filtered
 
+## 演出只走 GAME_EVENT，不等客机 ACK。决策请求才进 _pending。
+func _emit_visual(player: Variant, request_type: String, payload: Dictionary) -> void:
+	var seat_id := _seat_id_for_player(player)
+	var visual_payload := payload.duplicate(true)
+	visual_payload["seat_id"] = seat_id
+	if NetSession != null:
+		NetSession.broadcast_game_event(request_type, visual_payload)
+	visual_requested.emit(request_type, seat_id, visual_payload)
+
+
 func _request(player: Variant, request_type: String, payload: Dictionary) -> Variant:
 	var seat_id := _seat_id_for_player(player)
 	var owner_id := _controller_for_seat(seat_id)
 	if owner_id == "" or seat_id < 0:
 		return null
-	if request_type in [
-		"show_card", "dice_animation", "monster_draw_animation", "scavenge_draw_animation",
-		"card_destroy_animation", "monster_skill_animation", "monster_attack_animation",
-	]:
-		var visual_payload := payload.duplicate(true)
-		visual_payload["seat_id"] = seat_id
-		NetSession.broadcast_game_event(request_type, visual_payload)
-		visual_requested.emit(request_type, seat_id, visual_payload)
-	_request_counter += 1
-	var request_id := _request_counter
+	var request_id := NetSession.next_request_id() if NetSession != null else 1
 	var request_payload := payload.duplicate(true)
 	var selection_map: Dictionary = {}
 	var selection_field := String(request_payload.get("selection_field", ""))

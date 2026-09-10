@@ -41,4 +41,5 @@ func instantiate(player: Player = null) -> Monster:
 	monster.monster_card = self
 	for s in skills:
 		monster.add_skill(s)
+	NetId.assign(monster)
 	return monster

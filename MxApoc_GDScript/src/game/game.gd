@@ -2,7 +2,6 @@ extends Node
 
 const EventSchedulerScript = preload("res://src/core/event_scheduler.gd")
 const AIPlayerInputScript = preload("res://src/ai/ai_player_input.gd")
-const GameStateSerializer = preload("res://src/net/game_state_serializer.gd")
 
 ## Game 游戏全局类（autoload）。
 ## 全局区域 + build_map + destroy_map_block + 状态机委托。
@@ -82,10 +81,10 @@ func log_message(message: String) -> void:
 	log_list.append(message)
 	if EventBus != null and is_instance_valid(EventBus):
 		EventBus.publish_log(message)
-	if NetSession != null and is_instance_valid(NetSession) and NetSession.is_host \
+	if NetSession != null and is_instance_valid(NetSession) and NetSession.is_authority() \
 			and RoomState != null and RoomState.online_multiplayer:
 		NetSession.broadcast_game_event("log", {"message": message})
-		NetSession.broadcast_state_snapshot(GameStateSerializer.snapshot(self))
+		NetSession.request_state_snapshot()
 
 
 ## 记录日志消息（log_message 的别名，供 content 代码统一调用）。
@@ -380,6 +379,7 @@ func _create_map_block(block_name: String, variant_index: int = -1) -> MapBlock:
 		for skill_data in block_def.skills:
 			var skill: Skill = _create_skill_from_data(skill_data)
 			block.add_skill(skill)
+	NetId.assign(block)
 	return block
 
 
@@ -625,6 +625,8 @@ func initialize_from_room_state() -> void:
 ## 在 start_game() 前调用。mission 为 null 时随机抽取一个任务。
 func initialize_game(mission: MissionData, variants: Dictionary, seats: Array) -> void:
 	abort_session()
+	if NetId.should_allocate():
+		NetId.reset()
 	# 1. 确定任务
 	if mission == null:
 		var all_missions: Array = DataManager.get_all_missions()
@@ -650,6 +652,7 @@ func initialize_game(mission: MissionData, variants: Dictionary, seats: Array) -
 		if survivor == null:
 			continue
 		var player: Player = Player.new()
+		NetId.assign(player)
 		player.session_id = _session_id
 		player.seat_number = i
 		player.player_name = survivor.character_name
@@ -955,6 +958,7 @@ func _create_game_card_from_dict(card_dict: Dictionary) -> Card:
 		if raw is Dictionary:
 			var skill_data: SkillData = SkillData.new(raw)
 			card.add_skill(_create_skill_from_data(skill_data))
+	NetId.assign(card)
 	return card
 
 
@@ -983,6 +987,7 @@ func _create_scavenge_card_from_data(card_data: ScavengeCardData, color: String)
 	card.ai = card_data.ai.duplicate(true)
 	for skill_data in card_data.skills:
 		card.add_skill(_create_skill_from_data(skill_data))
+	NetId.assign(card)
 	return card
 
 
@@ -1001,6 +1006,7 @@ func _create_monster_card_from_data(card_data: MonsterCardData, monster_type: St
 	card.ai = card_data.ai.duplicate(true) if card_data.ai is Dictionary else {}
 	for skill_data in card_data.skills:
 		card.add_skill(_create_skill_from_data(skill_data))
+	NetId.assign(card)
 	return card
 
 

@@ -169,3 +169,24 @@ func test_judge_confirm_blocks_skill_switch() -> void:
 	assert_false(controller._skill_confirm_mode)
 	assert_true(controller._judge_confirm_mode)
 	controller.exit_judge_confirm_mode()
+
+
+func test_network_zero_ap_enables_end_turn() -> void:
+	var controller := _make_controller()
+	var player: Player = _make_player()
+	player.in_phase = "action"
+	player.action_count = 0
+	controller.set_acting_player(player)
+	controller.set_network_action_available(true)
+	assert_eq(controller._cancel_end_button.text, "结束回合 (E)")
+	assert_false(controller._cancel_end_button.disabled, "客机正式行动点用完时结束回合应可点")
+
+
+func test_network_remaining_ap_keeps_end_turn_disabled() -> void:
+	var controller := _make_controller()
+	var player: Player = _make_player()
+	player.in_phase = "action"
+	player.action_count = 1
+	controller.set_acting_player(player)
+	controller.set_network_action_available(true)
+	assert_true(controller._cancel_end_button.disabled, "还有正式行动点时结束回合应置灰")

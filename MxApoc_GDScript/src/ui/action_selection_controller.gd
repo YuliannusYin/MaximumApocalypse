@@ -115,6 +115,25 @@ func _is_action_available(current: Variant) -> bool:
 		else current.get("in_phase") == "action"
 
 
+func _has_action_budget(current: Variant) -> bool:
+	if _network_action_available != null:
+		return bool(_network_action_available)
+	if current == null or not is_instance_valid(current):
+		return false
+	return _local_action_count(current) > 0
+
+
+## 面板/快照上的正式行动点。客机没有迷你回合上下文，结束回合只看这个。
+func _local_action_count(current: Variant) -> int:
+	if current == null or not is_instance_valid(current):
+		return 0
+	if "action_count" in current:
+		return int(current.action_count)
+	if current.has_method("get_effective_action_count"):
+		return int(current.get_effective_action_count())
+	return 0
+
+
 ## 清空控制器手牌选中；有手牌区时同步清视觉。不负责 prompt（避免误擦其它模式）。
 func _clear_hand_selection() -> void:
 	_selected_card = null
@@ -334,10 +353,8 @@ func _on_confirm_pressed() -> void:
 	if _selected_card == null or not is_instance_valid(_selected_card):
 		return
 	var current: Variant = _get_acting_player()
-	if current != null and is_instance_valid(current):
-		var action_count: int = current.get_effective_action_count() if current.has_method("get_effective_action_count") else current.get("action_count")
-		if action_count <= 0:
-			return
+	if current != null and is_instance_valid(current) and not _has_action_budget(current):
+		return
 	var card = _selected_card
 	_clear_hand_selection()
 	_update_prompt(null)
@@ -435,16 +452,16 @@ func refresh_confirm_cancel_buttons() -> void:
 		return
 	var current: Variant = _get_acting_player()
 	var in_action: bool = false
-	var action_count: int = 0
+	var has_budget: bool = false
 	if current != null and is_instance_valid(current):
 		in_action = _is_action_available(current)
-		action_count = current.get_effective_action_count() if current.has_method("get_effective_action_count") else current.get("action_count")
+		has_budget = _has_action_budget(current)
 	# 确定按钮：有选中卡牌或牌堆 + 行动阶段 + 行动次数>0 + 选中卡牌 filter 通过
 	if _confirm_button != null and is_instance_valid(_confirm_button):
 		var card_ok: bool = true
 		if _selected_card != null and is_instance_valid(_selected_card) and current != null and is_instance_valid(current):
 			card_ok = current.is_card_usable(_selected_card)
-		_confirm_button.disabled = not ((_selected_card != null or _selected_pile_key != "") and in_action and action_count > 0 and card_ok)
+		_confirm_button.disabled = not ((_selected_card != null or _selected_pile_key != "") and in_action and has_budget and card_ok)
 	# 取消/结束回合 双用途按钮
 	if _cancel_end_button != null and is_instance_valid(_cancel_end_button):
 		if _selected_pile_key != "":
@@ -453,7 +470,7 @@ func refresh_confirm_cancel_buttons() -> void:
 		elif _selected_card != null:
 			_cancel_end_button.text = "取消 (C)"
 			_cancel_end_button.disabled = false
-		elif in_action and action_count <= 0:
+		elif in_action and _local_action_count(current) <= 0:
 			_cancel_end_button.text = "结束回合 (E)"
 			_cancel_end_button.disabled = false
 		else:
@@ -495,8 +512,7 @@ func enter_block_select_mode(prompt: String, valid_blocks: Array, count: int, so
 		if current.has_method("is_action_type_allowed") and not current.is_action_type_allowed("move"):
 			return
 		var in_action: bool = _is_action_available(current)
-		var action_count: int = current.get_effective_action_count() if current.has_method("get_effective_action_count") else current.get("action_count")
-		if not in_action or action_count <= 0:
+		if not in_action or not _has_action_budget(current):
 			return
 		_exit_switchable_modes("move")
 	else:
@@ -691,6 +707,7 @@ func exit_skill_confirm_mode() -> void:
 # === 第零轮模式 ===
 
 ## 进入第零轮重调模式：显示 prompt + 时限条 + 确定/取消按钮。
+## 已在重调中则不重开倒计时：时限从第一次进入算起，超时自动结束重调。
 func enter_round_zero_mode(prompt: String, duration: float) -> void:
 	if _confirm_mode or _round_zero_mode or _judge_confirm_mode or _card_move_mode:
 		return
@@ -698,7 +715,6 @@ func enter_round_zero_mode(prompt: String, duration: float) -> void:
 	_round_zero_mode = true
 	if _prompt_label != null and is_instance_valid(_prompt_label):
 		_prompt_label.text = prompt
-	# 启动倒计时时限条，超时自动取消
 	start_timer(duration, Callable(self, "_on_round_zero_timeout"))
 	refresh_confirm_cancel_buttons()
 

@@ -18,6 +18,7 @@ var mission_mode: String = "random"
 var mission_id: int = -1
 var variants: Dictionary = {}
 const RECONNECT_TIMEOUT_MS := 5 * 60 * 1000
+const MATCH_READY_TIMEOUT_MS := 15 * 1000
 var players: Dictionary = {}
 var seats: Array = []
 
@@ -72,6 +73,61 @@ func disconnect_player(player_id: String) -> void:
 	for seat in seats:
 		if String(seat.get("controller_id", "")) == player_id:
 			seat["control_mode"] = "ai"
+
+## 开局移交：清掉 listener 的 peer_id==1，不当成掉线、不改座位。
+func clear_live_peer(player_id: String) -> void:
+	if not players.has(player_id):
+		return
+	var player: Dictionary = players[player_id]
+	player["peer_id"] = 0
+	player["connection_state"] = "connected"
+	players[player_id] = player
+
+
+func connected_human_player_ids() -> Array:
+	var ids: Array = []
+	for player_id in players:
+		var player: Dictionary = players[player_id]
+		if String(player.get("connection_state", "")) != "connected":
+			continue
+		if _player_has_human_seat(String(player_id)):
+			ids.append(String(player_id))
+	return ids
+
+
+func is_player_live_bound(player_id: String) -> bool:
+	if not players.has(player_id):
+		return false
+	return int(players[player_id].get("peer_id", 0)) > 1
+
+
+func convert_unbound_human_to_ai(player_id: String) -> void:
+	if not players.has(player_id):
+		return
+	var player: Dictionary = players[player_id]
+	player["peer_id"] = 0
+	player["connection_state"] = "disconnected"
+	player["last_seen_ms"] = Time.get_ticks_msec()
+	players[player_id] = player
+	for seat in seats:
+		if String(seat.get("controller_id", "")) == player_id:
+			seat["control_mode"] = "ai"
+
+
+func room_owner_player_id() -> String:
+	for player_id in players:
+		if bool(players[player_id].get("is_host", false)):
+			return String(player_id)
+	return ""
+
+
+func _player_has_human_seat(player_id: String) -> bool:
+	for seat in seats:
+		if String(seat.get("controller_id", "")) == player_id \
+				and String(seat.get("control_mode", "")) == "human":
+			return true
+	return false
+
 
 func reconnect_player_by_token(token: String, peer_id: int) -> String:
 	var token_hash := _hash_token(token)
