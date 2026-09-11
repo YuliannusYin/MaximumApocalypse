@@ -65,6 +65,39 @@ func test_decode_zero_hp_payload_does_not_clobber_live_hp() -> void:
 	assert_eq(monster.hp, 4)
 
 
+func test_apply_display_combat_fields_updates_live_hp() -> void:
+	var holder: Player = _make_player("P")
+	holder.seat_number = 0
+	var monster: Monster = Monster.new()
+	monster.net_id = 41
+	monster.english_name = "zombie"
+	monster.monster_name = "丧尸"
+	monster.hp = 5
+	monster.max_hp = 5
+	monster.stunned = false
+	holder.monster_zone = [monster]
+	Game.players = [holder]
+	NetInputCodec.apply_display_combat_fields({
+		"targets": [{
+			"__kind": "monster",
+			"net_id": 41,
+			"hp": 2,
+			"max_hp": 5,
+			"stunned": true,
+		}],
+	}, Game)
+	assert_eq(monster.hp, 2, "选目标 payload 应把显示层活怪血量写成新值")
+	assert_true(monster.stunned)
+	var decoded: Variant = NetInputCodec.decode({
+		"__kind": "monster",
+		"net_id": 41,
+		"hp": 0,
+		"max_hp": 5,
+	}, Game)
+	assert_eq(decoded, monster)
+	assert_eq(monster.hp, 2, "通用 decode 仍不得改写活怪血量")
+
+
 func test_resolve_card_finds_discard_pile_equipment() -> void:
 	var player: Player = _make_player("Hunter")
 	var equipment: EquipmentCard = _make_equipment("迷彩服")

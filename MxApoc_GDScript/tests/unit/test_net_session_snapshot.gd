@@ -17,6 +17,17 @@ func test_request_state_snapshot_coalesces_until_flush() -> void:
 	session.free()
 
 
+func test_broadcast_input_request_flushes_pending_snapshot() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.is_host = true
+	session.session_role = "host"
+	session.request_state_snapshot()
+	assert_true(session.has_pending_state_snapshot())
+	session.broadcast_input_request(1, 0, "missing", "choose_target", {})
+	assert_false(session.has_pending_state_snapshot(), "发 INPUT_REQUEST 前应 flush 脏快照")
+	session.free()
+
+
 func test_client_request_state_snapshot_is_ignored() -> void:
 	var session: Node = load("res://src/net/net_session.gd").new()
 	session.is_host = false
@@ -417,3 +428,95 @@ func test_game_result_filters_archive_only_in_online_view() -> void:
 	RoomState.online_multiplayer = saved_online
 	NetSession.session_role = saved_role
 	result_ui.free()
+
+
+func test_should_enter_match_scene_for_remote_client_playing() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	var survivor = DataManager.get_survivor("firefighter")
+	var host: Dictionary = session.registry.create_host("房主", 7777, [
+		{"type": "human", "survivor": survivor},
+	])
+	var guest: Dictionary = session.registry.add_player("客机", 3)
+	session.session_role = "client"
+	session.is_host = false
+	session.local_player_id = guest.player_id
+	session.registry.phase = "playing"
+	assert_true(session.should_enter_match_scene(), "客机 playing 应进对局")
+	session.registry.phase = "lobby"
+	assert_false(session.should_enter_match_scene(), "大厅不应进对局")
+	session.local_player_id = host.player_id
+	session.registry.phase = "playing"
+	assert_false(session.should_enter_match_scene(), "房主环回不走客机进对局")
+	session.free()
+
+
+func test_drop_stale_players_handoffs_guest_not_host() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.is_host = true
+	session.session_role = "host"
+	var survivor_a = DataManager.get_survivor("firefighter")
+	var survivor_b = DataManager.get_survivor("hunter")
+	var host: Dictionary = session.registry.create_host("房主", 7777, [
+		{"type": "human", "survivor": survivor_a},
+		{"type": "human", "survivor": survivor_b},
+	])
+	var guest: Dictionary = session.registry.add_player("客机", 4)
+	session.registry.bind_seat(1, guest.player_id, "hunter")
+	session.registry.phase = "playing"
+	session.registry.players[host.player_id]["last_seen_ms"] = 0
+	session.registry.players[guest.player_id]["last_seen_ms"] = 0
+	var dropped: Array = session.drop_stale_players(40000)
+	assert_eq(dropped, [guest.player_id])
+	assert_eq(String(session.registry.seats[1].control_mode), "ai")
+	assert_eq(String(session.registry.seats[0].control_mode), "human")
+	session.free()
+
+
+func test_reconnect_to_last_room_requires_address_and_token() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.session_role = "client"
+	session.is_host = false
+	assert_false(session.reconnect_to_last_room())
+	session._connected_address = "127.0.0.1:7777"
+	assert_false(session.reconnect_to_last_room(), "没有重连凭证不应开连")
+	session.local_reconnect_token = "tok"
+	session.registry.phase = "playing"
+	session.free()
+
+
+func test_heartbeat_refreshes_guest_last_seen() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.is_host = true
+	session.session_role = "host"
+	var survivor = DataManager.get_survivor("firefighter")
+	session.registry.create_host("房主", 7777, [
+		{"type": "human", "survivor": survivor},
+	])
+	var guest: Dictionary = session.registry.add_player("客机", 4)
+	session.registry.players[guest.player_id]["last_seen_ms"] = 0
+	session._handle_message(NetProtocol.make_message(NetProtocol.HEARTBEAT), 4)
+	assert_gt(int(session.registry.players[guest.player_id].last_seen_ms), 0,
+		"心跳应刷新客机 last_seen")
+	session.free()
+
+
+func test_client_transport_connected_false_without_peer() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	assert_false(session._peer_is_connected(null), "空 peer 未连通")
+	var idle_peer := ENetMultiplayerPeer.new()
+	assert_eq(idle_peer.get_connection_status(), MultiplayerPeer.CONNECTION_DISCONNECTED)
+	assert_false(session._peer_is_connected(idle_peer), "未 create 的 ENet peer 未连通")
+	assert_false(session._client_transport_connected(), "无客机 peer 时传输未连通")
+	session.free()
+
+
+func test_heartbeat_skips_when_disconnected() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.session_role = "client"
+	session.is_host = false
+	session._last_heartbeat_sent_ms = 0
+	session._tick_heartbeat()
+	assert_eq(session._last_heartbeat_sent_ms, 0, "未连通时心跳不应记下发送时间")
+	session._send_to_host(NetProtocol.HEARTBEAT)
+	assert_eq(session._last_heartbeat_sent_ms, 0, "未连通的 _send_to_host 不应误记心跳")
+	session.free()

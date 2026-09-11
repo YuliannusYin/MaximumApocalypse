@@ -69,5 +69,20 @@ func test_should_allocate_false_while_applying_display_snapshot() -> void:
 	var saved_flag := bool(NetSession.applying_display_snapshot)
 	NetSession.applying_display_snapshot = true
 	NetSession.session_role = "host"
+	NetSession.server_runtime = null
 	assert_false(NetId.should_allocate(), "往只读场面盖快照时不能分配 net_id")
 	NetSession.applying_display_snapshot = saved_flag
+
+
+func test_should_allocate_true_for_runtime_while_applying_display_snapshot() -> void:
+	var saved_flag := bool(NetSession.applying_display_snapshot)
+	var saved_runtime: Variant = NetSession.server_runtime
+	var runtime: Node = load("res://src/net/server_runtime.gd").new()
+	runtime._active = true
+	add_child_autofree(runtime)
+	NetSession.server_runtime = runtime
+	NetSession.applying_display_snapshot = true
+	NetSession.session_role = "client"
+	assert_true(NetId.should_allocate(), "有权威 Runtime 时套显示快照仍应给权威实体分配 id")
+	NetSession.applying_display_snapshot = saved_flag
+	NetSession.server_runtime = saved_runtime

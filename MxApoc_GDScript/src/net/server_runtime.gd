@@ -193,6 +193,10 @@ func restore_network_inputs(player_id: String) -> void:
 			continue
 		if not seat_ids.has(int(player.seat_number)):
 			continue
+		var current_input: Variant = player.input
+		if current_input != null and current_input.has_method("detach"):
+			current_input.detach()
+			_network_inputs.erase(current_input)
 		var network_input = NetworkPlayerInputScript.new()
 		network_input.set_request_owner(player)
 		player.input = network_input

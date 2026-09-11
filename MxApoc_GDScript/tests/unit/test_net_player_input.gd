@@ -65,3 +65,19 @@ func test_new_request_aborts_unanswered_request_for_same_seat() -> void:
 	assert_true(bool(input._pending[3].received))
 	assert_eq(input._pending[3].value, false, "被替换的 confirm 应中止为 false")
 	input.detach()
+
+
+func test_limited_action_request_payload_includes_remaining_actions() -> void:
+	var player := Player.new()
+	player.action_count = 0
+	player._operation_context_stack.append({
+		"kind": "limited_action",
+		"remaining_actions": 2,
+		"requested_actions": 2,
+	})
+	var payload: Dictionary = NetworkPlayerInput.limited_action_request_payload(player)
+	assert_eq(String(payload.get("operation_kind", "")), "limited_action")
+	assert_eq(int(payload.get("remaining_actions", -1)), 2)
+	player._operation_context_stack.clear()
+	var empty: Dictionary = NetworkPlayerInput.limited_action_request_payload(player)
+	assert_true(empty.is_empty(), "正式行动阶段不应附带迷你回合预算")

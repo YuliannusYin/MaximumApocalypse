@@ -104,8 +104,11 @@ func _on_message(message: Dictionary) -> void:
 	var request_id := int(message.get("request_id", -1))
 	if request_id < 0:
 		return
-	var decoded_payload: Variant = NetInputCodec.decode(
-		payload.get("payload", {}), NetSession.get_display_game() if NetSession != null else Game)
+	var display_game: Variant = NetSession.get_display_game() if NetSession != null else Game
+	var raw_payload: Variant = payload.get("payload", {})
+	if request_type == "choose_target":
+		NetInputCodec.apply_display_combat_fields(raw_payload, display_game)
+	var decoded_payload: Variant = NetInputCodec.decode(raw_payload, display_game)
 	var seat_id := int(payload.get("seat_id", -1))
 	_drop_seat_requests(seat_id)
 	_active_requests[request_id] = {

@@ -142,3 +142,23 @@ func test_disconnect_while_playing_keeps_controller_and_allows_reconnect() -> vo
 	assert_eq(registry.reconnect_player_by_token(guest.reconnect_token, 8),
 		guest.player_id)
 	assert_eq(String(registry.seats[1].control_mode), "human")
+
+
+func test_stale_connected_guest_ids_skips_host() -> void:
+	var registry := NetRegistry.new()
+	var survivor_a = DataManager.get_survivor("firefighter")
+	var survivor_b = DataManager.get_survivor("hunter")
+	var host := registry.create_host("房主", 7777, [
+		{"type": "human", "survivor": survivor_a},
+		{"type": "ai", "survivor": survivor_b},
+	])
+	var guest := registry.add_player("客机", 3)
+	registry.bind_seat(1, guest.player_id, "hunter")
+	registry.start_match()
+	registry.players[host.player_id]["last_seen_ms"] = 0
+	registry.players[guest.player_id]["last_seen_ms"] = 0
+	var stale: Array = registry.stale_connected_guest_ids(40000, NetProtocol.HEARTBEAT_TIMEOUT_MS)
+	assert_eq(stale, [guest.player_id], "超时只应列出客机，不含房主")
+	registry.touch_last_seen(guest.player_id)
+	var now := Time.get_ticks_msec()
+	assert_eq(registry.stale_connected_guest_ids(now, NetProtocol.HEARTBEAT_TIMEOUT_MS).size(), 0)

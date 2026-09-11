@@ -65,6 +65,8 @@ static func apply(game: Variant, snapshot: Dictionary, ctx: Dictionary) -> void:
 				int(block_id.get("y", 0)))
 		_apply_role_front(player, row)
 		_apply_marks(player, row.get("marks", []))
+		apply_display_limited_action(
+			player, int(row.get("limited_remaining_actions", -1)))
 	if game.get("state_machine") != null:
 		var machine: Variant = game.state_machine
 		var state_data: Dictionary = snapshot.get("state_machine", {})
@@ -155,6 +157,7 @@ static func _serialize_player(player: Variant) -> Dictionary:
 		"in_phase": str(player.in_phase) if "in_phase" in player else "idle",
 		"action_count": int(player.action_count) if "action_count" in player else 0,
 		"max_action_count": int(player.max_action_count),
+		"limited_remaining_actions": _limited_remaining_actions_of(player),
 		"is_ai": bool(player.is_ai),
 		"alive": bool(player.is_alive()) if player.has_method("is_alive") else true,
 		"current_block": _block_id(player.current_block),
@@ -166,6 +169,50 @@ static func _serialize_player(player: Variant) -> Dictionary:
 		"is_front_side": _is_role_front(player),
 		"marks": _serialize_marks(player),
 	}
+
+
+## 客机显示层迷你回合预算。-1 表示当前没有 limited_action，不得写入正式 action_count。
+static func apply_display_limited_action(player: Variant, remaining_actions: int) -> void:
+	if player == null or not is_instance_valid(player):
+		return
+	if remaining_actions < 0:
+		_clear_display_limited_action(player)
+		return
+	for i in range(player._operation_context_stack.size() - 1, -1, -1):
+		var item: Dictionary = player._operation_context_stack[i]
+		if String(item.get("kind", "")) != "limited_action":
+			continue
+		item["remaining_actions"] = remaining_actions
+		if int(item.get("requested_actions", 0)) < remaining_actions:
+			item["requested_actions"] = remaining_actions
+		player._operation_context_stack[i] = item
+		return
+	player._operation_context_stack.append({
+		"kind": "limited_action",
+		"remaining_actions": remaining_actions,
+		"requested_actions": remaining_actions,
+	})
+
+
+static func _clear_display_limited_action(player: Variant) -> void:
+	var stack: Array = player._operation_context_stack
+	var kept: Array[Dictionary] = []
+	for item in stack:
+		if item is Dictionary and String(item.get("kind", "")) == "limited_action":
+			continue
+		if item is Dictionary:
+			kept.append(item)
+	player._operation_context_stack = kept
+
+
+static func _limited_remaining_actions_of(player: Variant) -> int:
+	if player == null or not is_instance_valid(player) \
+			or not player.has_method("get_operation_context"):
+		return -1
+	var context: Dictionary = player.get_operation_context()
+	if String(context.get("kind", "")) != "limited_action":
+		return -1
+	return maxi(int(context.get("remaining_actions", 0)), 0)
 
 
 static func _serialize_stats(game: Variant) -> Dictionary:
@@ -945,23 +992,59 @@ static func _apply_monster_list(existing: Array, rows: Variant, ctx: Dictionary,
 	if not rows is Array:
 		return result
 	var claimed: Dictionary = {}
+	var claimed_objects: Dictionary = {}
 	for row in rows:
 		if not row is Dictionary:
 			continue
 		var net_id := int(row.get("net_id", 0))
-		var monster: Variant = ctx.get(net_id, null) if net_id > 0 else null
+		var monster: Variant = null
+		if net_id > 0:
+			monster = ctx.get(net_id, null)
+			if monster != null and (claimed.has(net_id) \
+					or claimed_objects.has(int(monster.get_instance_id()))):
+				monster = null
 		if monster == null:
-			monster = _take_unused_by_name(existing, row, claimed)
+			monster = _take_unused_monster(existing, row, claimed, claimed_objects)
 		if monster == null:
 			monster = Monster.new()
 			monster.attack_target = owner
 		NetInputCodec.apply_monster_payload(monster, row)
 		monster.attack_target = owner
-		_stamp(monster, net_id, ctx)
-		if net_id > 0:
+		if net_id > 0 and not claimed.has(net_id):
+			_stamp(monster, net_id, ctx)
 			claimed[net_id] = true
+		claimed_objects[int(monster.get_instance_id())] = true
 		result.append(monster)
 	return result
+
+
+## 只按 net_id 认已有怪物；有 id 时禁止用同名去偷另一只。
+static func _take_unused_monster(existing: Array, row: Dictionary,
+		claimed: Dictionary, claimed_objects: Dictionary) -> Variant:
+	var net_id := int(row.get("net_id", 0))
+	var english_name := String(row.get("english_name", ""))
+	for item in existing:
+		if item == null:
+			continue
+		var instance_id: int = int(item.get_instance_id())
+		if claimed_objects.has(instance_id):
+			continue
+		var item_id := _entity_net_id(item)
+		if item_id > 0 and claimed.has(item_id):
+			continue
+		if net_id > 0:
+			if item_id != net_id:
+				continue
+			claimed[item_id] = true
+			claimed_objects[instance_id] = true
+			return item
+		if item_id > 0:
+			continue
+		if english_name.is_empty() or String(item.get("english_name")) != english_name:
+			continue
+		claimed_objects[instance_id] = true
+		return item
+	return null
 
 
 static func _prune_ctx(ctx: Dictionary, snapshot: Dictionary) -> void:

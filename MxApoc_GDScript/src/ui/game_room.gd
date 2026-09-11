@@ -27,6 +27,7 @@ const RANDOM_MISSION_IDX := 0
 @onready var _title_label: Label = $TopBar/TitleLabel
 
 var _variant_checkboxes: Dictionary = {}
+var _entered_match: bool = false
 
 func _ready() -> void:
 	HudTheme.apply_screen_background(_background, Color("#111311"))
@@ -85,12 +86,26 @@ func _ready() -> void:
 	var returning_to_room := LoadingScreenScript.consume_returning_to_room()
 	if NetSession.is_remote_client():
 		_set_client_view()
-		if not returning_to_room and String(NetSession.registry.phase) == "playing" \
-				and not NetSession.has_active_server_runtime():
-			LoadingScreenScript.go_enter_game(get_tree())
-			return
+		if not returning_to_room:
+			_enter_online_match_if_needed()
+			if _entered_match:
+				return
 	else:
 		_update_server_controls()
+
+
+func _exit_tree() -> void:
+	if NetSession == null:
+		return
+	if NetSession.network_error.is_connected(_on_network_error):
+		NetSession.network_error.disconnect(_on_network_error)
+	if NetSession.connection_state_changed.is_connected(_on_connection_state_changed):
+		NetSession.connection_state_changed.disconnect(_on_connection_state_changed)
+	if NetSession.session_changed.is_connected(_on_network_snapshot):
+		NetSession.session_changed.disconnect(_on_network_snapshot)
+	if NetSession.message_received.is_connected(_on_network_message):
+		NetSession.message_received.disconnect(_on_network_message)
+
 
 func _has_active_multiplayer_peer() -> bool:
 	return NetSession != null and NetSession.multiplayer != null \
@@ -138,6 +153,7 @@ func _populate_missions() -> void:
 		_mission_option.add_item(label, idx)
 		_mission_option.set_item_metadata(idx, mission)
 		_mission_option.set_item_disabled(idx, locked)
+	_apply_client_select_lock()
 
 ## 填充变体复选框：未解锁（且非开发者模式、非联机会话）时置灰并附提示文案；
 ## 只创建控件，不改动 RoomState.variants 既有值（勾选状态由 _restore_state 恢复）。
@@ -160,6 +176,7 @@ func _populate_variants() -> void:
 		cb.toggled.connect(func(toggled: bool): _on_variant_toggled(vid, toggled))
 		_variant_list.add_child(cb)
 		_variant_checkboxes[variant.id] = cb
+	_apply_client_select_lock()
 
 func _restore_state() -> void:
 	if RoomState.selected_mission_is_random and _has_random_option():
@@ -267,6 +284,8 @@ func _sync_seats_to_state() -> void:
 		RoomState.seats[i] = children[i].collect()
 
 func _on_mission_selected(idx: int) -> void:
+	if not _can_edit_mission_config():
+		return
 	var meta = _mission_option.get_item_metadata(idx)
 	if meta == null:
 		RoomState.selected_mission_is_random = true
@@ -280,6 +299,8 @@ func _on_mission_selected(idx: int) -> void:
 	RoomState.save()
 
 func _on_variant_toggled(id: String, toggled: bool) -> void:
+	if not _can_edit_mission_config():
+		return
 	RoomState.variants[id] = toggled
 	if NetSession != null and NetSession.is_authority():
 		NetSession.sync_room_config()
@@ -511,6 +532,34 @@ func _set_client_view() -> void:
 	_host_name_edit.editable = false
 	_port_edit.editable = false
 	_start_server_button.disabled = true
+	_apply_client_select_lock()
+
+
+func _can_edit_mission_config() -> bool:
+	return NetSession == null or not NetSession.is_remote_client()
+
+
+func _apply_client_select_lock() -> void:
+	if not _can_edit_mission_config():
+		_mission_option.disabled = true
+		for key in _variant_checkboxes:
+			_variant_checkboxes[key].disabled = true
+
+
+func _enter_online_match_if_needed() -> void:
+	if _entered_match or not is_inside_tree():
+		return
+	if NetSession == null:
+		return
+	if String(NetSession.registry.phase) != "playing":
+		return
+	if not NetSession.should_enter_match_scene() and not NetSession.is_room_owner():
+		return
+	var tree := get_tree()
+	if tree == null:
+		return
+	_entered_match = true
+	LoadingScreenScript.go_enter_game(tree)
 
 func _on_network_snapshot(snapshot: Dictionary) -> void:
 	if NetSession.uses_network_view():
@@ -523,6 +572,7 @@ func _on_network_snapshot(snapshot: Dictionary) -> void:
 	_update_start_button()
 	if String(snapshot.get("phase", "")) == "playing":
 		_start_game_button.disabled = true
+		_enter_online_match_if_needed()
 
 func _apply_network_room_config(snapshot: Dictionary) -> void:
 	var mission_config: Dictionary = snapshot.get("mission", {})
@@ -537,7 +587,7 @@ func _apply_network_room_config(snapshot: Dictionary) -> void:
 
 func _on_network_message(message: Dictionary) -> void:
 	if String(message.get("message_type", "")) == NetProtocol.MATCH_START:
-		LoadingScreenScript.go_enter_game(get_tree())
+		_enter_online_match_if_needed()
 
 
 func _on_connection_state_changed(state: String, detail: String) -> void:

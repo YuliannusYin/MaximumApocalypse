@@ -30,6 +30,41 @@ func test_other_seat_requests_do_not_block() -> void:
 	assert_false(input.is_action_available(1))
 
 
+func test_choose_target_applies_payload_hp_before_decode() -> void:
+	var holder: Player = _make_player("P")
+	holder.seat_number = 0
+	var monster: Monster = Monster.new()
+	monster.net_id = 41
+	monster.hp = 5
+	monster.max_hp = 5
+	holder.monster_zone = [monster]
+	Game.players = [holder]
+	var input := NetClientInput.new()
+	input._on_message({
+		"message_type": NetProtocol.INPUT_REQUEST,
+		"request_id": 8,
+		"payload": {
+			"seat_id": 0,
+			"request_type": "choose_target",
+			"payload": {
+				"targets": [{
+					"__kind": "monster",
+					"net_id": 41,
+					"hp": 2,
+					"max_hp": 5,
+				}],
+			},
+		},
+	})
+	assert_eq(monster.hp, 2, "第二次选目标前应先把显示层怪物血量写成 payload")
+	var current: Dictionary = input.get_current_request(0)
+	var decoded: Variant = current.get("decoded_payload", {})
+	assert_true(decoded is Dictionary)
+	var targets: Array = decoded.get("targets", [])
+	assert_eq(targets.size(), 1)
+	assert_eq(targets[0], monster)
+
+
 func _make_input_request(request_id: int, seat_id: int, request_type: String) -> Dictionary:
 	return {
 		"message_type": NetProtocol.INPUT_REQUEST,

@@ -116,6 +116,44 @@ static func encode(value: Variant) -> Variant:
 			return {"__kind": "entity", "net_id": net_id, "id": String(english_name)}
 	return str(value)
 
+
+## 选目标弹窗用：把 payload 里的战斗字段写到显示层活对象。通用 decode 仍禁止写回。
+static func apply_display_combat_fields(value: Variant, game: Variant) -> void:
+	if game == null or value == null:
+		return
+	if value is Array:
+		for item in value:
+			apply_display_combat_fields(item, game)
+		return
+	if not value is Dictionary:
+		return
+	if String(value.get("__kind", "")) == "monster":
+		var live: Variant = _find_live_monster(value, game)
+		if live != null:
+			_apply_monster_payload(live, value)
+		return
+	for key in value:
+		apply_display_combat_fields(value[key], game)
+
+
+static func _find_live_monster(value: Dictionary, game: Variant) -> Variant:
+	var net_id := int(value.get("net_id", 0))
+	if net_id > 0:
+		var live: Variant = GameStateSerializer.find_by_net_id(game, net_id)
+		if live != null and live is Monster:
+			return live
+	var holder_seat := int(value.get("holder_seat", -1))
+	var zone_index := int(value.get("zone_index", -1))
+	if holder_seat >= 0 and zone_index >= 0:
+		for player in game.players:
+			if int(player.seat_number) != holder_seat \
+					or not "monster_zone" in player \
+					or zone_index >= player.monster_zone.size():
+				continue
+			return player.monster_zone[zone_index]
+	return null
+
+
 static func decode(value: Variant, game: Variant = null) -> Variant:
 	if value is Array:
 		var result: Array = []

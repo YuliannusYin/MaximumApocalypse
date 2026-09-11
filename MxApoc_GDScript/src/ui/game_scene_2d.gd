@@ -63,6 +63,10 @@ var _pending_mark_pulses: Array = []
 var _pending_confirm_after_visual: bool = false
 var _pending_confirm_message: String = ""
 var _game_over_started: bool = false
+var _reconnect_hint: Label
+var _reconnect_attempts: int = 0
+var _reconnecting: bool = false
+const MAX_RECONNECT_ATTEMPTS := 3
 
 # === 设置弹出菜单 ===
 var _settings_popup: PopupMenu
@@ -125,6 +129,18 @@ func _create_modules() -> void:
 	_seat_switch_label.add_theme_constant_override("outline_size", 4)
 	_seat_switch_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_ui_layer.add_child(_seat_switch_label)
+	_reconnect_hint = Label.new()
+	_reconnect_hint.position = Vector2(360, 40)
+	_reconnect_hint.size = Vector2(740, 32)
+	_reconnect_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_reconnect_hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_reconnect_hint.add_theme_font_size_override("font_size", 18)
+	_reconnect_hint.add_theme_color_override("font_color", HudTheme.GOLD_TEXT)
+	_reconnect_hint.add_theme_color_override("font_outline_color", Color.BLACK)
+	_reconnect_hint.add_theme_constant_override("outline_size", 4)
+	_reconnect_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_reconnect_hint.visible = false
+	_ui_layer.add_child(_reconnect_hint)
 
 	_build_cheat_menu()
 
@@ -193,15 +209,14 @@ func _start_game_flow() -> void:
 	var wait_for_snapshot := online_client_ui
 	if Game.players.is_empty() and not runtime_active and not wait_for_snapshot:
 		Game.initialize_from_room_state()
+	if online_client_ui and NetSession != null:
+		NetSession._ensure_view_game()
 	# 任务进度面板：常驻 UI 层右侧固定位置，_process 自刷新任务条件进度
 	_progress_panel = MissionProgressPanel.new()
 	_ui_layer.add_child(_progress_panel)
 	_build_player_panels()
 	if not wait_for_snapshot:
 		_realize_match_view()
-
-	if online_client_ui and NetSession != null:
-		NetSession._ensure_view_game()
 	_gui_input = GUIPlayerInput.new()
 	var display_game: Node = _display_game()
 	_gui_input.set_event_scheduler(display_game.event_scheduler)
@@ -314,6 +329,66 @@ func _start_game_flow() -> void:
 		Game.start_game()
 	elif NetSession.registry.phase == "playing":
 		_event_log_panel.add_message("已连接到房主，等待同步对局状态")
+	if online_client_ui and NetSession != null and NetSession.is_remote_client():
+		if not NetSession.connection_state_changed.is_connected(_on_match_connection_state):
+			NetSession.connection_state_changed.connect(_on_match_connection_state)
+		if not NetSession.network_error.is_connected(_on_match_network_error):
+			NetSession.network_error.connect(_on_match_network_error)
+
+
+func _on_match_connection_state(state: String, detail: String) -> void:
+	if NetSession == null or not NetSession.is_remote_client():
+		return
+	if state == "disconnected":
+		_begin_auto_reconnect()
+	elif state == "joined" or state == "match_started":
+		_finish_auto_reconnect(detail)
+	elif state == "closed":
+		_give_up_reconnect()
+	elif state == "connecting" and _reconnecting:
+		_show_reconnect_hint(detail if detail != "" else "正在重连房间")
+
+
+func _on_match_network_error(_code: String, _detail: String) -> void:
+	if not _reconnecting:
+		return
+	_reconnecting = false
+	_begin_auto_reconnect()
+
+
+func _begin_auto_reconnect() -> void:
+	if _game_over_started or _reconnecting:
+		return
+	_reconnect_attempts += 1
+	if _reconnect_attempts > MAX_RECONNECT_ATTEMPTS:
+		_give_up_reconnect()
+		return
+	_reconnecting = true
+	_show_reconnect_hint("连接断开，正在重连…（%d/%d）" % [
+		_reconnect_attempts, MAX_RECONNECT_ATTEMPTS])
+	if NetSession == null or not NetSession.reconnect_to_last_room():
+		_give_up_reconnect()
+
+
+func _finish_auto_reconnect(_detail: String) -> void:
+	_reconnecting = false
+	_reconnect_attempts = 0
+	_show_reconnect_hint("")
+	if NetSession != null:
+		NetSession.request_resync()
+
+
+func _give_up_reconnect() -> void:
+	_reconnecting = false
+	_show_reconnect_hint("重连失败，正在离开对局")
+	LoadingScreenScript.go_exit_to_menu(get_tree())
+
+
+func _show_reconnect_hint(text: String) -> void:
+	if _reconnect_hint == null or not is_instance_valid(_reconnect_hint):
+		return
+	_reconnect_hint.text = text
+	_reconnect_hint.visible = not text.is_empty()
 
 
 func _realize_match_view() -> void:
@@ -381,6 +456,8 @@ func _restore_network_action_request() -> void:
 		_acting_player = player
 		_last_local_focus_player = player
 		player.in_phase = "action"
+		var decoded: Variant = action_request.get("decoded_payload", {})
+		_apply_network_limited_action(player, decoded if decoded is Dictionary else {})
 		_activate_seat_hud(player)
 		_pile_manager.set_acting_player(player)
 		_sync_pile_display_player()
@@ -404,6 +481,7 @@ func _on_network_input_requested(request_id: int, seat_id: int,
 			# 客机只运行显示模型；收到房主的 action 请求后，将本地镜像
 			# 切到 action，供技能 filter/可用性预检查使用。
 			player.in_phase = "action"
+			_apply_network_limited_action(player, payload)
 		if request_type == "redraw_decision":
 			_apply_network_hand_snapshot(player, payload.get("hand", []))
 		if _uses_network_display():
@@ -820,6 +898,16 @@ func _get_local_display_player() -> Variant:
 			_last_local_focus_player = player
 			return player
 	return current
+
+
+func _apply_network_limited_action(player: Variant, payload: Dictionary) -> void:
+	if player == null or not is_instance_valid(player):
+		return
+	if String(payload.get("operation_kind", "")) == "limited_action":
+		GameStateSerializer.apply_display_limited_action(
+			player, int(payload.get("remaining_actions", 0)))
+	else:
+		GameStateSerializer.apply_display_limited_action(player, -1)
 
 
 func _sync_pile_display_player() -> void:

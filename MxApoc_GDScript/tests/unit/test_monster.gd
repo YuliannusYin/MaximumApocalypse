@@ -441,3 +441,17 @@ func test_get_current_block_falls_back_to_attack_target_after_leaving_zone() -> 
 	assert_eq(m.get_current_block(), block)
 	p.monster_zone.erase(m)
 	assert_eq(m.get_current_block(), block, "移出怪物区后应回退 attack_target 的地块")
+
+
+func test_get_owner_player_prefers_attack_target_zone() -> void:
+	var host: Player = _make_combat_player()
+	host.player_name = "Host"
+	host.seat_number = 0
+	var guest: Player = _make_combat_player()
+	guest.player_name = "Guest"
+	guest.seat_number = 1
+	var monster: Monster = _make_combat_monster()
+	monster.attack_target = guest
+	guest.monster_zone.append(monster)
+	Game.players = [host, guest]
+	assert_eq(monster.get_owner_player(), guest, "应认纠缠对象所在怪物区，而不是座位 0")

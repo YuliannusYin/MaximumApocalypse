@@ -24,6 +24,7 @@ const MATCH_START := "match_start"
 const GAME_EVENT := "game_event"
 const STATE_SNAPSHOT := "state_snapshot"
 const RESYNC_REQUEST := "resync_request"
+const HEARTBEAT := "heartbeat"
 const PLAYER_CONNECTED := "player_connected"
 const PLAYER_DISCONNECTED := "player_disconnected"
 const PLAYER_RECONNECTED := "player_reconnected"
@@ -44,6 +45,9 @@ const ERROR_TOKEN_EXPIRED := "TOKEN_EXPIRED"
 const ERROR_INVALID_COMMAND := "INVALID_COMMAND"
 const ERROR_STALE_REQUEST := "STALE_REQUEST"
 const ERROR_NEED_RESYNC := "NEED_RESYNC"
+
+const HEARTBEAT_INTERVAL_MS := 5000
+const HEARTBEAT_TIMEOUT_MS := 30000
 
 static func make_message(message_type: String, payload: Dictionary = {},
 		sender_player_id: String = "", match_id: String = "",

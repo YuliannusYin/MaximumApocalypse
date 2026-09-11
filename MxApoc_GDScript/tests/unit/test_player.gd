@@ -1761,3 +1761,13 @@ func test_game_remove_card_log_control() -> void:
 		"silent=true 时不应输出兜底销毁日志"
 	)
 	assert_true(Game.removed_cards.has(card), "卡牌应进入 removed_cards（数据行为保留）")
+
+
+func test_player_zone_arrays_are_instance_unique() -> void:
+	var a: Player = Player.new()
+	var b: Player = Player.new()
+	assert_false(is_same(a.monster_zone, b.monster_zone), "怪物区不应共享默认数组")
+	assert_false(is_same(a.hand, b.hand), "手牌区不应共享默认数组")
+	assert_false(is_same(a.equipment_zone, b.equipment_zone), "装备区不应共享默认数组")
+	a.monster_zone.append(Monster.new())
+	assert_eq(b.monster_zone.size(), 0, "往 A 的怪物区追加不应影响 B")

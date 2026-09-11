@@ -19,10 +19,19 @@ var _fizzle_keys: Dictionary = {}
 var _pending_card: Variant = null
 var _pending_action: Dictionary = {}
 var _pending_ap: int = -1
+var _aborted: bool = false
 
 
 func set_request_owner(player: Variant) -> void:
 	_owner = player
+
+
+func abort_pending() -> void:
+	_aborted = true
+
+
+func detach() -> void:
+	abort_pending()
 
 
 func get_active_request_id() -> int:
@@ -35,7 +44,11 @@ func get_active_request_owner() -> Variant:
 
 func wait_action(player: Variant) -> Variant:
 	_owner = player
+	if _aborted:
+		return null
 	await _think()
+	if _aborted:
+		return null
 	_note_fizzle_if_needed(player)
 	var skip: Dictionary = _fizzle_keys.duplicate()
 	var best: Variant = _pick_best_action(player, skip)
@@ -66,6 +79,8 @@ func wait_action(player: Variant) -> Variant:
 
 func choose(options: Array, prompt: String = "") -> Variant:
 	await _think()
+	if _aborted:
+		return null
 	if options.is_empty():
 		return null
 	var player: Variant = _owner
@@ -342,7 +357,7 @@ func _broadcast_ai_visual(event_name: String, payload: Dictionary, player: Varia
 
 
 func _think() -> void:
-	if think_seconds <= 0.0:
+	if _aborted or think_seconds <= 0.0:
 		return
 	var tree: SceneTree = Engine.get_main_loop() as SceneTree
 	if tree == null:

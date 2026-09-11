@@ -73,6 +73,37 @@ func disconnect_player(player_id: String) -> void:
 		if String(seat.get("controller_id", "")) == player_id:
 			seat["control_mode"] = "ai"
 
+
+func touch_last_seen(player_id: String) -> void:
+	if not players.has(player_id):
+		return
+	var player: Dictionary = players[player_id]
+	player["last_seen_ms"] = Time.get_ticks_msec()
+	players[player_id] = player
+
+
+func player_has_human_seat(player_id: String) -> bool:
+	return _player_has_human_seat(player_id)
+
+
+func stale_connected_guest_ids(now_ms: int, timeout_ms: int) -> Array:
+	var result: Array = []
+	for player_id in players:
+		var player: Dictionary = players[player_id]
+		if bool(player.get("is_host", false)):
+			continue
+		if String(player.get("connection_state", "")) != "connected":
+			continue
+		if int(player.get("peer_id", 0)) <= 0:
+			continue
+		if not _player_has_human_seat(String(player_id)):
+			continue
+		var last_seen := int(player.get("last_seen_ms", 0))
+		if now_ms - last_seen >= timeout_ms:
+			result.append(String(player_id))
+	return result
+
+
 ## 开局移交：清掉 listener 的 peer_id==1，不当成掉线、不改座位。
 func clear_live_peer(player_id: String) -> void:
 	if not players.has(player_id):

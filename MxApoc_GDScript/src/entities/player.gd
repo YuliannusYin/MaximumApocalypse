@@ -53,6 +53,12 @@ var session_id: int = -1
 
 
 func _init() -> void:
+	hand = []
+	card_settlement_zone = []
+	equipment_zone = []
+	monster_zone = []
+	_operation_context_stack = []
+	_operation_runtime_stack = []
 	if input == null:
 		input = CliPlayerInput.new()
 

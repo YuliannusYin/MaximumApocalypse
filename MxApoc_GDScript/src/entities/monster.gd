@@ -73,17 +73,31 @@ func is_monster() -> bool:
 
 
 ## 返回怪物的所属玩家（monster_zone 持有该怪的玩家）。
-## 怪物不直接持有玩家引用，需遍历 Game.players 查找。
-## Game 无效或未找到所属玩家时返回 null。
+## 优先认 attack_target；再在显示世界、权威世界里找，避免共享数组时永远命中座位 0。
 func get_owner_player() -> Player:
-	if Game == null or not is_instance_valid(Game):
-		return null
-	for p in Game.players:
-		if p == null or not is_instance_valid(p):
+	if attack_target != null and is_instance_valid(attack_target) \
+			and "monster_zone" in attack_target and attack_target.monster_zone.has(self):
+		return attack_target
+	for world in _owner_search_worlds():
+		if world == null or not is_instance_valid(world) or not "players" in world:
 			continue
-		if "monster_zone" in p and p.monster_zone.has(self):
-			return p
+		for p in world.players:
+			if p == null or not is_instance_valid(p):
+				continue
+			if "monster_zone" in p and p.monster_zone.has(self):
+				return p
 	return null
+
+
+func _owner_search_worlds() -> Array:
+	var worlds: Array = []
+	if NetSession != null and NetSession.has_method("peek_view_game"):
+		var display: Node = NetSession.peek_view_game()
+		if display != null and is_instance_valid(display):
+			worlds.append(display)
+	if Game != null and is_instance_valid(Game) and not worlds.has(Game):
+		worlds.append(Game)
+	return worlds
 
 
 ## 返回怪物所在的地块。

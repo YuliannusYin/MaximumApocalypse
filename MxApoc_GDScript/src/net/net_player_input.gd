@@ -71,7 +71,23 @@ func _abort_value_for(request_type: String) -> Variant:
 			return null
 
 func wait_action(player: Variant) -> Variant:
-	return await _request(player, "action", {})
+	return await _request(player, "action", limited_action_request_payload(player))
+
+
+## 迷你回合预算只放 payload，不改正式 action_count。
+static func limited_action_request_payload(player: Variant) -> Dictionary:
+	var payload := {}
+	if player == null or not is_instance_valid(player) \
+			or not player.has_method("get_operation_context"):
+		return payload
+	var context: Dictionary = player.get_operation_context()
+	if String(context.get("kind", "")) != "limited_action":
+		return payload
+	payload["operation_kind"] = "limited_action"
+	payload["remaining_actions"] = int(player.get_effective_action_count()) \
+		if player.has_method("get_effective_action_count") \
+		else int(context.get("remaining_actions", 0))
+	return payload
 
 func choose(options: Array, prompt: String = "") -> Variant:
 	return await _request(_request_owner, "choose", {"options": options, "prompt": prompt})

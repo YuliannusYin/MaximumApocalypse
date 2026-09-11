@@ -2,6 +2,7 @@ extends Control
 
 ## 主菜单「加入房间」浮层。本轮仅收集昵称与网络地址，确认后提示功能开发中。
 const NetProtocol = preload("res://src/net/net_protocol.gd")
+const LoadingScreenScript := preload("res://src/ui/loading_screen.gd")
 const JOIN_CONFIG_PATH := "user://join_room.json"
 
 signal closed
@@ -116,7 +117,10 @@ func _error_text(code: String) -> String:
 func _on_connection_state_changed(state: String, detail: String) -> void:
 	if state == "joined":
 		_confirm_button.disabled = false
-		get_tree().change_scene_to_file("res://scenes/GameRoom.tscn")
+		if NetSession.should_enter_match_scene():
+			LoadingScreenScript.go_enter_game(get_tree())
+		else:
+			get_tree().change_scene_to_file("res://scenes/GameRoom.tscn")
 	elif state == "connecting" or state == "connected":
 		_hint_label.add_theme_color_override("font_color", HudTheme.GOLD_TEXT)
 		if detail != "":

@@ -228,12 +228,42 @@ func test_snapshot_keeps_formal_action_count_during_limited_action() -> void:
 	var snapshot: Dictionary = GameStateSerializerScript.snapshot(Game)
 	assert_eq(int(snapshot["players"][0]["action_count"]), 2,
 		"迷你回合预算不应写进快照里的正式行动点")
+	assert_eq(int(snapshot["players"][0]["limited_remaining_actions"]), 0,
+		"迷你回合预算应单独放在 limited_remaining_actions")
 	var view: Player = _make_player("Surgeon")
 	view.seat_number = 0
 	view.action_count = 2
 	Game.players = [view]
 	GameStateSerializerScript.apply(Game, snapshot, {})
 	assert_eq(view.action_count, 2, "客机应保留正式行动点")
+	assert_eq(view.get_effective_action_count(), 0, "显示层应套用迷你回合剩余预算")
+
+
+func test_snapshot_applies_limited_remaining_actions_without_touching_formal_ap() -> void:
+	var player: Player = _make_player("Gunslinger")
+	player.seat_number = 0
+	player.action_count = 0
+	player._operation_context_stack.append({
+		"kind": "limited_action",
+		"remaining_actions": 2,
+		"requested_actions": 2,
+	})
+	Game.players = [player]
+	Game.map_area = []
+	var snapshot: Dictionary = GameStateSerializerScript.snapshot(Game)
+	assert_eq(int(snapshot["players"][0]["action_count"]), 0)
+	assert_eq(int(snapshot["players"][0]["limited_remaining_actions"]), 2)
+	var view: Player = _make_player("Gunslinger")
+	view.seat_number = 0
+	view.action_count = 0
+	Game.players = [view]
+	GameStateSerializerScript.apply(Game, snapshot, {})
+	assert_eq(view.action_count, 0, "正式行动点应保持 0")
+	assert_eq(view.get_effective_action_count(), 2, "客机面板应读到临时行动 2")
+	snapshot["players"][0]["limited_remaining_actions"] = -1
+	GameStateSerializerScript.apply(Game, snapshot, {})
+	assert_eq(view.action_count, 0)
+	assert_eq(view.get_effective_action_count(), 0, "迷你回合结束后应清掉显示层预算")
 
 
 func test_apply_replaces_map_block_skills_when_name_changes() -> void:
@@ -498,3 +528,97 @@ func test_snapshot_syncs_marks_and_role_flip() -> void:
 	var hunger_mark: Mark = guest.marks.get("hunger_damage_level")
 	assert_not_null(hunger_mark)
 	assert_eq(hunger_mark.mark_text, "饥饿")
+
+
+func test_apply_two_same_name_monsters_keeps_hp_and_count() -> void:
+	var player: Player = _make_player("Hunter")
+	player.seat_number = 0
+	player.net_id = 1
+	Game.players = [player]
+	Game.map_area = []
+	GameStateSerializerScript.apply(Game, {
+		"players": [{
+			"net_id": 1,
+			"seat_number": 0,
+			"player_name": "Hunter",
+			"hp": 10,
+			"max_hp": 10,
+			"hunger": 1,
+			"hand": [],
+			"equipment": [],
+			"discard": [],
+			"monsters": [
+				{
+					"net_id": 41,
+					"english_name": "zombie_soldier",
+					"monster_name": "僵尸士兵",
+					"hp": 1,
+					"max_hp": 8,
+				},
+				{
+					"net_id": 42,
+					"english_name": "zombie_soldier",
+					"monster_name": "僵尸士兵",
+					"hp": 8,
+					"max_hp": 8,
+				},
+			],
+			"current_block": {},
+		}],
+		"map": [],
+	}, {1: player})
+	assert_eq(player.monster_zone.size(), 2, "同名士兵应各占一条")
+	assert_eq(int(player.monster_zone[0].hp), 1)
+	assert_eq(int(player.monster_zone[1].hp), 8)
+	assert_ne(player.monster_zone[0], player.monster_zone[1])
+
+
+func test_apply_does_not_share_monster_across_seats() -> void:
+	var host: Player = _make_player("Host")
+	host.seat_number = 0
+	host.net_id = 1
+	var guest: Player = _make_player("Guest")
+	guest.seat_number = 1
+	guest.net_id = 2
+	Game.players = [host, guest]
+	Game.map_area = []
+	GameStateSerializerScript.apply(Game, {
+		"players": [
+			{
+				"net_id": 1,
+				"seat_number": 0,
+				"player_name": "Host",
+				"hp": 10,
+				"max_hp": 10,
+				"hunger": 1,
+				"hand": [],
+				"equipment": [],
+				"discard": [],
+				"monsters": [],
+				"current_block": {},
+			},
+			{
+				"net_id": 2,
+				"seat_number": 1,
+				"player_name": "Guest",
+				"hp": 10,
+				"max_hp": 10,
+				"hunger": 1,
+				"hand": [],
+				"equipment": [],
+				"discard": [],
+				"monsters": [{
+					"net_id": 51,
+					"english_name": "zombie_soldier",
+					"monster_name": "僵尸士兵",
+					"hp": 8,
+					"max_hp": 8,
+				}],
+				"current_block": {},
+			},
+		],
+		"map": [],
+	}, {1: host, 2: guest})
+	assert_eq(host.monster_zone.size(), 0, "房主座位不应吃到客机的怪")
+	assert_eq(guest.monster_zone.size(), 1)
+	assert_eq(guest.monster_zone[0].attack_target, guest)

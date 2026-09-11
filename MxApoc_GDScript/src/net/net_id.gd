@@ -19,6 +19,7 @@ static func reset() -> void:
 
 
 ## 客机联机不分配实体 id，等权威快照盖上。单机、本进程权威、测试分配。
+## 有 ServerRuntime 时始终分配，避免主机套 ViewGame 快照时权威 instantiate 拿不到 net_id。
 static func should_allocate() -> bool:
 	var tree: MainLoop = Engine.get_main_loop()
 	if tree == null or not (tree is SceneTree):
@@ -26,10 +27,10 @@ static func should_allocate() -> bool:
 	var net: Node = tree.root.get_node_or_null("NetSession")
 	if net == null:
 		return true
-	if bool(net.get("applying_display_snapshot")):
-		return false
 	if net.has_method("has_active_server_runtime") and bool(net.call("has_active_server_runtime")):
 		return true
+	if bool(net.get("applying_display_snapshot")):
+		return false
 	if String(net.get("session_role")) == "client":
 		return false
 	return true
