@@ -63,6 +63,8 @@ static func apply(game: Variant, snapshot: Dictionary, ctx: Dictionary) -> void:
 		elif not block_id.is_empty():
 			player.current_block = _block_at(game, int(block_id.get("x", 0)),
 				int(block_id.get("y", 0)))
+		_apply_role_front(player, row)
+		_apply_marks(player, row.get("marks", []))
 	if game.get("state_machine") != null:
 		var machine: Variant = game.state_machine
 		var state_data: Dictionary = snapshot.get("state_machine", {})
@@ -161,6 +163,8 @@ static func _serialize_player(player: Variant) -> Dictionary:
 		"discard": _serialize_pile_cards(player.game_discard_pile if "game_discard_pile" in player else null),
 		"game_deck": _pile_size(player.game_deck if "game_deck" in player else null),
 		"monsters": _serialize_monster_list(player.monster_zone if "monster_zone" in player else []),
+		"is_front_side": _is_role_front(player),
+		"marks": _serialize_marks(player),
 	}
 
 
@@ -348,6 +352,72 @@ static func _block_id(block: Variant) -> Dictionary:
 	var coordinate: Dictionary = block.coordinate if "coordinate" in block else {}
 	return {"x": int(coordinate.get("x", 0)), "y": int(coordinate.get("y", 0))}
 
+static func _is_role_front(player: Variant) -> bool:
+	if player == null:
+		return true
+	var role: Variant = player.get("role_card") if player.has_method("get") else null
+	if role == null:
+		return true
+	if role.has_method("is_front"):
+		return bool(role.is_front())
+	return bool(role.get("is_front_side"))
+
+
+static func _apply_role_front(player: Variant, row: Dictionary) -> void:
+	if player == null or not row.has("is_front_side"):
+		return
+	var role: Variant = player.get("role_card") if player.has_method("get") else null
+	if role == null:
+		role = RoleCard.new()
+		player.role_card = role
+	role.is_front_side = bool(row.get("is_front_side", true))
+
+
+static func _serialize_marks(player: Variant) -> Array:
+	var result: Array = []
+	if player == null or not "marks" in player:
+		return result
+	var marks_dict: Variant = player.marks
+	if not marks_dict is Dictionary:
+		return result
+	for key in marks_dict:
+		var mark: Variant = marks_dict[key]
+		if mark == null:
+			continue
+		result.append({
+			"name": str(mark.get("name")) if mark.has_method("get") else str(key),
+			"mark_text": str(mark.get("mark_text")) if mark.has_method("get") else "",
+			"mark_content": str(mark.get("mark_content")) if mark.has_method("get") else "",
+			"visible": bool(mark.get("visible")) if mark.has_method("get") else true,
+			"count": int(mark.get("count")) if mark.has_method("get") else 0,
+			"items": mark.get("items").duplicate() if mark.has_method("get") \
+				and mark.get("items") is Array else [],
+		})
+	return result
+
+
+static func _apply_marks(player: Variant, rows: Variant) -> void:
+	if player == null or not "marks" in player:
+		return
+	player.marks = {}
+	if not rows is Array:
+		return
+	for row in rows:
+		if not row is Dictionary:
+			continue
+		var mark := Mark.new()
+		mark.name = String(row.get("name", ""))
+		if mark.name.is_empty():
+			continue
+		mark.mark_text = String(row.get("mark_text", mark.name))
+		mark.mark_content = String(row.get("mark_content", ""))
+		mark.visible = bool(row.get("visible", true))
+		mark.count = int(row.get("count", 0))
+		var items: Variant = row.get("items", [])
+		mark.items = items.duplicate() if items is Array else []
+		player.marks[mark.name] = mark
+
+
 static func _string_property(value: Variant, property_name: String) -> String:
 	if value == null or not value.has_method("get"):
 		return ""
@@ -448,7 +518,7 @@ static func _ensure_mission(game: Variant, snapshot: Dictionary) -> void:
 		_setup_mission_components_for_world(game)
 
 
-## 权威/客机本机 Game 全量 setup；房主 ViewGame 只 setup 行动组件，避免触发器吃权威 EventBus。
+## 只有权威单例 Game 全量 setup；所有 ViewGame（主机和客机）只 setup 行动组件，避免触发器吃 EventBus。
 static func _setup_mission_components_for_world(game: Variant) -> void:
 	if game == null:
 		return

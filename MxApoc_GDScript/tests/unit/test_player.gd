@@ -238,6 +238,12 @@ func test_increase_hunger_at_6_flips_role_card() -> void:
 	assert_eq(p.count_mark("hunger_damage_level"), 1)
 	# 等级 1 造成 2 点伤害
 	assert_eq(p.hp, 8)
+	assert_true(
+		Game.log_list.any(func(l): return str(l).contains("角色卡翻面")),
+		"饥饿翻面应写事件日志")
+	assert_true(
+		Game.log_list.any(func(l): return str(l).contains("因饥饿结算受到伤害") or str(l).contains("因饥饿受到")),
+		"饥饿伤害应写事件日志")
 
 
 func test_increase_hunger_level_2_damage() -> void:

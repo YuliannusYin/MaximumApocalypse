@@ -60,6 +60,8 @@ var _network_entity_ctx: Dictionary = {}
 var _pending_map_refresh_after_visual: bool = false
 var _pending_network_snapshot: Dictionary = {}
 var _pending_mark_pulses: Array = []
+var _pending_confirm_after_visual: bool = false
+var _pending_confirm_message: String = ""
 var _game_over_started: bool = false
 
 # === 设置弹出菜单 ===
@@ -198,6 +200,8 @@ func _start_game_flow() -> void:
 	if not wait_for_snapshot:
 		_realize_match_view()
 
+	if online_client_ui and NetSession != null:
+		NetSession._ensure_view_game()
 	_gui_input = GUIPlayerInput.new()
 	var display_game: Node = _display_game()
 	_gui_input.set_event_scheduler(display_game.event_scheduler)
@@ -237,7 +241,7 @@ func _start_game_flow() -> void:
 	_seat_hud_manager.skill_pressed.connect(_on_skill_pressed)
 	_seat_hud_manager.redraw_decision_responded.connect(_on_redraw_decision_responded)
 	_seat_hud_manager.judge_confirm_responded.connect(_on_judge_confirm_responded)
-	if not runtime_active:
+	if not runtime_active and not online_client_ui:
 		for player in _display_game().players:
 			if player == null or not is_instance_valid(player):
 				continue
@@ -379,10 +383,14 @@ func _restore_network_action_request() -> void:
 		player.in_phase = "action"
 		_activate_seat_hud(player)
 		_pile_manager.set_acting_player(player)
+		_sync_pile_display_player()
 	_sync_network_action_ui()
 
 func _on_network_input_requested(request_id: int, seat_id: int,
 		request_type: String, payload: Dictionary) -> void:
+	if request_type != "confirm":
+		_pending_confirm_after_visual = false
+		_pending_confirm_message = ""
 	_network_request_id = request_id
 	_network_request_seat_id = seat_id
 	_network_request_type = request_type
@@ -440,8 +448,15 @@ func _on_network_input_requested(request_id: int, seat_id: int,
 				float(payload.get("duration", 5.0)),
 				bool(payload.get("allow_cancel", false)))
 		"confirm":
-			_action_selection_controller.set_confirm_mode(String(payload.get("message",
-				payload.get("prompt", ""))))
+			var confirm_message := String(payload.get("message",
+				payload.get("prompt", "")))
+			if _is_visual_playing():
+				_pending_confirm_after_visual = true
+				_pending_confirm_message = confirm_message
+			_action_selection_controller.set_confirm_mode(confirm_message)
+			if not _action_selection_controller.is_in_confirm_mode():
+				_pending_confirm_after_visual = true
+				_pending_confirm_message = confirm_message
 	_sync_network_action_ui()
 
 
@@ -767,6 +782,8 @@ func _show_local_seat_hud() -> void:
 		return
 	_last_local_focus_player = local_player
 	_activate_seat_hud(local_player)
+	_sync_pile_display_player()
+	_pile_manager.refresh_pile_counts()
 
 
 ## 刷新手牌区（显示当前玩家的手牌）。
@@ -803,6 +820,14 @@ func _get_local_display_player() -> Variant:
 			_last_local_focus_player = player
 			return player
 	return current
+
+
+func _sync_pile_display_player() -> void:
+	if _pile_manager == null or not is_instance_valid(_pile_manager):
+		return
+	if RoomState == null or not RoomState.online_multiplayer:
+		return
+	_pile_manager.set_display_player(_get_local_display_player())
 
 
 func _is_local_controlled_player(player: Variant) -> bool:
@@ -888,6 +913,8 @@ func _on_request_owner_changed(player: Variant) -> void:
 			and not _is_local_controlled_player(player):
 		_acting_player = player
 		_pile_manager.set_acting_player(player)
+		_sync_pile_display_player()
+		_pile_manager.refresh_pile_counts()
 		_table_map_controller.refresh_map(player)
 		return
 	_acting_player = player
@@ -896,6 +923,7 @@ func _on_request_owner_changed(player: Variant) -> void:
 		return
 	_action_selection_controller.set_acting_player(player if player != null else _display_game().get_current_player())
 	_pile_manager.set_acting_player(player)
+	_sync_pile_display_player()
 	_refresh_hand_area()
 	if player != null and is_instance_valid(player):
 		_refresh_active_skill_bar(player)
@@ -982,7 +1010,10 @@ func _on_discard_pile_clicked(pile_type: String) -> void:
 	if pile_type == "scavenge":
 		_popup_manager.show_scavenge_discard_popup()
 	elif pile_type == "game":
-		_popup_manager.show_game_discard_popup(_get_acting_player())
+		var player: Variant = _get_acting_player()
+		if RoomState != null and RoomState.online_multiplayer:
+			player = _get_local_display_player()
+		_popup_manager.show_game_discard_popup(player)
 
 
 # === Skill pressed ===
@@ -1093,6 +1124,7 @@ func _on_action_requested(player: Variant) -> void:
 		return
 	_action_selection_controller.set_acting_player(player)
 	_pile_manager.set_acting_player(player)
+	_sync_pile_display_player()
 	_refresh_hand_area()
 	_refresh_active_skill_bar(player)
 	_action_selection_controller.refresh_confirm_cancel_buttons()
@@ -1609,6 +1641,7 @@ func _apply_turn_started_ui(player: Variant) -> void:
 	if hud_player != null and is_instance_valid(hud_player):
 		_activate_seat_hud(hud_player)
 		_pile_manager.set_acting_player(player)
+		_sync_pile_display_player()
 	else:
 		_assign_player_panels(player)
 		if _active_skill_bar != null and is_instance_valid(_active_skill_bar):
@@ -1702,6 +1735,7 @@ func _process(_delta: float) -> void:
 
 func _flush_deferred_after_visual() -> void:
 	_flush_deferred_network_snapshot()
+	_flush_deferred_pending_confirm()
 	_flush_deferred_map_refresh()
 
 
@@ -1732,6 +1766,19 @@ func _flush_deferred_network_snapshot() -> void:
 	var snapshot: Dictionary = _pending_network_snapshot
 	_pending_network_snapshot = {}
 	_apply_network_game_snapshot(snapshot)
+
+
+func _flush_deferred_pending_confirm() -> void:
+	if not _pending_confirm_after_visual:
+		return
+	_pending_confirm_after_visual = false
+	var message := _pending_confirm_message
+	_pending_confirm_message = ""
+	if _action_selection_controller == null or not is_instance_valid(_action_selection_controller):
+		return
+	if _action_selection_controller.is_in_confirm_mode():
+		return
+	_action_selection_controller.set_confirm_mode(message)
 
 
 func _on_block_mark_changed(block: Variant) -> void:
@@ -2033,9 +2080,11 @@ func _on_network_message(message: Dictionary) -> void:
 		if dead_panel != null:
 			dead_panel.play_monster_pulse()
 	elif event_name == "log":
-		_on_log_message(String(event_payload.get("message", "")))
+		var log_message := String(event_payload.get("message", ""))
+		_on_log_message(log_message)
 		if _event_log_panel != null and is_instance_valid(_event_log_panel):
-			_event_log_panel.add_message(String(event_payload.get("message", "")))
+			_event_log_panel.add_message(log_message)
+		_append_guest_game_log(log_message)
 	elif event_name == "game_over":
 		_handle_network_game_over(event_payload)
 
@@ -2075,6 +2124,7 @@ func _apply_network_game_snapshot(snapshot: Dictionary) -> void:
 				_active_skill_bar.refresh(player)
 	_defer_or_refresh_map()
 	_refresh_all_panels()
+	_sync_pile_display_player()
 	_pile_manager.refresh_pile_counts()
 	_pile_manager.refresh_pile_highlights()
 	_sync_network_action_ui()
@@ -2095,6 +2145,7 @@ func _network_block_at(x: int, y: int) -> Variant:
 
 func _handle_network_game_over(payload: Dictionary) -> void:
 	_apply_network_stats(payload.get("stats", {}))
+	_apply_network_logs(payload.get("log_list", []))
 	_present_game_over(int(payload.get("result", -1)))
 
 
@@ -2107,6 +2158,22 @@ func _apply_network_stats(stats_data: Variant) -> void:
 	if not world.stats_tracker.has_method("apply_network_snapshot"):
 		return
 	world.stats_tracker.apply_network_snapshot(world.players, stats_data)
+
+
+func _append_guest_game_log(message: String) -> void:
+	var world: Node = _display_game()
+	if world == null or not is_instance_valid(world):
+		return
+	var is_authority := NetSession != null and is_instance_valid(NetSession) \
+			and NetSession.is_authority()
+	NetViewSync.append_guest_log(world.log_list, message, is_authority)
+
+
+func _apply_network_logs(logs: Variant) -> void:
+	var world: Node = _display_game()
+	if world == null or not is_instance_valid(world):
+		return
+	NetViewSync.apply_game_over_logs(world.log_list, logs)
 
 
 func _maybe_enter_game_over_from_display() -> void:
@@ -2139,6 +2206,11 @@ func _on_game_over(_result: int) -> void:
 	if _game_over_started:
 		return
 	_game_over_started = true
+	if RoomState != null and RoomState.online_multiplayer \
+			and Game != null and is_instance_valid(Game):
+		if NetSession != null and is_instance_valid(NetSession):
+			NetSession.commit_display_settlement_to_game()
+		NetViewSync.copy_event_log_if_empty(Game.log_list, _event_log)
 	_popup_manager.close_popup()
 	# 黑色全屏覆盖层，渐变过渡到结算场景
 	var overlay := ColorRect.new()

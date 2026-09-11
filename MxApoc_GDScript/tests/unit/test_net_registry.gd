@@ -89,6 +89,21 @@ func test_bind_seat_rejected_while_playing() -> void:
 	assert_false(registry.set_seat_survivor(0, "hunter"))
 
 
+func test_return_to_lobby_allows_bind_seat_again() -> void:
+	var registry := NetRegistry.new()
+	var survivor = DataManager.get_survivor("firefighter")
+	var credentials := registry.create_host("房主", 7777, [
+		{"type": "human", "survivor": survivor},
+		{"type": "ai", "survivor": null},
+	])
+	registry.start_match()
+	assert_eq(registry.phase, "playing")
+	registry.set_phase("lobby")
+	assert_eq(registry.phase, "lobby")
+	assert_true(registry.bind_seat(1, credentials.player_id, "hunter"))
+	assert_eq(String(registry.seats[1].survivor_id), "hunter")
+
+
 func test_disconnect_in_lobby_keeps_seat_and_allows_reconnect() -> void:
 	var registry := NetRegistry.new()
 	var survivor_a = DataManager.get_survivor("firefighter")

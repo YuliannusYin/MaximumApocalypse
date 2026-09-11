@@ -12,41 +12,77 @@ const ROTATION_SPEED := 2.0
 const SCENE_PATH := "res://scenes/LoadingScreen.tscn"
 const GAME_SCENE_PATH := "res://scenes/GameScene2D.tscn"
 const MENU_SCENE_PATH := "res://scenes/MainMenu.tscn"
+const ROOM_SCENE_PATH := "res://scenes/GameRoom.tscn"
 
 static var _next_scene_path: String = GAME_SCENE_PATH
 static var _abort_session: bool = false
 static var _prepare_game: bool = false
+static var _return_to_room: bool = false
 
 var _dot_container: Node2D
 var _elapsed: float = 0.0
 var _destination: String = GAME_SCENE_PATH
 var _should_abort: bool = false
 var _should_prepare_game: bool = false
+var _should_return_to_room: bool = false
 
 
 ## 房间开局：在本页 initialize_game，随后进入 GameScene2D。
 static func go_enter_game(tree: SceneTree) -> void:
-	_next_scene_path = GAME_SCENE_PATH
-	_abort_session = false
-	_prepare_game = true
+	_configure_load(GAME_SCENE_PATH, false, true, false)
 	tree.change_scene_to_file(SCENE_PATH)
 
 
 ## 对局中返回主菜单：卸掉对局场景后清理调度器/旧协程，再进主菜单。
 ## 房间配置保留在 RoomState（并已落盘），下次进入游戏房间可继续用。
 static func go_exit_to_menu(tree: SceneTree) -> void:
-	_next_scene_path = MENU_SCENE_PATH
-	_abort_session = true
-	_prepare_game = false
+	_configure_load(MENU_SCENE_PATH, true, false, false)
 	tree.change_scene_to_file(SCENE_PATH)
 
 
 ## 结算后再开一局：在本页重新 initialize_game，保留房间选座。
 static func go_restart_game(tree: SceneTree) -> void:
-	_next_scene_path = GAME_SCENE_PATH
-	_abort_session = false
-	_prepare_game = true
+	_configure_load(GAME_SCENE_PATH, false, true, false)
 	tree.change_scene_to_file(SCENE_PATH)
+
+
+## 联机结算返回房间：清掉对局内存，保留网络会话，不重新 initialize。
+static func go_return_to_room(tree: SceneTree) -> void:
+	configure_return_to_room()
+	tree.change_scene_to_file(SCENE_PATH)
+
+
+## 只写标志位（测试与 go_return_to_room 共用），不切场景。
+static func configure_return_to_room() -> void:
+	_configure_load(ROOM_SCENE_PATH, false, false, true)
+
+
+static func pending_load_config() -> Dictionary:
+	return {
+		"next_scene_path": _next_scene_path,
+		"abort_session": _abort_session,
+		"prepare_game": _prepare_game,
+		"return_to_room": _return_to_room,
+	}
+
+
+static func reset_pending_load() -> void:
+	_configure_load(GAME_SCENE_PATH, false, false, false)
+
+
+## GameRoom 读取后清掉，避免下次进房间仍当成从结算返回。
+static func consume_returning_to_room() -> bool:
+	var flag := _return_to_room
+	_return_to_room = false
+	return flag
+
+
+static func _configure_load(next_scene_path: String, abort_session: bool,
+		prepare_game: bool, return_to_room: bool) -> void:
+	_next_scene_path = next_scene_path
+	_abort_session = abort_session
+	_prepare_game = prepare_game
+	_return_to_room = return_to_room
 
 
 ## 单机才在加载页 initialize。联机客机等权威快照；有 Runtime 的进程由 Runtime 开局。
@@ -69,9 +105,11 @@ func _ready() -> void:
 	_destination = _next_scene_path
 	_should_abort = _abort_session
 	_should_prepare_game = _prepare_game
+	_should_return_to_room = _return_to_room
 	_next_scene_path = GAME_SCENE_PATH
 	_abort_session = false
 	_prepare_game = false
+	# _return_to_room 留给 GameRoom.consume_returning_to_room
 	_build_ui()
 	_run_loading()
 
@@ -114,7 +152,12 @@ func _build_ui() -> void:
 func _run_loading() -> void:
 	await get_tree().process_frame
 	ResourceLoader.load_threaded_request(_destination)
-	if _should_abort and Game != null and is_instance_valid(Game):
+	if _should_return_to_room:
+		if Game != null and is_instance_valid(Game):
+			Game.abort_session()
+		if NetSession != null and is_instance_valid(NetSession):
+			NetSession.cleanup_match_for_lobby()
+	elif _should_abort and Game != null and is_instance_valid(Game):
 		Game.abort_session()
 		if NetSession != null and is_instance_valid(NetSession):
 			NetSession.leave_room()

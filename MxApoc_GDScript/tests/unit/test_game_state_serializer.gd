@@ -99,6 +99,64 @@ func test_apply_monster_restores_combat_stats() -> void:
 	assert_true(monster.stunned)
 
 
+func test_apply_missing_hp_uses_max_hp() -> void:
+	var player: Player = _make_player("Hunter")
+	player.seat_number = 0
+	player.net_id = 1
+	Game.players = [player]
+	Game.map_area = []
+	GameStateSerializerScript.apply(Game, {
+		"players": [{
+			"net_id": 1,
+			"seat_number": 0,
+			"player_name": "Hunter",
+			"hp": 10,
+			"max_hp": 10,
+			"hunger": 1,
+			"hand": [],
+			"equipment": [],
+			"discard": [],
+			"monsters": [{
+				"net_id": 32,
+				"english_name": "zombie",
+				"monster_name": "丧尸",
+				"max_hp": 5,
+				"damage_value": 2,
+			}],
+			"current_block": {},
+		}],
+		"map": [],
+	}, {1: player})
+	assert_eq(player.monster_zone.size(), 1)
+	assert_eq(player.monster_zone[0].max_hp, 5)
+	assert_eq(player.monster_zone[0].hp, 5, "快照缺 hp 时应按 max_hp 填当前血")
+
+
+func test_apply_to_view_does_not_change_authority_monster_hp() -> void:
+	var authority: Player = _make_player("Hunter")
+	authority.seat_number = 0
+	var monster: Monster = Monster.new()
+	monster.net_id = 33
+	monster.english_name = "zombie"
+	monster.hp = 5
+	monster.max_hp = 5
+	authority.monster_zone = [monster]
+	Game.players = [authority]
+	Game.map_area = []
+	var snapshot: Dictionary = GameStateSerializerScript.snapshot(Game)
+	snapshot["players"][0]["monsters"][0]["hp"] = 0
+	var view_player: Player = _make_player("View")
+	view_player.seat_number = 0
+	var view_game: Node = Game.get_script().new()
+	view_game.players = [view_player]
+	view_game.map_area = []
+	GameStateSerializerScript.apply(view_game, snapshot, {})
+	assert_eq(monster.hp, 5, "套到另一份镜像后权威怪物血量不得被改")
+	assert_eq(view_player.monster_zone.size(), 1)
+	assert_eq(view_player.monster_zone[0].hp, 0)
+	view_game.free()
+
+
 func test_snapshot_includes_map_block_variants() -> void:
 	var block: MapBlock = _make_block("城市街道", 1, 2, true)
 	block.scavenge_colors = PackedStringArray(["green", "blue"])
@@ -404,3 +462,39 @@ func test_snapshot_and_apply_copy_player_stats() -> void:
 	assert_eq(Game.stats_tracker.get_stats(guest).damage_dealt, 6)
 	assert_eq(Game.stats_tracker.get_stats(guest).healing_done, 2)
 	assert_eq(Game.stats_tracker.game_duration_msec, 777)
+
+
+func test_snapshot_syncs_marks_and_role_flip() -> void:
+	var player: Player = _make_player("Hunter")
+	player.seat_number = 0
+	player.net_id = 11
+	var role := RoleCard.new()
+	role.english_name = "hunter"
+	role.is_front_side = false
+	player.role_card = role
+	player.add_mark("check_weapon", 1, "检查武器", "造成的伤害+1", true)
+	player.add_mark("hunger_damage_level", 2, "饥饿", "饥饿伤害等级2", true)
+	Game.players = [player]
+	Game.map_area = []
+	var snapshot: Dictionary = GameStateSerializerScript.snapshot(Game)
+	var row: Dictionary = snapshot["players"][0]
+	assert_false(bool(row.get("is_front_side", true)), "快照应带角色卡反面")
+	assert_eq(row["marks"].size(), 2, "快照应带玩家标记")
+
+	var guest: Player = _make_player("Hunter")
+	guest.seat_number = 0
+	guest.net_id = 11
+	guest.role_card = RoleCard.new()
+	guest.role_card.is_front_side = true
+	Game.players = [guest]
+	GameStateSerializerScript.apply(Game, snapshot, {11: guest})
+	assert_false(guest.role_card.is_front_side, "显示世界应同步角色卡翻面")
+	assert_eq(guest.count_mark("check_weapon"), 1)
+	assert_eq(guest.count_mark("hunger_damage_level"), 2)
+	var check_mark: Mark = guest.marks.get("check_weapon")
+	assert_not_null(check_mark)
+	assert_eq(check_mark.mark_text, "检查武器")
+	assert_true(check_mark.visible)
+	var hunger_mark: Mark = guest.marks.get("hunger_damage_level")
+	assert_not_null(hunger_mark)
+	assert_eq(hunger_mark.mark_text, "饥饿")

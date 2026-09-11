@@ -20,24 +20,49 @@ func test_encode_monster_keeps_monster_name() -> void:
 	assert_true(encoded["stunned"])
 
 
-func test_decode_monster_patches_live_zone_name() -> void:
+func test_decode_monster_returns_live_zone_reference_without_writing() -> void:
 	var holder: Player = _make_player("P")
 	holder.seat_number = 0
 	var monster: Monster = Monster.new()
 	monster.english_name = "zombie"
-	monster.monster_name = ""
+	monster.monster_name = "丧尸"
+	monster.hp = 5
+	monster.max_hp = 5
 	monster.attack_target = holder
 	holder.monster_zone = [monster]
 	Game.players = [holder]
 	var decoded: Variant = NetInputCodec.decode({
 		"__kind": "monster",
 		"id": "zombie",
-		"monster_name": "丧尸",
+		"monster_name": "别的名字",
+		"hp": 0,
+		"max_hp": 5,
 		"holder_seat": 0,
 		"zone_index": 0,
 	}, Game)
 	assert_eq(decoded, monster)
-	assert_eq(monster.monster_name, "丧尸", "decode 应把 payload 中文名补到客机镜像上")
+	assert_eq(monster.monster_name, "丧尸", "decode 不得改写活怪字段")
+	assert_eq(monster.hp, 5, "decode 不得把活怪血量写成 payload 里的 0")
+
+
+func test_decode_zero_hp_payload_does_not_clobber_live_hp() -> void:
+	var holder: Player = _make_player("P")
+	holder.seat_number = 0
+	var monster: Monster = Monster.new()
+	monster.net_id = 41
+	monster.english_name = "zombie"
+	monster.hp = 4
+	monster.max_hp = 5
+	holder.monster_zone = [monster]
+	Game.players = [holder]
+	var decoded: Variant = NetInputCodec.decode({
+		"__kind": "monster",
+		"net_id": 41,
+		"hp": 0,
+		"max_hp": 5,
+	}, Game)
+	assert_eq(decoded, monster)
+	assert_eq(monster.hp, 4)
 
 
 func test_resolve_card_finds_discard_pile_equipment() -> void:

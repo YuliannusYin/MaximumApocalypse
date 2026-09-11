@@ -206,6 +206,23 @@ func begin_online_match() -> void:
 		_enter_host_loopback()
 
 
+## 对局结束后把房间收回大厅：不拆监听、不清结算用的 Game。
+func return_match_to_lobby() -> void:
+	if not is_authority():
+		return
+	registry.set_phase("lobby")
+	_emit_snapshot()
+
+
+## 结算后返回房间：清掉对局视图；房主停掉 Runtime，便于下一局重建。
+func cleanup_match_for_lobby() -> void:
+	_clear_view_game()
+	if is_authority() or is_room_owner():
+		stop_server_runtime()
+		if registry.phase != "lobby":
+			return_match_to_lobby()
+
+
 func close_authority_room(reason: String) -> void:
 	_broadcast(NetProtocol.ROOM_CLOSED, {"reason": reason})
 	close_session()
@@ -217,8 +234,12 @@ func get_display_game() -> Node:
 	return Game
 
 
+func _uses_display_world() -> bool:
+	return uses_network_view() or has_active_server_runtime()
+
+
 func _ensure_view_game() -> Node:
-	if not has_active_server_runtime():
+	if not _uses_display_world():
 		return Game
 	if _view_game != null and is_instance_valid(_view_game):
 		return _view_game
@@ -239,9 +260,41 @@ func _clear_view_game() -> void:
 func apply_display_game_snapshot(snapshot: Dictionary, ctx: Dictionary) -> void:
 	if snapshot.is_empty():
 		return
+	if _uses_display_world():
+		_ensure_view_game()
+		if get_display_game() == Game:
+			push_error("NetSession: 拒绝把对局快照套到权威 Game 上")
+			return
 	applying_display_snapshot = true
 	GameStateSerializer.apply(get_display_game(), snapshot, ctx)
 	applying_display_snapshot = false
+
+
+## 客机结算页仍读单例 Game：把 ViewGame 的结算字段拷过去。权威端不覆盖 Game。
+func commit_display_settlement_to_game() -> void:
+	if is_authority():
+		return
+	var display: Node = get_display_game()
+	if display == null or not is_instance_valid(display) or display == Game:
+		return
+	Game.log_list = display.log_list.duplicate()
+	Game.players = display.players.duplicate()
+	Game.current_mission = display.current_mission
+	Game.game_over_called = bool(display.get("game_over_called"))
+	Game.game_result = String(display.get("game_result"))
+	var src_machine: Variant = display.state_machine
+	var dst_machine: Variant = Game.state_machine
+	if src_machine != null and dst_machine != null:
+		dst_machine.current_state = src_machine.current_state
+		dst_machine.game_result = src_machine.game_result
+		dst_machine.last_player = src_machine.last_player
+	var src_tracker: Variant = display.stats_tracker
+	var dst_tracker: Variant = Game.stats_tracker
+	if src_tracker != null and dst_tracker != null \
+			and src_tracker.has_method("to_network_dict") \
+			and dst_tracker.has_method("apply_network_snapshot"):
+		dst_tracker.apply_network_snapshot(
+			Game.players, src_tracker.to_network_dict(display.players))
 
 
 func _enter_host_loopback() -> bool:
@@ -490,10 +543,13 @@ func _apply_client_inbound_message(message: Dictionary) -> void:
 		_restore_client_identity(payload)
 		_apply_snapshot(payload.get("room_snapshot", payload))
 		session_changed.emit(payload.get("room_snapshot", payload))
+		if payload.has("game_snapshot"):
+			_ensure_view_game()
 		_finish_room_accept("已重连房间")
 	elif message_type == NetProtocol.MATCH_START:
 		_apply_snapshot(payload.get("room_snapshot", {}))
 		session_changed.emit(payload.get("room_snapshot", {}))
+		_ensure_view_game()
 		connection_state_changed.emit("match_started", "房主已开始对局")
 	elif message_type == NetProtocol.ROOM_CLOSED:
 		connection_state_changed.emit("closed", String(payload.get("reason", "房间已关闭")))

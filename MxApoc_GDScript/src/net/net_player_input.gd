@@ -40,6 +40,25 @@ func abort_pending() -> void:
 	response_arrived.emit(-1, null)
 
 
+## 同一座位新请求到达前，解开该座位上未应答的旧请求，避免客机丢弃后权威死等。
+func _abort_unanswered_for_seat(seat_id: int) -> void:
+	if seat_id < 0 or _pending.is_empty():
+		return
+	var aborted := false
+	for request_id in _pending.keys():
+		var state: Dictionary = _pending[request_id]
+		if bool(state.get("received", false)):
+			continue
+		if int(state.get("seat_id", -1)) != seat_id:
+			continue
+		state["value"] = _abort_value_for(String(state.get("request_type", "")))
+		state["received"] = true
+		_pending[request_id] = state
+		aborted = true
+	if aborted:
+		response_arrived.emit(-1, null)
+
+
 func _abort_value_for(request_type: String) -> Variant:
 	match request_type:
 		"choose_card", "choose_target", "choose_block_inline":
@@ -185,6 +204,7 @@ func _request(player: Variant, request_type: String, payload: Dictionary) -> Var
 	if owner_id == "" or seat_id < 0:
 		return null
 	var request_id := NetSession.next_request_id() if NetSession != null else 1
+	_abort_unanswered_for_seat(seat_id)
 	var request_payload := payload.duplicate(true)
 	var selection_map: Dictionary = {}
 	var selection_field := String(request_payload.get("selection_field", ""))
@@ -202,6 +222,7 @@ func _request(player: Variant, request_type: String, payload: Dictionary) -> Var
 		"received": false,
 		"selection_map": selection_map,
 		"request_type": request_type,
+		"seat_id": seat_id,
 	}
 	_pending[request_id] = state
 	NetSession.broadcast_input_request(
@@ -211,16 +232,23 @@ func _request(player: Variant, request_type: String, payload: Dictionary) -> Var
 	var result = _pending.get(request_id, {}).get("value", null)
 	var completed_state: Dictionary = _pending.get(request_id, {})
 	_pending.erase(request_id)
-	if not completed_state.get("selection_map", {}).is_empty():
-		result = _decode_selection_result(result, completed_state.selection_map)
-	else:
-		result = NetInputCodec.decode(result, Game)
+	result = _resolve_response_value(
+		request_type, result, completed_state.get("selection_map", {}))
 	if request_type == "choose_target" and result is Array:
 		NetSession.broadcast_game_event("target_links", {
 			"source_seat": seat_id,
 			"targets": result,
 		})
 	return result
+
+func _resolve_response_value(request_type: String, result: Variant, selection_map: Variant) -> Variant:
+	var tokens: Dictionary = selection_map if selection_map is Dictionary else {}
+	if not tokens.is_empty():
+		return _decode_selection_result(result, tokens)
+	if request_type in ["choose_target", "choose_card", "choose_block", "choose_block_inline"]:
+		return [] if request_type != "choose_block" else null
+	return NetInputCodec.decode(result, Game)
+
 
 func _decode_selection_result(result: Variant, selection_map: Dictionary) -> Variant:
 	if result is Array:

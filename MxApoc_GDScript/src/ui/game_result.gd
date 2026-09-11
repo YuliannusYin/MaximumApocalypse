@@ -53,6 +53,7 @@ func _ready() -> void:
 	HudTheme.apply_slot_button(_back_button, 13)
 	HudTheme.apply_slot_button(_log_button, 13)
 	HudTheme.apply_mission_slot_button(_restart_button, 13)
+	_configure_restart_button()
 	for seat_idx in range(1, 7):
 		HudTheme.apply_section_panel(get_node("Seat%d" % seat_idx), Color("#171713"))
 	# 读取本局数据
@@ -299,8 +300,26 @@ func _on_back_pressed() -> void:
 	LoadingScreenScript.go_exit_to_menu(get_tree())
 
 
+func _configure_restart_button() -> void:
+	if _is_online_session():
+		_restart_button.text = "返回房间"
+	else:
+		_restart_button.text = "重新开始"
+
+
+func _is_online_session() -> bool:
+	if RoomState == null or not RoomState.online_multiplayer:
+		return false
+	if NetSession == null or not is_instance_valid(NetSession):
+		return false
+	return String(NetSession.session_role) != "none"
+
+
 func _on_restart_pressed() -> void:
-	LoadingScreenScript.go_restart_game(get_tree())
+	if _is_online_session():
+		LoadingScreenScript.go_return_to_room(get_tree())
+	else:
+		LoadingScreenScript.go_restart_game(get_tree())
 
 
 func _on_view_log_pressed() -> void:

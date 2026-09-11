@@ -108,7 +108,7 @@ func _fn(player, target, event, game) -> bool:
 - 为多语句块，可包含 `\n` 换行、`\t` 缩进、`await` 异步调用、`for` / `while` / `if` 控制流。
 - 可读写 `event` 字典（如 `event.num -= 1` 修改伤害值、`event["cancel"].call()` 取消事件、`event.targets` 访问目标列表）。
 - 可调用 `player` / `target` / `game` 的公开方法（如 `player.consume_action(1)`、`target.damage(2, player)`、`game.get_target(...)`）。旧路径仍可用；新内容优先 `actions.*`。
-- `content` 中可直接写 `actions.damage(...)` 等；编译期 `_add_implicit_action_awaits` 会把 `actions.` 与 `game.game_over(` 补成 `await`，数据里不必手写 await。
+- `content` 中可直接写 `actions.damage(...)` 等；编译期 `_add_implicit_action_awaits` 会把 `actions.`、`player.equip(` / `player.unequip(` 与 `game.game_over(` 补成 `await`，数据里不必手写 await。
 - 可调用 `EventSystem.cancel(event)` 取消事件、`EventSystem` 静态方法。
 - 可使用 `await player.confirm(...)` / `await player.choose_card(...)` 等异步 UI 交互。
 
@@ -134,7 +134,7 @@ func _fn(player, target, event, game) -> bool:
 
 全部 `compile_*` 为 static。空字符串：filter / content / confirm_prompt 返回空 Callable（调用方视为恒真 / 无操作 / 默认格式）；filter_target 对空串或 `"true"` 返回空 Callable（视为无过滤）；filter_card 同 filter_target。
 
-`compile_content` 在编译前由 `_add_implicit_action_awaits` 把 `actions.` 与 `game.game_over(` 补成 `await`。
+`compile_content` 在编译前由 `_add_implicit_action_awaits` 把 `actions.`、`player.equip(` / `player.unequip(` 与 `game.game_over(` 补成 `await`。
 
 内部：`_next_path(prefix)` 生成唯一 `resource_path`；`_compile(source)` 执行 `GDScript.new` → 设路径 → `reload` → 把脚本与实例追加进 `_scripts` / `_instances`。失败时 `_create_noop_filter` 恒真、`_create_noop_content` 为 `pass`。
 

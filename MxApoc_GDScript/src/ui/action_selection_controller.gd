@@ -782,7 +782,13 @@ func exit_judge_confirm_mode() -> void:
 
 func set_confirm_mode(message: String) -> void:
 	if _round_zero_mode or _judge_confirm_mode or _card_move_mode:
-		return
+		push_warning("set_confirm_mode: 清除冲突 UI 模式后进入确认（round_zero=%s judge=%s card_move=%s）" % [_round_zero_mode, _judge_confirm_mode, _card_move_mode])
+		if _judge_confirm_mode:
+			exit_judge_confirm_mode()
+		if _card_move_mode or _move_select_mode:
+			exit_move_select_mode()
+		if _round_zero_mode:
+			exit_round_zero_mode()
 	_exit_switchable_modes("")
 	_confirm_mode = true
 	if _prompt_label != null and is_instance_valid(_prompt_label):

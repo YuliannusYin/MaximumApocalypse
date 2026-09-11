@@ -330,8 +330,10 @@ func _relay_game_over(result: int) -> void:
 	_broadcast_visual("game_over", {
 		"result": result,
 		"stats": _authority_stats_payload(),
+		"log_list": _authority_logs_payload(),
 	})
 	if NetSession != null and is_instance_valid(NetSession):
+		NetSession.return_match_to_lobby()
 		NetSession.request_state_snapshot()
 
 
@@ -464,6 +466,12 @@ func _authority_stats_payload() -> Dictionary:
 	if not Game.stats_tracker.has_method("to_network_dict"):
 		return {}
 	return Game.stats_tracker.to_network_dict(Game.players)
+
+
+func _authority_logs_payload() -> Array:
+	if Game == null or not is_instance_valid(Game):
+		return []
+	return Game.log_list.duplicate()
 
 
 func _broadcast_visual(event_name: String, payload: Dictionary) -> void:

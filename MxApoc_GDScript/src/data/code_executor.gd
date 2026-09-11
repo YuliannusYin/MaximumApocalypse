@@ -66,7 +66,7 @@ static func compile_content(code: String) -> Callable:
 	return Callable(instance, "_fn")
 
 
-## JSON content 中的 actions.* 与 game.game_over(...) 是可等待的嵌套操作。
+## JSON content 中的 actions.*、player.equip/unequip 与 game.game_over(...) 是可等待的嵌套操作。
 ## 为保留“数据不写 await”的语法，在编译阶段自动补齐等待。
 static func _add_implicit_action_awaits(code: String) -> String:
 	var result := code.replace("actions.", "await actions.")
@@ -75,6 +75,12 @@ static func _add_implicit_action_awaits(code: String) -> String:
 	result = result.replace("game.game_over(", "await game.game_over(")
 	while result.contains("await await game.game_over("):
 		result = result.replace("await await game.game_over(", "await game.game_over(")
+	result = result.replace("player.equip(", "await player.equip(")
+	while result.contains("await await player.equip("):
+		result = result.replace("await await player.equip(", "await player.equip(")
+	result = result.replace("player.unequip(", "await player.unequip(")
+	while result.contains("await await player.unequip("):
+		result = result.replace("await await player.unequip(", "await player.unequip(")
 	return result
 
 

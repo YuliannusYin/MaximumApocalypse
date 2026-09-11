@@ -97,6 +97,13 @@ func test_compile_content_implicitly_awaits_game_over() -> void:
 	assert_eq(code, "await game.game_over(\"lose\")")
 
 
+func test_compile_content_implicitly_awaits_player_equip() -> void:
+	var code: String = CodeExecutor._add_implicit_action_awaits("player.equip(card)\nplayer.unequip(card)")
+	assert_eq(code, "await player.equip(card)\nawait player.unequip(card)")
+	code = CodeExecutor._add_implicit_action_awaits("await player.equip(card)\nawait player.unequip(card)")
+	assert_eq(code, "await player.equip(card)\nawait player.unequip(card)", "已有 await 不应变成 await await")
+
+
 func test_compile_content_with_for_loop() -> void:
 	# 测试多语句 for 循环（Expression 无法处理，CodeExecutor 可以）
 	var cb: Callable = CodeExecutor.compile_content("var sum = 0\nfor i in range(5):\n\tsum += i\nevent.sum = sum")

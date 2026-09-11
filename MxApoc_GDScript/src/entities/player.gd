@@ -154,16 +154,22 @@ func increase_hunger(num: int, runtime: Variant = null) -> void:
 				# 刚达到 6：翻面 + 添加饥饿伤害标记
 				if role_card != null and role_card.is_front():
 					role_card.flip()
+					if Game != null and is_instance_valid(Game):
+						Game.log_message(LogColors.player(player_name) + " 角色卡翻面，开始承受饥饿伤害")
 				var _new_hunger_level: int = count_mark("hunger_damage_level") + 1
 				add_mark("hunger_damage_level", 1, "饥饿", "饥饿伤害等级" + str(_new_hunger_level) + ", 饥饿结算时受到 " + str(_new_hunger_level * 2) + "点饥饿伤害")
 		elif hunger == 6:
 			# 已在 6：叠加标记
 			if role_card != null and role_card.is_front():
 				role_card.flip()
+				if Game != null and is_instance_valid(Game):
+					Game.log_message(LogColors.player(player_name) + " 角色卡翻面，开始承受饥饿伤害")
 			var _new_hunger_level: int = count_mark("hunger_damage_level") + 1
 			add_mark("hunger_damage_level", 1, "饥饿", "饥饿伤害等级" + str(_new_hunger_level) + ", 饥饿结算时受到 " + str(_new_hunger_level * 2) + "点饥饿伤害")
 		if count_mark("hunger_damage_level") > 0:
 			var level: int = count_mark("hunger_damage_level")
+			if Game != null and is_instance_valid(Game) and level < 5:
+				Game.log_message(LogColors.player(player_name) + " 因饥饿结算受到伤害（饥饿等级 " + str(level) + "）")
 			if level == 1:
 				await damage(2, null, "hunger", null, runtime)
 			elif level == 2:

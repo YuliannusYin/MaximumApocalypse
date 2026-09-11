@@ -132,12 +132,11 @@ static func decode(value: Variant, game: Variant = null) -> Variant:
 		return result_dict
 	if game == null:
 		return value
+	# 活对象只返回引用，禁止把 payload 的 hp 等战斗字段写回去。
 	var net_id := int(value.get("net_id", 0))
 	if net_id > 0:
 		var live: Variant = GameStateSerializer.find_by_net_id(game, net_id)
 		if live != null:
-			if kind == "monster":
-				apply_monster_payload(live, value)
 			return live
 	match kind:
 		"monster":
@@ -148,9 +147,7 @@ static func decode(value: Variant, game: Variant = null) -> Variant:
 					if int(player.seat_number) == holder_seat \
 							and "monster_zone" in player \
 							and zone_index < player.monster_zone.size():
-						var live_monster: Variant = player.monster_zone[zone_index]
-						_apply_monster_payload(live_monster, value)
-						return live_monster
+						return player.monster_zone[zone_index]
 			var monster := Monster.new()
 			_apply_monster_payload(monster, value)
 			return monster
@@ -312,10 +309,12 @@ static func _apply_monster_payload(monster: Variant, value: Dictionary) -> void:
 	var monster_level := String(value.get("monster_level", ""))
 	if not monster_level.is_empty():
 		monster.monster_level = monster_level
-	if value.has("hp"):
-		monster.hp = int(value.get("hp", monster.hp))
 	if value.has("max_hp"):
 		monster.max_hp = int(value.get("max_hp", monster.max_hp))
+	if value.has("hp"):
+		monster.hp = int(value.get("hp", monster.hp))
+	elif value.has("max_hp"):
+		monster.hp = int(value.get("max_hp", 0))
 	if value.has("damage_value"):
 		monster.damage_value = int(value.get("damage_value", monster.damage_value))
 	if value.has("range"):

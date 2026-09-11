@@ -22,6 +22,7 @@ var _pile_views: Dictionary = {}
 var _ui_layer: CanvasLayer
 var _selected_pile_key: String = ""
 var _acting_player: Variant = null
+var _display_player: Variant = null
 var _event_scheduler: Variant = null
 var _network_action_available: Variant = null
 
@@ -36,12 +37,17 @@ func setup(ui_layer: CanvasLayer) -> void:
 	_ui_layer = ui_layer
 
 
-## 设置当前实际操作玩家；为空时回退到真实回合玩家。
+## 设置当前实际操作玩家；为空时回退到真实回合玩家。可点击/高亮跟此座位。
 func set_acting_player(player: Variant) -> void:
 	_acting_player = player
 
 
-## 注入 EventScheduler；牌堆可操作性和个人牌堆显示跟随当前 InputRequest owner。
+## 设置个人牌堆（游戏牌/角色弃牌）的显示座位。未设置时回退到操作座位。
+func set_display_player(player: Variant) -> void:
+	_display_player = player
+
+
+## 注入 EventScheduler；牌堆可操作性跟随当前 InputRequest owner。
 func set_event_scheduler(scheduler: Variant) -> void:
 	_event_scheduler = scheduler
 	refresh_pile_counts()
@@ -66,6 +72,12 @@ func _get_acting_player() -> Variant:
 	if _acting_player != null and is_instance_valid(_acting_player):
 		return _acting_player
 	return _game().get_current_player()
+
+
+func _get_display_player() -> Variant:
+	if _display_player != null and is_instance_valid(_display_player):
+		return _display_player
+	return _get_acting_player()
 
 
 func wire_pile_nodes() -> void:
@@ -135,13 +147,7 @@ func refresh_pile_counts() -> void:
 
 
 func _get_current_player_discard_count() -> int:
-	var current: Variant = _get_acting_player()
-	if current == null or not is_instance_valid(current):
-		return 0
-	var pile: Variant = current.get("game_discard_pile")
-	if pile == null or not is_instance_valid(pile):
-		return 0
-	return pile.size() if pile.has_method("size") else pile.get("cards").size()
+	return _get_player_pile_count(_get_display_player(), "game_discard_pile")
 
 
 func _set_pile_count(key: String, count: int) -> void:
@@ -165,13 +171,16 @@ func _get_pile_count(pile: Variant) -> int:
 
 
 func _get_current_player_deck_count() -> int:
-	var current: Variant = _get_acting_player()
-	if current == null or not is_instance_valid(current):
+	return _get_player_pile_count(_get_display_player(), "game_deck")
+
+
+func _get_player_pile_count(player: Variant, field: String) -> int:
+	if player == null or not is_instance_valid(player):
 		return 0
-	var deck: Variant = current.get("game_deck")
-	if deck == null or not is_instance_valid(deck):
+	var pile: Variant = player.get(field)
+	if pile == null or not is_instance_valid(pile):
 		return 0
-	return deck.size() if deck.has_method("size") else deck.get("cards").size()
+	return pile.size() if pile.has_method("size") else pile.get("cards").size()
 
 
 ## 同步当前选中牌堆并刷新高亮（可操作=绿，已选中=黄）。
@@ -256,7 +265,7 @@ func is_pile_clickable(pile_key: String) -> bool:
 		return false
 	match pile_key:
 		"game_deck":
-			return _get_current_player_deck_count() > 0
+			return _get_player_pile_count(current, "game_deck") > 0
 		"red_scavenge", "green_scavenge", "blue_scavenge":
 			var block: Variant = current.get("current_block")
 			if block == null or not is_instance_valid(block):

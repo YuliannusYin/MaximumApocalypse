@@ -190,3 +190,13 @@ func test_network_remaining_ap_keeps_end_turn_disabled() -> void:
 	controller.set_acting_player(player)
 	controller.set_network_action_available(true)
 	assert_true(controller._cancel_end_button.disabled, "还有正式行动点时结束回合应置灰")
+
+
+func test_set_confirm_mode_clears_card_move_conflict() -> void:
+	var controller := _make_controller()
+	controller.enter_block_select_mode("选择地块", [], 1, "card")
+	assert_true(controller.is_card_move_mode())
+	controller.set_confirm_mode("是否立即装备 \"燃料\", 否则立即弃置")
+	assert_false(controller.is_card_move_mode(), "确认模式应清掉卡牌移动锁定")
+	assert_true(controller.is_in_confirm_mode())
+	assert_true(controller._prompt_label.text.contains("燃料"))

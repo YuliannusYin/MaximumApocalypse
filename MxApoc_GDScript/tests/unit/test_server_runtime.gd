@@ -152,3 +152,13 @@ func test_handoff_replaces_network_input_with_ai() -> void:
 		player.input.detach()
 	runtime.free()
 	NetSession.registry = saved_registry
+
+
+func test_authority_logs_payload_duplicates_game_log_list() -> void:
+	Game.log_list = ["第一行", "第二行"]
+	var runtime: Node = load("res://src/net/server_runtime.gd").new()
+	var payload: Array = runtime._authority_logs_payload()
+	assert_eq(payload, ["第一行", "第二行"])
+	payload.append("不应回写")
+	assert_eq(Game.log_list, ["第一行", "第二行"], "载荷应是副本")
+	runtime.free()

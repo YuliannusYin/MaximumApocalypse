@@ -91,6 +91,8 @@ func get_owner_player() -> Player:
 ## 未找到所属玩家时返回 null。
 func get_current_block() -> MapBlock:
 	var owner: Player = get_owner_player()
+	if owner == null and attack_target != null and is_instance_valid(attack_target):
+		owner = attack_target
 	if owner == null:
 		return null
 	return owner.get_current_block()

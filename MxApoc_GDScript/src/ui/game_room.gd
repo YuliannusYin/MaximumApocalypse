@@ -56,7 +56,7 @@ func _ready() -> void:
 	HudTheme.apply_mission_slot_button(_start_game_button, 13)
 	_mission_name_label.add_theme_color_override("font_color", HudTheme.GOLD_TEXT)
 	_difficulty_label.add_theme_color_override("font_color", HudTheme.GOLD_TEXT_DIM)
-	if NetSession == null or NetSession.is_host or NetSession.multiplayer.multiplayer_peer == null:
+	if not _has_active_multiplayer_peer():
 		RoomState.load_from_disk()
 	_populate_missions()
 	_populate_variants()
@@ -82,25 +82,56 @@ func _ready() -> void:
 	NetSession.message_received.connect(_on_network_message)
 	if RoomState.online_multiplayer and NetSession.multiplayer.multiplayer_peer == null:
 		_update_server_controls()
+	var returning_to_room := LoadingScreenScript.consume_returning_to_room()
 	if NetSession.is_remote_client():
 		_set_client_view()
-		if String(NetSession.registry.phase) == "playing" \
+		if not returning_to_room and String(NetSession.registry.phase) == "playing" \
 				and not NetSession.has_active_server_runtime():
 			LoadingScreenScript.go_enter_game(get_tree())
 			return
 	else:
 		_update_server_controls()
 
+func _has_active_multiplayer_peer() -> bool:
+	return NetSession != null and NetSession.multiplayer != null \
+			and NetSession.multiplayer.multiplayer_peer != null
+
+
+## 启动服务器或客机入房后，房间 UI 放开全部任务/随机/变体。勾选本身不算。
+func _online_content_unlocked() -> bool:
+	if NetSession == null:
+		return false
+	return NetSession.has_listen_server() or NetSession.is_room_owner() \
+			or NetSession.is_remote_client()
+
+
+func _unlock_all_content() -> bool:
+	return Settings.dev_mode or _online_content_unlocked() \
+			or ArchiveManager.is_random_and_variants_unlocked()
+
+
+func _is_mission_locked(mission_id: int) -> bool:
+	if Settings.dev_mode or _online_content_unlocked():
+		return false
+	return not ArchiveManager.is_mission_unlocked(mission_id)
+
+
+func _refresh_unlock_ui() -> void:
+	_populate_missions()
+	_populate_variants()
+	_restore_state()
+
+
 ## 填充任务下拉框：恒显示全部任务；玩家模式下未解锁任务置灰不可选并附解锁提示，
-## “随机任务”选项仅在全部任务通关（或开发者模式）后出现。
+## “随机任务”选项仅在全部任务通关、开发者模式或联机会话建立后出现。
 func _populate_missions() -> void:
 	_mission_option.clear()
-	if Settings.dev_mode or ArchiveManager.is_random_and_variants_unlocked():
+	if _unlock_all_content():
 		_mission_option.add_item("随机任务", RANDOM_MISSION_IDX)
 		_mission_option.set_item_metadata(RANDOM_MISSION_IDX, null)
 	for mission in DataManager.get_all_missions():
 		var idx := _mission_option.item_count
-		var locked := not Settings.dev_mode and not ArchiveManager.is_mission_unlocked(mission.mission_id)
+		var locked := _is_mission_locked(mission.mission_id)
 		var label := "%s（%s）" % [mission.mission_name, mission.difficulty_display]
 		if locked:
 			label += "（未解锁）"
@@ -108,14 +139,14 @@ func _populate_missions() -> void:
 		_mission_option.set_item_metadata(idx, mission)
 		_mission_option.set_item_disabled(idx, locked)
 
-## 填充变体复选框：未解锁（且非开发者模式）时置灰并附提示文案；
+## 填充变体复选框：未解锁（且非开发者模式、非联机会话）时置灰并附提示文案；
 ## 只创建控件，不改动 RoomState.variants 既有值（勾选状态由 _restore_state 恢复）。
 func _populate_variants() -> void:
 	for child in _variant_list.get_children():
 		child.queue_free()
 	_variant_checkboxes.clear()
 	var variants := DataManager.get_all_variants()
-	var variants_locked := not Settings.dev_mode and not ArchiveManager.is_random_and_variants_unlocked()
+	var variants_locked := not _unlock_all_content()
 	for variant in variants:
 		var cb := CheckBox.new()
 		cb.text = variant.display_name
@@ -279,6 +310,7 @@ func _on_online_multiplayer_toggled(toggled: bool) -> void:
 	if not toggled and NetSession.is_authority():
 		NetSession.close_session()
 	_update_server_controls()
+	_refresh_unlock_ui()
 	RoomState.save()
 
 func _set_network_settings_visible(visible: bool) -> void:
@@ -321,6 +353,7 @@ func _on_start_server_pressed() -> void:
 		_rebuild_seats()
 		_update_server_controls()
 		_update_start_button()
+		_refresh_unlock_ui()
 		_network_hint_label.add_theme_color_override("font_color", Color("#65d47a"))
 		_show_network_hint("服务器已启动，正在连入本机房间…")
 
@@ -351,6 +384,8 @@ func _on_network_error(code: String, detail: String) -> void:
 	if code == NetProtocol.ERROR_PORT_IN_USE or code == NetProtocol.ERROR_INVALID_PORT:
 		RoomState.online_multiplayer = false
 		_online_multiplayer_checkbox.set_pressed_no_signal(false)
+		_set_network_settings_visible(false)
+		_refresh_unlock_ui()
 	_update_server_controls()
 	_show_network_hint(detail)
 
@@ -526,6 +561,8 @@ func _on_reset() -> void:
 	if NetSession != null and NetSession.is_authority():
 		NetSession.close_session()
 	RoomState.reset_to_default()
+	_populate_missions()
+	_populate_variants()
 	# 刷新任务选择下拉框选中项（随机任务未解锁时回退到第一个可选任务）
 	_select_default_mission()
 	# 刷新变体复选框

@@ -208,6 +208,117 @@ func test_get_display_game_prefers_view_instance() -> void:
 	session.free()
 
 
+func test_apply_display_snapshot_does_not_write_authority_monster_hp() -> void:
+	var player: Player = _make_player("Hunter")
+	player.seat_number = 0
+	var monster: Monster = Monster.new()
+	monster.english_name = "zombie"
+	monster.hp = 5
+	monster.max_hp = 5
+	player.monster_zone = [monster]
+	Game.players = [player]
+	Game.map_area = []
+	var session: Node = load("res://src/net/net_session.gd").new()
+	add_child_autofree(session)
+	var runtime: Node = load("res://src/net/server_runtime.gd").new()
+	runtime._active = true
+	session.add_child(runtime)
+	session.server_runtime = runtime
+	var snapshot: Dictionary = GameStateSerializer.snapshot(Game)
+	assert_false(snapshot.get("players", []).is_empty())
+	snapshot["players"][0]["monsters"][0]["hp"] = 0
+	session.apply_display_game_snapshot(snapshot, {})
+	assert_eq(monster.hp, 5, "有 Runtime 时快照不得写进权威怪物血量")
+	assert_ne(session.get_display_game(), Game, "应创建 ViewGame 承接快照")
+
+
+func test_client_apply_display_snapshot_creates_view_game() -> void:
+	var player: Player = _make_player("Hunter")
+	player.seat_number = 0
+	var monster: Monster = Monster.new()
+	monster.english_name = "zombie"
+	monster.hp = 5
+	monster.max_hp = 5
+	player.monster_zone = [monster]
+	Game.players = [player]
+	Game.map_area = []
+	var session: Node = load("res://src/net/net_session.gd").new()
+	add_child_autofree(session)
+	session.session_role = "client"
+	session.is_host = false
+	var snapshot: Dictionary = GameStateSerializer.snapshot(Game)
+	assert_false(snapshot.get("players", []).is_empty())
+	snapshot["players"][0]["monsters"][0]["hp"] = 0
+	session.apply_display_game_snapshot(snapshot, {})
+	assert_eq(monster.hp, 5, "无 Runtime 的客机快照不得写进单例 Game")
+	assert_ne(session.get_display_game(), Game, "客机应对局走 ViewGame")
+	var display: Node = session.get_display_game()
+	assert_eq(display.name, "ViewGame")
+	assert_eq(display.players.size(), 1)
+	assert_eq(int(display.players[0].monster_zone[0].hp), 0, "客机 ViewGame 应承接快照血量")
+	assert_eq(Game.players, [player], "单例 Game 玩家列表应保持原样")
+
+
+func test_match_start_creates_view_game_for_client() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	add_child_autofree(session)
+	session.session_role = "client"
+	session.is_host = false
+	session._apply_client_inbound_message(NetProtocol.make_message(NetProtocol.MATCH_START, {
+		"room_snapshot": {
+			"phase": "playing",
+			"players": [],
+			"seats": [],
+			"mission": {},
+			"variants": {},
+		},
+	}))
+	assert_ne(session.get_display_game(), Game, "MATCH_START 应为客机创建 ViewGame")
+	assert_eq(session.get_display_game().name, "ViewGame")
+
+
+func test_guest_log_stays_on_view_game_until_settlement() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.session_role = "client"
+	session.is_host = false
+	assert_false(session.is_authority(), "无听服的客机实例才应回写结算")
+	var display: Node = session._ensure_view_game()
+	assert_ne(display, Game)
+	var guest_player: Player = _make_player("客机")
+	guest_player.seat_number = 0
+	display.players = [guest_player]
+	display.log_list = ["座位1 移动了"]
+	display.game_result = "win"
+	display.game_over_called = true
+	if display.state_machine != null:
+		display.state_machine.game_result = GameStateMachine.GameResult.WIN
+		display.state_machine.last_player = guest_player
+	assert_eq(Game.log_list, [], "对局中客机日志不应写进单例 Game")
+	session.commit_display_settlement_to_game()
+	assert_eq(Game.log_list, ["座位1 移动了"], "结算回写后 Game.log_list 应有客机日志")
+	assert_eq(Game.players.size(), 1)
+	assert_eq(Game.players[0], guest_player)
+	assert_eq(Game.game_result, "win")
+	if display.state_machine != null:
+		assert_eq(int(Game.state_machine.game_result), GameStateMachine.GameResult.WIN)
+		assert_eq(Game.state_machine.last_player, guest_player)
+	session.free()
+
+
+func test_commit_display_settlement_skips_authority() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	add_child_autofree(session)
+	session.is_host = true
+	session.session_role = "host"
+	var view: Node = load("res://src/game/game.gd").new()
+	view.log_list = ["显示世界日志"]
+	session._view_game = view
+	Game.log_list = ["权威日志"]
+	session.commit_display_settlement_to_game()
+	assert_eq(Game.log_list, ["权威日志"], "权威端结算回写不得覆盖 Game")
+	view.free()
+
+
 func test_loopback_client_message_emits_to_ui() -> void:
 	var session: Node = load("res://src/net/net_session.gd").new()
 	session.session_role = "client"

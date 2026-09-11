@@ -426,3 +426,18 @@ func test_monster_card_instantiate_returns_monster_instance() -> void:
 	var p: MockPlayer = MockPlayer.new()
 	var m: Monster = card.instantiate(p)
 	assert_true(m is Monster, "应返回 Monster 实例")
+
+
+func test_get_current_block_falls_back_to_attack_target_after_leaving_zone() -> void:
+	var p: Player = _make_combat_player()
+	var block: MapBlock = MapBlock.new()
+	block.block_name = "test"
+	block.set_coordinate(0, 0)
+	p.current_block = block
+	var m: Monster = _make_combat_monster()
+	m.attack_target = p
+	p.monster_zone = [m]
+	Game.players = [p]
+	assert_eq(m.get_current_block(), block)
+	p.monster_zone.erase(m)
+	assert_eq(m.get_current_block(), block, "移出怪物区后应回退 attack_target 的地块")
