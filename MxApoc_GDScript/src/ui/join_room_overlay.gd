@@ -19,6 +19,7 @@ signal closed
 
 
 func _ready() -> void:
+	modulate.a = 0.0
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	HudTheme.apply_section_panel(_panel, Color("#1b1b17"), HudTheme.SLOT_BORDER)
@@ -42,6 +43,7 @@ func _ready() -> void:
 	_cancel_button.pressed.connect(_on_close)
 	NetSession.connection_state_changed.connect(_on_connection_state_changed)
 	NetSession.network_error.connect(_on_network_error)
+	HudTheme.play_overlay_appear(self, _panel)
 
 
 func _input(event: InputEvent) -> void:

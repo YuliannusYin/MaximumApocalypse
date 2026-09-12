@@ -19,6 +19,7 @@ const SLIDE_IN_DURATION := 0.25  # 新卡滑入时长（秒）
 const SLIDE_OUT_DURATION := 0.25  # 消失卡滑出时长（秒）
 const SLIDE_IN_OFFSET := Vector2(120, -30)  # 新卡滑入起点偏移（牌堆方向：右上外侧）
 const SLIDE_OUT_OFFSET := Vector2(80, 40)  # 消失卡滑出偏移（弃牌堆方向：右下外侧）
+const PLAY_OUT_OFFSET := Vector2(0, -72)  # 打出：向桌面方向上飞
 const DIFF_MATCH_RATIO := 0.5  # 差量刷新最低匹配率，低于则降级全量重建
 
 signal card_selected(card: Variant)
@@ -29,6 +30,7 @@ var _card_views: Array = []
 var _selected_view: CardView = null
 var _is_stacked: bool = false
 var _last_player_id: int = -1  # 上次刷新对应玩家的实例 id，玩家变化时降级全量重建
+var _pending_out_kind: String = ""  # play / discard；下一次差量刷新的离手动画
 
 
 func _ready() -> void:
@@ -46,6 +48,19 @@ func _init() -> void:
 func set_player(player: Variant) -> void:
 	_player = player
 	refresh()
+
+
+func get_display_player() -> Variant:
+	return _player
+
+
+## 指定下一次差量刷新中离手牌的动画种类。
+## play 优先于 discard：打出流程里 settlement/discard 可能连续触发刷新。
+func queue_outgoing_kind(kind: String) -> void:
+	if kind == "play":
+		_pending_out_kind = "play"
+	elif _pending_out_kind.is_empty():
+		_pending_out_kind = kind
 
 
 ## 刷新手牌区（差量实现：匹配保留 / 新建滑入 / 移除滑出 / 位置平滑重排）。
@@ -123,6 +138,7 @@ func _can_diff_refresh(hand: Array, existing: Dictionary) -> bool:
 
 ## 全量重建（降级路径：直接重建所有视图，无动画）。
 func _full_rebuild(hand: Array) -> void:
+	_pending_out_kind = ""
 	_clear_cards()
 	var positions := _compute_positions(hand.size())
 	for i in range(hand.size()):
@@ -170,16 +186,17 @@ func _diff_refresh(hand: Array, existing: Dictionary) -> void:
 			view.position = target + SLIDE_IN_OFFSET
 			view.modulate.a = 0.0
 			view.move_to(target, SLIDE_IN_DURATION)
-			var tw := view.create_tween()
-			tw.tween_property(view, "modulate:a", 1.0, SLIDE_IN_DURATION)
+			view.fade_to(1.0, SLIDE_IN_DURATION)
+			view.play_fx_scale(Vector2(0.86, 0.86), Vector2.ONE, SLIDE_IN_DURATION)
 		new_views.append(view)
-	# 消失的卡：滑向弃牌堆方向（右下外侧）淡出后释放
+	# 消失的卡：打出上飞 / 弃牌滑向弃牌堆，淡出后释放
 	for view in _card_views:
 		if view == null or not is_instance_valid(view):
 			continue
 		if kept_ids.has(view.get_instance_id()):
 			continue
 		_animate_card_out(view)
+	_pending_out_kind = ""
 	_card_views = new_views
 	# 按新手牌顺序重排子节点，保证堆叠重叠时遮挡顺序与手牌一致
 	for i in range(new_views.size()):
@@ -192,18 +209,21 @@ func _diff_refresh(hand: Array, existing: Dictionary) -> void:
 		clear_selection()
 
 
-## 消失卡滑出动画：滑向弃牌堆方向（右下外侧）淡出后释放。
+## 消失卡滑出动画：打出上飞放大，弃牌（默认）滑向弃牌堆方向淡出后释放。
 func _animate_card_out(view: CardView) -> void:
 	# 禁用悬停上浮以终止其内部动画，避免与滑出 Tween 冲突
 	view.set_hover_lift_enabled(false)
+	var offset: Vector2 = PLAY_OUT_OFFSET if _pending_out_kind == "play" else SLIDE_OUT_OFFSET
+	if _pending_out_kind == "play":
+		view.play_fx_scale(Vector2.ONE, Vector2(1.16, 1.16), SLIDE_OUT_DURATION)
+	view.fade_to(0.0, SLIDE_OUT_DURATION)
+	view.move_to(view.position + offset, SLIDE_OUT_DURATION)
 	var tw := view.create_tween()
-	tw.set_parallel(true)
-	tw.tween_property(view, "position", view.position + SLIDE_OUT_OFFSET, SLIDE_OUT_DURATION)
-	tw.tween_property(view, "modulate:a", 0.0, SLIDE_OUT_DURATION)
+	tw.tween_interval(SLIDE_OUT_DURATION)
 	var free_cb := func() -> void:
 		if view != null and is_instance_valid(view):
 			view.queue_free()
-	tw.chain().tween_callback(free_cb)
+	tw.tween_callback(free_cb)
 
 
 ## 清除选中状态。

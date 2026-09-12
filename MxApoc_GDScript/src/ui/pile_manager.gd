@@ -25,6 +25,7 @@ var _acting_player: Variant = null
 var _display_player: Variant = null
 var _event_scheduler: Variant = null
 var _network_action_available: Variant = null
+var _pile_tweens: Dictionary = {}  # pile_key -> Tween，抽牌/点击脉冲 reuse
 
 
 func _game() -> Node:
@@ -286,6 +287,26 @@ func is_pile_clickable(pile_key: String) -> bool:
 			return false
 
 
+## 抽牌/点击脉冲：牌堆轻微放大回弹。同一牌堆复用一条 Tween。
+func play_draw_pulse(pile_key: String) -> void:
+	var entry: Variant = _pile_views.get(pile_key)
+	if entry == null:
+		return
+	var panel: Panel = entry["panel"]
+	if panel == null or not is_instance_valid(panel):
+		return
+	var old: Variant = _pile_tweens.get(pile_key)
+	if old is Tween and (old as Tween).is_valid():
+		(old as Tween).kill()
+	panel.pivot_offset = panel.size * 0.5
+	panel.scale = Vector2.ONE
+	var tween: Tween = panel.create_tween()
+	tween.bind_node(panel)
+	tween.tween_property(panel, "scale", Vector2(1.08, 1.08), 0.10).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(panel, "scale", Vector2.ONE, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_pile_tweens[pile_key] = tween
+
+
 ## 牌堆中文名。
 func pile_display_name(pile_key: String) -> String:
 	match pile_key:
@@ -305,10 +326,13 @@ func pile_display_name(pile_key: String) -> String:
 
 func _on_discard_pile_gui_input(event: InputEvent, pile_type: String) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		var key: String = "scavenge_discard" if pile_type == "scavenge" else "game_discard"
+		play_draw_pulse(key)
 		discard_pile_clicked.emit(pile_type)
 
 
 ## 可操作牌堆（摸牌/拾荒）的鼠标点击处理。
 func _on_pile_gui_input(event: InputEvent, pile_key: String) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		play_draw_pulse(pile_key)
 		pile_clicked.emit(pile_key)

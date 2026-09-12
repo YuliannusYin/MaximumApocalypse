@@ -42,6 +42,8 @@ var _timer_on_timeout: Callable = Callable()
 var _acting_player: Variant = null
 var _event_scheduler: Variant = null
 var _network_action_available: Variant = null
+var _prompt_tween: Tween = null
+var _button_tween: Tween = null
 
 
 func setup(ui_layer: Node) -> void:
@@ -294,17 +296,17 @@ func _update_prompt(card: Variant) -> void:
 		return
 	var skills: Array = card.get("skills")
 	if skills.is_empty():
-		_prompt_label.text = card.get("card_name")
+		_play_prompt_appear(str(card.get("card_name")))
 		return
 	var first: Variant = skills[0]
 	if first == null or not is_instance_valid(first):
-		_prompt_label.text = card.get("card_name")
+		_play_prompt_appear(str(card.get("card_name")))
 		return
 	var desc: String = first.get("skill_description")
 	if desc.is_empty():
-		_prompt_label.text = card.get("card_name")
+		_play_prompt_appear(str(card.get("card_name")))
 	else:
-		_prompt_label.text = desc
+		_play_prompt_appear(desc)
 
 
 # === 确认/取消处理 ===
@@ -355,6 +357,9 @@ func _on_confirm_pressed() -> void:
 	var current: Variant = _get_acting_player()
 	if current != null and is_instance_valid(current) and not _has_action_budget(current):
 		return
+	_punch_button(_confirm_button)
+	if _hand_area != null and is_instance_valid(_hand_area) and _hand_area.has_method("queue_outgoing_kind"):
+		_hand_area.queue_outgoing_kind("play")
 	var card = _selected_card
 	_clear_hand_selection()
 	_update_prompt(null)
@@ -406,6 +411,7 @@ func _on_cancel_end_pressed() -> void:
 
 ## 双用途按钮 + 确定按钮状态刷新。
 func refresh_confirm_cancel_buttons() -> void:
+	var confirm_was_disabled: bool = _confirm_button != null and is_instance_valid(_confirm_button) and _confirm_button.disabled
 	if _round_zero_mode:
 		if _confirm_button != null and is_instance_valid(_confirm_button):
 			_confirm_button.text = "确定 (S)"
@@ -413,6 +419,7 @@ func refresh_confirm_cancel_buttons() -> void:
 		if _cancel_end_button != null and is_instance_valid(_cancel_end_button):
 			_cancel_end_button.text = "取消 (C)"
 			_cancel_end_button.disabled = false
+		_maybe_pop_confirm_enabled(confirm_was_disabled)
 		return
 	if _judge_confirm_mode:
 		if _confirm_button != null and is_instance_valid(_confirm_button):
@@ -421,6 +428,7 @@ func refresh_confirm_cancel_buttons() -> void:
 		if _cancel_end_button != null and is_instance_valid(_cancel_end_button):
 			_cancel_end_button.text = "取消 (C)"
 			_cancel_end_button.disabled = not _judge_allow_cancel
+		_maybe_pop_confirm_enabled(confirm_was_disabled)
 		return
 	if _move_select_mode:
 		if _confirm_button != null and is_instance_valid(_confirm_button):
@@ -429,6 +437,7 @@ func refresh_confirm_cancel_buttons() -> void:
 		if _cancel_end_button != null and is_instance_valid(_cancel_end_button):
 			_cancel_end_button.text = "取消 (C)"
 			_cancel_end_button.disabled = false
+		_maybe_pop_confirm_enabled(confirm_was_disabled)
 		return
 	if _skill_confirm_mode:
 		if _confirm_button != null and is_instance_valid(_confirm_button):
@@ -441,6 +450,7 @@ func refresh_confirm_cancel_buttons() -> void:
 		if _cancel_end_button != null and is_instance_valid(_cancel_end_button):
 			_cancel_end_button.text = "取消 (C)"
 			_cancel_end_button.disabled = false
+		_maybe_pop_confirm_enabled(confirm_was_disabled)
 		return
 	if _confirm_mode:
 		if _confirm_button != null and is_instance_valid(_confirm_button):
@@ -449,6 +459,7 @@ func refresh_confirm_cancel_buttons() -> void:
 		if _cancel_end_button != null and is_instance_valid(_cancel_end_button):
 			_cancel_end_button.text = "取消 (C)"
 			_cancel_end_button.disabled = false
+		_maybe_pop_confirm_enabled(confirm_was_disabled)
 		return
 	var current: Variant = _get_acting_player()
 	var in_action: bool = false
@@ -476,6 +487,41 @@ func refresh_confirm_cancel_buttons() -> void:
 		else:
 			_cancel_end_button.text = "结束回合 (E)"
 			_cancel_end_button.disabled = true
+	_maybe_pop_confirm_enabled(confirm_was_disabled)
+
+
+func _play_prompt_appear(text: String) -> void:
+	if _prompt_label == null or not is_instance_valid(_prompt_label):
+		return
+	_prompt_label.text = text
+	if text.is_empty():
+		return
+	if _prompt_tween != null and _prompt_tween.is_valid():
+		_prompt_tween.kill()
+	_prompt_label.modulate.a = 0.0
+	_prompt_tween = _prompt_label.create_tween()
+	_prompt_tween.bind_node(_prompt_label)
+	_prompt_tween.tween_property(_prompt_label, "modulate:a", 1.0, 0.12)
+
+
+func _maybe_pop_confirm_enabled(was_disabled: bool) -> void:
+	if _confirm_button == null or not is_instance_valid(_confirm_button):
+		return
+	if was_disabled and not _confirm_button.disabled:
+		_punch_button(_confirm_button)
+
+
+func _punch_button(btn: Button) -> void:
+	if btn == null or not is_instance_valid(btn):
+		return
+	if _button_tween != null and _button_tween.is_valid():
+		_button_tween.kill()
+	btn.pivot_offset = btn.size * 0.5
+	btn.scale = Vector2.ONE
+	_button_tween = btn.create_tween()
+	_button_tween.bind_node(btn)
+	_button_tween.tween_property(btn, "scale", Vector2(1.08, 1.08), 0.08).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_button_tween.tween_property(btn, "scale", Vector2.ONE, 0.10).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
 # === 牌堆选中处理 ===
@@ -491,8 +537,7 @@ func on_pile_selected(pile_key: String, display_name: String = "") -> void:
 		return
 	_exit_switchable_modes("pile")
 	_set_selected_pile_key(pile_key)
-	if _prompt_label != null and is_instance_valid(_prompt_label):
-		_prompt_label.text = "是否从" + display_name + "中抓取一张牌？"
+	_play_prompt_appear("是否从" + display_name + "中抓取一张牌？")
 	refresh_confirm_cancel_buttons()
 
 
@@ -523,8 +568,7 @@ func enter_block_select_mode(prompt: String, valid_blocks: Array, count: int, so
 	_block_select_count = count
 	_valid_blocks = valid_blocks
 	_move_selected_blocks = []
-	if _prompt_label != null and is_instance_valid(_prompt_label):
-		_prompt_label.text = prompt
+	_play_prompt_appear(prompt)
 	move_mode_changed.emit(true)
 	refresh_confirm_cancel_buttons()
 
@@ -692,7 +736,7 @@ func _apply_skill_confirm_prompt(skill: Variant) -> void:
 			sname = skill.skill_name
 			sdesc = skill.skill_description
 		prompt_text = "是否使用 \"" + sname + "\" { " + sdesc + " }"
-	_prompt_label.text = prompt_text
+	_play_prompt_appear(prompt_text)
 
 
 ## 退出技能确认模式：复位状态，清空 prompt，刷新按钮。
@@ -713,8 +757,7 @@ func enter_round_zero_mode(prompt: String, duration: float) -> void:
 		return
 	_exit_switchable_modes("")
 	_round_zero_mode = true
-	if _prompt_label != null and is_instance_valid(_prompt_label):
-		_prompt_label.text = prompt
+	_play_prompt_appear(prompt)
 	start_timer(duration, Callable(self, "_on_round_zero_timeout"))
 	refresh_confirm_cancel_buttons()
 
@@ -754,8 +797,7 @@ func enter_judge_confirm_mode(prompt: String, duration: float, allow_cancel: boo
 	_exit_switchable_modes("")
 	_judge_confirm_mode = true
 	_judge_allow_cancel = allow_cancel
-	if _prompt_label != null and is_instance_valid(_prompt_label):
-		_prompt_label.text = prompt
+	_play_prompt_appear(prompt)
 	# 启动倒计时时限条，超时自动确定
 	start_timer(duration, Callable(self, "_on_judge_confirm_timeout"))
 	refresh_confirm_cancel_buttons()
@@ -791,15 +833,17 @@ func set_confirm_mode(message: String) -> void:
 			exit_round_zero_mode()
 	_exit_switchable_modes("")
 	_confirm_mode = true
-	if _prompt_label != null and is_instance_valid(_prompt_label):
-		_prompt_label.text = message
+	_play_prompt_appear(message)
 	refresh_confirm_cancel_buttons()
 
 
 ## 设置 prompt 区文本（仅设置文本，不改变当前模式状态）。
 func set_prompt_text(text: String) -> void:
-	if _prompt_label != null and is_instance_valid(_prompt_label):
-		_prompt_label.text = text
+	if text.is_empty():
+		if _prompt_label != null and is_instance_valid(_prompt_label):
+			_prompt_label.text = ""
+		return
+	_play_prompt_appear(text)
 
 
 # === 清空选中 ===

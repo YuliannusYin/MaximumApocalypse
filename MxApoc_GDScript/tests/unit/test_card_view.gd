@@ -53,3 +53,20 @@ func test_dictionary_card_payload_shows_name() -> void:
 	assert_eq(view._card_display_name(view.get_card()), "迷彩服", "Dictionary 卡牌描述应显示牌名而不是留白")
 	view.free()
 
+
+func test_fade_to_and_fx_scale_kill_old_tweens() -> void:
+	var view := CardView.new()
+	add_child_autofree(view)
+	await get_tree().process_frame
+	view.fade_to(0.4, 0.2)
+	var fade1: Tween = view._fade_tween
+	assert_not_null(fade1)
+	view.fade_to(1.0, 0.2)
+	assert_not_null(view._fade_tween)
+	assert_true(not fade1.is_valid() or view._fade_tween != fade1, "fade_to 应终止旧 Tween")
+	view.play_fx_scale(Vector2(0.8, 0.8), Vector2.ONE, 0.2)
+	var fx1: Tween = view._fx_tween
+	view.play_fx_scale(Vector2.ONE, Vector2(1.1, 1.1), 0.2)
+	assert_not_null(view._fx_tween)
+	assert_true(not fx1.is_valid() or view._fx_tween != fx1, "play_fx_scale 应终止旧 Tween")
+

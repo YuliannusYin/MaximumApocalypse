@@ -16,6 +16,8 @@ const GOLD_TEXT_DIM := Color(0.70, 0.60, 0.35, 1.0)
 const TEXT_MAIN := Color(0.92, 0.90, 0.84, 1.0)
 const TEXT_DIM := Color(0.62, 0.60, 0.55, 1.0)
 const FRAME_WIDTH := 2
+const OVERLAY_OPEN_DURATION := 0.15
+const OVERLAY_OPEN_SCALE := Vector2(0.92, 0.92)
 
 
 static func add_wasteland_backdrop(root: Control, background: Control = null) -> Control:
@@ -125,6 +127,28 @@ static func make_picture_frame_style(bg: Color) -> StyleBoxFlat:
 	style.corner_radius_bottom_left = 0
 	style.corner_radius_bottom_right = 0
 	return style
+
+
+## 覆盖层打开：根节点淡入，可选内容面板自 0.92 缩放弹入。与 PopupManager 同参数。
+static func play_overlay_appear(root: Control, panel: Control = null) -> void:
+	if root == null or not is_instance_valid(root):
+		return
+	root.modulate.a = 0.0
+	var tween := root.create_tween()
+	tween.set_trans(Tween.TRANS_SINE)
+	tween.set_ease(Tween.EASE_OUT)
+	tween.set_parallel(true)
+	tween.tween_property(root, "modulate:a", 1.0, OVERLAY_OPEN_DURATION)
+	if panel == null or not is_instance_valid(panel):
+		return
+	panel.pivot_offset = panel.size * 0.5
+	panel.scale = OVERLAY_OPEN_SCALE
+	tween.tween_property(panel, "scale", Vector2.ONE, OVERLAY_OPEN_DURATION)
+	if panel.size == Vector2.ZERO:
+		panel.resized.connect(func() -> void:
+			if panel != null and is_instance_valid(panel):
+				panel.pivot_offset = panel.size * 0.5
+		, CONNECT_ONE_SHOT)
 
 
 ## 非角色牌卡面使用的 2px 废土金属相框。

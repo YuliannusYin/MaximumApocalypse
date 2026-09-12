@@ -33,3 +33,11 @@ func test_personal_pile_counts_follow_display_not_acting() -> void:
 	assert_eq(manager._get_current_player_discard_count(), 7, "联机角色弃牌应显示本机座位")
 	assert_eq(manager._get_acting_player(), acting, "操作座位仍是回合/行动座位")
 	assert_eq(manager._get_display_player(), local_seat)
+
+
+func test_play_draw_pulse_without_wired_panels_is_safe() -> void:
+	var manager := PileManager.new()
+	add_child_autofree(manager)
+	manager.play_draw_pulse("game_deck")
+	manager.play_draw_pulse("")
+	assert_true(manager._pile_tweens.is_empty(), "未接线牌堆不应创建脉冲 Tween")

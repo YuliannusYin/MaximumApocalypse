@@ -281,21 +281,21 @@ func _start_game_flow() -> void:
 			EventBus.block_destroyed.connect(_on_block_destroyed)
 			EventBus.monster_mark_changed.connect(_on_block_mark_changed)
 			EventBus.objective_mark_changed.connect(_on_block_mark_changed)
-			EventBus.monster_spawned.connect(_on_monster_changed)
+			EventBus.monster_spawned.connect(_on_monster_spawned)
 			EventBus.monster_died.connect(_on_monster_died)
 			EventBus.monster_engaged_target_changed.connect(_on_monster_engaged_target_changed)
 			EventBus.player_hp_changed.connect(_on_player_stat_changed)
 			EventBus.damage_taken.connect(_on_damage_taken)
 			EventBus.hp_recovered.connect(_on_hp_recovered)
 			EventBus.player_hunger_changed.connect(_on_hunger_changed)
-			EventBus.player_died.connect(_on_player_stat_changed)
+			EventBus.player_died.connect(_on_player_died)
 			EventBus.equipment_equipped.connect(_on_player_stat_changed)
 			EventBus.equipment_unequipped.connect(_on_player_stat_changed)
 			EventBus.action_consumed.connect(_on_action_consumed)
-			EventBus.card_drawn.connect(_on_player_stat_changed)
-			EventBus.card_discarded.connect(_on_player_stat_changed)
-			EventBus.card_used.connect(_on_player_stat_changed)
-			EventBus.card_settlement_started.connect(_on_player_stat_changed)
+			EventBus.card_drawn.connect(_on_card_drawn)
+			EventBus.card_discarded.connect(_on_card_discarded)
+			EventBus.card_used.connect(_on_card_used)
+			EventBus.card_settlement_started.connect(_on_card_settlement_started)
 			EventBus.card_settlement_finished.connect(_on_player_stat_changed)
 			EventBus.scavenge_drawn.connect(_on_pile_drawn)
 			EventBus.monster_card_drawn.connect(_on_pile_drawn)
@@ -1915,6 +1915,20 @@ func _on_monster_changed(_monster: Variant, _player: Variant) -> void:
 	_pile_manager.refresh_pile_counts()
 
 
+## 怪物生成：刷新后令持有者怪物区弹入（fire-and-forget）。
+func _on_monster_spawned(monster: Variant, player: Variant) -> void:
+	_on_monster_changed(monster, player)
+	var holder: Variant = player if player != null and is_instance_valid(player) else _find_monster_holder(monster)
+	if holder == null or not is_instance_valid(holder):
+		return
+	_broadcast_visual_event("monster_spawned_feedback", {
+		"seat_id": int(holder.get("seat_number")),
+	})
+	var panel: PlayerPanel = _get_panel_for_player(holder)
+	if panel != null:
+		panel.play_monster_spawn_pulse()
+
+
 ## 怪物死亡：保留 _on_monster_changed 的刷新逻辑，并令持有者面板怪物区按钮脉冲（fire-and-forget）。
 func _on_monster_died(monster: Variant, source: Variant) -> void:
 	_on_monster_changed(monster, source)
@@ -1977,31 +1991,99 @@ func _apply_player_stat_changed_ui(player: Variant) -> void:
 		_action_selection_controller.refresh_confirm_cancel_buttons()
 
 
+## 玩家阵亡：刷新面板后播死亡闪红 +「阵亡」飘字。
+func _on_player_died(player: Variant, _source: Variant = null) -> void:
+	_on_player_stat_changed(player)
+	if player == null or not is_instance_valid(player):
+		return
+	_broadcast_visual_event("player_died_feedback", {
+		"seat_id": int(player.get("seat_number")),
+	})
+	var panel: PlayerPanel = _get_panel_for_player(player)
+	if panel != null:
+		panel.play_death_feedback()
+
+
+func _queue_hand_outgoing(player: Variant, kind: String) -> void:
+	if _hand_area == null or not is_instance_valid(_hand_area):
+		return
+	# 只给当前手牌区正在展示的座位排队，避免热座下别人弃牌带动画套到自己手上
+	if player == null or player != _hand_area.get_display_player():
+		return
+	if _hand_area.has_method("queue_outgoing_kind"):
+		_hand_area.queue_outgoing_kind(kind)
+
+
+func _on_card_settlement_started(player: Variant, _card: Variant = null) -> void:
+	_queue_hand_outgoing(player, "play")
+	_on_player_stat_changed(player)
+
+
+func _on_card_discarded(player: Variant, _card: Variant = null) -> void:
+	_queue_hand_outgoing(player, "discard")
+	_on_player_stat_changed(player)
+
+
+func _on_card_used(player: Variant, _card: Variant = null) -> void:
+	_queue_hand_outgoing(player, "play")
+	_on_player_stat_changed(player)
+
+
+func _on_card_drawn(player: Variant, _card: Variant = null) -> void:
+	_on_player_stat_changed(player)
+	if not _is_local_controlled_player(player):
+		return
+	if _pile_manager != null and is_instance_valid(_pile_manager):
+		_pile_manager.play_draw_pulse("game_deck")
+		_broadcast_visual_event("pile_draw_pulse", {"pile_key": "game_deck"})
+
+
 ## 玩家受伤反馈：目标面板红闪 +「-N」飘字；来源为怪物时面板再震动（均 fire-and-forget）。
+## 怪物受伤则在持有者怪物区按钮上脉冲 + 飘字。
 func _on_damage_taken(target: Variant, source: Variant, amount: int) -> void:
 	if target == null or not is_instance_valid(target):
 		return
-	var target_seat_id: int = -1
-	var target_seat_value: Variant = target.get("seat_number") \
-			if target.has_method("get") else null
-	if target_seat_value != null:
-		target_seat_id = int(target_seat_value)
+	if target.has_method("is_player") and target.is_player():
+		var target_seat_id: int = -1
+		var target_seat_value: Variant = target.get("seat_number") \
+				if target.has_method("get") else null
+		if target_seat_value != null:
+			target_seat_id = int(target_seat_value)
+		_broadcast_network_state()
+		_broadcast_visual_event("player_damage_feedback", {
+			"seat_id": target_seat_id,
+			"amount": amount,
+			"shake": source != null and is_instance_valid(source)
+				and source.get("monster_type") != null,
+		})
+		var panel: PlayerPanel = _get_panel_for_player(target)
+		if panel == null:
+			return
+		panel.play_damage_feedback(amount)
+		if source != null and is_instance_valid(source) and source.get("monster_type") != null:
+			panel.play_shake()
+		return
+	if not _is_monster_target(target):
+		return
+	var holder: Variant = _find_monster_holder(target)
+	if holder == null or not is_instance_valid(holder):
+		return
 	_broadcast_network_state()
-	_broadcast_visual_event("player_damage_feedback", {
-		"seat_id": target_seat_id,
+	_broadcast_visual_event("monster_damage_feedback", {
+		"seat_id": int(holder.get("seat_number")),
 		"amount": amount,
-		"shake": source != null and is_instance_valid(source)
-			and source.get("monster_type") != null,
 	})
-	if not (target.has_method("is_player") and target.is_player()):
-		return
-	var panel: PlayerPanel = _get_panel_for_player(target)
-	if panel == null:
-		return
-	panel.play_damage_feedback(amount)
-	# 怪物判定与 tutorial_manager 一致：get("monster_type") 非 null 即怪物
-	if source != null and is_instance_valid(source) and source.get("monster_type") != null:
-		panel.play_shake()
+	var monster_panel: PlayerPanel = _get_panel_for_player(holder)
+	if monster_panel != null:
+		monster_panel.play_monster_damage_feedback(amount)
+
+
+func _is_monster_target(target: Variant) -> bool:
+	if target == null or not is_instance_valid(target):
+		return false
+	if target.has_method("is_monster") and bool(target.is_monster()):
+		return true
+	return target.get("monster_type") != null
 
 
 ## 玩家回血反馈：面板绿色「+N」飘字（fire-and-forget）。
@@ -2046,6 +2128,38 @@ func _on_pile_drawn(_player: Variant, _card: Variant) -> void:
 	var current: Variant = _get_acting_player()
 	if _player != null and is_instance_valid(_player) and current != null and is_instance_valid(current) and _player == current:
 		_refresh_hand_area()
+	var pile_key: String = _pile_key_for_drawn_card(_card)
+	if not pile_key.is_empty():
+		_pile_manager.play_draw_pulse(pile_key)
+		_broadcast_visual_event("pile_draw_pulse", {"pile_key": pile_key})
+
+
+func _pile_key_for_drawn_card(card: Variant) -> String:
+	if card == null:
+		return ""
+	if card is MonsterCard:
+		return "monster_pile"
+	var source: String = ""
+	if card.has_method("get"):
+		source = str(card.get("source"))
+	if source == "scavenge":
+		var color: String = ""
+		if card.has_method("get_color"):
+			color = str(card.get_color())
+		elif card.has_method("get"):
+			color = str(card.get("color"))
+		match color:
+			"red":
+				return "red_scavenge"
+			"green":
+				return "green_scavenge"
+			"blue":
+				return "blue_scavenge"
+			_:
+				return ""
+	if source == "monster" or (card.has_method("get") and str(card.get("card_type")) == "monster"):
+		return "monster_pile"
+	return "game_deck"
 
 
 # === 玩家面板点击处理 ===
@@ -2167,6 +2281,24 @@ func _on_network_message(message: Dictionary) -> void:
 			_network_player_for_seat(int(event_payload.get("seat_id", -1))))
 		if dead_panel != null:
 			dead_panel.play_monster_pulse()
+	elif event_name == "monster_spawned_feedback":
+		var spawn_panel := _get_panel_for_player(
+			_network_player_for_seat(int(event_payload.get("seat_id", -1))))
+		if spawn_panel != null:
+			spawn_panel.play_monster_spawn_pulse()
+	elif event_name == "monster_damage_feedback":
+		var hit_panel := _get_panel_for_player(
+			_network_player_for_seat(int(event_payload.get("seat_id", -1))))
+		if hit_panel != null:
+			hit_panel.play_monster_damage_feedback(int(event_payload.get("amount", 0)))
+	elif event_name == "player_died_feedback":
+		var died_panel := _get_panel_for_player(
+			_network_player_for_seat(int(event_payload.get("seat_id", -1))))
+		if died_panel != null:
+			died_panel.play_death_feedback()
+	elif event_name == "pile_draw_pulse":
+		if _pile_manager != null and is_instance_valid(_pile_manager):
+			_pile_manager.play_draw_pulse(String(event_payload.get("pile_key", "")))
 	elif event_name == "log":
 		var log_message := String(event_payload.get("message", ""))
 		_on_log_message(log_message)

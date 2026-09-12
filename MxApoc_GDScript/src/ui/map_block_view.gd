@@ -27,6 +27,10 @@ var _objective_mark_icon: TextureRect  # 任务标记图标（固定位置）
 var _block_texture: Texture2D  # 缓存已选中的地块变体纹理（revealed 后锁定，destroyed 复用）
 var _block_texture_key: String = ""  # block_name|colors|spawn，变体变化时作废缓存
 var _anim_tween: Tween = null  # 当前动画 Tween（翻入/标记/摧毁共用，新动画 kill 旧动画重启）
+var _hover_tween: Tween = null  # 悬停亮起，与揭示/摧毁动画分开以免互相 kill
+var _click_tween: Tween = null
+var _highlight_tween: Tween = null  # 移动高亮呼吸
+var _hovered: bool = false
 var _hidden_players: Dictionary = {}  # 隐藏头像的玩家 instance_id -> true（头像移动动画期间）
 var _last_mark_count: int = -1  # 上次刷新记录的怪物标记数（供外部对比增减，未变则不播动画）
 var _cell_player_ids: Dictionary = {}  # 头像格索引 -> 玩家 instance_id（应用头像隐藏状态用）
@@ -46,6 +50,13 @@ func _init() -> void:
 	custom_minimum_size = Vector2(BLOCK_SIZE, BLOCK_SIZE)
 	size = Vector2(BLOCK_SIZE, BLOCK_SIZE)
 	mouse_filter = Control.MOUSE_FILTER_PASS
+
+
+func _ready() -> void:
+	if not mouse_entered.is_connected(_on_mouse_entered):
+		mouse_entered.connect(_on_mouse_entered)
+	if not mouse_exited.is_connected(_on_mouse_exited):
+		mouse_exited.connect(_on_mouse_exited)
 
 
 func setup(block: MapBlock, is_current_player_block: bool = false) -> void:
@@ -268,8 +279,71 @@ func _kill_anim_tween() -> void:
 		cell.modulate = Color(1, 1, 1, 1)
 
 
+func _is_major_anim_playing() -> bool:
+	return _anim_tween != null and _anim_tween.is_valid()
+
+
+func _kill_hover_tween() -> void:
+	if _hover_tween != null and _hover_tween.is_valid():
+		_hover_tween.kill()
+	_hover_tween = null
+
+
+func _kill_click_tween() -> void:
+	if _click_tween != null and _click_tween.is_valid():
+		_click_tween.kill()
+	_click_tween = null
+
+
+func _kill_highlight_tween() -> void:
+	if _highlight_tween != null and _highlight_tween.is_valid():
+		_highlight_tween.kill()
+	_highlight_tween = null
+
+
+func _stop_interaction_tweens() -> void:
+	_kill_hover_tween()
+	_kill_click_tween()
+
+
+func _on_mouse_entered() -> void:
+	_hovered = true
+	_play_hover(true)
+
+
+func _on_mouse_exited() -> void:
+	_hovered = false
+	_play_hover(false)
+
+
+## 悬停微亮 + 轻微放大。揭示/摧毁播放中跳过，避免覆盖主演出。
+func _play_hover(active: bool) -> void:
+	if _is_major_anim_playing():
+		return
+	_kill_hover_tween()
+	pivot_offset = size / 2.0
+	# 只改 scale：self.modulate 留给摧毁灰化，避免移出悬停时把灰化冲掉
+	var target_scale: Vector2 = Vector2(1.04, 1.04) if active else Vector2.ONE
+	_hover_tween = create_tween()
+	_hover_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_hover_tween.tween_property(self, "scale", target_scale, 0.12)
+
+
+## 左键点选短脉冲（选移动目标时最常见）。
+func play_click_pulse() -> void:
+	if _is_major_anim_playing():
+		return
+	_kill_click_tween()
+	pivot_offset = size / 2.0
+	var rest: Vector2 = Vector2(1.04, 1.04) if _hovered else Vector2.ONE
+	_click_tween = create_tween()
+	_click_tween.tween_property(self, "scale", Vector2(0.96, 0.96), 0.06)
+	_click_tween.tween_property(self, "scale", rest, 0.10).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+
 ## 地块揭示翻入动画：水平缩放 0.05 → 1（带回弹，约 0.35 秒）。
 func play_reveal_animation() -> void:
+	_stop_interaction_tweens()
 	_kill_anim_tween()
 	pivot_offset = size / 2.0
 	scale = Vector2(0.05, 1.0)
@@ -287,6 +361,7 @@ func play_mark_pulse(added: bool) -> void:
 		return
 	# 播放前把当前标记数存入 _last_mark_count
 	_last_mark_count = _block.monster_marks
+	_stop_interaction_tweens()
 	_kill_anim_tween()
 	var mark_cells: Array[TextureRect] = _get_mark_cells()
 	if added:
@@ -320,6 +395,7 @@ func play_mark_pulse(added: bool) -> void:
 
 ## 地块摧毁灰化动画：modulate 变暗至灰并轻微下沉（约 0.4 秒），与 refresh 的摧毁样式叠加共存。
 func play_destroyed_animation() -> void:
+	_stop_interaction_tweens()
 	_kill_anim_tween()
 	var target_y: float = position.y + 4.0
 	_anim_tween = create_tween().set_parallel(true)
@@ -507,6 +583,7 @@ func _gui_input(event: InputEvent) -> void:
 			_left_press_pos = event.position
 		else:
 			if _left_pressing and event.position.distance_to(_left_press_pos) < CLICK_THRESHOLD:
+				play_click_pulse()
 				block_clicked.emit(_block)
 			_left_pressing = false
 	elif event is InputEventMouseMotion and _left_pressing:
@@ -555,6 +632,25 @@ func set_move_highlight(state: String) -> void:
 			_move_highlight_panel.add_theme_stylebox_override("panel", style)
 		_:
 			_move_highlight_panel.visible = false
+	_play_highlight_breathe(state == "green" or state == "golden")
+
+
+## 移动高亮呼吸：可走地块边框明暗循环。已在呼吸时不重建，避免 refresh 打断。
+func _play_highlight_breathe(active: bool) -> void:
+	if _move_highlight_panel == null or not is_instance_valid(_move_highlight_panel):
+		return
+	if not active:
+		_kill_highlight_tween()
+		_move_highlight_panel.modulate.a = 1.0
+		return
+	if _highlight_tween != null and _highlight_tween.is_valid():
+		return
+	_move_highlight_panel.modulate.a = 1.0
+	_highlight_tween = create_tween()
+	_highlight_tween.bind_node(_move_highlight_panel)
+	_highlight_tween.set_loops()
+	_highlight_tween.tween_property(_move_highlight_panel, "modulate:a", 0.55, 0.55)
+	_highlight_tween.tween_property(_move_highlight_panel, "modulate:a", 1.0, 0.55)
 
 
 func _on_avatar_cell_input(event: InputEvent, player: Variant) -> void:
