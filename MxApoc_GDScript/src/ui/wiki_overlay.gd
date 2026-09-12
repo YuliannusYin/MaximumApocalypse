@@ -46,6 +46,7 @@ var _index = null
 
 
 func _ready() -> void:
+	modulate.a = 0.0
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	HudTheme.apply_section_panel($Margin/Panel, Color("#1b1b17"), HudTheme.SLOT_BORDER)
@@ -64,6 +65,7 @@ func _ready() -> void:
 		first.select(0)
 		_render_entry(str(first.get_metadata(0)))
 		_collapse_tree_branches(_tree.get_root())
+	HudTheme.play_overlay_appear(self, $Margin/Panel)
 
 
 func _fit_article_width() -> void:

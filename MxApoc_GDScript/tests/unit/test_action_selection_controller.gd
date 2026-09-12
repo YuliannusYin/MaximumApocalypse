@@ -192,6 +192,20 @@ func test_network_remaining_ap_keeps_end_turn_disabled() -> void:
 	assert_true(controller._cancel_end_button.disabled, "还有正式行动点时结束回合应置灰")
 
 
+func test_confirm_card_queues_play_outgoing() -> void:
+	var controller := _make_controller()
+	var area := HandDisplayArea.new()
+	add_child_autofree(area)
+	controller.set_hand_area(area)
+	var player: Player = _make_acting_player()
+	controller.set_acting_player(player)
+	var card: Card = _make_card("砍刀", "equipment")
+	player.hand.append(card)
+	controller.on_card_selected(card)
+	controller._on_confirm_pressed()
+	assert_eq(area._pending_out_kind, "play", "确认打出应把离手动画标成 play")
+
+
 func test_set_confirm_mode_clears_card_move_conflict() -> void:
 	var controller := _make_controller()
 	controller.enter_block_select_mode("选择地块", [], 1, "card")

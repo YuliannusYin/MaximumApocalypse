@@ -13,6 +13,7 @@ var _panel: Panel = null
 var _title_label: Label = null
 var _log_label: RichTextLabel = null
 var _messages: Array[String] = []
+var _flash_tween: Tween = null
 
 
 func _ready() -> void:
@@ -62,6 +63,18 @@ func add_message(message: String) -> void:
 	while _messages.size() > MAX_LINES:
 		_messages.pop_front()
 	_refresh_display()
+	_play_new_line_flash()
+
+
+func _play_new_line_flash() -> void:
+	if _log_label == null or not is_instance_valid(_log_label):
+		return
+	if _flash_tween != null and _flash_tween.is_valid():
+		_flash_tween.kill()
+	_log_label.modulate = Color(1.15, 1.05, 0.72)
+	_flash_tween = create_tween()
+	_flash_tween.bind_node(_log_label)
+	_flash_tween.tween_property(_log_label, "modulate", Color.WHITE, 0.28).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 
 ## 批量设置日志内容（取最近 MAX_LINES 条）。

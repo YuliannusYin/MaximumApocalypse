@@ -10,6 +10,7 @@ signal skill_pressed(skill: Variant)
 var _active_skill_grid: GridContainer
 var _active_skill_buttons: Array = []
 var _network_action_available: Variant = null
+var _last_skill_names: PackedStringArray = []
 
 
 func setup(grid: GridContainer) -> void:
@@ -32,12 +33,15 @@ func refresh(player: Variant) -> void:
 	_active_skill_buttons.clear()
 
 	if player == null or not is_instance_valid(player):
+		_last_skill_names = PackedStringArray()
 		return
 	var in_action: bool = player.get_effective_phase() == "action" \
 		if player.has_method("get_effective_phase") else player.get("in_phase") == "action"
 	if not in_action:
+		_last_skill_names = PackedStringArray()
 		return
 	if player.has_method("is_action_type_allowed") and not player.is_action_type_allowed("skill"):
+		_last_skill_names = PackedStringArray()
 		return
 	var has_action: bool
 	if _network_action_available != null:
@@ -70,6 +74,29 @@ func refresh(player: Variant) -> void:
 		btn.pressed.connect(_on_skill_button_pressed.bind(skill))
 		_active_skill_grid.add_child(btn)
 		_active_skill_buttons.append(btn)
+	_maybe_animate_skill_buttons_in()
+
+
+func _maybe_animate_skill_buttons_in() -> void:
+	var names: PackedStringArray = PackedStringArray()
+	for btn in _active_skill_buttons:
+		if btn != null and is_instance_valid(btn):
+			names.append(str(btn.text))
+	if names == _last_skill_names:
+		return
+	_last_skill_names = names
+	for btn in _active_skill_buttons:
+		if btn == null or not is_instance_valid(btn):
+			continue
+		btn.pivot_offset = btn.custom_minimum_size * 0.5
+		btn.scale = Vector2(0.86, 0.86)
+		btn.modulate.a = 0.0
+		var tw := btn.create_tween()
+		tw.bind_node(btn)
+		tw.set_parallel(true)
+		tw.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw.tween_property(btn, "scale", Vector2.ONE, 0.14)
+		tw.tween_property(btn, "modulate:a", 1.0, 0.14)
 
 
 ## 教程挖洞：技能按钮包围盒；没有按钮时用整栏。
@@ -100,6 +127,7 @@ func clear() -> void:
 		if btn != null and is_instance_valid(btn):
 			btn.queue_free()
 	_active_skill_buttons.clear()
+	_last_skill_names = PackedStringArray()
 
 
 func _on_skill_button_pressed(skill: Variant) -> void:

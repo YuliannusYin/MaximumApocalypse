@@ -99,6 +99,9 @@ var _border: Panel
 # === 反馈动画状态 ===
 var _feedback_tween: Tween = null
 var _breath_tween: Tween = null
+var _shake_tween: Tween = null
+var _action_tween: Tween = null
+var _monster_tween: Tween = null
 var _breath_active: bool = false
 var _home_position: Vector2 = Vector2.ZERO
 
@@ -185,6 +188,9 @@ func _set_visible(v: bool) -> void:
 func _build_layout() -> void:
 	_kill_tween(_feedback_tween)
 	_kill_tween(_breath_tween)
+	_kill_tween(_shake_tween)
+	_kill_tween(_action_tween)
+	_kill_tween(_monster_tween)
 	_breath_active = false
 	modulate = Color(1.0, 1.0, 1.0, 1.0)
 	position = _home_position
@@ -561,34 +567,63 @@ func play_hunger_flash() -> void:
 func play_action_bounce() -> void:
 	if not is_inside_tree() or _action_label == null or not is_instance_valid(_action_label):
 		return
+	_kill_tween(_action_tween)
 	_action_label.pivot_offset = _action_label.size * 0.5
 	_action_label.scale = Vector2.ONE
-	var tween := create_tween()
-	tween.bind_node(_action_label)
-	tween.tween_property(_action_label, "scale", Vector2(1.3, 1.3), 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tween.tween_property(_action_label, "scale", Vector2.ONE, 0.13).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_action_tween = create_tween()
+	_action_tween.bind_node(_action_label)
+	_action_tween.tween_property(_action_label, "scale", Vector2(1.3, 1.3), 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_action_tween.tween_property(_action_label, "scale", Vector2.ONE, 0.13).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
 ## 面板震动。
 func play_shake() -> void:
 	if not is_inside_tree():
 		return
-	var tween := create_tween()
+	_kill_tween(_shake_tween)
+	_shake_tween = create_tween()
 	for _i in 5:
-		tween.tween_property(self, "position", _home_position + Vector2(randf_range(-4.0, 4.0), randf_range(-4.0, 4.0)), 0.05)
-	tween.tween_property(self, "position", _home_position, 0.05)
+		_shake_tween.tween_property(self, "position", _home_position + Vector2(randf_range(-4.0, 4.0), randf_range(-4.0, 4.0)), 0.05)
+	_shake_tween.tween_property(self, "position", _home_position, 0.05)
 
 
 ## 怪物死亡脉冲。
 func play_monster_pulse() -> void:
 	if not is_inside_tree() or _monster_button == null or not is_instance_valid(_monster_button):
 		return
+	_kill_tween(_monster_tween)
 	_monster_button.pivot_offset = _monster_button.size * 0.5
 	_monster_button.scale = Vector2.ONE
-	var tween := create_tween()
-	tween.bind_node(_monster_button)
-	tween.tween_property(_monster_button, "scale", Vector2(1.2, 1.2), 0.125).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tween.tween_property(_monster_button, "scale", Vector2.ONE, 0.125).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_monster_tween = create_tween()
+	_monster_tween.bind_node(_monster_button)
+	_monster_tween.tween_property(_monster_button, "scale", Vector2(1.2, 1.2), 0.125).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_monster_tween.tween_property(_monster_button, "scale", Vector2.ONE, 0.125).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+
+## 玩家阵亡：红暗闪 +「阵亡」飘字（refresh 随后套用死亡样式）。
+func play_death_feedback() -> void:
+	if not is_inside_tree():
+		return
+	_kill_tween(_feedback_tween)
+	_feedback_tween = create_tween()
+	_feedback_tween.tween_property(self, "modulate", Color(0.55, 0.28, 0.28), 0.22)
+	_feedback_tween.tween_property(self, "modulate", Color(1.0, 1.0, 1.0), 0.28)
+	var anchor: Control = _role_card_panel if _role_card_panel != null else self
+	_spawn_float_label("阵亡", TEXT_MONSTER, anchor)
+
+
+## 怪物进入该玩家怪物区：槽位弹入 +「出现」飘字。
+func play_monster_spawn_pulse() -> void:
+	play_monster_pulse()
+	if _monster_button != null and is_instance_valid(_monster_button):
+		_spawn_float_label("出现", TEXT_MONSTER, _monster_button)
+
+
+## 怪物受伤：槽位脉冲 + 红色「-N」飘在怪物区按钮上。
+func play_monster_damage_feedback(amount: int) -> void:
+	play_monster_pulse()
+	if _monster_button != null and is_instance_valid(_monster_button):
+		_spawn_float_label("-" + str(amount), TEXT_MONSTER, _monster_button)
 
 
 ## 教程挖洞：返回指定元素的全局矩形。key 为 hp / sneak / hunger / ap / monster_zone。

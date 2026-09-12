@@ -61,6 +61,8 @@ var _charge_label: Label
 var _hover_lift_enabled: bool = false
 var _hover_tween: Tween = null
 var _move_tween: Tween = null
+var _fade_tween: Tween = null
+var _fx_tween: Tween = null
 
 
 func _ready() -> void:
@@ -204,6 +206,37 @@ func _kill_move_tween() -> void:
 	if _move_tween != null and _move_tween.is_valid():
 		_move_tween.kill()
 	_move_tween = null
+
+
+## 透明度通道：终止旧淡入淡出后插值到目标 alpha。
+func fade_to(alpha: float, duration: float = 0.2) -> void:
+	_kill_fade_tween()
+	_fade_tween = create_tween()
+	_fade_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_fade_tween.tween_property(self, "modulate:a", alpha, duration)
+	_fade_tween.finished.connect(func() -> void: _fade_tween = null)
+
+
+func _kill_fade_tween() -> void:
+	if _fade_tween != null and _fade_tween.is_valid():
+		_fade_tween.kill()
+	_fade_tween = null
+
+
+## 缩放特效通道（抽牌弹入 / 打出放大），与悬停缩放分开以免互相覆盖。
+func play_fx_scale(from: Vector2, to: Vector2, duration: float = 0.2) -> void:
+	_kill_fx_tween()
+	scale = from
+	_fx_tween = create_tween()
+	_fx_tween.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_fx_tween.tween_property(self, "scale", to, duration)
+	_fx_tween.finished.connect(func() -> void: _fx_tween = null)
+
+
+func _kill_fx_tween() -> void:
+	if _fx_tween != null and _fx_tween.is_valid():
+		_fx_tween.kill()
+	_fx_tween = null
 
 
 ## 设置区域标签文本（如"装备区"、"手牌区"）。空文本时隐藏。
