@@ -27,6 +27,7 @@
 - **Entities**：`Player` / `Card` / `Equipment` / `MapBlock` / `Monster`
 - **Game**：`Game` / `MissionConfig` / `MissionComponent`
 - **System**：`EventBus` / `ArchiveManager` / `StatsTracker` / `PlayerStats`
+- **Net**：联机子系统（v0.37.0~v0.37.5 引入）→ [总览](GameSystem/Net/README.md)
 
 ### Engineering
 
