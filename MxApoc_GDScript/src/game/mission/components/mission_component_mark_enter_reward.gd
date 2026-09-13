@@ -4,7 +4,7 @@ extends MissionComponent
 ## 任务标记抵达奖励触发器组件。
 ## 组件 id：mark_enter_reward；类别：trigger（触发器）。
 ## params：
-## - rewards: Dictionary{mark_id: {cards: Dictionary{卡牌名: 数量}, draw_boss: bool}}——
+## - rewards: Dictionary{mark_id: {cards: Dictionary{卡牌名: 数量}, draw_boss: bool, set_flags: Array}}——
 ##   按目标标记 id 声明抵达奖励，如 {"mark_1": {"cards": {"燃料": 2}, "draw_boss": true}}
 ## 说明：玩家抵达带目标标记的地块、objective_mark_triggered 事件触发时，
 ## 按 mark.get("mark_id") 匹配 rewards 发放奖励：
@@ -12,8 +12,28 @@ extends MissionComponent
 ##   与引擎摸牌入手机行为一致，手牌满时经 try_add_card_to_hand 弹窗弃牌腾位）；
 ##   卡牌不存在时跳过该张并记录日志。
 ## - draw_boss：玩家额外抓取一张首领卡（player.draw_boss_card）。
+## - set_flags：可选字符串数组，发奖后将 mission_state 对应键置 true（只升不降），
+##   供进度面板 state_flag 使用（如任务 5 的 diary_found）。
 ## 同一标记由引擎 trigger_objective_marks 保证仅触发一次，组件无需去重。
 ## 服务任务 5（日记本 + 首领）/ 任务 10（三种不同奖励标记）。
+
+## 任务配置引用。setup 时注入，用于读写 mission_state。
+var _mission_config: MissionConfig = null
+
+
+func setup(_game: Game, mission_config: MissionConfig) -> void:
+	_mission_config = mission_config
+	if _mission_config == null:
+		return
+	var rewards: Dictionary = params.get("rewards", {})
+	for mark_id in rewards:
+		var reward: Variant = rewards[mark_id]
+		if not (reward is Dictionary):
+			continue
+		for key in _flag_keys(reward):
+			if not _mission_config.mission_state.has(key):
+				_mission_config.mission_state[key] = false
+
 
 func on_event(game: Game, event_name: String, event: Dictionary) -> void:
 	if event_name != "objective_mark_triggered":
@@ -65,3 +85,23 @@ func on_event(game: Game, event_name: String, event: Dictionary) -> void:
 		game.log_message(LogColors.player(player.player_name) + " 触发任务标记奖励：" + reward_text)
 	if draw_boss:
 		player.draw_boss_card()
+	_apply_set_flags(reward)
+
+
+func _flag_keys(reward: Dictionary) -> Array:
+	var flags: Variant = reward.get("set_flags", [])
+	if not (flags is Array):
+		return []
+	var keys: Array = []
+	for flag in flags:
+		var key: String = str(flag)
+		if not key.is_empty():
+			keys.append(key)
+	return keys
+
+
+func _apply_set_flags(reward: Dictionary) -> void:
+	if _mission_config == null:
+		return
+	for key in _flag_keys(reward):
+		_mission_config.mission_state[key] = true

@@ -93,6 +93,39 @@ func test_mark_enter_reward_unmatched_mark_id_ignored() -> void:
 	assert_eq(Game.monster_pile.size(), 1, "怪物牌堆不应被抽取")
 
 
+func test_mark_enter_reward_set_flags_after_setup() -> void:
+	var mc: MissionConfig = MissionConfig.new()
+	var component: MissionComponent = MissionComponentRegistry.create("mark_enter_reward", {
+		"rewards": {"mark_1": {"cards": {"燃料": 1}, "set_flags": ["diary_found"]}},
+	})
+	component.setup(Game, mc)
+	assert_eq(mc.mission_state.get("diary_found"), false, "setup 应将 set_flags 键初始化为 false")
+	var p: Player = _make_player("P")
+	Game.players = [p]
+	await component.on_event(Game, "objective_mark_triggered", {
+		"player": p, "block": _make_block("废墟", 0, 0), "mark": {"mark_id": "mark_1"},
+	})
+	assert_eq(p.hand.size(), 1, "有 setup 时仍应发卡")
+	assert_eq(mc.mission_state.get("diary_found"), true, "发奖后应将 set_flags 键置 true")
+	mc.mission_state["diary_found"] = false
+	await component.on_event(Game, "objective_mark_triggered", {
+		"player": p, "block": _make_block("废墟", 0, 0), "mark": {"mark_id": "mark_1"},
+	})
+	assert_eq(mc.mission_state.get("diary_found"), true, "再次触发仍应只升不降为 true")
+
+
+func test_mark_enter_reward_set_flags_without_setup_still_grants() -> void:
+	var component: MissionComponent = MissionComponentRegistry.create("mark_enter_reward", {
+		"rewards": {"mark_1": {"cards": {"燃料": 1}, "set_flags": ["diary_found"]}},
+	})
+	var p: Player = _make_player("P")
+	Game.players = [p]
+	await component.on_event(Game, "objective_mark_triggered", {
+		"player": p, "block": _make_block("废墟", 0, 0), "mark": {"mark_id": "mark_1"},
+	})
+	assert_eq(p.hand.size(), 1, "无 setup 时发牌行为应不变")
+
+
 # === 2. first_enter_draw_boss ===
 
 func test_first_enter_draw_boss_triggers_once() -> void:
