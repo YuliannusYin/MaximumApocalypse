@@ -186,7 +186,7 @@
           "filter_target": "return target != player",
           "window_prompt": "\"猎枪\": 选择攻击目标",
           "filter_target_range": "medium",
-          "content": "actions.consume_action(player, 1)\nvar weapon = player.get_equipment(\"shotgun\")\nactions.consume_charge(player, weapon, 1)\nactions.damage(target, 4, player, \"weapon_attack\", weapon.equipment_card)\nvar list = game.get_target(player.get_current_block())\nfor i in list:\n\tif i != player:\n\t\tactions.damage(i, 2, player, \"weapon_attack\", weapon.equipment_card)",
+			"content": "actions.consume_action(player, 1)\nvar weapon = player.get_equipment(\"shotgun\")\nactions.consume_charge(player, weapon, 1)\nactions.damage(target, 4, player, \"weapon_attack\", weapon.equipment_card)\nvar list = game.get_target(player.get_current_block())\nfor i in list:\n\tif not player.shares_seat(i):\n\t\tactions.damage(i, 2, player, \"weapon_attack\", weapon.equipment_card)",
           "ai": {
             "order": 9,
             "useful": 0,

@@ -20,15 +20,19 @@ func _init(owner: Variant, game_instance: Variant, operation_runtime: Variant = 
 		runtime = Game.event_scheduler
 
 
-func damage(target: Entity, num: int, source: Entity = null, type: Variant = "", card: Card = null) -> Variant:
+func damage(target: Variant, num: int, source: Variant = null, type: Variant = "", card: Card = null) -> Variant:
 	## damage() 内部已自行 dispatch 同名操作（复用同一 scheduler 以保持嵌套），
 	## 这里直接转发调用，避免重复包裹出两层同名 "damage" 节点。
-	return await target.damage(num, source, type, card, runtime)
+	if target == null:
+		return null
+	return await Callable(target, "damage").call(num, source, type, card, runtime)
 
 
 func recover(target: Variant, num: int, source: Variant = null) -> Variant:
 	var resolved: Variant = source if source != null else player
-	return await target.recover(num, resolved, runtime)
+	if target == null:
+		return null
+	return await Callable(target, "recover").call(num, resolved, runtime)
 
 
 func draw(target: Variant, num: int) -> Variant:
@@ -56,6 +60,8 @@ func choose_to_discard(target: Variant, n: int, type: String = "", prompt: Strin
 
 
 func remove_card(target: Variant, card_or_cards: Variant, position: String = "", quantity: int = 1) -> Variant:
+	if target != null and target.has_method("get_seat_player") and not target.has_method("remove_card"):
+		target = target.get_seat_player()
 	return await target.remove_card(card_or_cards, position, quantity, runtime)
 
 
@@ -214,14 +220,22 @@ func add_mark_skill(target: Variant, name: String, num: int, expire_trigger: Str
 
 
 func increase_hunger(target: Variant, num: int = 1) -> Variant:
-	return await target.increase_hunger_evented(num, runtime)
+	if target == null:
+		return false
+	return await Callable(target, "increase_hunger_evented").call(num, runtime)
 
 
 func decrease_hunger(target: Variant, num: int = 1) -> Variant:
-	return await target.decrease_hunger_evented(num, runtime)
+	if target == null:
+		return false
+	return await Callable(target, "decrease_hunger_evented").call(num, runtime)
 
 
 func poison(target: Variant) -> Variant:
+	if target != null and target.has_method("get_seat_player"):
+		var seat: Variant = target.get_seat_player()
+		if seat != null and seat.has_method("poison_evented"):
+			target = seat
 	return await target.poison_evented(runtime)
 
 

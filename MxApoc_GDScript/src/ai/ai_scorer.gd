@@ -50,6 +50,8 @@ func attitude(from: Variant, to: Variant) -> float:
 		return 0.0
 	if from != null and to == from:
 		return ATT_SELF
+	if from != null and from.has_method("shares_seat") and from.shares_seat(to):
+		return ATT_SELF
 	if to.has_method("is_player") and to.is_player():
 		return ATT_ALLY
 	if to.has_method("is_monster") and to.is_monster():

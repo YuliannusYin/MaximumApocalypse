@@ -64,25 +64,29 @@
 
 > 内部方法：若未订阅且 EventBus 有效，连接 12 个统计相关 signal 并置 `_subscribed = true`。
 
+### _seat_of(obj) -> Variant
+
+> 把伤害/回复/击杀来源映射到座位 Player：对象已在 `_stats` 中则原样返回；否则若有 `get_seat_player()`（CompanionBody）且该座位在 `_stats` 中，返回座位。
+
 ### _on_damage_dealt(source, target, amount) -> void
 
-> `_stats` 含 source 时调用 `get_stats(source).add_damage_dealt(amount)`。
+> `_ignore_events` 期间忽略。经 `_seat_of(source)` 记到座位；`_stats` 含该座位时调用 `get_stats(seat).add_damage_dealt(amount)`。
 
 ### _on_damage_taken(target, source, amount) -> void
 
-> `_stats` 含 target 时调用 `get_stats(target).add_damage_taken(amount)`。
+> `_ignore_events` 期间忽略。经 `_seat_of(target)` 记到座位；`_stats` 含该座位时调用 `get_stats(seat).add_damage_taken(amount)`。
 
 ### _on_hp_recovered(player, amount) -> void
 
-> `_stats` 含 player 时调用 `get_stats(player).add_hp_recovered(amount)`。
+> `_ignore_events` 期间忽略。经 `_seat_of(player)` 记到座位；`_stats` 含该座位时调用 `get_stats(seat).add_hp_recovered(amount)`。
 
 ### _on_healing_done(source, target, amount) -> void
 
-> `_stats` 含 source 时调用 `get_stats(source).add_healing_done(amount)`。
+> `_ignore_events` 期间忽略。经 `_seat_of(source)` 记到座位；`_stats` 含该座位时调用 `get_stats(seat).add_healing_done(amount)`。
 
 ### _on_hunger_reduced(player, amount) -> void
 
-> `_stats` 含 player 时调用 `get_stats(player).add_hunger_reduced(amount)`。
+> `_ignore_events` 期间忽略。经 `_seat_of(player)` 记到座位；`_stats` 含该座位时调用 `get_stats(seat).add_hunger_reduced(amount)`。
 
 ### _on_card_used(player, card) -> void
 
@@ -110,7 +114,7 @@
 
 ### _on_monster_died(_monster, source) -> void
 
-> `_stats` 含 source 时调用 `get_stats(source).add_kills(1)`；并按怪物 `english_name` 累加 `_monster_kills`，首领另计 `_boss_kills`。
+> `_ignore_events` 期间忽略。经 `_seat_of(source)` 记到座位；`_stats` 含该座位时调用 `get_stats(seat).add_kills(1)`；并按怪物 `english_name` 累加 `_monster_kills`，首领另计 `_boss_kills`。
 
 ### get_archive_summary(result_override="") -> Dictionary
 

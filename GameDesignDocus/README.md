@@ -43,7 +43,7 @@
 | 目录 | 说明 |
 | --- | --- |
 | [MissionPacks/](Resource/MissionPacks/) | 任务 0–12（含组件声明） |
-| [SurvivorPacks/](Resource/SurvivorPacks/) | 求生者（老兵正在重新设计，玩家模式锁定） |
+| [SurvivorPacks/](Resource/SurvivorPacks/) | 求生者（消防员 / 枪手 / 猎人 / 外科医生 / 机械师 / 老兵） |
 | [MonsterPacks/](Resource/MonsterPacks/) | zombie / mutant / alien / robot |
 | [ScavengePacks/](Resource/ScavengePacks/) | 红 / 绿 / 蓝 / 灰拾荒 |
 | [MapBlocksPack/](Resource/MapBlocksPack/MapBlocks.md) | 地图块定义 |

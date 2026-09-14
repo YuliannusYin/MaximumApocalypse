@@ -173,8 +173,8 @@ func _option_display_name(option: Variant) -> String:
 		return option
 	if option is Monster:
 		return "%s (HP %d/%d)" % [option.monster_name, option.hp, option.max_hp]
-	if option is Player:
-		return option.player_name
+	if option != null and option.has_method("is_player") and option.is_player():
+		return "%s (HP %d/%d)" % [str(option.get("player_name")), int(option.get("hp")), int(option.get("max_hp"))]
 	if option is Equipment:
 		var eq: Equipment = option
 		if eq.charge_max > 0:
@@ -205,7 +205,7 @@ func _is_all_entity_targets(targets: Array) -> bool:
 	if targets.is_empty():
 		return false
 	for target in targets:
-		if not (target is Monster or target is Player):
+		if not ((target is Monster) or (target != null and is_instance_valid(target) and target.has_method("is_player") and target.is_player())):
 			return false
 	return true
 
@@ -564,7 +564,7 @@ func show_target_select_area(targets: Array, n: int, zone_labels: Array = [], pr
 							if child is Label and child.text == "眩晕":
 								child.position = Vector2(4, 16)
 								break
-			elif target is Player:
+			elif target != null and is_instance_valid(target) and target.has_method("is_player") and target.is_player():
 				card_panel = _build_player_card(target, 120, 180)
 			if card_panel != null:
 				card_panel.gui_input.connect(_on_entity_card_clicked.bind(target, card_panel))
@@ -1355,7 +1355,7 @@ func _build_player_card(p: Variant, w: int, h: int) -> Panel:
 
 	# "玩家"标识（名字下方）
 	var role_lbl := Label.new()
-	role_lbl.text = "玩家"
+	role_lbl.text = "角色" if (p.has_method("is_companion_body") and p.is_companion_body()) else "玩家"
 	role_lbl.position = Vector2(4, h - 32)
 	role_lbl.size = Vector2(w - 8, 18)
 	role_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1397,7 +1397,10 @@ func _player_role_english_name(p: Variant) -> String:
 		if eng != null and str(eng) != "":
 			return str(eng)
 	var fallback: Variant = p.get("role_english_name")
-	return "" if fallback == null else str(fallback)
+	if fallback != null and str(fallback) != "":
+		return str(fallback)
+	var body_eng: Variant = p.get("english_name")
+	return "" if body_eng == null else str(body_eng)
 
 
 ## 设置实体卡选中态（金色边框）。

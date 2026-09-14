@@ -90,8 +90,9 @@
 | `equipment_card.gd` | `EquipmentCard` | 装备牌（继承 `SurvivorGameCard`） |
 | `map_block.gd` | `MapBlock` | 地图块类 |
 | `monster.gd` | `Monster` | 怪物类 |
+| `companion_body.gd` | `CompanionBody` | 同一座位上的子生命体（老兵 / 狗） |
 | `monster_card.gd` | `MonsterCard` | 怪物卡（实体化前） |
-| `player.gd` | `Player` | 玩家类 |
+| `player.gd` | `Player` | 玩家座位类（可持有 `bodies`） |
 | `scavenge_card.gd` | `ScavengeCard` | 拾荒卡（继承 `EquipmentCard`） |
 | `survivor_game_card.gd` | `SurvivorGameCard` | 求生者游戏牌（继承 `Card`） |
 
@@ -190,7 +191,7 @@ UI 与输入层。全部 `.gd` 文件如下：
 
 ### 3.1 data/survivors/（6 文件）
 
-求生者数据：`firefighter.json`、`gunslinger.json`、`hunter.json`、`mechanic.json`、`surgeon.json`、`veteran.json`（老兵正在重新设计，玩家模式不开放）。
+求生者数据：`firefighter.json`、`gunslinger.json`、`hunter.json`、`mechanic.json`、`surgeon.json`、`veteran.json`（玩家模式可选）。
 
 ### 3.2 data/scavenge/（4 文件）
 
