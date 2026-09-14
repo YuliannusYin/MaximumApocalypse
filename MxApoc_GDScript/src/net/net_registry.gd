@@ -163,6 +163,53 @@ func reconnect_player_by_token(token: String, peer_id: int) -> String:
 	var player_id := player_id_for_token(token)
 	if player_id.is_empty() or not can_reconnect(player_id):
 		return ""
+	_mark_player_connected(player_id, peer_id)
+	return player_id
+
+
+func reconnect_guest_by_unique_name(display_name: String, peer_id: int) -> Dictionary:
+	var player_id := guest_player_id_for_unique_name(display_name)
+	if player_id.is_empty():
+		return {}
+	_mark_player_connected(player_id, peer_id)
+	var token := _make_token()
+	var player: Dictionary = players[player_id]
+	player["reconnect_token_hash"] = _hash_token(token)
+	players[player_id] = player
+	return {"player_id": player_id, "reconnect_token": token}
+
+
+func reconnect_disconnected_by_unique_name(display_name: String, peer_id: int) -> Dictionary:
+	return reconnect_guest_by_unique_name(display_name, peer_id)
+
+
+func guest_player_id_for_unique_name(display_name: String) -> String:
+	var normalized := NetProtocol.normalize_nickname(display_name)
+	if normalized.is_empty():
+		return ""
+	var match_id := ""
+	for player_id in players:
+		var player: Dictionary = players[player_id]
+		if bool(player.get("is_host", false)):
+			continue
+		if String(player.get("display_name", "")) != normalized:
+			continue
+		if match_id != "":
+			return ""
+		match_id = String(player_id)
+	return match_id
+
+
+func disconnected_player_id_for_unique_name(display_name: String) -> String:
+	var player_id := guest_player_id_for_unique_name(display_name)
+	if player_id.is_empty():
+		return ""
+	if String(players[player_id].get("connection_state", "")) != "disconnected":
+		return ""
+	return player_id
+
+
+func _mark_player_connected(player_id: String, peer_id: int) -> void:
 	var player: Dictionary = players[player_id]
 	player["peer_id"] = peer_id
 	player["connection_state"] = "connected"
@@ -171,7 +218,6 @@ func reconnect_player_by_token(token: String, peer_id: int) -> String:
 	for seat in seats:
 		if String(seat.get("controller_id", "")) == player_id:
 			seat["control_mode"] = "human"
-	return player_id
 
 
 func player_id_for_token(token: String) -> String:

@@ -162,3 +162,97 @@ func test_stale_connected_guest_ids_skips_host() -> void:
 	registry.touch_last_seen(guest.player_id)
 	var now := Time.get_ticks_msec()
 	assert_eq(registry.stale_connected_guest_ids(now, NetProtocol.HEARTBEAT_TIMEOUT_MS).size(), 0)
+
+
+func test_playing_unique_name_steals_connected_guest() -> void:
+	var registry := NetRegistry.new()
+	var survivor_a = DataManager.get_survivor("firefighter")
+	var survivor_b = DataManager.get_survivor("hunter")
+	registry.create_host("房主", 7777, [
+		{"type": "human", "survivor": survivor_a},
+		{"type": "ai", "survivor": survivor_b},
+	])
+	var guest := registry.add_player("客机", 3)
+	registry.bind_seat(1, guest.player_id, "hunter")
+	registry.start_match()
+	assert_eq(registry.guest_player_id_for_unique_name("客机"), guest.player_id)
+	assert_eq(registry.disconnected_player_id_for_unique_name("客机"), "")
+	var resumed: Dictionary = registry.reconnect_guest_by_unique_name("客机", 8)
+	assert_eq(String(resumed.get("player_id", "")), guest.player_id)
+	assert_ne(String(resumed.get("reconnect_token", "")), "")
+	assert_eq(int(registry.players[guest.player_id].peer_id), 8)
+	assert_eq(String(registry.seats[1].control_mode), "human")
+
+
+func test_unique_host_name_does_not_steal_host() -> void:
+	var registry := NetRegistry.new()
+	var survivor_a = DataManager.get_survivor("firefighter")
+	var survivor_b = DataManager.get_survivor("hunter")
+	var host := registry.create_host("房主", 7777, [
+		{"type": "human", "survivor": survivor_a},
+		{"type": "ai", "survivor": survivor_b},
+	])
+	registry.add_player("客机", 3)
+	assert_eq(registry.guest_player_id_for_unique_name("房主"), "")
+	assert_true(registry.reconnect_guest_by_unique_name("房主", 8).is_empty())
+	assert_eq(int(registry.players[host.player_id].peer_id), 1)
+
+
+func test_playing_unique_name_reconnects_disconnected_guest() -> void:
+	var registry := NetRegistry.new()
+	var survivor_a = DataManager.get_survivor("firefighter")
+	var survivor_b = DataManager.get_survivor("hunter")
+	registry.create_host("房主", 7777, [
+		{"type": "human", "survivor": survivor_a},
+		{"type": "ai", "survivor": survivor_b},
+	])
+	var guest := registry.add_player("客机", 3)
+	registry.bind_seat(1, guest.player_id, "hunter")
+	registry.start_match()
+	registry.disconnect_player(guest.player_id)
+	assert_eq(registry.disconnected_player_id_for_unique_name("客机"), guest.player_id)
+	var resumed: Dictionary = registry.reconnect_disconnected_by_unique_name("客机", 8)
+	assert_eq(String(resumed.get("player_id", "")), guest.player_id)
+	assert_ne(String(resumed.get("reconnect_token", "")), "")
+	assert_eq(String(registry.players[guest.player_id].connection_state), "connected")
+	assert_eq(int(registry.players[guest.player_id].peer_id), 8)
+	assert_eq(String(registry.seats[1].control_mode), "human")
+
+
+func test_ambiguous_disconnected_name_does_not_reconnect() -> void:
+	var registry := NetRegistry.new()
+	var survivor_a = DataManager.get_survivor("firefighter")
+	var survivor_b = DataManager.get_survivor("hunter")
+	registry.create_host("房主", 7777, [
+		{"type": "human", "survivor": survivor_a},
+		{"type": "ai", "survivor": survivor_b},
+	])
+	var guest_a := registry.add_player("客机", 3)
+	var guest_b := registry.add_player("客机", 4)
+	registry.disconnect_player(guest_a.player_id)
+	registry.disconnect_player(guest_b.player_id)
+	assert_eq(registry.disconnected_player_id_for_unique_name("客机"), "")
+	assert_true(registry.reconnect_disconnected_by_unique_name("客机", 8).is_empty())
+
+
+func test_unique_name_reconnects_when_token_hash_missing() -> void:
+	var registry := NetRegistry.new()
+	var survivor_a = DataManager.get_survivor("firefighter")
+	var survivor_b = DataManager.get_survivor("hunter")
+	registry.create_host("房主", 7777, [
+		{"type": "human", "survivor": survivor_a},
+		{"type": "ai", "survivor": survivor_b},
+	])
+	var guest: Dictionary = registry.add_player("客机", 3)
+	registry.bind_seat(1, guest.player_id, "hunter")
+	registry.start_match()
+	registry.disconnect_player(guest.player_id)
+	var player: Dictionary = registry.players[guest.player_id]
+	player["reconnect_token_hash"] = ""
+	registry.players[guest.player_id] = player
+	assert_false(registry.can_reconnect(guest.player_id))
+	var resumed: Dictionary = registry.reconnect_guest_by_unique_name("客机", 8)
+	assert_eq(String(resumed.get("player_id", "")), guest.player_id)
+	assert_ne(String(resumed.get("reconnect_token", "")), "")
+	assert_eq(String(registry.seats[1].control_mode), "human")
+	assert_eq(int(registry.players[guest.player_id].peer_id), 8)

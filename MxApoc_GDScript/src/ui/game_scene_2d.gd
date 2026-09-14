@@ -66,6 +66,8 @@ var _game_over_started: bool = false
 var _reconnect_hint: Label
 var _reconnect_attempts: int = 0
 var _reconnecting: bool = false
+var _leaving_match: bool = false
+var _presence_log_state: Dictionary = {}
 const MAX_RECONNECT_ATTEMPTS := 3
 
 # === 设置弹出菜单 ===
@@ -90,6 +92,23 @@ func _ready() -> void:
 	_create_modules()
 	_wire_static_buttons()
 	_start_game_flow()
+
+
+func _exit_tree() -> void:
+	if _network_client_input != null:
+		if _network_client_input.has_method("detach"):
+			_network_client_input.detach()
+		_network_client_input = null
+	if NetSession == null:
+		return
+	if NetSession.connection_state_changed.is_connected(_on_match_connection_state):
+		NetSession.connection_state_changed.disconnect(_on_match_connection_state)
+	if NetSession.network_error.is_connected(_on_match_network_error):
+		NetSession.network_error.disconnect(_on_match_network_error)
+	if NetSession.message_received.is_connected(_on_network_message):
+		NetSession.message_received.disconnect(_on_network_message)
+	if NetSession.player_presence_changed.is_connected(_on_player_presence_changed):
+		NetSession.player_presence_changed.disconnect(_on_player_presence_changed)
 
 
 # === 子模块创建与信号接线 ===
@@ -302,6 +321,9 @@ func _start_game_flow() -> void:
 	if online_client_ui:
 		if not NetSession.message_received.is_connected(_on_network_message):
 			NetSession.message_received.connect(_on_network_message)
+	if RoomState != null and RoomState.online_multiplayer and NetSession != null:
+		if not NetSession.player_presence_changed.is_connected(_on_player_presence_changed):
+			NetSession.player_presence_changed.connect(_on_player_presence_changed)
 
 	# 教程系统：任务 0 默认开启；设置勾选后任意任务也播
 	if _should_start_tutorial():
@@ -339,25 +361,45 @@ func _start_game_flow() -> void:
 func _on_match_connection_state(state: String, detail: String) -> void:
 	if NetSession == null or not NetSession.is_remote_client():
 		return
+	if _leaving_match:
+		return
 	if state == "disconnected":
-		_begin_auto_reconnect()
+		call_deferred("_begin_auto_reconnect")
 	elif state == "joined" or state == "match_started":
 		_finish_auto_reconnect(detail)
 	elif state == "closed":
 		_give_up_reconnect()
 	elif state == "connecting" and _reconnecting:
 		_show_reconnect_hint(detail if detail != "" else "正在重连房间")
+	elif state == "connected" and (_reconnecting or NetSession.is_awaiting_room_accept()):
+		_show_reconnect_hint("正在重连房间")
 
 
 func _on_match_network_error(_code: String, _detail: String) -> void:
-	if not _reconnecting:
+	if _leaving_match:
 		return
-	_reconnecting = false
-	_begin_auto_reconnect()
+	if _should_keep_hello_retry():
+		_show_reconnect_hint("正在重连房间")
+		NetSession.retry_room_hello()
+		return
+	if _reconnecting:
+		_reconnecting = false
+	call_deferred("_begin_auto_reconnect")
+
+
+func _should_keep_hello_retry() -> bool:
+	return NetSession != null and NetSession.can_retry_room_hello() \
+			and NetSession._client_transport_connected()
 
 
 func _begin_auto_reconnect() -> void:
-	if _game_over_started or _reconnecting:
+	if not is_inside_tree() or _leaving_match or _game_over_started:
+		return
+	if _should_keep_hello_retry():
+		_show_reconnect_hint("正在重连房间")
+		NetSession.retry_room_hello()
+		return
+	if _reconnecting:
 		return
 	_reconnect_attempts += 1
 	if _reconnect_attempts > MAX_RECONNECT_ATTEMPTS:
@@ -366,19 +408,42 @@ func _begin_auto_reconnect() -> void:
 	_reconnecting = true
 	_show_reconnect_hint("连接断开，正在重连…（%d/%d）" % [
 		_reconnect_attempts, MAX_RECONNECT_ATTEMPTS])
-	if NetSession == null or not NetSession.reconnect_to_last_room():
-		_give_up_reconnect()
+	if NetSession == null:
+		_keep_reconnect_failure("重连失败")
+		return
+	if not NetSession.reconnect_to_last_room():
+		if _should_keep_hello_retry():
+			_show_reconnect_hint("正在重连房间")
+			return
+		var reason := NetSession.last_client_connect_error()
+		if reason.is_empty():
+			reason = "重连失败"
+		_keep_reconnect_failure(reason)
+
+
+func _keep_reconnect_failure(reason: String) -> void:
+	_reconnecting = false
+	_show_reconnect_hint(reason)
 
 
 func _finish_auto_reconnect(_detail: String) -> void:
 	_reconnecting = false
 	_reconnect_attempts = 0
 	_show_reconnect_hint("")
-	if NetSession != null:
+	if NetSession == null or not NetSession.is_remote_client():
+		return
+	if NetSession.registry.phase != "playing":
 		NetSession.request_resync()
+		return
+	_leaving_match = true
+	NetSession.rebuild_display_world()
+	LoadingScreenScript.go_enter_game(get_tree())
 
 
 func _give_up_reconnect() -> void:
+	if _leaving_match:
+		return
+	_leaving_match = true
 	_reconnecting = false
 	_show_reconnect_hint("重连失败，正在离开对局")
 	LoadingScreenScript.go_exit_to_menu(get_tree())
@@ -730,6 +795,8 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 	if _is_wiki_open():
+		return
+	if get_viewport().is_input_handled():
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if _action_selection_controller != null and is_instance_valid(_action_selection_controller):
@@ -1200,6 +1267,7 @@ func _on_settings_popup_id_pressed(id: int) -> void:
 			dialog.popup_centered(Vector2i(360, 180))
 		1:
 			# 返回主菜单：先卸对局场景，再在加载页清理调度器与旧协程。
+			_leaving_match = true
 			LoadingScreenScript.go_exit_to_menu(get_tree())
 
 
@@ -2079,11 +2147,61 @@ func _on_log_message(message: String) -> void:
 	if _event_log.size() > 500:
 		_event_log.pop_front()
 
+
+func _on_player_presence_changed(player_id: String, state: String, display_name: String,
+		left: bool) -> void:
+	_apply_presence_ui(player_id, state, display_name, left)
+
+
+func _apply_presence_from_message(message_type: String, payload: Variant) -> void:
+	var data: Dictionary = payload if payload is Dictionary else {}
+	var player_id := String(data.get("player_id", ""))
+	var display_name := String(data.get("display_name", ""))
+	if display_name.is_empty():
+		display_name = _presence_display_name(player_id)
+	if message_type == NetProtocol.PLAYER_DISCONNECTED:
+		_apply_presence_ui(player_id, "disconnected", display_name, bool(data.get("left", false)))
+	else:
+		_apply_presence_ui(player_id, "connected", display_name, false)
+
+
+func _presence_display_name(player_id: String) -> String:
+	if NetSession == null or player_id.is_empty():
+		return ""
+	return String(NetSession.registry.players.get(player_id, {}).get("display_name", ""))
+
+
+func _apply_presence_ui(player_id: String, state: String, display_name: String, left: bool) -> void:
+	if player_id.is_empty():
+		return
+	if String(_presence_log_state.get(player_id, "")) == state:
+		_refresh_all_panels()
+		return
+	_presence_log_state[player_id] = state
+	var name_text := display_name if display_name != "" else "玩家"
+	var log_text := ""
+	if state == "disconnected":
+		if left:
+			log_text = "%s 离开房间（AI 托管）" % name_text
+		else:
+			log_text = "%s 断开连接（AI 托管）" % name_text
+	else:
+		log_text = "%s 已重连" % name_text
+	_on_log_message(log_text)
+	if _event_log_panel != null and is_instance_valid(_event_log_panel):
+		_event_log_panel.add_message(log_text)
+	_append_guest_game_log(log_text)
+	_refresh_all_panels()
+
 func _on_network_message(message: Dictionary) -> void:
 	var message_type := String(message.get("message_type", ""))
 	if message_type == NetProtocol.JOIN_ACCEPTED:
 		_last_network_snapshot_sequence = 0
 		_seen_game_events.clear()
+	if message_type == NetProtocol.PLAYER_DISCONNECTED \
+			or message_type == NetProtocol.PLAYER_RECONNECTED:
+		_apply_presence_from_message(message_type, message.get("payload", {}))
+		return
 	var server_sequence := int(message.get("server_sequence", 0))
 	if message_type == NetProtocol.STATE_SNAPSHOT:
 		if not NetViewSync.should_apply_snapshot(server_sequence, _last_network_snapshot_sequence):
@@ -2093,6 +2211,7 @@ func _on_network_message(message: Dictionary) -> void:
 		var snapshot: Dictionary = message.get("payload", {}).get("game_snapshot", {})
 		if not snapshot.is_empty():
 			_apply_network_game_snapshot(snapshot)
+		_refresh_all_panels()
 		return
 	if message_type != NetProtocol.GAME_EVENT:
 		return

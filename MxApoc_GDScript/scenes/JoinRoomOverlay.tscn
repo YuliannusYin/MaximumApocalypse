@@ -79,4 +79,4 @@ text = "确认"
 [node name="CancelButton" type="Button" parent="Center/Panel/VBox/Buttons"]
 custom_minimum_size = Vector2(100, 36)
 layout_mode = 2
-text = "取消"
+text = "取消 (C)"

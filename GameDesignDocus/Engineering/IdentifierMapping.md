@@ -550,6 +550,7 @@ trigger 名在 JSON 数据中用英文 snake_case，技能 `trigger` 字段可�
 | `van_fuel` | Int | `add_van_fuel`（写） | 已添加燃料累计桶数 |
 | `van_fueled` | Bool | `add_van_fuel`（写）、`state_flag`（读） | 燃料是否达到 `count` |
 | `bomb_defused` | Bool | `defuse_bomb`（写） | 炸弹是否已被拆除 |
+| `diary_found` | Bool | `mark_enter_reward`（`set_flags` 写）、进度面板 `state_flag`（读） | 任务 5 是否已找到满是灰尘的日记本（粘性，不随持有回退） |
 | `countdown_activate` | Bool | 外部组件（写）、`turn_countdown`（读） | 置 true 时在下一个 `on_event` 中激活倒计时，激活后清除该键 |
 | `countdown_active` | Bool | `turn_countdown` | 倒计时是否已激活 |
 | `countdown_remaining` | Int | `turn_countdown` | 倒计时剩余轮数 |

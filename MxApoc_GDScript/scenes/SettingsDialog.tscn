@@ -5,7 +5,7 @@
 [node name="SettingsDialog" type="AcceptDialog"]
 title = "设置"
 initial_position = 2
-ok_button_text = "关闭"
+ok_button_text = "关闭 (Esc)"
 script = ExtResource("1_sd")
 
 [node name="FullscreenCheckBox" type="CheckBox" parent="."]

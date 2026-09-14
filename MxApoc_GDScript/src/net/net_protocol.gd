@@ -48,6 +48,19 @@ const ERROR_NEED_RESYNC := "NEED_RESYNC"
 
 const HEARTBEAT_INTERVAL_MS := 5000
 const HEARTBEAT_TIMEOUT_MS := 30000
+const HELLO_RETRY_INITIAL_MS := 1000
+const HELLO_RETRY_MAX_MS := 4000
+const HELLO_RETRY_MAX_ATTEMPTS := 8
+const IDENTITY_SLOT_HOST := "host"
+const IDENTITY_SLOT_GUEST := "guest"
+const IDENTITY_FILE_PATH := "user://net_identity.json"
+const IDENTITY_FILE_PATH_HOST := "user://net_identity_host.json"
+const IDENTITY_FILE_PATH_GUEST := "user://net_identity_guest.json"
+
+static func identity_file_path_for_slot(slot: String) -> String:
+	if slot == IDENTITY_SLOT_HOST:
+		return IDENTITY_FILE_PATH_HOST
+	return IDENTITY_FILE_PATH_GUEST
 
 static func make_message(message_type: String, payload: Dictionary = {},
 		sender_player_id: String = "", match_id: String = "",
@@ -112,3 +125,69 @@ static func parse_address(value: String) -> Dictionary:
 	if port < 1 or port > MAX_PORT:
 		return {"ok": false, "error": ERROR_INVALID_PORT}
 	return {"ok": true, "host": host, "port": port}
+
+
+## 把主机名解析成 ENet 能直接连的 IP。纯 IP 不走 DNS。
+static func resolve_host(host: String) -> Dictionary:
+	var trimmed := host.strip_edges()
+	if trimmed.to_lower() == "localhost":
+		trimmed = "127.0.0.1"
+	if trimmed.is_empty():
+		return {"ok": false, "ip": "", "error": ERROR_INVALID_ADDRESS}
+	if trimmed.is_valid_ip_address():
+		return {"ok": true, "ip": trimmed, "error": ""}
+	IP.clear_cache(trimmed)
+	var ipv4 := String(IP.resolve_hostname(trimmed, IP.TYPE_IPV4))
+	if ipv4.is_valid_ip_address():
+		return {"ok": true, "ip": ipv4, "error": ""}
+	var any_ip := String(IP.resolve_hostname(trimmed, IP.TYPE_ANY))
+	if any_ip.is_valid_ip_address():
+		return {"ok": true, "ip": any_ip, "error": ""}
+	return {"ok": false, "ip": "", "error": ERROR_INVALID_ADDRESS}
+
+
+## 加入/连接失败时给玩家看的文案。有 detail 时优先用 detail，避免未知码落到「无法解析地址」。
+static func error_text(code: String, detail: String = "") -> String:
+	var trimmed := detail.strip_edges()
+	if trimmed != "":
+		return trimmed
+	match code:
+		ERROR_INVALID_ADDRESS:
+			return "地址格式无效，请填写 IP:端口，例如 192.168.1.10:7777"
+		ERROR_INVALID_PORT:
+			return "端口无效"
+		ERROR_PORT_IN_USE:
+			return "端口已被占用"
+		ERROR_CONNECT_TIMEOUT:
+			return "连接超时"
+		ERROR_CONNECTION_REFUSED:
+			return "无法连接到房间"
+		ERROR_ONLINE_DISABLED:
+			return "联机未启用"
+		ERROR_PROTOCOL_MISMATCH:
+			return "客户端版本不兼容"
+		ERROR_ROOM_FULL:
+			return "房间已满"
+		ERROR_ROOM_ALREADY_STARTED:
+			return "房间已开始，无法加入"
+		ERROR_INVALID_TOKEN, ERROR_TOKEN_EXPIRED:
+			return "重连凭证已失效"
+		ERROR_INVALID_COMMAND:
+			return "网络请求无效"
+		ERROR_STALE_REQUEST:
+			return "请求已过期"
+		ERROR_NEED_RESYNC:
+			return "需要重新同步对局"
+		_:
+			return "加入房间失败"
+
+
+## ENet create_client 的返回码映射到协议错误。
+static func client_create_error(result: int) -> Dictionary:
+	if result == OK:
+		return {"ok": true, "code": "", "detail": ""}
+	if result == ERR_CANT_RESOLVE:
+		return {"ok": false, "code": ERROR_INVALID_ADDRESS, "detail": "无法解析地址"}
+	if result == ERR_INVALID_PARAMETER:
+		return {"ok": false, "code": ERROR_INVALID_PORT, "detail": "端口无效"}
+	return {"ok": false, "code": ERROR_CONNECTION_REFUSED, "detail": "无法创建客户端连接"}

@@ -349,9 +349,14 @@ func _update_role_card() -> void:
 		if not eng.is_empty():
 			tex = ImageCache.get_role_card_texture(eng, is_front)
 	_role_name_label.text = name_str
+	var offline := _controller_is_offline()
+	if offline and _player.is_alive():
+		state_str = "离线"
 	_role_state_label.text = state_str
 	if not _player.is_alive():
 		_role_state_label.add_theme_color_override("font_color", TEXT_MONSTER)
+	elif offline:
+		_role_state_label.add_theme_color_override("font_color", TEXT_WARN)
 	elif not is_front:
 		_role_state_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.3, 1.0))
 	else:
@@ -370,6 +375,24 @@ func _update_role_card() -> void:
 	elif role != null and is_instance_valid(role) and not is_front:
 		bg = CARD_BG_HUNGER
 	_role_card_panel.add_theme_stylebox_override("panel", HudTheme.make_picture_frame_style(bg))
+
+
+func _controller_is_offline() -> bool:
+	if _player == null or NetSession == null:
+		return false
+	var registry: Variant = NetSession.registry
+	if registry == null:
+		return false
+	var seat := int(_player.get("seat_number"))
+	if seat < 0 or seat >= registry.seats.size():
+		return false
+	var controller_id := String(registry.seats[seat].get("controller_id", ""))
+	if controller_id.is_empty():
+		return false
+	var row: Dictionary = registry.players.get(controller_id, {})
+	if row.is_empty() or bool(row.get("is_host", false)):
+		return false
+	return String(row.get("connection_state", "")) == "disconnected"
 
 
 func _update_marks() -> void:

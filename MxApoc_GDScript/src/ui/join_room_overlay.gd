@@ -50,6 +50,12 @@ func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		_on_close()
 		get_viewport().set_input_as_handled()
+		return
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_C:
+		if _nickname_edit.has_focus() or _address_edit.has_focus():
+			return
+		_on_close()
+		get_viewport().set_input_as_handled()
 
 
 func _style_line_edit(edit: LineEdit) -> void:
@@ -66,7 +72,7 @@ func _on_confirm() -> void:
 		return
 	var parsed := NetProtocol.parse_address(_address_edit.text)
 	if not bool(parsed.get("ok", false)):
-		_show_error(_error_text(String(parsed.get("error", NetProtocol.ERROR_INVALID_ADDRESS))))
+		_show_error(NetProtocol.error_text(String(parsed.get("error", NetProtocol.ERROR_INVALID_ADDRESS))))
 		return
 	_confirm_button.disabled = true
 	_hint_label.text = "正在连接..."
@@ -97,23 +103,6 @@ func _show_error(text: String) -> void:
 	_hint_label.text = text
 	_hint_label.add_theme_color_override("font_color", Color("#e26d6d"))
 
-func _error_text(code: String) -> String:
-	match code:
-		NetProtocol.ERROR_INVALID_ADDRESS:
-			return "地址格式无效，请填写 IP:端口，例如 192.168.1.10:7777"
-		NetProtocol.ERROR_INVALID_PORT:
-			return "端口无效"
-		NetProtocol.ERROR_CONNECT_TIMEOUT:
-			return "连接超时"
-		NetProtocol.ERROR_CONNECTION_REFUSED:
-			return "无法连接到房间"
-		NetProtocol.ERROR_PROTOCOL_MISMATCH:
-			return "客户端版本不兼容"
-		NetProtocol.ERROR_INVALID_TOKEN, NetProtocol.ERROR_TOKEN_EXPIRED:
-			return "重连凭证已失效，正在重新加入"
-		_:
-			return "无法解析地址"
-
 func _on_connection_state_changed(state: String, detail: String) -> void:
 	if state == "joined":
 		_confirm_button.disabled = false
@@ -126,9 +115,18 @@ func _on_connection_state_changed(state: String, detail: String) -> void:
 		if detail != "":
 			_hint_label.text = detail
 
-func _on_network_error(code: String, _detail: String) -> void:
+func _on_network_error(code: String, detail: String) -> void:
 	_confirm_button.disabled = false
-	_show_error(_error_text(code))
+	_show_error(NetProtocol.error_text(code, detail))
+
+
+func _exit_tree() -> void:
+	if NetSession == null:
+		return
+	if NetSession.connection_state_changed.is_connected(_on_connection_state_changed):
+		NetSession.connection_state_changed.disconnect(_on_connection_state_changed)
+	if NetSession.network_error.is_connected(_on_network_error):
+		NetSession.network_error.disconnect(_on_network_error)
 
 
 func _on_close() -> void:

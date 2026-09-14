@@ -353,6 +353,35 @@ func test_mission_5_mark_enter_reward_diary_and_boss() -> void:
 	assert_eq(_count_in_hand(p, "满是灰尘的日记本"), 1, "应获得满是灰尘的日记本")
 	assert_eq(p.monster_zone.size(), 1, "应抓取一张首领牌")
 	assert_eq(p.monster_zone[0].monster_name, "首领变异体", "抓取的应为首领卡")
+	assert_eq(Game.mission_config.mission_state.get("diary_found"), true, "进入标记后应标记 diary_found")
+
+
+func test_mission_5_diary_found_stays_after_holder_death() -> void:
+	var mc: MissionConfig = _mount_mission(5)
+	var holder: Player = _make_player("持有者")
+	var ally: Player = _make_player("队友")
+	var marked: MapBlock = _make_block("废墟", 0, 0)
+	marked.add_objective_mark({"mark_id": "mark_1"})
+	holder.current_block = marked
+	ally.current_block = marked
+	_setup_game_env([holder, ally], [marked])
+	Game.monster_pile.add(_make_monster_card("首领变异体", "boss"))
+	await marked.trigger_objective_marks(holder)
+	assert_eq(mc.mission_state.get("diary_found"), true, "进入标记后应标记 diary_found")
+	var panel: MissionProgressPanel = MissionProgressPanel.new()
+	autofree(panel)
+	var mission: MissionData = DataManager.get_mission(5)
+	var lines_before: Array = panel.build_lines_from(mission.progress_conditions)
+	assert_false(lines_before.is_empty(), "任务 5 应有进度行")
+	assert_true(str(lines_before[0]).begins_with("1. ✔"), "获得日记本后第一条进度应完成")
+	var hold_before: Dictionary = panel._eval_hold_items({"card_name": "满是灰尘的日记本", "count": 1})
+	assert_true(hold_before.get("done"), "死亡前实时持有应为 1/1")
+	await holder.death(null)
+	assert_eq(mc.mission_state.get("diary_found"), true, "持有者死亡后 diary_found 不应回退")
+	var lines_after: Array = panel.build_lines_from(mission.progress_conditions)
+	assert_true(str(lines_after[0]).begins_with("1. ✔"), "持有者死亡后第一条进度应仍完成")
+	var hold_after: Dictionary = panel._eval_hold_items({"card_name": "满是灰尘的日记本", "count": 1})
+	assert_false(hold_after.get("done"), "实时持有应在死亡后变回 0/1")
 
 
 func test_mission_5_defuse_countdown_kill_outside_win() -> void:

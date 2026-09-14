@@ -154,6 +154,38 @@ func test_handoff_replaces_network_input_with_ai() -> void:
 	NetSession.registry = saved_registry
 
 
+func test_restore_network_inputs_after_guest_handoff() -> void:
+	var saved_registry: Variant = NetSession.registry
+	var registry := NetRegistry.new()
+	var survivor_a = DataManager.get_survivor("firefighter")
+	var survivor_b = DataManager.get_survivor("hunter")
+	registry.create_host("房主", 7777, [
+		{"type": "human", "survivor": survivor_a},
+		{"type": "ai", "survivor": survivor_b},
+	])
+	var guest := registry.add_player("客机", 3)
+	registry.bind_seat(1, guest.player_id, "hunter")
+	NetSession.registry = registry
+	var player: Player = _make_player("客机")
+	player.seat_number = 1
+	player.is_ai = false
+	var network_input := NetworkPlayerInput.new()
+	player.input = network_input
+	Game.players = [player]
+	var runtime: Node = load("res://src/net/server_runtime.gd").new()
+	runtime._network_inputs = [network_input]
+	runtime.handoff_seats_to_ai(guest.player_id)
+	assert_true(player.is_ai)
+	assert_true(player.input is AIPlayerInput)
+	runtime.restore_network_inputs(guest.player_id)
+	assert_false(player.is_ai)
+	assert_true(player.input is NetworkPlayerInput)
+	if player.input.has_method("detach"):
+		player.input.detach()
+	runtime.free()
+	NetSession.registry = saved_registry
+
+
 func test_authority_logs_payload_duplicates_game_log_list() -> void:
 	Game.log_list = ["第一行", "第二行"]
 	var runtime: Node = load("res://src/net/server_runtime.gd").new()

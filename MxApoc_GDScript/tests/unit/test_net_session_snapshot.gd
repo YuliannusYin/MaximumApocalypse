@@ -288,6 +288,26 @@ func test_match_start_creates_view_game_for_client() -> void:
 	assert_eq(session.get_display_game().name, "ViewGame")
 
 
+func test_authority_apply_snapshot_keeps_reconnect_hashes() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.is_host = true
+	session.session_role = "host"
+	var survivor_a = DataManager.get_survivor("firefighter")
+	var survivor_b = DataManager.get_survivor("hunter")
+	session.registry.create_host("房主", 7777, [
+		{"type": "human", "survivor": survivor_a},
+		{"type": "ai", "survivor": survivor_b},
+	])
+	var guest: Dictionary = session.registry.add_player("客机", 3)
+	var hash_before: String = String(
+		session.registry.players[guest.player_id].get("reconnect_token_hash", ""))
+	assert_ne(hash_before, "")
+	session._apply_snapshot(session.registry.snapshot())
+	assert_eq(String(session.registry.players[guest.player_id].get("reconnect_token_hash", "")),
+		hash_before, "权威端不得用去哈希的环回快照覆盖凭证")
+	session.free()
+
+
 func test_guest_log_stays_on_view_game_until_settlement() -> void:
 	var session: Node = load("res://src/net/net_session.gd").new()
 	session.session_role = "client"
@@ -477,8 +497,10 @@ func test_reconnect_to_last_room_requires_address_and_token() -> void:
 	session.session_role = "client"
 	session.is_host = false
 	assert_false(session.reconnect_to_last_room())
+	assert_eq(session.last_client_connect_error(), "没有可重连的房间地址")
 	session._connected_address = "127.0.0.1:7777"
 	assert_false(session.reconnect_to_last_room(), "没有重连凭证不应开连")
+	assert_eq(session.last_client_connect_error(), "没有重连凭证")
 	session.local_reconnect_token = "tok"
 	session.registry.phase = "playing"
 	session.free()
@@ -520,3 +542,930 @@ func test_heartbeat_skips_when_disconnected() -> void:
 	session._send_to_host(NetProtocol.HEARTBEAT)
 	assert_eq(session._last_heartbeat_sent_ms, 0, "未连通的 _send_to_host 不应误记心跳")
 	session.free()
+
+
+func test_close_session_keeps_saved_identity_for_menu_rejoin() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.session_role = "client"
+	session.is_host = false
+	session.local_reconnect_token = "tok"
+	session._pending_nickname = "客机"
+	session._saved_identity = {"player_id": "p_guest", "reconnect_token": "tok"}
+	session.close_session()
+	assert_eq(session.local_reconnect_token, "")
+	assert_eq(session._hello_reconnect_token(), "tok", "回菜单后加入仍应带上磁盘里的重连凭证")
+	session.free()
+
+
+func test_stale_client_disconnect_is_ignored_after_new_join() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.session_role = "client"
+	session.is_host = false
+	session.registry.phase = "closed"
+	session._peer_serial = 7
+	session._saved_identity = {"player_id": "p_guest", "reconnect_token": "tok"}
+	watch_signals(session)
+	session._complete_client_disconnect("disconnected", 6)
+	assert_signal_not_emitted(session, "network_error")
+	assert_eq(session.session_role, "client")
+	assert_eq(session._peer_serial, 7)
+	session.free()
+
+
+func test_playing_disconnect_keeps_session_for_reconnect() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.session_role = "client"
+	session.is_host = false
+	session.registry.phase = "playing"
+	session._connected_address = "127.0.0.1:7777"
+	session.local_reconnect_token = "tok"
+	session._peer_serial = 3
+	watch_signals(session)
+	session._complete_client_disconnect("disconnected", 3)
+	assert_signal_emitted_with_parameters(session, "connection_state_changed",
+		["disconnected", "与房主的连接已断开"])
+	assert_eq(session.session_role, "client")
+	assert_eq(session._connected_address, "127.0.0.1:7777")
+	assert_eq(session._hello_reconnect_token(), "tok")
+	session.free()
+
+
+func test_host_stale_peer_disconnect_does_not_drop_reconnected_player() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.is_host = true
+	session.session_role = "host"
+	var survivor_a = DataManager.get_survivor("firefighter")
+	var survivor_b = DataManager.get_survivor("hunter")
+	session.registry.create_host("房主", 7777, [
+		{"type": "human", "survivor": survivor_a},
+		{"type": "human", "survivor": survivor_b},
+	])
+	var guest: Dictionary = session.registry.add_player("客机", 4)
+	session.registry.bind_seat(1, guest.player_id, "hunter")
+	session.registry.reconnect_player_by_token(guest.reconnect_token, 9)
+	session._complete_host_peer_disconnected(4)
+	assert_eq(int(session.registry.players[guest.player_id].peer_id), 9)
+	assert_eq(String(session.registry.players[guest.player_id].connection_state), "connected")
+	session.free()
+
+
+func test_has_listen_server_false_when_peer_disconnected() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	assert_false(session.has_listen_server())
+	var idle := ENetMultiplayerPeer.new()
+	assert_eq(idle.get_connection_status(), MultiplayerPeer.CONNECTION_DISCONNECTED)
+	assert_false(session._multiplayer_peer_is_live(idle), "断开的 peer 不能再调 is_server")
+	assert_false(session._multiplayer_peer_is_live(null))
+	session.free()
+
+
+func test_server_disconnected_ignores_inactive_peer_without_authority_check() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.session_role = "client"
+	session.is_host = false
+	session.registry.phase = "playing"
+	session.local_reconnect_token = "tok"
+	watch_signals(session)
+	session._on_server_disconnected()
+	assert_false(session.has_listen_server())
+	session.free()
+
+
+func test_begin_client_peer_keeps_domain_and_resolved_ip() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	var peer := ENetMultiplayerPeer.new()
+	session._begin_client_peer(peer, "example.com:7777", "客机", "1.2.3.4")
+	assert_eq(session._connected_address, "example.com:7777")
+	assert_eq(session._resolved_ip, "1.2.3.4")
+	assert_eq(session.session_role, "client")
+	peer.close()
+	session.free()
+
+
+func test_reconnect_uses_cached_ip_instead_of_domain() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session._resolved_ip = "127.0.0.1"
+	var cached: Dictionary = session._client_connect_ip("does-not-resolve.invalid")
+	assert_true(bool(cached.get("ok", false)))
+	assert_eq(String(cached.get("ip", "")), "127.0.0.1")
+	session._resolved_ip = ""
+	var ipv4: Dictionary = session._client_connect_ip("10.0.0.2")
+	assert_eq(String(ipv4.get("ip", "")), "10.0.0.2")
+	session.free()
+
+
+func test_guest_peer_disconnected_emits_disconnected_when_playing() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.session_role = "client"
+	session.is_host = false
+	session.registry.phase = "playing"
+	session.local_reconnect_token = "tok"
+	session._peer_serial = 3
+	watch_signals(session)
+	session._on_peer_disconnected(1)
+	await wait_idle_frames(2)
+	assert_signal_emitted_with_parameters(session, "connection_state_changed",
+		["disconnected", "与房主的连接已断开"])
+	assert_eq(session.session_role, "client")
+	assert_eq(session._hello_reconnect_token(), "tok")
+	session.free()
+
+
+func test_failed_playing_disconnect_emits_disconnected() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.session_role = "client"
+	session.is_host = false
+	session.registry.phase = "playing"
+	session.local_reconnect_token = "tok"
+	session._peer_serial = 3
+	watch_signals(session)
+	session._complete_client_disconnect("failed", 3)
+	assert_signal_emitted(session, "network_error")
+	assert_signal_emitted_with_parameters(session, "connection_state_changed",
+		["disconnected", "与房主的连接已断开"])
+	assert_eq(session.session_role, "client")
+	assert_eq(session._hello_reconnect_token(), "tok")
+	session.free()
+
+
+func test_playing_invalid_token_does_not_fallback_to_join() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.session_role = "client"
+	session.is_host = false
+	session.registry.phase = "playing"
+	session._pending_nickname = "客机"
+	session.local_reconnect_token = "tok"
+	session._saved_identity = {"player_id": "p_guest", "reconnect_token": "tok"}
+	watch_signals(session)
+	session._apply_client_inbound_message(NetProtocol.make_message(NetProtocol.ERROR, {
+		"code": NetProtocol.ERROR_INVALID_TOKEN,
+		"detail": "重连凭证无效或已过期",
+	}))
+	assert_eq(session.local_reconnect_token, "tok", "已入座后迟到的失效凭证不应清掉内存凭证")
+	assert_signal_not_emitted(session, "network_error")
+	assert_signal_not_emitted(session, "connection_state_changed")
+	session.free()
+
+
+func test_playing_awaiting_invalid_token_emits_reconnect_failed() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.session_role = "client"
+	session.is_host = false
+	session.registry.phase = "playing"
+	session._awaiting_room_accept = true
+	session._pending_nickname = "客机"
+	session.local_reconnect_token = "tok"
+	watch_signals(session)
+	session._apply_client_inbound_message(NetProtocol.make_message(NetProtocol.ERROR, {
+		"code": NetProtocol.ERROR_INVALID_TOKEN,
+		"detail": "重连凭证无效或已过期",
+	}))
+	assert_eq(session.local_reconnect_token, "")
+	assert_signal_emitted_with_parameters(session, "network_error",
+		[NetProtocol.ERROR_INVALID_TOKEN, "重连失败"])
+	assert_signal_not_emitted(session, "connection_state_changed")
+	session.free()
+
+
+func test_broadcast_snapshot_without_identity_does_not_join() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.session_role = "client"
+	session.is_host = false
+	session._awaiting_room_accept = true
+	session.local_player_id = "p_guest"
+	session.local_reconnect_token = "tok"
+	session._saved_identity = {"player_id": "p_guest", "reconnect_token": "tok"}
+	watch_signals(session)
+	session._apply_client_inbound_message(NetProtocol.make_message(NetProtocol.STATE_SNAPSHOT, {
+		"room_snapshot": {
+			"phase": "playing",
+			"players": [],
+			"seats": [],
+			"mission": {},
+			"variants": {},
+		},
+		"game_snapshot": {"players": []},
+	}))
+	assert_true(session._awaiting_room_accept, "广播快照不应当成重连成功")
+	assert_eq(session.local_player_id, "p_guest")
+	assert_eq(session.local_reconnect_token, "tok")
+	assert_signal_not_emitted(session, "connection_state_changed")
+	session.free()
+
+
+func test_broadcast_snapshot_confirms_local_connected_seat() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.session_role = "client"
+	session.is_host = false
+	session._awaiting_room_accept = true
+	session.local_player_id = "p_guest"
+	watch_signals(session)
+	session._apply_client_inbound_message(NetProtocol.make_message(NetProtocol.STATE_SNAPSHOT, {
+		"room_snapshot": {
+			"phase": "playing",
+			"players": [{
+				"player_id": "p_guest",
+				"connection_state": "connected",
+				"is_host": false,
+			}],
+			"seats": [{
+				"controller_id": "p_guest",
+				"control_mode": "human",
+			}],
+			"mission": {},
+			"variants": {},
+		},
+	}))
+	assert_false(session._awaiting_room_accept)
+	assert_signal_emitted_with_parameters(session, "connection_state_changed",
+		["joined", "已重连房间"])
+	session.free()
+
+
+func test_broadcast_snapshot_ai_seat_does_not_join() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.session_role = "client"
+	session.is_host = false
+	session._awaiting_room_accept = true
+	session.local_player_id = "p_guest"
+	watch_signals(session)
+	session._apply_client_inbound_message(NetProtocol.make_message(NetProtocol.STATE_SNAPSHOT, {
+		"room_snapshot": {
+			"phase": "playing",
+			"players": [{
+				"player_id": "p_guest",
+				"connection_state": "connected",
+				"is_host": false,
+			}],
+			"seats": [{
+				"controller_id": "p_guest",
+				"control_mode": "ai",
+			}],
+			"mission": {},
+			"variants": {},
+		},
+	}))
+	assert_true(session._awaiting_room_accept)
+	assert_signal_not_emitted(session, "connection_state_changed")
+	session.free()
+
+
+func test_incoming_sender_id_does_not_default_to_host() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	assert_eq(session._incoming_sender_id(), 0)
+	assert_eq(session._authority_sender_id(), 0)
+	assert_false(session._has_rpc_peer(1))
+	assert_false(session._has_rpc_peer(0))
+	session.free()
+
+
+func test_broadcast_input_request_drops_zero_peer() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.is_host = true
+	session.session_role = "host"
+	var survivor_a = DataManager.get_survivor("firefighter")
+	var survivor_b = DataManager.get_survivor("hunter")
+	session.registry.create_host("房主", 7777, [
+		{"type": "human", "survivor": survivor_a},
+		{"type": "ai", "survivor": survivor_b},
+	])
+	var guest: Dictionary = session.registry.add_player("客机", 3)
+	session.registry.bind_seat(1, guest.player_id, "hunter")
+	session.registry.start_match()
+	session.registry.players[guest.player_id]["peer_id"] = 0
+	session.broadcast_input_request(1, 1, guest.player_id, "choose_target", {})
+	assert_eq(String(session.registry.players[guest.player_id].connection_state),
+		"disconnected")
+	assert_eq(String(session.registry.seats[1].control_mode), "ai")
+	session.free()
+
+
+func test_join_keeps_reconnect_token_after_close_session() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.session_role = "client"
+	session.is_host = false
+	session.local_reconnect_token = "tok"
+	session._saved_identity = {"player_id": "p_guest", "reconnect_token": "tok"}
+	watch_signals(session)
+	assert_false(session.join("", "客机"))
+	assert_eq(session._hello_reconnect_token(), "tok", "加入失败后仍应保留凭证以便下次认回")
+	session.free()
+
+
+func test_playing_join_rejects_newcomer() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	var guest: Dictionary = _host_playing_disconnected_guest(session, "客机")
+	var player_count: int = session.registry.players.size()
+	session._handle_join(NetProtocol.make_message(NetProtocol.JOIN_REQUEST, {
+		"display_name": "路人",
+	}), 8)
+	assert_eq(session.registry.players.size(), player_count)
+	assert_eq(String(session.registry.players[guest.player_id].connection_state),
+		"disconnected")
+	session.free()
+
+
+func test_playing_join_resumes_disconnected_same_name() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	var guest: Dictionary = _host_playing_disconnected_guest(session, "客机")
+	session._handle_join(NetProtocol.make_message(NetProtocol.JOIN_REQUEST, {
+		"display_name": "客机",
+	}), 8)
+	assert_eq(String(session.registry.players[guest.player_id].connection_state),
+		"connected")
+	assert_eq(int(session.registry.players[guest.player_id].peer_id), 8)
+	assert_eq(String(session.registry.seats[1].control_mode), "human")
+	session.free()
+
+
+func test_playing_join_resumes_by_name_when_token_wrong() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	var guest: Dictionary = _host_playing_disconnected_guest(session, "客机")
+	session._handle_join(NetProtocol.make_message(NetProtocol.JOIN_REQUEST, {
+		"display_name": "客机",
+		"reconnect_token": "wrong-token",
+	}), 8)
+	assert_eq(String(session.registry.players[guest.player_id].connection_state),
+		"connected")
+	assert_eq(int(session.registry.players[guest.player_id].peer_id), 8)
+	assert_eq(String(session.registry.seats[1].control_mode), "human")
+	session.free()
+
+
+func test_reconnect_bad_token_resumes_disconnected_same_name() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	var guest: Dictionary = _host_playing_disconnected_guest(session, "客机")
+	session._handle_reconnect(NetProtocol.make_message(NetProtocol.RECONNECT_REQUEST, {
+		"reconnect_token": "wrong-token",
+		"display_name": "客机",
+	}), 8)
+	assert_eq(String(session.registry.players[guest.player_id].connection_state),
+		"connected")
+	assert_eq(int(session.registry.players[guest.player_id].peer_id), 8)
+	assert_eq(String(session.registry.seats[1].control_mode), "human")
+	session.free()
+
+
+func test_reconnect_bad_token_steals_connected_same_name() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.is_host = true
+	session.session_role = "host"
+	var survivor_a = DataManager.get_survivor("firefighter")
+	var survivor_b = DataManager.get_survivor("hunter")
+	session.registry.create_host("房主", 7777, [
+		{"type": "human", "survivor": survivor_a},
+		{"type": "ai", "survivor": survivor_b},
+	])
+	var guest: Dictionary = session.registry.add_player("客机", 3)
+	session.registry.bind_seat(1, guest.player_id, "hunter")
+	session.registry.start_match()
+	session._handle_reconnect(NetProtocol.make_message(NetProtocol.RECONNECT_REQUEST, {
+		"reconnect_token": "wrong-token",
+		"display_name": "客机",
+	}), 8)
+	assert_eq(String(session.registry.players[guest.player_id].connection_state),
+		"connected")
+	assert_eq(int(session.registry.players[guest.player_id].peer_id), 8)
+	assert_eq(String(session.registry.seats[1].control_mode), "human")
+	session.free()
+
+
+func test_playing_join_steals_connected_same_name() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.is_host = true
+	session.session_role = "host"
+	var survivor_a = DataManager.get_survivor("firefighter")
+	var survivor_b = DataManager.get_survivor("hunter")
+	session.registry.create_host("房主", 7777, [
+		{"type": "human", "survivor": survivor_a},
+		{"type": "ai", "survivor": survivor_b},
+	])
+	var guest: Dictionary = session.registry.add_player("客机", 3)
+	session.registry.bind_seat(1, guest.player_id, "hunter")
+	session.registry.start_match()
+	session._handle_join(NetProtocol.make_message(NetProtocol.JOIN_REQUEST, {
+		"display_name": "客机",
+	}), 8)
+	assert_eq(String(session.registry.players[guest.player_id].connection_state),
+		"connected")
+	assert_eq(int(session.registry.players[guest.player_id].peer_id), 8)
+	session.free()
+
+
+func test_reconnect_host_token_does_not_claim_host_seat() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.is_host = true
+	session.session_role = "host"
+	var survivor_a = DataManager.get_survivor("firefighter")
+	var survivor_b = DataManager.get_survivor("hunter")
+	var host: Dictionary = session.registry.create_host("房主", 7777, [
+		{"type": "human", "survivor": survivor_a},
+		{"type": "ai", "survivor": survivor_b},
+	])
+	var guest: Dictionary = session.registry.add_player("客机", 3)
+	session.registry.bind_seat(1, guest.player_id, "hunter")
+	session.registry.start_match()
+	session._handle_reconnect(NetProtocol.make_message(NetProtocol.RECONNECT_REQUEST, {
+		"reconnect_token": host.reconnect_token,
+		"display_name": "路人",
+	}), 8)
+	assert_eq(int(session.registry.players[host.player_id].peer_id), 1)
+	assert_true(bool(session.registry.players[host.player_id].get("is_host", false)))
+	assert_eq(int(session.registry.players[guest.player_id].peer_id), 3)
+	session.free()
+
+
+func test_reconnect_host_token_falls_back_to_disconnected_guest_name() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.is_host = true
+	session.session_role = "host"
+	var survivor_a = DataManager.get_survivor("firefighter")
+	var survivor_b = DataManager.get_survivor("hunter")
+	var host: Dictionary = session.registry.create_host("房主", 7777, [
+		{"type": "human", "survivor": survivor_a},
+		{"type": "ai", "survivor": survivor_b},
+	])
+	var guest: Dictionary = session.registry.add_player("客机", 3)
+	session.registry.bind_seat(1, guest.player_id, "hunter")
+	session.registry.start_match()
+	session.registry.disconnect_player(guest.player_id)
+	session._handle_reconnect(NetProtocol.make_message(NetProtocol.RECONNECT_REQUEST, {
+		"reconnect_token": host.reconnect_token,
+		"display_name": "客机",
+	}), 8)
+	assert_eq(String(session.registry.players[guest.player_id].connection_state),
+		"connected")
+	assert_eq(int(session.registry.players[guest.player_id].peer_id), 8)
+	assert_eq(int(session.registry.players[host.player_id].peer_id), 1)
+	assert_true(bool(session.registry.players[host.player_id].get("is_host", false)))
+	session.free()
+
+
+func _host_playing_disconnected_guest(session: Node, nickname: String) -> Dictionary:
+	session.is_host = true
+	session.session_role = "host"
+	var survivor_a = DataManager.get_survivor("firefighter")
+	var survivor_b = DataManager.get_survivor("hunter")
+	session.registry.create_host("房主", 7777, [
+		{"type": "human", "survivor": survivor_a},
+		{"type": "ai", "survivor": survivor_b},
+	])
+	var guest: Dictionary = session.registry.add_player(nickname, 3)
+	session.registry.bind_seat(1, guest.player_id, "hunter")
+	session.registry.start_match()
+	session.registry.disconnect_player(guest.player_id)
+	return guest
+
+
+func test_legacy_identity_migrates_to_guest_slot() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	var migrated: Dictionary = session._normalize_identity({
+		"player_id": "p_old",
+		"reconnect_token": "old-tok",
+	})
+	assert_eq(String(migrated.guest.get("reconnect_token", "")), "old-tok")
+	assert_eq(String(migrated.guest.get("player_id", "")), "p_old")
+	assert_eq(String(migrated.host.get("reconnect_token", "")), "")
+	session.free()
+
+
+func test_host_identity_save_keeps_guest_slot() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.session_role = "host"
+	session.is_host = true
+	session._saved_identity = {
+		"guest": {"player_id": "p_guest", "reconnect_token": "guest-tok"},
+	}
+	session.local_player_id = "p_host"
+	session.local_reconnect_token = "host-tok"
+	session._save_identity()
+	assert_eq(String(session._saved_identity.guest.get("reconnect_token", "")), "guest-tok")
+	assert_eq(String(session._saved_identity.host.get("reconnect_token", "")), "host-tok")
+	session.free()
+
+
+func test_guest_hello_token_ignores_host_slot() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.session_role = "client"
+	session.is_host = false
+	session.local_reconnect_token = ""
+	session._saved_identity = {
+		"host": {"player_id": "p_host", "reconnect_token": "host-tok"},
+		"guest": {"player_id": "p_guest", "reconnect_token": "guest-tok"},
+	}
+	assert_eq(session._hello_reconnect_token(), "guest-tok")
+	session.session_role = "host"
+	session.is_host = true
+	assert_eq(session._hello_reconnect_token(), "host-tok")
+	session.free()
+
+
+func test_guest_hello_slot_ignores_room_owner_flag() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.session_role = "client"
+	session.is_host = false
+	session.local_player_id = "p_host"
+	session.local_reconnect_token = ""
+	session.registry.players["p_host"] = {
+		"player_id": "p_host",
+		"is_host": true,
+	}
+	session._saved_identity = {
+		"host": {"player_id": "p_host", "reconnect_token": "host-tok"},
+		"guest": {"player_id": "p_guest", "reconnect_token": "guest-tok"},
+	}
+	assert_true(session.is_room_owner())
+	assert_eq(session._hello_identity_slot(), NetProtocol.IDENTITY_SLOT_GUEST)
+	assert_eq(session._hello_reconnect_token(), "guest-tok")
+	session.free()
+
+
+func test_legacy_identity_file_migrates_to_split_files() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	var user_dir := DirAccess.open("user://")
+	assert_not_null(user_dir)
+	user_dir.remove("net_identity_guest.json")
+	user_dir.remove("net_identity_host.json")
+	var legacy := FileAccess.open(NetProtocol.IDENTITY_FILE_PATH, FileAccess.WRITE)
+	assert_not_null(legacy)
+	legacy.store_string(JSON.stringify({
+		"host": {"player_id": "p_host", "reconnect_token": "legacy-host"},
+		"guest": {"player_id": "p_guest", "reconnect_token": "legacy-guest"},
+	}))
+	legacy.close()
+	var slots: Dictionary = session._read_normalized_identity_file()
+	assert_eq(String(slots.host.get("reconnect_token", "")), "legacy-host")
+	assert_eq(String(slots.guest.get("reconnect_token", "")), "legacy-guest")
+	assert_false(FileAccess.file_exists(NetProtocol.IDENTITY_FILE_PATH))
+	assert_true(FileAccess.file_exists(NetProtocol.IDENTITY_FILE_PATH_HOST))
+	assert_true(FileAccess.file_exists(NetProtocol.IDENTITY_FILE_PATH_GUEST))
+	user_dir.remove("net_identity.json")
+	user_dir.remove("net_identity_guest.json")
+	user_dir.remove("net_identity_host.json")
+	session.free()
+
+
+func test_split_identity_files_roundtrip() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session._write_identity_slot_data(NetProtocol.IDENTITY_SLOT_GUEST, {
+		"player_id": "p_guest",
+		"reconnect_token": "guest-file-tok",
+	})
+	session._write_identity_slot_data(NetProtocol.IDENTITY_SLOT_HOST, {
+		"player_id": "p_host",
+		"reconnect_token": "host-file-tok",
+	})
+	var guest_row: Dictionary = session._read_identity_slot_file(
+		NetProtocol.IDENTITY_FILE_PATH_GUEST)
+	var host_row: Dictionary = session._read_identity_slot_file(
+		NetProtocol.IDENTITY_FILE_PATH_HOST)
+	assert_eq(String(guest_row.get("reconnect_token", "")), "guest-file-tok")
+	assert_eq(String(host_row.get("reconnect_token", "")), "host-file-tok")
+	var user_dir := DirAccess.open("user://")
+	if user_dir != null:
+		user_dir.remove("net_identity_guest.json")
+		user_dir.remove("net_identity_host.json")
+	session.free()
+
+
+func test_broadcast_snapshot_does_not_restore_saved_identity() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.session_role = "client"
+	session.is_host = false
+	session._awaiting_room_accept = true
+	session.local_player_id = ""
+	session.local_reconnect_token = "guest-tok"
+	session._saved_identity = {
+		"host": {"player_id": "p_host", "reconnect_token": "host-tok"},
+		"guest": {"player_id": "p_guest", "reconnect_token": "guest-tok"},
+	}
+	watch_signals(session)
+	session._apply_client_inbound_message(NetProtocol.make_message(NetProtocol.STATE_SNAPSHOT, {
+		"room_snapshot": {
+			"phase": "playing",
+			"players": [],
+			"seats": [],
+			"mission": {},
+			"variants": {},
+		},
+	}))
+	assert_eq(session.local_player_id, "", "广播快照不得用磁盘身份填 player_id")
+	assert_eq(session.local_reconnect_token, "guest-tok")
+	assert_true(session._awaiting_room_accept)
+	assert_signal_not_emitted(session, "connection_state_changed")
+	session.free()
+
+
+func test_identity_snapshot_payload_includes_player_id() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	var guest: Dictionary = _host_playing_disconnected_guest(session, "客机")
+	var message: Dictionary = session._identity_snapshot_message(guest.player_id, "tok")
+	assert_eq(String(message.payload.get("player_id", "")), guest.player_id)
+	assert_eq(String(message.payload.get("reconnect_token", "")), "tok")
+	session.free()
+
+
+func test_targeted_identity_snapshot_finishes_room_accept() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.session_role = "client"
+	session.is_host = false
+	session._awaiting_room_accept = true
+	session.local_player_id = ""
+	session.local_reconnect_token = ""
+	watch_signals(session)
+	session._apply_client_inbound_message(NetProtocol.make_message(NetProtocol.STATE_SNAPSHOT, {
+		"player_id": "p_guest",
+		"reconnect_token": "tok",
+		"room_snapshot": {
+			"phase": "playing",
+			"players": [],
+			"seats": [],
+			"mission": {},
+			"variants": {},
+		},
+	}))
+	assert_eq(session.local_player_id, "p_guest")
+	assert_eq(session.local_reconnect_token, "tok")
+	assert_false(session._awaiting_room_accept)
+	assert_signal_emitted_with_parameters(session, "connection_state_changed",
+		["joined", "已重连房间"])
+	session.free()
+
+
+func test_drop_remote_player_emits_presence() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.is_host = true
+	session.session_role = "host"
+	var survivor_a = DataManager.get_survivor("firefighter")
+	var survivor_b = DataManager.get_survivor("hunter")
+	session.registry.create_host("房主", 7777, [
+		{"type": "human", "survivor": survivor_a},
+		{"type": "human", "survivor": survivor_b},
+	])
+	var guest: Dictionary = session.registry.add_player("客机", 3)
+	session.registry.bind_seat(1, guest.player_id, "hunter")
+	session.registry.start_match()
+	watch_signals(session)
+	session._drop_remote_player(guest.player_id, false)
+	assert_eq(String(session.registry.players[guest.player_id].connection_state),
+		"disconnected")
+	assert_signal_emitted_with_parameters(session, "player_presence_changed",
+		[guest.player_id, "disconnected", "客机", false])
+	session.free()
+
+
+func test_accept_reconnected_player_emits_presence() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	var guest: Dictionary = _host_playing_disconnected_guest(session, "客机")
+	session.registry.reconnect_player_by_token(guest.reconnect_token, 8)
+	watch_signals(session)
+	session._accept_reconnected_player(guest.player_id, guest.reconnect_token, 8)
+	assert_eq(String(session.registry.players[guest.player_id].connection_state),
+		"connected")
+	assert_signal_emitted_with_parameters(session, "player_presence_changed",
+		[guest.player_id, "connected", "客机", false])
+	session.free()
+
+
+func test_retry_room_hello_while_awaiting() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.session_role = "client"
+	session.is_host = false
+	session._awaiting_room_accept = true
+	session.local_reconnect_token = "tok"
+	assert_true(session.can_retry_room_hello())
+	assert_true(session.retry_room_hello())
+	assert_eq(session._hello_retry_attempts, 1)
+	assert_gt(session._hello_retry_at_ms, 0)
+	session._awaiting_room_accept = false
+	assert_false(session.can_retry_room_hello())
+	assert_false(session.retry_room_hello())
+	session.free()
+
+
+func test_playing_awaiting_room_already_started_schedules_hello_retry() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.session_role = "client"
+	session.is_host = false
+	session.registry.phase = "playing"
+	session._awaiting_room_accept = true
+	session._transport_connected_override = true
+	session._hello_retry_delay_ms = NetProtocol.HELLO_RETRY_INITIAL_MS
+	watch_signals(session)
+	session._apply_client_inbound_message(NetProtocol.make_message(NetProtocol.ERROR, {
+		"code": NetProtocol.ERROR_ROOM_ALREADY_STARTED,
+		"detail": "房间已开始",
+	}))
+	assert_true(session._awaiting_room_accept)
+	assert_gt(session._hello_retry_at_ms, 0)
+	assert_signal_not_emitted(session, "network_error")
+	session.free()
+
+
+func test_playing_awaiting_invalid_token_retries_when_transport_connected() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.session_role = "client"
+	session.is_host = false
+	session.registry.phase = "playing"
+	session._awaiting_room_accept = true
+	session._transport_connected_override = true
+	session._hello_used_reconnect = true
+	session._pending_nickname = "客机"
+	session.local_reconnect_token = "tok"
+	watch_signals(session)
+	session._apply_client_inbound_message(NetProtocol.make_message(NetProtocol.ERROR, {
+		"code": NetProtocol.ERROR_INVALID_TOKEN,
+		"detail": "重连凭证无效或已过期",
+	}))
+	assert_eq(session.local_reconnect_token, "tok", "对局中重连失败时应继续用原凭证重试")
+	assert_true(session._hello_used_reconnect)
+	assert_true(session._awaiting_room_accept)
+	assert_gt(session._hello_retry_at_ms, 0)
+	assert_signal_not_emitted(session, "network_error")
+	session.free()
+
+
+func test_closed_phase_invalid_token_falls_back_to_join() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.session_role = "client"
+	session.is_host = false
+	session.registry.phase = "closed"
+	session._awaiting_room_accept = true
+	session._transport_connected_override = true
+	session._hello_used_reconnect = true
+	session._pending_nickname = "v"
+	session.local_reconnect_token = "stale-tok"
+	watch_signals(session)
+	session._apply_client_inbound_message(NetProtocol.make_message(NetProtocol.ERROR, {
+		"code": NetProtocol.ERROR_INVALID_TOKEN,
+		"detail": "重连凭证无效或已过期",
+	}))
+	assert_false(session._hello_used_reconnect)
+	assert_eq(session.local_reconnect_token, "")
+	assert_eq(session._hello_reconnect_token(), "")
+	assert_true(session._awaiting_room_accept)
+	assert_signal_not_emitted(session, "network_error")
+	assert_signal_emitted_with_parameters(session, "connection_state_changed",
+		["connecting", "正在加入房间"])
+	session.free()
+
+
+func test_lobby_reconnect_unknown_token_adds_player() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.is_host = true
+	session.session_role = "host"
+	var survivor_a = DataManager.get_survivor("firefighter")
+	var survivor_b = DataManager.get_survivor("hunter")
+	session.registry.create_host("房主", 7777, [
+		{"type": "human", "survivor": survivor_a},
+		{"type": "ai", "survivor": survivor_b},
+	])
+	var before: int = session.registry.players.size()
+	session._handle_reconnect(NetProtocol.make_message(NetProtocol.RECONNECT_REQUEST, {
+		"reconnect_token": "stale-guest-token",
+		"display_name": "v",
+	}), 8)
+	assert_eq(session.registry.players.size(), before + 1)
+	var joined_id: String = session.registry.guest_player_id_for_unique_name("v")
+	assert_ne(joined_id, "")
+	assert_eq(int(session.registry.players[joined_id].peer_id), 8)
+	assert_eq(String(session.registry.players[joined_id].connection_state), "connected")
+	session.free()
+
+
+func test_lobby_reconnect_valid_token_resumes_guest() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.is_host = true
+	session.session_role = "host"
+	var survivor_a = DataManager.get_survivor("firefighter")
+	var survivor_b = DataManager.get_survivor("hunter")
+	session.registry.create_host("房主", 7777, [
+		{"type": "human", "survivor": survivor_a},
+		{"type": "ai", "survivor": survivor_b},
+	])
+	var guest: Dictionary = session.registry.add_player("客机", 3)
+	session.registry.disconnect_player(guest.player_id)
+	session._handle_reconnect(NetProtocol.make_message(NetProtocol.RECONNECT_REQUEST, {
+		"reconnect_token": guest.reconnect_token,
+		"display_name": "客机",
+	}), 8)
+	assert_eq(session.registry.players.size(), 2)
+	assert_eq(String(session.registry.players[guest.player_id].connection_state),
+		"connected")
+	assert_eq(int(session.registry.players[guest.player_id].peer_id), 8)
+	session.free()
+
+
+func test_loopback_match_start_does_not_block_guest_reclaim() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.is_host = true
+	session.session_role = "host"
+	var survivor_a = DataManager.get_survivor("firefighter")
+	var survivor_b = DataManager.get_survivor("hunter")
+	session.registry.create_host("房主", 7777, [
+		{"type": "human", "survivor": survivor_a},
+		{"type": "ai", "survivor": survivor_b},
+	])
+	var guest: Dictionary = session.registry.add_player("v", 3)
+	session.registry.bind_seat(1, guest.player_id, "hunter")
+	session.registry.start_match()
+	session.receive_loopback_client_message(NetProtocol.make_message(NetProtocol.MATCH_START, {
+		"room_snapshot": session.registry.snapshot(),
+	}))
+	assert_ne(String(session.registry.players[guest.player_id].get("reconnect_token_hash", "")),
+		"", "环回 MATCH_START 不得清掉客机凭证哈希")
+	session.registry.disconnect_player(guest.player_id)
+	session._handle_reconnect(NetProtocol.make_message(NetProtocol.RECONNECT_REQUEST, {
+		"reconnect_token": "stale-token",
+		"display_name": "v",
+	}), 8)
+	assert_eq(String(session.registry.players[guest.player_id].connection_state),
+		"connected")
+	assert_eq(int(session.registry.players[guest.player_id].peer_id), 8)
+	assert_eq(String(session.registry.seats[1].control_mode), "human")
+	session.free()
+
+
+func test_rebuild_display_world_clears_view_game() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.session_role = "client"
+	var view := Node.new()
+	view.name = "ViewGame"
+	session._view_game = view
+	session.rebuild_display_world()
+	assert_eq(session.peek_view_game(), null)
+	view.free()
+	session.free()
+
+
+func test_closed_phase_awaiting_room_already_started_retries_hello() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.session_role = "client"
+	session.is_host = false
+	session.registry.phase = "closed"
+	session._awaiting_room_accept = true
+	session._transport_connected_override = true
+	session._hello_retry_delay_ms = NetProtocol.HELLO_RETRY_INITIAL_MS
+	watch_signals(session)
+	session._apply_client_inbound_message(NetProtocol.make_message(NetProtocol.ERROR, {
+		"code": NetProtocol.ERROR_ROOM_ALREADY_STARTED,
+		"detail": "房间已开始",
+	}))
+	assert_true(session._awaiting_room_accept)
+	assert_gt(session._hello_retry_at_ms, 0)
+	assert_signal_not_emitted(session, "network_error")
+	session.free()
+
+
+func test_unbound_leave_drops_unique_disconnected_guest() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	var guest: Dictionary = _host_playing_disconnected_guest(session, "客机")
+	session._handle_leave(NetProtocol.make_message(NetProtocol.LEAVE_REQUEST, {
+		"display_name": "客机",
+	}), 8)
+	assert_eq(String(session.registry.players[guest.player_id].connection_state),
+		"disconnected")
+	assert_eq(int(session.registry.players[guest.player_id].peer_id), 0)
+	assert_eq(String(session.registry.seats[1].control_mode), "ai")
+	session.free()
+
+
+func test_unbound_peer_disconnect_does_not_drop_live_same_name() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.is_host = true
+	session.session_role = "host"
+	var survivor_a = DataManager.get_survivor("firefighter")
+	var survivor_b = DataManager.get_survivor("hunter")
+	session.registry.create_host("房主", 7777, [
+		{"type": "human", "survivor": survivor_a},
+		{"type": "human", "survivor": survivor_b},
+	])
+	var guest: Dictionary = session.registry.add_player("客机", 3)
+	session.registry.bind_seat(1, guest.player_id, "hunter")
+	session.registry.start_match()
+	session._remember_peer_display_name(8, "客机")
+	session._complete_host_peer_disconnected(8)
+	assert_eq(int(session.registry.players[guest.player_id].peer_id), 3)
+	assert_eq(String(session.registry.players[guest.player_id].connection_state),
+		"connected")
+	session.free()
+
+
+func test_unbound_peer_disconnect_drops_unique_disconnected_name() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	var guest: Dictionary = _host_playing_disconnected_guest(session, "客机")
+	session._remember_peer_display_name(8, "客机")
+	session._complete_host_peer_disconnected(8)
+	assert_eq(String(session.registry.players[guest.player_id].connection_state),
+		"disconnected")
+	assert_eq(String(session.registry.seats[1].control_mode), "ai")
+	session.free()
+
+
+func test_playing_join_reject_detail_for_unknown_name() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	_host_playing_disconnected_guest(session, "客机")
+	assert_eq(session._playing_join_reject_detail("路人"), "房间已开始（没有可认回的座位）")
+	assert_eq(session._playing_join_reject_detail("客机"), "房间已开始")
+	session.free()
+

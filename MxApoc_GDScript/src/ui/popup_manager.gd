@@ -20,12 +20,16 @@ signal block_selected(block: Variant)
 signal closed()
 
 # === 弹窗状态 ===
+enum DismissKind { NONE, CLOSE, CANCEL }
+
 var _popup_overlay: ColorRect = null
 var _popup_selected: Array = []
 var _popup_required_n: int = 0
 var _popup_min_n: int = -1
 var _popup_ok_button: Button = null
 var _popup_item_views: Array = []
+var _popup_dismiss_kind: int = DismissKind.NONE
+var _popup_dismiss_cb: Callable = Callable()
 
 var _popup_layer: CanvasLayer
 var _event_scheduler: Variant = null
@@ -57,9 +61,47 @@ func is_popup_open() -> bool:
 	return _popup_overlay != null and is_instance_valid(_popup_overlay)
 
 
+func _bind_close_button(btn: Button, callback: Callable) -> void:
+	btn.text = "关闭 (Esc)"
+	btn.pressed.connect(callback)
+	_popup_dismiss_kind = DismissKind.CLOSE
+	_popup_dismiss_cb = callback
+
+
+func _bind_cancel_button(btn: Button, callback: Callable) -> void:
+	btn.text = "取消 (C)"
+	btn.pressed.connect(callback)
+	_popup_dismiss_kind = DismissKind.CANCEL
+	_popup_dismiss_cb = callback
+
+
+func _clear_popup_dismiss() -> void:
+	_popup_dismiss_kind = DismissKind.NONE
+	_popup_dismiss_cb = Callable()
+
+
+func _input(event: InputEvent) -> void:
+	if not is_popup_open():
+		return
+	if not (event is InputEventKey) or not event.pressed or event.echo:
+		return
+	var should_dismiss := false
+	if event.keycode == KEY_ESCAPE and _popup_dismiss_kind == DismissKind.CLOSE:
+		should_dismiss = true
+	elif event.keycode == KEY_C and _popup_dismiss_kind == DismissKind.CANCEL:
+		should_dismiss = true
+	if not should_dismiss:
+		return
+	get_viewport().set_input_as_handled()
+	var cb := _popup_dismiss_cb
+	if cb.is_valid():
+		cb.call()
+
+
 # === 弹窗工具 ===
 
 func _create_modal_overlay() -> ColorRect:
+	_clear_popup_dismiss()
 	var overlay := ColorRect.new()
 	overlay.set_anchors_preset(PRESET_FULL_RECT)
 	overlay.color = Color(0, 0, 0, 0.4)
@@ -112,6 +154,7 @@ func _close_popup() -> void:
 	_popup_required_n = 0
 	_popup_ok_button = null
 	_popup_item_views.clear()
+	_clear_popup_dismiss()
 	# 旧遮罩淡出后释放：fire-and-forget，不阻塞 closed 信号时序；
 	# Tween 由 overlay 自身创建（自动绑定该节点），节点被外部释放时自动失效，无悬挂访问。
 	if overlay != null and is_instance_valid(overlay):
@@ -254,9 +297,8 @@ func show_confirm_popup(message: String) -> void:
 	hbox.add_child(yes_btn)
 
 	var no_btn := Button.new()
-	no_btn.text = "取消"
 	no_btn.custom_minimum_size = Vector2(80, 30)
-	no_btn.pressed.connect(_on_confirm_responded.bind(false))
+	_bind_cancel_button(no_btn, _on_confirm_responded.bind(false))
 	hbox.add_child(no_btn)
 
 	_finish_popup_build(overlay)
@@ -334,9 +376,8 @@ func show_card_select_popup(cards: Array, n: int, position: String, zone_labels:
 	_popup_ok_button = ok_btn
 
 	var cancel_btn := Button.new()
-	cancel_btn.text = "取消"
 	cancel_btn.custom_minimum_size = Vector2(80, 30)
-	cancel_btn.pressed.connect(_on_card_select_cancelled)
+	_bind_cancel_button(cancel_btn, _on_card_select_cancelled)
 	hbox.add_child(cancel_btn)
 
 	_finish_popup_build(overlay)
@@ -445,9 +486,8 @@ func show_target_select_area(targets: Array, n: int, zone_labels: Array = [], pr
 		_popup_ok_button = ok_btn
 
 		var cancel_btn := Button.new()
-		cancel_btn.text = "取消"
 		cancel_btn.custom_minimum_size = Vector2(80, 30)
-		cancel_btn.pressed.connect(_on_target_card_cancelled)
+		_bind_cancel_button(cancel_btn, _on_target_card_cancelled)
 		hbox.add_child(cancel_btn)
 		if preselect_all:
 			for i in range(min(targets.size(), _popup_required_n)):
@@ -548,9 +588,8 @@ func show_target_select_area(targets: Array, n: int, zone_labels: Array = [], pr
 		_popup_ok_button = ok_btn
 
 		var cancel_btn := Button.new()
-		cancel_btn.text = "取消"
 		cancel_btn.custom_minimum_size = Vector2(80, 30)
-		cancel_btn.pressed.connect(_on_entity_card_cancelled)
+		_bind_cancel_button(cancel_btn, _on_entity_card_cancelled)
 		hbox.add_child(cancel_btn)
 		if preselect_all:
 			_refresh_popup_ok_button()
@@ -610,9 +649,8 @@ func show_target_select_area(targets: Array, n: int, zone_labels: Array = [], pr
 	hbox.add_child(ok_btn)
 	_popup_ok_button = ok_btn
 	var cancel_btn := Button.new()
-	cancel_btn.text = "取消"
 	cancel_btn.custom_minimum_size = Vector2(80, 30)
-	cancel_btn.pressed.connect(_on_target_area_cancelled)
+	_bind_cancel_button(cancel_btn, _on_target_area_cancelled)
 	hbox.add_child(cancel_btn)
 	if preselect_all:
 		_refresh_popup_ok_button()
@@ -788,10 +826,9 @@ func show_card_detail_popup(card: Card) -> void:
 	vbox.add_child(view)
 
 	var ok_btn := Button.new()
-	ok_btn.text = "关闭"
 	ok_btn.custom_minimum_size = Vector2(80, 30)
 	ok_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	ok_btn.pressed.connect(_on_card_detail_closed)
+	_bind_close_button(ok_btn, _on_card_detail_closed)
 	vbox.add_child(ok_btn)
 
 	_finish_popup_build(overlay)
@@ -830,10 +867,9 @@ func show_block_detail_popup(block: Variant) -> void:
 		vbox.add_child(destroyed_title)
 		panel.size = Vector2(240, 90)
 		var d_close := Button.new()
-		d_close.text = "关闭"
 		d_close.custom_minimum_size = Vector2(80, 30)
 		d_close.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		d_close.pressed.connect(_close_popup)
+		_bind_close_button(d_close, _close_popup)
 		vbox.add_child(d_close)
 		_finish_popup_build(overlay)
 		return
@@ -861,10 +897,9 @@ func show_block_detail_popup(block: Variant) -> void:
 		vbox.add_child(om_lbl)
 		panel.size = Vector2(240, 150)
 		var u_close := Button.new()
-		u_close.text = "关闭"
 		u_close.custom_minimum_size = Vector2(80, 30)
 		u_close.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		u_close.pressed.connect(_close_popup)
+		_bind_close_button(u_close, _close_popup)
 		vbox.add_child(u_close)
 		_finish_popup_build(overlay)
 		return
@@ -958,10 +993,9 @@ func show_block_detail_popup(block: Variant) -> void:
 
 	# 关闭按钮
 	var close_btn := Button.new()
-	close_btn.text = "关闭"
 	close_btn.custom_minimum_size = Vector2(80, 30)
 	close_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	close_btn.pressed.connect(_close_popup)
+	_bind_close_button(close_btn, _close_popup)
 	vbox.add_child(close_btn)
 
 	# 尺寸根据内容自适应（粗略估算高度）
@@ -1014,11 +1048,10 @@ func show_mission_detail_popup() -> void:
 	detail.populate(mission)
 
 	var ok_btn := Button.new()
-	ok_btn.text = "关闭"
 	ok_btn.custom_minimum_size = Vector2(80, 30)
 	ok_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	HudTheme.apply_slot_button(ok_btn, 13)
-	ok_btn.pressed.connect(_close_popup)
+	_bind_close_button(ok_btn, _close_popup)
 	vbox.add_child(ok_btn)
 
 	_finish_popup_build(overlay)
@@ -1087,10 +1120,9 @@ func show_event_log_popup(event_log: Array) -> void:
 		content.add_child(empty)
 
 	var ok_btn := Button.new()
-	ok_btn.text = "关闭"
 	ok_btn.custom_minimum_size = Vector2(80, 30)
 	ok_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	ok_btn.pressed.connect(_close_popup)
+	_bind_close_button(ok_btn, _close_popup)
 	vbox.add_child(ok_btn)
 
 	_finish_popup_build(overlay)
@@ -1143,10 +1175,9 @@ func show_scavenge_discard_popup() -> void:
 			view.set_card(card)
 			grid.add_child(view)
 	var ok_btn := Button.new()
-	ok_btn.text = "关闭"
 	ok_btn.custom_minimum_size = Vector2(80, 30)
 	ok_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	ok_btn.pressed.connect(_close_popup)
+	_bind_close_button(ok_btn, _close_popup)
 	vbox.add_child(ok_btn)
 
 	_finish_popup_build(overlay)
@@ -1205,10 +1236,9 @@ func show_game_discard_popup(player: Variant = null) -> void:
 			view.set_card(card)
 			grid.add_child(view)
 	var ok_btn := Button.new()
-	ok_btn.text = "关闭"
 	ok_btn.custom_minimum_size = Vector2(80, 30)
 	ok_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	ok_btn.pressed.connect(_close_popup)
+	_bind_close_button(ok_btn, _close_popup)
 	vbox.add_child(ok_btn)
 
 	_finish_popup_build(overlay)
@@ -1267,10 +1297,9 @@ func show_monster_zone_popup(player: Variant) -> void:
 			flow.add_child(mview)
 
 	var ok_btn := Button.new()
-	ok_btn.text = "关闭"
 	ok_btn.custom_minimum_size = Vector2(80, 30)
 	ok_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	ok_btn.pressed.connect(_close_popup)
+	_bind_close_button(ok_btn, _close_popup)
 	vbox.add_child(ok_btn)
 
 	_finish_popup_build(overlay)
@@ -1438,10 +1467,9 @@ func show_equipment_zone_popup(player: Variant) -> void:
 			flow.add_child(_build_equipment_card(card, 120, 180))
 
 	var ok_btn := Button.new()
-	ok_btn.text = "关闭"
 	ok_btn.custom_minimum_size = Vector2(80, 30)
 	ok_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	ok_btn.pressed.connect(_close_popup)
+	_bind_close_button(ok_btn, _close_popup)
 	vbox.add_child(ok_btn)
 
 	_finish_popup_build(overlay)
@@ -1579,10 +1607,9 @@ func show_hand_popup(player: Variant) -> void:
 			grid.add_child(view)
 
 	var ok_btn := Button.new()
-	ok_btn.text = "关闭"
 	ok_btn.custom_minimum_size = Vector2(80, 30)
 	ok_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	ok_btn.pressed.connect(_close_popup)
+	_bind_close_button(ok_btn, _close_popup)
 	vbox.add_child(ok_btn)
 
 	_finish_popup_build(overlay)

@@ -1,6 +1,6 @@
 # NetProtocol 协议常量与消息封装
 
-> 以 `MxApoc_GDScript/src/net/net_protocol.gd` 为准（114 行）。
+> 以 `MxApoc_GDScript/src/net/net_protocol.gd` 为准。
 > `class_name NetProtocol`，`extends RefCounted`，非 autoload，**纯静态工具类**（全部方法 static）。
 > 职责：**联机协议常量、消息封装和通用校验**。网络层只传输 JSON 可表示的数据，不传递 Godot 对象引用。
 
@@ -20,6 +20,13 @@
 | `MAX_PLAYERS` | `6` | 玩家上限（ENet server 最大连接数） |
 | `HEARTBEAT_INTERVAL_MS` | `5000` | 客户端心跳间隔（5s） |
 | `HEARTBEAT_TIMEOUT_MS` | `30000` | 心跳超时（30s 判掉线） |
+| `HELLO_RETRY_INITIAL_MS` | `1000` | HELLO 首次重试间隔 |
+| `HELLO_RETRY_MAX_MS` | `4000` | HELLO 重试间隔上限 |
+| `HELLO_RETRY_MAX_ATTEMPTS` | `8` | HELLO 最多重试次数 |
+| `IDENTITY_SLOT_HOST` / `IDENTITY_SLOT_GUEST` | `"host"` / `"guest"` | 身份文件槽名 |
+| `IDENTITY_FILE_PATH` | `user://net_identity.json` | 旧单文件（迁移后删除） |
+| `IDENTITY_FILE_PATH_HOST` | `user://net_identity_host.json` | 房主身份 |
+| `IDENTITY_FILE_PATH_GUEST` | `user://net_identity_guest.json` | 客机身份 |
 
 ### 消息类型常量（协议 opcode，均 String）
 
@@ -59,7 +66,11 @@
 | `is_valid_message` | `is_valid_message(message: Variant) -> bool` | 信封合法 **且** `protocol_version == VERSION` |
 | `is_protocol_mismatch` | `is_protocol_mismatch(message: Variant) -> bool` | 信封合法但 `protocol_version != VERSION` |
 | `normalize_nickname` | `normalize_nickname(value: String) -> String` | `strip_edges()` 后超长截断到 24 字符 |
-| `parse_address` | `parse_address(value: String) -> Dictionary` | 解析 `host:port` / `[ipv6]:port`；全角冒号转半角；`localhost`→`127.0.0.1`；成功返回 `{ok:true, host, port}`，失败 `{ok:false, error}` |
+| `parse_address` | `parse_address(value: String) -> Dictionary` | 解析 `host:port` / `[ipv6]:port`；全角冒号转半角；`localhost`→`127.0.0.1`；成功 `{ok:true, host, port}`，失败 `{ok:false, error}` |
+| `resolve_host` | `resolve_host(host: String) -> Dictionary` | 纯 IP 不走 DNS；否则 `IP.resolve_hostname`（先 IPv4）；成功 `{ok:true, ip}` |
+| `identity_file_path_for_slot` | `identity_file_path_for_slot(slot: String) -> String` | host/guest 槽对应的 `user://` 路径 |
+| `error_text` | `error_text(code: String, detail: String = "") -> String` | 给玩家看的错误文案；`detail` 非空优先用 detail |
+| `client_create_error` | `client_create_error(result: int) -> Dictionary` | ENet `create_client` 返回码映射为协议错误 |
 
 ---
 
@@ -68,9 +79,13 @@
 **校验链**：`has_message_envelope`（形状）→ `is_valid_message`（版本）→ `is_protocol_mismatch`（版本不符触发 `ERROR_PROTOCOL_MISMATCH`）。
 
 **握手流程**：
-- 加入：客机发 `join_request`（payload 含 `display_name`）→ 房主校验 `phase=="lobby"` 与人数 → 回 `join_accepted`（`{player_id, reconnect_token, room_snapshot}`）。
-- 重连：客机发 `reconnect_request`（payload 含 `reconnect_token`）→ 房主 `reconnect_error_for_token` 校验 → 成功回带 player_id/token 的 `state_snapshot` 并广播 `player_reconnected`。
+- 客机连上后 `_send_client_hello`：本地客机槽有凭证发 `reconnect_request`（`display_name` + `reconnect_token`），否则 `join_request`（`display_name`，可选 token）。
+- 房主 `_try_resume_player`：token 命中且非误用房主凭证 → 认回；否则**唯一非房主同名**认回并签发新 token。
+- 大厅未命中：`reconnect_request` 改走 `_handle_join` / `add_player`，回 `join_accepted`。
+- 对局未命中：`INVALID_TOKEN` 或 `ROOM_ALREADY_STARTED`。菜单等待中收到 `INVALID_TOKEN` 时客机清凭证改发 `join_request`。
+- 认回成功：带 `player_id` / `reconnect_token` 的 `state_snapshot`，并广播 `player_reconnected`。
 - 退出：`leave_request`。
+- HELLO 失败且传输仍在：1s 起指数退避到 4s，最多 8 次。
 
 ---
 
@@ -78,7 +93,7 @@
 
 | 关系 | 说明 |
 | --- | --- |
-| [NetSession](./NetSession.md) | 大量引用：`make_message` / 校验 / 消息类型 / 错误码 / 心跳常量 |
+| [NetSession](./NetSession.md) | `make_message` / 校验 / 消息类型 / 错误码 / 心跳与 HELLO 常量 / 身份路径 / `resolve_host` / `error_text` |
 | [NetRegistry](./NetRegistry.md) | `DEFAULT_PORT` / `MAX_SEATS` / `VERSION` / `normalize_nickname` / 错误码 |
 | [NetPlayerInput](./NetPlayerInput.md) / [NetClientInput](./NetClientInput.md) | `input_request` / `input_response` 判定 |
-| UI（game_room / join_room_overlay / room_state） | 昵称规范化、`parse_address`、错误码文案映射 |
+| UI（game_room / join_room_overlay / room_state） | 昵称规范化、`parse_address`、`error_text` |

@@ -1,6 +1,6 @@
 # NetSession 网络会话
 
-> 以 `MxApoc_GDScript/src/net/net_session.gd` 为准（约 1101 行）。
+> 以 `MxApoc_GDScript/src/net/net_session.gd` 为准。
 > 注册为 autoload 单例，全局名 `NetSession`，`extends Node`，无 `class_name`。
 > 职责：**房主权威网络会话**。所有业务数据经 `receive_message()` 进入同一校验入口；持有 ENet peer、MultiplayerAPI、房间状态注册表（`NetRegistry`）、身份持久化与心跳。
 
@@ -14,8 +14,8 @@
 - 统一封包、校验、分发消息（房主侧 `_handle_message`，客机侧 `_apply_client_inbound_message`）。
 - 持有 `NetRegistry`（房间唯一事实来源）与动态 `ServerRuntime`（对局规则运行时）。
 - 房主通过**环回客户端**自连本机，以 `client` 身份跑客机逻辑。
-- 持久化玩家身份（`user://net_identity.json`）支持重连。
-- 心跳保活与超时踢人。
+- 持久化玩家身份（`user://net_identity_host.json` / `user://net_identity_guest.json`；旧 `user://net_identity.json` 启动时迁移后删除）支持重连。
+- 心跳保活、超时踢人、HELLO 握手指数退避。
 
 角色由 `session_role`（`"none"/"host"/"client"`）+ `is_host` 分流，**同一份代码同时服务房主与客机**。
 
@@ -46,6 +46,7 @@
 | `connection_state_changed` | `state: String, detail: String` | 状态机迁移：`host` / `connecting` / `connected` / `joined` / `peer_connected` / `disconnected` / `match_started` / `closed` |
 | `message_received` | `message: Dictionary` | 客机收到合法入站消息；权威端校验通过的服务端入站消息 |
 | `network_error` | `code: String, detail: String` | 端口占用、连接失败、协议不匹配、token 失效、超时、房主关房等 |
+| `player_presence_changed` | `player_id, state, display_name, left` | 玩家断开/离开/重连；UI 用来写「AI 托管」「已重连」 |
 
 ---
 
@@ -60,8 +61,9 @@
 | `local_reconnect_token` | `String` | 本机重连凭证 |
 | `_client_sequence` | `int` | 客户端出站消息序号 |
 | `_connected_address` | `String` | 客机记住的房间地址 `host:port` |
+| `_resolved_ip` | `String` | 上次 DNS 解析得到的 IP，重连优先用缓存 |
 | `_pending_nickname` | `String` | 客机待发送昵称 |
-| `_saved_identity` | `Dictionary` | `{player_id, reconnect_token}`（来自 `user://net_identity.json`） |
+| `_saved_identity` | `Dictionary` | `{host: {player_id, reconnect_token}, guest: {...}}` |
 | `_state_snapshot_dirty` | `bool` | 对局状态快照脏标记（每帧最多一份） |
 | `_request_id_counter` | `int` | 请求 ID 计数器 |
 | `server_runtime` | `Node` | 权威运行时实例（动态创建） |
@@ -72,6 +74,10 @@
 | `_closing` | `bool` | `close_session()` 重入保护 |
 | `_awaiting_room_accept` | `bool` | 等待 JOIN_ACCEPTED / 快照确认 |
 | `_last_heartbeat_sent_ms` | `int` | 上次心跳发送时刻 |
+| `_peer_serial` | `int` | 客机 peer 世代号，用来丢掉过期断开回调 |
+| `_hello_used_reconnect` | `bool` | 本轮 hello 是否发了 `reconnect_request` |
+| `_hello_retry_at_ms` / `_hello_retry_delay_ms` / `_hello_retry_attempts` | `int` | HELLO 指数退避状态 |
+| `_peer_display_names` | `Dictionary` | 尚未绑座的 peer 带来的昵称，旁观断开时用来认人 |
 
 ---
 
@@ -82,8 +88,8 @@
 | 方法 | 签名 | 说明 |
 | --- | --- | --- |
 | `create_host` | `create_host(host_name: String, port: int, seats: Array) -> bool` | 建 ENet 监听服务器并初始化本机为房主；失败发 `ERROR_PORT_IN_USE` |
-| `join` | `join(address: String, nickname: String) -> bool` | 客机加入房间；解析地址、`create_client`、发 `connecting` |
-| `reconnect_to_last_room` | `reconnect_to_last_room() -> bool` | 对局中断线重连；保留凭证与 ViewGame，重建 ENet 客机连接 |
+| `join` | `join(address: String, nickname: String) -> bool` | 客机加入：`parse_address` + `resolve_host`、`create_client`、发 `connecting`；连上后 `_send_client_hello` |
+| `reconnect_to_last_room` | `reconnect_to_last_room() -> bool` | 对局中断线重连；保留凭证，重建 ENet；优先用缓存 IP |
 | `close_session` | `close_session() -> void` | 全量清理（停 Runtime、拆环回、清 ViewGame、关 peer、重置字段），`_closing` 防重入 |
 | `ensure_server_runtime` | `ensure_server_runtime() -> Node` | 懒创建权威运行时，挂 `/root/ServerRuntime` |
 | `has_active_server_runtime` | `has_active_server_runtime() -> bool` | 是否已有活动运行时 |
@@ -114,6 +120,7 @@
 | `peek_view_game` | `peek_view_game() -> Node` | 偷看 ViewGame（不创建） |
 | `should_enter_match_scene` | `should_enter_match_scene() -> bool` | 客机重连进对局判定（`phase=="playing"` 且无权威 Runtime 且是远端客机） |
 | `_ensure_view_game` / `_clear_view_game` | `-> Node` / `-> void` | 创建 / 销毁 ViewGame |
+| `rebuild_display_world` | `rebuild_display_world() -> void` | `_clear_view_game()`，认回后重建显示世界 |
 | `apply_display_game_snapshot` | `apply_display_game_snapshot(snapshot: Dictionary, ctx: Dictionary) -> void` | 把 `game_snapshot` 应用到 ViewGame；目标是权威 `Game` 则 `push_error` 拒绝 |
 | `commit_display_settlement_to_game` | `commit_display_settlement_to_game() -> void` | 客机结算页把 ViewGame 的 `log_list/players/current_mission/game_result/state_machine/stats_tracker` 拷回单例 `Game` |
 
@@ -135,7 +142,7 @@
 | `sync_room_config` | `sync_room_config() -> void` | 读 `/root/RoomState` 的 mission 配置写入 registry 并广播 |
 | `send_input_response` | `send_input_response(request_id: int, seat_id: int, value: Variant) -> void` | 回复输入请求，`NetInputCodec.encode(value)` |
 | `request_resync` | `request_resync() -> void` | 请求全量重同步 |
-| `leave_room` | `leave_room() -> void` | 权威关房，否则发 `LEAVE_REQUEST` 后 `close_session()` |
+| `leave_room` | `leave_room() -> void` | 权威关房（`call_deferred("close_session")`），否则发 `LEAVE_REQUEST` 后延后关会话 |
 | `_send_to_host` | `_send_to_host(message_type: String, payload: Dictionary = {}, request_id: int = -1) -> void` | **统一出站入口**：封包；有环回走 `_rpc_loopback_to_host`；`is_host` 直接 `_handle_message(message, 1)`；否则 `rpc_id(1, "receive_message", message)` |
 
 ### 5.6 权威端广播
@@ -147,7 +154,7 @@
 | `request_state_snapshot` | `request_state_snapshot() -> void` | 置脏标记，每帧合并发送一份 |
 | `has_pending_state_snapshot` | `has_pending_state_snapshot() -> bool` | 是否有待发快照 |
 | `_flush_pending_state_snapshot` | `_flush_pending_state_snapshot() -> bool` | 实际发送 `STATE_SNAPSHOT`（room_snapshot + `GameStateSerializer.snapshot(Game)`） |
-| `broadcast_input_request` | `broadcast_input_request(request_id: int, seat_id: int, owner_id: String, request_type: String, payload: Dictionary) -> void` | 权威向指定玩家定向发 `INPUT_REQUEST`；owner 无 peer_id 则 `_handoff_player_inputs`（转 AI） |
+| `broadcast_input_request` | `broadcast_input_request(request_id: int, seat_id: int, owner_id: String, request_type: String, payload: Dictionary) -> void` | 向指定玩家发 `INPUT_REQUEST`；无 peer_id 时房主座位 `_handoff_player_inputs`，客机 `_drop_remote_player` |
 | `_broadcast` / `_rpc_if_ready` / `_rpc_id_if_ready` | — | 带就绪检查的广播 / 定向 RPC |
 
 ### 5.7 RPC 消息分发（核心）
@@ -164,7 +171,8 @@
 
 | 方法 | 签名 | 说明 |
 | --- | --- | --- |
-| `_handle_join` | `_handle_join(message: Dictionary, sender_id: int) -> void` | 仅 lobby 受理；满员 → `ERROR_ROOM_FULL`；成功回 `JOIN_ACCEPTED` 并广播快照 |
+| `_handle_join` | `_handle_join(message: Dictionary, sender_id: int) -> void` | 大厅 `add_player`；对局走 `_resume_playing_join`，认不回才 `ROOM_ALREADY_STARTED`；满员 → `ROOM_FULL` |
+| `_resume_playing_join` | `_resume_playing_join(payload, sender_id) -> bool` | 对局中 join 也走 `_try_resume_player` |
 | `_handle_room_command` | `_handle_room_command(message: Dictionary, sender_id: int) -> void` | `start`（仅房主、lobby）、`bind_seat`（仅房主）、`set_survivor`（房主或座位控制者） |
 | `_handle_leave` | `_handle_leave(message: Dictionary, sender_id: int) -> void` | 房主离开 → `close_authority_room("owner_left")`；普通玩家 → `_drop_remote_player` |
 | `_handle_input_response` | `_handle_input_response(message: Dictionary, sender_id: int) -> void` | 校验 `_owns_seat` 后转发 `message_received` |
@@ -176,13 +184,20 @@
 
 | 方法 | 签名 | 说明 |
 | --- | --- | --- |
-| `_handle_reconnect` | `_handle_reconnect(message: Dictionary, sender_id: int) -> void` | 校验 token；重建绑定；对局中 `server_runtime.restore_network_inputs`；回 `STATE_SNAPSHOT` + 广播 `PLAYER_RECONNECTED` |
-| `_send_client_hello` | `_send_client_hello() -> void` | 连上后有 token 发 `RECONNECT_REQUEST`，否则发 `JOIN_REQUEST` |
-| `_on_server_disconnected` | `_on_server_disconnected() -> void` | 非权威且对局中有 token → 仅发 `disconnected` 等待重连；否则发错误并关会话 |
-| `_on_connection_failed` | `_on_connection_failed() -> void` | 发 `ERROR_CONNECT_TIMEOUT`；对局中有 token 保留会话，否则关会话 |
-| `_restore_client_identity` | `_restore_client_identity(payload: Dictionary) -> void` | 从 payload/嵌套快照/`_saved_identity` 恢复 player_id 与 token 并写盘 |
-| `_finish_room_accept` | `_finish_room_accept(detail: String) -> void` | 置 `_awaiting_room_accept=false`，发 `joined` |
-| `_load_saved_identity` / `_save_identity` / `_delete_saved_identity` | — | 身份持久化（`user://net_identity.json`） |
+| `_handle_reconnect` | `_handle_reconnect(message: Dictionary, sender_id: int) -> void` | `_try_resume_player`；大厅未命中则 `_handle_join`；对局未命中 `INVALID_TOKEN` |
+| `_try_resume_player` | `_try_resume_player(token, display_name, sender_id) -> Dictionary` | 先 token（`_guest_cannot_use_host_token` 拦误用房主凭证），再唯一非房主同名 |
+| `_accept_reconnected_player` | `_accept_reconnected_player(player_id, token, sender_id) -> void` | 对局中 `restore_network_inputs`；发身份快照（可 deferred 再发一次）；`player_reconnected` |
+| `_guest_cannot_use_host_token` | `_guest_cannot_use_host_token(player_id, sender_id) -> bool` | 非环回 peer 不得用房主 token 占房主座位 |
+| `_send_client_hello` | `_send_client_hello() -> void` | 有凭证发 `RECONNECT_REQUEST`，否则 `_send_join_hello` |
+| `_send_join_hello` | `_send_join_hello() -> void` | 发 `JOIN_REQUEST`（可附带仍有效的 token） |
+| `can_retry_room_hello` / `retry_room_hello` | `-> bool` | 仍在等待受理且未超 HELLO 次数时可手动/定时重发 |
+| `_schedule_hello_retry` / `_tick_hello_retry` | — | 1s 起指数退避到 4s，最多 8 次 |
+| `_on_server_disconnected` / `_on_connection_failed` | — | 延后 `_queue_client_disconnect`；对局中有凭证只发 `disconnected` 等重连 |
+| `_queue_client_disconnect` / `_complete_client_disconnect` | — | 带 `_peer_serial`，旧 peer 的断开回调丢弃 |
+| `_restore_client_identity` | `_restore_client_identity(payload: Dictionary) -> void` | 仅当 payload 带 `player_id`/`reconnect_token` 时写本机身份 |
+| `_finish_room_accept` | `_finish_room_accept(detail, payload) -> void` | payload 带身份，或本机座位已 `connected`+`human`，才发 `joined` |
+| `_load_saved_identity` / `_save_identity` / `_clear_reconnect_identity` | — | 分槽读写；`_migrate_legacy_identity_file` 迁旧文件 |
+| `_identity_slot` / `_hello_identity_slot` | `-> String` | 房主槽 / 客机 hello 只用 guest 槽 |
 
 ### 5.10 心跳 / 时序同步
 
@@ -197,10 +212,12 @@
 
 | 方法 | 签名 | 说明 |
 | --- | --- | --- |
-| `_on_peer_connected` / `_on_peer_disconnected` | — | 广播 `peer_connected`；断连时房主离开→关房，否则 `_drop_remote_player` |
+| `_on_peer_connected` / `_on_peer_disconnected` | — | 广播 `peer_connected`；房主侧延后 `_complete_host_peer_disconnected`（按 peer / 记住的昵称，已绑新 peer 不误踢） |
 | `_on_protocol_mismatch` | `_on_protocol_mismatch() -> void` | 权威端 `_reject(ERROR_PROTOCOL_MISMATCH)`，客机发 `network_error` |
-| `_apply_snapshot` | `_apply_snapshot(snapshot: Dictionary) -> void` | 快照同步到 registry，并镜像到 `/root/RoomState` |
+| `_apply_snapshot` | `_apply_snapshot(snapshot: Dictionary) -> void` | **`is_authority()` 时直接 return**（环回快照不得覆盖权威 token 哈希）；客机才写 registry 并镜像 `RoomState` |
 | `_emit_snapshot` | `_emit_snapshot() -> void` | 发 `session_changed` + 广播 `ROOM_SNAPSHOT` |
+| `_emit_player_presence` / `_presence_payload` | — | 发 `player_presence_changed` 与广播用 payload |
+| `_drop_peer_or_named_guest` / `_remember_peer_display_name` | — | 未绑座断开时用昵称刷新掉线 |
 
 ---
 
@@ -214,6 +231,7 @@
 - `tree.set_multiplayer(_client_api, _loopback_root)` 让环回子树走独立 API，不污染全局 multiplayer。
 - 挂载 `LoopbackRpcScript` 桩（节点名固定 `NetSession`），其 `rpc_id(1, "receive_message", message)` 承接环回 RPC。
 - 环回后的房主 `session_role` 置 `"client"`，`uses_network_view()` 为 true，**与远端客机走完全相同的客户端路径**；唯一区别是权威端多一路 `_handle_message` 处理远端 RPC。
+- 环回桩会把 `match_start` / `state_snapshot` 转进 `receive_loopback_client_message`。这些快照已去掉 `reconnect_token_hash`，因此 `_apply_snapshot` 在 `is_authority()` 时跳过，避免冲掉权威玩家表里的凭证哈希。
 
 ### 6.2 协议校验链
 
@@ -225,7 +243,11 @@
 
 ### 6.4 输入请求定向发送与掉线接管
 
-`broadcast_input_request` 只向目标 owner 的 peer 发送；若 owner 无 peer_id（掉线），直接 `_handoff_player_inputs` 把其座位转 AI，避免规则协程死等。
+`broadcast_input_request` 只向目标 owner 的 peer 发送；若 owner 无 peer_id（掉线），房主座位 `_handoff_player_inputs` 转 AI，客机 `_drop_remote_player`，避免规则协程死等。
+
+### 6.5 握手认座与 HELLO 重试
+
+连上后 `_send_client_hello`：本地客机槽有凭证则发 `reconnect_request`，否则 `join_request`。权威 `_try_resume_player` 先对 token（客机不得用房主凭证占房主座），再按**唯一非房主同名**认回并签发新 token。大厅认不回则 `_handle_join` 加人；对局认不回才拒。菜单等待期间收到 `INVALID_TOKEN` 会清凭证改发加入。传输仍在时 HELLO 按 1s→4s 指数退避，最多 8 次。认回后 `restore_network_inputs` 把 AI 换回 `NetworkPlayerInput`；若当前回合 `wait_player_action` 刚被 AI abort 成 null，座位输入已换回则继续等客机，不结束回合。客机 UI 再 `rebuild_display_world` 进对局。
 
 ---
 

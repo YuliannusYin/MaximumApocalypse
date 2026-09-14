@@ -49,9 +49,9 @@
 
 | 消息类型 | 方向 | 用途 |
 | --- | --- | --- |
-| `join_request` | 客机→房主 | 加入房间（payload 含 `display_name`） |
+| `join_request` | 客机→房主 | 加入房间（payload 含 `display_name`，可选 `reconnect_token`） |
 | `join_accepted` | 房主→客机 | 回发 `player_id` / `reconnect_token` / `room_snapshot` |
-| `reconnect_request` | 客机→房主 | 用 token 重连 |
+| `reconnect_request` | 客机→房主 | 重连（payload 含 `display_name` 与可选 `reconnect_token`） |
 | `room_snapshot` | 房主→全员 | 大厅状态广播 |
 | `room_command` | 客机→房主 | 房间命令：`start` / `bind_seat` / `set_survivor` |
 | `input_request` | 房主→指定客机 | 定向输入请求（action/选牌/选目标/confirm 等） |
@@ -78,8 +78,12 @@
   └─ ENet create_server + registry.create_host()
       └─ _enter_host_loopback()：第二个 MultiplayerAPI 自连 127.0.0.1
 客机 join(address, nickname)
-  └─ 解析地址 → create_client → 发 join_request
-房主 _handle_join → registry.add_player → 回 join_accepted + 广播 room_snapshot
+  └─ parse_address → resolve_host（域名走 DNS，纯 IP 直连）→ create_client
+  └─ 连上后 _send_client_hello：本地有客机凭证发 reconnect_request，否则 join_request
+房主 _handle_reconnect / _handle_join
+  └─ 大厅：token/唯一昵称认回，否则 add_player
+  └─ 对局：token → 唯一非房主同名认座；认不回则 ROOM_ALREADY_STARTED / INVALID_TOKEN
+  └─ 成功回 join_accepted 或带身份的 state_snapshot，并广播 room_snapshot
 ```
 
 ### 4.2 开局
@@ -123,10 +127,16 @@
 
 ```
 客机 每 5s 发 heartbeat；房主 30s 未活跃的真人玩家 → _drop_remote_player（座位转 AI）
-客机对局中断线 → _on_server_disconnected 保留会话等待重连
-  └─ reconnect_to_last_room()：保留 token 与 ViewGame，重建 ENet 客机连接
-        └─ 发 reconnect_request → 房主校验 token → restore_network_inputs（AI 换回真人输入）
-        └─ 回 state_snapshot + 广播 player_reconnected
+客机对局中断线 → 延后 _complete_client_disconnect（按 _peer_serial 忽略过期回调），保留会话
+  └─ reconnect_to_last_room()：保留凭证，重建 ENet；HELLO 指数退避（1s→4s，最多 8 次）
+        └─ 发 reconnect_request（display_name + token）
+        └─ 房主 _try_resume_player：token（不可误用房主凭证）→ 唯一非房主同名
+              └─ 命中：restore_network_inputs（AI 换回真人）+ 身份快照 + player_reconnected
+              └─ 大厅未命中：改走 _handle_join 加人
+              └─ 对局未命中：INVALID_TOKEN；菜单侧清凭证后改发 join_request
+        └─ 客机认回成功后 rebuild_display_world（清 ViewGame 再进对局）
+房主 peer 拆除延后按 peer_id / 记住的昵称查找，已绑到新 peer 则不误踢
+权威环回收到 match_start / state_snapshot 时 _apply_snapshot 若 is_authority 则跳过，不覆盖 token 哈希
 ```
 
 ---

@@ -1771,3 +1771,51 @@ func test_player_zone_arrays_are_instance_unique() -> void:
 	assert_false(is_same(a.equipment_zone, b.equipment_zone), "装备区不应共享默认数组")
 	a.monster_zone.append(Monster.new())
 	assert_eq(b.monster_zone.size(), 0, "往 A 的怪物区追加不应影响 B")
+
+
+func test_should_retry_wait_action_after_network_restore() -> void:
+	var p: Player = _make_combat_player()
+	p.is_ai = false
+	var ai := AIPlayerInput.new()
+	p.input = ai
+	assert_false(p._should_retry_wait_action_after_null(ai), "输入没换时不应重试")
+	var net := NetworkPlayerInput.new()
+	p.input = net
+	assert_true(p._should_retry_wait_action_after_null(ai), "交回 NetworkPlayerInput 应再等操作")
+	assert_false(p._should_retry_wait_action_after_null(net), "同一输入返回 null 仍结束回合")
+	p.is_ai = true
+	assert_false(p._should_retry_wait_action_after_null(ai), "仍标 AI 时不重试")
+	net.detach()
+
+
+func test_wait_player_action_retries_after_ai_abort_restore() -> void:
+	var p: Player = _make_combat_player()
+	p.is_ai = true
+	var restored := _RetryNetworkInput.new()
+	var aborting := _AbortAndSwapInput.new()
+	aborting.next_input = restored
+	p.input = aborting
+	var result: Dictionary = await p.wait_player_action()
+	assert_gt(restored.calls, 0, "交还操作权后应再次 wait_action")
+	assert_eq(String(result.get("reason", "")), "cancelled")
+	restored.detach()
+
+
+class _AbortAndSwapInput extends IPlayerInput:
+	var next_input: IPlayerInput = null
+
+	func wait_action(player: Variant) -> Variant:
+		if player != null:
+			player.is_ai = false
+			player.input = next_input
+		return null
+
+
+class _RetryNetworkInput extends NetworkPlayerInput:
+	var calls: int = 0
+
+	func wait_action(_player: Variant) -> Variant:
+		calls += 1
+		if calls == 1:
+			return {"type": "end_turn"}
+		return null

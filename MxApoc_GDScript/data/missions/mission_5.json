@@ -92,11 +92,11 @@
     { "component": "add_van_fuel", "params": { "block_name": "面包车", "card_name": "燃料", "count": 3 } }
   ],
   "triggers": [
-    { "component": "mark_enter_reward", "params": { "rewards": { "mark_1": { "cards": { "满是灰尘的日记本": 1 }, "draw_boss": true } } } },
+    { "component": "mark_enter_reward", "params": { "rewards": { "mark_1": { "cards": { "满是灰尘的日记本": 1 }, "draw_boss": true, "set_flags": ["diary_found"] } } } },
     { "component": "turn_countdown", "params": { "rounds": 3, "expire_kill_outside": "面包车" } }
   ],
   "progress_conditions": [
-    { "text": "找到\"满是灰尘的日记本\"", "type": "hold_items", "params": { "card_name": "满是灰尘的日记本", "count": 1 } },
+    { "text": "找到\"满是灰尘的日记本\"", "type": "state_flag", "params": { "key": "diary_found" } },
     { "text": "解除\"电厂\"上的炸弹", "type": "state_flag", "params": { "key": "bomb_defused" } },
     { "text": "给\"面包车\"添加\"燃料\"", "type": "state_count", "params": { "key": "van_fuel", "target": 3 } },
     { "text": "回合结束时，所有存活玩家在地图块\"面包车\"上，且\"面包车\"上没有任何怪物，就获得胜利", "type": "all_at_block", "params": { "block_name": "面包车", "no_monster": true } }

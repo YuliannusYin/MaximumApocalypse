@@ -1,6 +1,6 @@
 # NetRegistry 房间注册表
 
-> 以 `MxApoc_GDScript/src/net/net_registry.gd` 为准（约 332 行）。
+> 以 `MxApoc_GDScript/src/net/net_registry.gd` 为准。
 > `class_name NetRegistry`，`extends RefCounted`，非 autoload——由 `NetSession` 实例化持有。
 > 职责：**房主权威侧的"唯一事实来源"**——房间信息、玩家、座位、阶段、序号、token。所有大厅/房间状态变更先写 registry，再经 `NetSession` 广播快照。
 
@@ -63,9 +63,13 @@
 | `is_player_live_bound` | `is_player_live_bound(player_id: String) -> bool` | 是否仍有活跃连接绑定（`peer_id > 1`） |
 | `convert_unbound_human_to_ai` | `convert_unbound_human_to_ai(player_id: String) -> void` | 无绑定真人转 AI：断开 + 座位改 `ai` |
 | `room_owner_player_id` | `room_owner_player_id() -> String` | 找 `is_host==true` 的玩家 |
-| `reconnect_player_by_token` | `reconnect_player_by_token(token: String, peer_id: int) -> String` | 校验 token 后恢复玩家连接并把座位改回 `human`；返回 player_id 或空 |
+| `reconnect_player_by_token` | `reconnect_player_by_token(token: String, peer_id: int) -> String` | 校验 token 后恢复连接并把座位改回 `human`；返回 player_id 或空 |
+| `reconnect_guest_by_unique_name` | `reconnect_guest_by_unique_name(display_name: String, peer_id: int) -> Dictionary` | 按**唯一非房主同名**认回（可已 connected）；座位改 `human` 并签发新 token；无哈希也可认 |
+| `reconnect_disconnected_by_unique_name` | `reconnect_disconnected_by_unique_name(display_name, peer_id) -> Dictionary` | 现等于 `reconnect_guest_by_unique_name` |
+| `guest_player_id_for_unique_name` | `guest_player_id_for_unique_name(display_name: String) -> String` | 恰好一名非房主同名则返回 id，重名或没有则空 |
+| `disconnected_player_id_for_unique_name` | `disconnected_player_id_for_unique_name(display_name: String) -> String` | 同上且须 `connection_state=="disconnected"` |
 | `player_id_for_token` | `player_id_for_token(token: String) -> String` | 遍历 players 比对 token 哈希 |
-| `can_reconnect` | `can_reconnect(player_id: String) -> bool` | 是否有未过期的重连 token |
+| `can_reconnect` | `can_reconnect(player_id: String) -> bool` | 该玩家是否仍有 token 哈希（昵称认回不依赖此项） |
 | `reconnect_error_for_token` | `reconnect_error_for_token(token: String) -> String` | 返回 `ERROR_INVALID_TOKEN` / `ERROR_TOKEN_EXPIRED` / 空串 |
 | `bind_seat` | `bind_seat(seat_id: int, controller_id: String, survivor_id: String, is_ai: bool = false) -> bool` | 大厅绑座：校验阶段/下标/玩家存在/幸存者唯一；写座位并 `settings_revision += 1` |
 | `set_seat_survivor` | `set_seat_survivor(seat_id: int, survivor_id: String) -> bool` | 选角色：查重，空 survivor 则 `is_ready=false` |
@@ -76,7 +80,7 @@
 | `next_server_sequence` | `next_server_sequence() -> int` | 服务器序号自增并返回 |
 | `snapshot` | `snapshot(include_tokens: bool = false) -> Dictionary` | 生成房间快照 |
 
-**私有方法**：`_set_seats`（按配置建座位）、`_rebuild_player_seat_ids`（重算玩家 `seat_ids`）、`_make_token`（`"%s-%s-%s" % [randi(), ticks_usec, randi()]`）、`_hash_token`（`Marshalls.utf8_to_base64(token.sha256_text())`，**只存哈希不存明文**）、`_player_has_human_seat`。
+**私有方法**：`_set_seats`、`_rebuild_player_seat_ids`、`_mark_player_connected`（写 peer、`connected`、座位改 `human`）、`_make_token`、`_hash_token`（SHA256 后 base64，**只存哈希不存明文**）、`_player_has_human_seat`。
 
 ---
 
@@ -101,9 +105,11 @@
 
 ## 六、关键业务逻辑
 
-- **token 只存哈希**：`_hash_token` 用 SHA256 后 base64，杜绝明文泄露；重连时 `reconnect_player_by_token` 比对哈希。
+- **token 只存哈希**：`_hash_token` 用 SHA256 后 base64；`reconnect_player_by_token` 比对哈希。
+- **唯一昵称认座**：`guest_player_id_for_unique_name` 只认恰好一名非房主同名；命中后 `_mark_player_connected` 并把座位改回 `human`，同时签发新 token。重名则不认，避免抢错座位。
 - **开局移交**：`clear_live_peer` 清掉 listener 座位上的旧 peer 1，使房主可经环回以新连接身份回归。
 - **掉线即转 AI**：`disconnect_player` / `convert_unbound_human_to_ai` 让失联座位由 AI 接管，规则不停摆。
+- **快照不含哈希**：`snapshot()` 擦掉 `reconnect_token_hash`。权威端不得用这份快照覆盖自己的 `players`（见 [NetSession.md](./NetSession.md) `_apply_snapshot`）。
 
 ---
 

@@ -2279,11 +2279,15 @@ func wait_player_action(_operation_context: Dictionary = {}) -> Dictionary:
 		if not get_operation_context().is_empty() and get_effective_action_count() <= 0:
 			result["reason"] = "budget_exhausted"
 			break
+		var input_before: Variant = input
 		var choice: Variant = await input.wait_action(self)
 		if is_match_over():
 			result["reason"] = "cancelled"
 			break
 		if choice == null:
+			var retry := _should_retry_wait_action_after_null(input_before)
+			if retry:
+				continue
 			result["reason"] = "cancelled"
 			break  # 结束回合
 		if typeof(choice) == TYPE_DICTIONARY:
@@ -2296,6 +2300,15 @@ func wait_player_action(_operation_context: Dictionary = {}) -> Dictionary:
 	result["consumed_actions"] = int(get_operation_context().get("consumed_actions", result["consumed_actions"]))
 	result["remaining_actions"] = get_effective_action_count() if not get_operation_context().is_empty() else result["remaining_actions"]
 	return result
+
+
+## AI 托管 abort 后若座位已交回 NetworkPlayerInput，继续等客机操作，不结束回合。
+func _should_retry_wait_action_after_null(input_before: Variant) -> bool:
+	if is_ai or input == null or not is_instance_valid(input):
+		return false
+	if input == input_before:
+		return false
+	return input is NetworkPlayerInput
 
 
 ## 所有 UI/CLI 玩家意图的统一领域分发入口。
