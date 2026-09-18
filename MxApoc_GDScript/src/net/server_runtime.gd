@@ -401,6 +401,7 @@ func _relay_damage_taken(target: Variant, source: Variant, amount: int) -> void:
 		shake = source.get("monster_type") != null
 	_broadcast_visual("player_damage_feedback", {
 		"seat_id": _seat_of(target),
+		"body_id": _body_id_of(target),
 		"amount": amount,
 		"shake": shake,
 	})
@@ -409,6 +410,7 @@ func _relay_damage_taken(target: Variant, source: Variant, amount: int) -> void:
 func _relay_hp_recovered(player: Variant, amount: int) -> void:
 	_broadcast_visual("player_heal_feedback", {
 		"seat_id": _seat_of(player),
+		"body_id": _body_id_of(player),
 		"amount": amount,
 	})
 
@@ -417,6 +419,7 @@ func _relay_hunger_changed(player: Variant, _old_value: int, _new_value: int) ->
 	_relay_player_state_changed(player)
 	_broadcast_visual("player_hunger_feedback", {
 		"seat_id": _seat_of(player),
+		"body_id": _body_id_of(player),
 	})
 
 
@@ -428,10 +431,25 @@ func _relay_action_consumed(player: Variant, _num: int) -> void:
 
 
 func _seat_of(entity: Variant) -> int:
-	if entity == null or not is_instance_valid(entity) or not entity.has_method("get"):
+	if entity == null or not is_instance_valid(entity):
 		return -1
-	var seat_value: Variant = entity.get("seat_number")
+	var seat_holder: Variant = entity
+	if entity.has_method("get_seat_player"):
+		var resolved: Variant = entity.get_seat_player()
+		if resolved != null and is_instance_valid(resolved):
+			seat_holder = resolved
+	if seat_holder == null or not seat_holder.has_method("get"):
+		return -1
+	var seat_value: Variant = seat_holder.get("seat_number")
 	return int(seat_value) if seat_value != null else -1
+
+
+func _body_id_of(entity: Variant) -> String:
+	if entity == null or not is_instance_valid(entity):
+		return ""
+	if entity.has_method("is_companion_body") and entity.is_companion_body():
+		return str(entity.get("english_name"))
+	return ""
 
 
 func _block_mark_key(block: Variant) -> String:

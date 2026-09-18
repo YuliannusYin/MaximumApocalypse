@@ -101,11 +101,11 @@
 | `_bind_visual_relay` / `_unbind_visual_relay` | — | 去重连接 / 断开 |
 | `_relay_game_over` | `_relay_game_over(result: int) -> void` | 广播 `game_over`（含 `_authority_stats_payload()` 与 `_authority_logs_payload()`），随后 `NetSession.return_match_to_lobby()` + `request_state_snapshot()` |
 | `_relay_block_mark_changed` | `_relay_block_mark_changed(block: Variant) -> void` | 与 `_last_monster_mark_counts` 对比，仅在计数变化时发 `block_mark_pulse`（含 `increased` 标志） |
-| `_relay_damage_taken` | `_relay_damage_taken(target, source, amount) -> void` | 附带 `shake`（来源为怪物则抖动反馈） |
+| `_relay_damage_taken` | `_relay_damage_taken(target, source, amount) -> void` | 附带 `shake`（来源为怪物则抖动反馈）与 `body_id`（子生命体为 `english_name`，否则空串） |
 | `_broadcast_visual` | `_broadcast_visual(event_name: String, payload: Dictionary) -> void` | 委托 `NetSession.broadcast_game_event()` |
-| `_seat_of` / `_block_mark_key` / `_monster_mark_count` / `_find_monster_holder` / `_authority_stats_payload` / `_authority_logs_payload` / `_seed_match` / `_registry` | — | 辅助方法 |
+| `_seat_of` / `_body_id_of` / `_block_mark_key` / `_monster_mark_count` / `_find_monster_holder` / `_authority_stats_payload` / `_authority_logs_payload` / `_seed_match` / `_registry` | — | 辅助方法。`_seat_of` 经 `get_seat_player()` 解析双子身体到座位号 |
 
-其他 `_relay_*`（turn_started / phase_changed / monster_died_feedback / monster_spawned / player_state_changed / player_damage_feedback / player_heal_feedback / player_hunger_feedback / player_action_feedback 等）把本地事件转成**最小化视觉负载**（多含 `seat_id` 或坐标）经 `_broadcast_visual()` 发到网络。
+其他 `_relay_*`（turn_started / phase_changed / monster_died_feedback / monster_spawned / player_state_changed / player_damage_feedback / player_heal_feedback / player_hunger_feedback / player_action_feedback 等）把本地事件转成**最小化视觉负载**（多含 `seat_id` / `body_id` 或坐标）经 `_broadcast_visual()` 发到网络。
 
 ---
 

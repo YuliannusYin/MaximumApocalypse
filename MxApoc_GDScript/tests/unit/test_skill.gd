@@ -2,6 +2,8 @@ extends TestBase
 
 ## Skill 单元测试。
 
+var _saved_view_game: Node = null
+
 
 func test_default_fields() -> void:
 	var s: Skill = Skill.new()
@@ -160,3 +162,81 @@ func test_no_residual_on_card_enter_leave_equipment_in_survivors() -> void:
 	for expected in expected_files:
 		assert_true(found_files.has(expected), "应遍历到 survivor 文件: " + expected)
 	assert_eq(found_files.size(), 6, "应共遍历到 6 个 survivor 文件")
+
+
+func after_each() -> void:
+	if NetSession != null:
+		NetSession._view_game = _saved_view_game
+	_saved_view_game = null
+	super.after_each()
+
+
+func before_each() -> void:
+	super.before_each()
+	_saved_view_game = NetSession._view_game if NetSession != null else null
+
+
+func _attach_view_game() -> Node:
+	var view: Node = load("res://src/game/game.gd").new()
+	view.name = "ViewGame"
+	add_child_autofree(view)
+	NetSession._view_game = view
+	return view
+
+
+func test_execute_filter_uses_view_game_for_display_player() -> void:
+	var view: Node = _attach_view_game()
+	var p: Player = _make_player()
+	view.players = [p]
+	view.red_scavenge_pile = Pile.new()
+	view.red_scavenge_pile.add(_make_scavenge_card("scrap", "red"))
+	Game.red_scavenge_pile = null
+	Game.green_scavenge_pile = null
+	Game.blue_scavenge_pile = null
+	var captured: Array = []
+	var s: Skill = Skill.new()
+	s.filter = func(_p, _t, _e, g) -> bool:
+		captured.append(g)
+		return g != null and g.has_method("has_scavenge_cards") and g.has_scavenge_cards()
+	assert_true(s.execute_filter(p, EventSystem.create_event()), "显示世界有拾荒牌时 filter 应通过")
+	assert_eq(captured.size(), 1)
+	assert_eq(captured[0], view, "filter 第四参应为 ViewGame")
+	assert_false(Game.has_scavenge_cards(), "autoload Game 牌堆应仍为空")
+
+
+func test_execute_filter_uses_authority_game_for_authority_player() -> void:
+	var view: Node = _attach_view_game()
+	var display_p: Player = _make_player("display")
+	var auth_p: Player = _make_player("auth")
+	view.players = [display_p]
+	Game.players = [auth_p]
+	var captured: Array = []
+	var s: Skill = Skill.new()
+	s.filter = func(_p, _t, _e, g) -> bool:
+		captured.append(g)
+		return true
+	assert_true(s.execute_filter(auth_p, EventSystem.create_event()))
+	assert_eq(captured.size(), 1)
+	assert_eq(captured[0], Game, "权威玩家 filter 第四参应仍为 Game")
+
+
+func test_execute_content_stays_on_authority_game() -> void:
+	var view: Node = _attach_view_game()
+	var p: Player = _make_player()
+	view.players = [p]
+	var captured: Array = []
+	var s: Skill = Skill.new()
+	s.content = func(_p, _t, _e, g) -> void:
+		captured.append(g)
+	s.execute_content(p, EventSystem.create_event())
+	assert_eq(captured, [Game], "content 即使演员在 ViewGame 上第四参仍为 Game")
+
+
+func test_execute_confirm_prompt_uses_view_game() -> void:
+	var view: Node = _attach_view_game()
+	var p: Player = _make_player()
+	view.players = [p]
+	var s: Skill = Skill.new()
+	s.confirm_prompt = func(_p, _t, _e, g) -> String:
+		return "view" if g == view else "authority"
+	assert_eq(s.execute_confirm_prompt(p), "view", "confirm_prompt 第四参应为 ViewGame")

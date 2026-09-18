@@ -91,6 +91,19 @@ static func encode(value: Variant) -> Variant:
 			"id": _string_property(value, "english_name"),
 			"skill_name": _string_property(value, "skill_name"),
 		}
+	if value.has_method("is_companion_body") and value.is_companion_body():
+		var seat_player: Variant = value.get_seat_player() \
+				if value.has_method("get_seat_player") else null
+		var seat_id := -1
+		if seat_player != null and is_instance_valid(seat_player) \
+				and "seat_number" in seat_player:
+			seat_id = int(seat_player.seat_number)
+		return {
+			"__kind": "companion",
+			"net_id": net_id,
+			"seat_id": seat_id,
+			"body_id": _string_property(value, "english_name"),
+		}
 	if value is Player:
 		var role_english_name := ""
 		var role_card: Variant = value.get("role_card")
@@ -151,6 +164,21 @@ static func _find_live_monster(value: Dictionary, game: Variant) -> Variant:
 					or zone_index >= player.monster_zone.size():
 				continue
 			return player.monster_zone[zone_index]
+	return null
+
+
+static func _find_companion(value: Dictionary, game: Variant) -> Variant:
+	if game == null:
+		return null
+	var seat_id := int(value.get("seat_id", -1))
+	var body_id := String(value.get("body_id", value.get("id", "")))
+	if seat_id < 0 or body_id.is_empty():
+		return null
+	for player in game.players:
+		if player == null or int(player.seat_number) != seat_id:
+			continue
+		if player.has_method("get_body"):
+			return player.get_body(body_id)
 	return null
 
 
@@ -227,6 +255,11 @@ static func decode(value: Variant, game: Variant = null) -> Variant:
 			for player in game.players:
 				if int(player.seat_number) == int(value.get("seat_id", -1)):
 					return player
+		"companion":
+			var companion: Variant = _find_companion(value, game)
+			if companion != null:
+				return companion
+			return value
 		"block":
 			return game.get_block_by_coord(int(value.get("x", 0)), int(value.get("y", 0)))
 		"card":

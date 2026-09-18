@@ -42,9 +42,9 @@
 | `player` | 触发技能的实体 |
 | `target` | 当前事件的目标（取自 `EventSystem.get_field(event, "target", null)`，无则 `null`） |
 | `event` | 事件对象（见 §2 event schema） |
-| `Game` | 全局 Game 单例（autoload） |
+| `game` | 当前求值世界：filter 跟演员所属世界，content 为权威 autoload `Game` |
 
-- `execute_filter` 内部以 `filter.call(player, EventSystem.get_field(event, "target", null), event, Game)` 调用
+- `execute_filter` 内部以 `filter.call(player, EventSystem.get_field(event, "target", null), event, world)` 调用（`world` 见 [Skill.md §1.4](../Common/Skill.md)）
 - `execute_content` 内部以 `await content.call(player, EventSystem.get_field(event, "target", null), event, Game)` 调用
 - 详见 [Skill.md §1.4](../Common/Skill.md)
 

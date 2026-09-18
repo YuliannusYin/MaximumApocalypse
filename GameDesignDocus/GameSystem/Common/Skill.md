@@ -73,13 +73,13 @@
 | `player` | 触发技能的实体（主动技能与玩家侧触发技能为玩家；怪物侧为怪物） |
 | `target` | 当前事件的目标（取自 `EventSystem.get_field(event, "target", null)`，无则 `null`） |
 | `event` | 事件对象（结构随流程类型变化，见 [EventSystem.md](../Core/EventSystem.md)） |
-| `Game` | 全局 Game 单例（autoload） |
+| `game` | 当前求值世界：`execute_filter` / `execute_confirm_prompt` 跟演员所属世界（ViewGame 上的玩家或其 `bodies` 拿显示 Game，否则 autoload `Game`）；`execute_content` 始终为权威 autoload `Game` |
 
-- `execute_filter(player, event)` 内部以 `filter.call(player, EventSystem.get_field(event, "target", null), event, Game)` 调用
+- `execute_filter(player, event)` 内部以 `filter.call(player, EventSystem.get_field(event, "target", null), event, world)` 调用，`world` 由 `_world_of(player)` 解析
 - `execute_content(player, event)` 内部以 `await content.call(player, EventSystem.get_field(event, "target", null), event, Game)` 调用
 - 执行前若 `event` 无 `actions`，注入 `GameActions.new(player, Game, Game.event_scheduler)`；结束后 `flush` 并擦除
 - `content` 代码可通过 `EventSystem.cancel(event)` 取消事件；新内容用 `actions.*` 做嵌套操作（CodeExecutor 自动 await）
-- `execute_confirm_prompt(player)` 内部以 `confirm_prompt.call(player, null, {}, Game)` 调用
+- `execute_confirm_prompt(player)` 内部以 `confirm_prompt.call(player, null, {}, world)` 调用，`world` 同 filter
 
 ### 1.5 复合触发
 
@@ -111,7 +111,7 @@
 |------|------|------|
 | `execute_filter(player: Variant, event: Variant) -> bool` | `player` 触发技能的实体；`event` 为 Dictionary 或 `GameEvent` | `filter` 返回值；`filter` 无效时返回 `true` |
 
-- 内部以四参调用 `filter.call(player, EventSystem.get_field(event, "target", null), event, Game)`
+- 内部以四参调用 `filter.call(player, EventSystem.get_field(event, "target", null), event, world)`，`world` 为 `_world_of(player)`（显示世界演员拿 ViewGame，否则 autoload `Game`）
 
 ---
 
@@ -138,7 +138,7 @@
 |------|------|------|
 | `execute_confirm_prompt(player: Variant) -> String` | `player` 触发技能的实体 | 提示文本；`confirm_prompt` 无效时返回 `""` |
 
-- 内部以四参调用 `confirm_prompt.call(player, null, {}, Game)`
+- 内部以四参调用 `confirm_prompt.call(player, null, {}, world)`，`world` 同 `execute_filter`
 
 ---
 

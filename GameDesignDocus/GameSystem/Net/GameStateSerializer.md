@@ -23,7 +23,7 @@
 | --- | --- | --- |
 | `snapshot` | `static func snapshot(game: Variant) -> Dictionary` | **序列化入口**：权威 `Game` 全量快照 |
 | `apply` | `static func apply(game: Variant, snapshot: Dictionary, ctx: Dictionary) -> void` | **反序列化入口**：原位应用快照到 `game` |
-| `find_by_net_id` | `static func find_by_net_id(game: Variant, net_id: int) -> Variant` | 按 net_id 线性查找实体（玩家/手牌/装备/怪物/牌堆/地块） |
+| `find_by_net_id` | `static func find_by_net_id(game: Variant, net_id: int) -> Variant` | 按 net_id 线性查找实体（玩家/子生命体/手牌/装备/怪物/牌堆/地块） |
 | `apply_display_limited_action` | `static func apply_display_limited_action(player: Variant, remaining_actions: int) -> void` | 迷你回合预算写入 `_operation_context_stack`（`remaining_actions < 0` 清除；不得写正式 `action_count`） |
 
 ---
@@ -48,8 +48,15 @@
   "in_phase", "action_count", "max_action_count", "limited_remaining_actions",
   "is_ai", "alive", "current_block": {x,y},
   "hand": Array[卡牌行], "equipment": Array[装备行], "discard": Array[卡牌行],
-  "game_deck": int, "monsters": Array[怪物行], "is_front_side": bool, "marks": Array }
+  "game_deck": int, "monsters": Array[怪物行], "is_front_side": bool, "marks": Array,
+  "bodies": Array[身体行] }
 ```
+
+普通求生者 `bodies` 为空数组。老兵与狗等双子座位每项：
+
+`{ "net_id", "english_name", "hp", "max_hp", "hunger", "alive", "is_front_side", "marks" }`。
+
+`marks` 只含身体上的标记（如 `hunger_damage_level`）；座位级标记仍在玩家行 `marks`。`apply` 若座位尚无 `bodies`，用该座 survivor 调 `setup_companion_bodies`，再按 `english_name` 对齐并 stamp `net_id`。
 
 ### 3.3 卡牌行
 
@@ -82,7 +89,7 @@
 1. 空保护（`game == null` / `snapshot.is_empty()` 直接返回）。
 2. `_ensure_mission`：按 `mission_id` 重建任务配置（`DataManager.get_mission` + `MissionConfig` + 挂组件）。
 3. 记录旧位置 + `_apply_map` 重建地图（`previous_blocks` / `rebuilt_blocks`）。
-4. 玩家循环：`_ensure_player` 取/建玩家 → 恢复 hp/hunger/phase/action_count、`hand`、`discard`、`equipment`、`game_deck` 大小、`monster_zone`、`current_block`、角色正背面、`marks`、显示层 `limited_action`。
+4. 玩家循环：`_ensure_player` 取/建玩家 → 恢复 hp/hunger/phase/action_count、`hand`、`discard`、`equipment`、`game_deck` 大小、`monster_zone`、`current_block`、角色正背面、`marks`、双子 `bodies`、显示层 `limited_action`。
 5. 状态机恢复：座位号反查对象；`GAME_OVER` 时写 `game.game_over_called` 与 `game.game_result`。
 6. 全局牌堆 + scavenge 弃牌堆、任务状态、统计。
 7. `_sync_location_skills`：玩家换块/块技能重建时卸载旧技能、挂载新技能。

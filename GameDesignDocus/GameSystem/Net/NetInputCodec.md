@@ -44,6 +44,7 @@
 | `Equipment` | `{"__kind":"equipment", net_id, id, card_name, card_type, source, size, range, charge_type, charge_max, charge_current, weapon, owner_seat, equipment_index}` |
 | `Card` | `{"__kind":"card", net_id, id, card_name, card_type, source}` |
 | `Skill` | `{"__kind":"skill", id, skill_name}`（**无 net_id**） |
+| `CompanionBody` | `{"__kind":"companion", net_id, seat_id, body_id}`（`body_id` 为 `english_name`，如 `veteran_human` / `dog`；须在 `Player` 之前判断） |
 | `Player` | `{"__kind":"player", net_id, seat_id, role_english_name}` |
 | `MapBlock` | `{"__kind":"block", net_id, x, y}` |
 | 其它带 `english_name` 对象 | `{"__kind":"entity", net_id, id}` |
@@ -57,7 +58,7 @@
 
 - **技能 content/filter 等 Callable 不传输**：`resolve_skill` 只按名解析为本地已编译的 `Skill` 实例，代码字段始终用本地编译版本。
 - **decode 不写回战斗字段**（v0.37.4 起）：命中活对象只返回引用，避免客机把过期 hp 等覆盖显示层；只有 `apply_display_combat_fields`（选目标弹窗专用）例外，用于刷新显示层战斗数值。
-- **用索引令牌定位**：monster 用 `holder_seat`+`zone_index`、equipment 用 `owner_seat`+`equipment_index` 在对应区定位活对象。
+- **用索引令牌定位**：monster 用 `holder_seat`+`zone_index`、equipment 用 `owner_seat`+`equipment_index`、companion 用 `seat_id`+`body_id`（`get_body`）在对应区定位活对象。座位级目标仍用 `__kind:"player"`。
 
 ---
 

@@ -388,7 +388,7 @@
     },
     {
       "card_name": "迫击炮",
-      "english_name": "mortar",
+      "english_name": "field_mortar",
       "count": 2,
       "card_type": "equipment",
       "size": 2,
@@ -400,13 +400,13 @@
       "skills": [
         {
           "skill_name": "迫击炮",
-          "english_name": "mortar",
+          "english_name": "field_mortar",
           "skill_description": "行动：消耗1枚弹药，选择一个地图块，移除其上所有怪物标记，或对该地图块的所有目标造成5点伤害。",
           "skill_type": "equipment",
           "active": "action",
-          "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0 && player.get_charge_count(\"mortar\") > 0",
+          "filter": "return player.get_effective_phase() == \"action\" && player.get_effective_action_count() > 0 && player.get_charge_count(\"field_mortar\") > 0",
           "defer_action_cost": true,
-          "content": "var _block = player.get_current_block()\nif _block == null:\n\tEventSystem.cancel(event)\n\treturn\nvar _candidates = _block.get_blocks_in_range(\"long\")\nvar _valid = []\nfor _b in _candidates:\n\tif _b.is_revealed():\n\t\t_valid.append(_b)\nif _valid.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar _blocks = await player.choose_block_inline(_valid, \"\\\"迫击炮\\\": 选择目标地块\", 1)\ntarget = _blocks[0] if _blocks.size() > 0 else null\nif target == null:\n\tEventSystem.cancel(event)\n\treturn\nactions.consume_action(player, 1)\nvar weapon = player.get_equipment(\"mortar\")\nactions.consume_charge(player, weapon, 1)\nif await player.confirm(\"\\\"迫击炮\\\": 是否移除该地块全部怪物标记，否则对该地块所有目标造成5点伤害\"):\n\tactions.remove_all_monster_marks(target)\nelse:\n\tvar list = game.get_target(target)\n\tfor i in list:\n\t\tif not player.shares_seat(i):\n\t\t\tactions.damage(i, 5, player.get_body(\"veteran_human\"), \"weapon_attack\", weapon.equipment_card)",
+          "content": "var _block = player.get_current_block()\nif _block == null:\n\tEventSystem.cancel(event)\n\treturn\nvar _candidates = _block.get_blocks_in_range(\"long\")\nvar _valid = []\nfor _b in _candidates:\n\tif _b.is_revealed():\n\t\t_valid.append(_b)\nif _valid.is_empty():\n\tEventSystem.cancel(event)\n\treturn\nvar _blocks = await player.choose_block_inline(_valid, \"\\\"迫击炮\\\": 选择目标地块\", 1)\ntarget = _blocks[0] if _blocks.size() > 0 else null\nif target == null:\n\tEventSystem.cancel(event)\n\treturn\nactions.consume_action(player, 1)\nvar weapon = player.get_equipment(\"field_mortar\")\nactions.consume_charge(player, weapon, 1)\nif await player.confirm(\"\\\"迫击炮\\\": 是否移除该地块全部怪物标记，否则对该地块所有目标造成5点伤害\"):\n\tactions.remove_all_monster_marks(target)\nelse:\n\tvar list = game.get_target(target)\n\tfor i in list:\n\t\tif not player.shares_seat(i):\n\t\t\tactions.damage(i, 5, player.get_body(\"veteran_human\"), \"weapon_attack\", weapon.equipment_card)",
           "ai": {
             "order": 8,
             "useful": 0,

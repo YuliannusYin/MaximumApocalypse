@@ -926,6 +926,8 @@ func hydrate_view_player(player: Player, survivor: SurvivorData) -> void:
 	if player.player_name.is_empty():
 		player.player_name = survivor.character_name
 	if player.role_card != null:
+		if not player.has_companion_bodies():
+			_create_companion_bodies(player, survivor)
 		return
 	player.role_card = _create_role_card_from_survivor(survivor)
 	if player.max_hp <= 0:
@@ -935,6 +937,13 @@ func hydrate_view_player(player: Player, survivor: SurvivorData) -> void:
 	if player.role_card != null:
 		for skill in player.role_card.intrinsic_skills:
 			player.add_skill(skill)
+	for sub_dict in survivor.sub_survivors:
+		if not (sub_dict is Dictionary):
+			continue
+		var sub_data: SurvivorData = SurvivorData.new(sub_dict)
+		for skill_data in sub_data.intrinsic_skills:
+			player.add_skill(_create_skill_from_data(skill_data))
+	_create_companion_bodies(player, survivor)
 
 
 ## 从 SurvivorData 创建 RoleCard 实例。
@@ -955,6 +964,9 @@ func _create_role_card_from_survivor(survivor: SurvivorData) -> RoleCard:
 
 func _create_companion_bodies(player: Player, survivor: SurvivorData) -> void:
 	player.setup_companion_bodies(survivor)
+	for body in player.bodies:
+		if body != null:
+			NetId.assign(body)
 
 
 ## 从 SurvivorData 创建玩家游戏牌堆。

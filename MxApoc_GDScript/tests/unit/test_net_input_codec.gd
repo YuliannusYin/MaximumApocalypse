@@ -155,3 +155,51 @@ func test_decode_separates_same_english_name_by_net_id() -> void:
 	assert_eq(decoded, second, "同名牌应按 net_id 命中第二张")
 	var encoded: Variant = NetInputCodec.encode(first)
 	assert_eq(encoded["net_id"], 21)
+
+
+func _make_veteran_seat_for_codec() -> Player:
+	var survivor: SurvivorData = DataManager.get_survivor("veteran")
+	assert_not_null(survivor, "应加载 veteran 求生者数据")
+	var player: Player = _make_player("老兵与狗", 0, 0)
+	player.seat_number = 2
+	player.net_id = 11
+	Game._create_companion_bodies(player, survivor)
+	var dog: Variant = player.get_body("dog")
+	assert_not_null(dog)
+	dog.net_id = 13
+	Game.players = [player]
+	return player
+
+
+func test_encode_companion_uses_kind_and_body_id() -> void:
+	var player: Player = _make_veteran_seat_for_codec()
+	var dog: Variant = player.get_body("dog")
+	var encoded: Variant = NetInputCodec.encode(dog)
+	assert_eq(encoded["__kind"], "companion")
+	assert_eq(int(encoded["seat_id"]), 2)
+	assert_eq(String(encoded["body_id"]), "dog")
+	assert_eq(int(encoded["net_id"]), 13)
+
+
+func test_decode_companion_returns_live_body() -> void:
+	var player: Player = _make_veteran_seat_for_codec()
+	var dog: Variant = player.get_body("dog")
+	var decoded: Variant = NetInputCodec.decode({
+		"__kind": "companion",
+		"net_id": 13,
+		"seat_id": 2,
+		"body_id": "dog",
+	}, Game)
+	assert_eq(decoded, dog)
+
+
+func test_decode_companion_falls_back_to_seat_and_body_id() -> void:
+	var player: Player = _make_veteran_seat_for_codec()
+	var dog: Variant = player.get_body("dog")
+	var decoded: Variant = NetInputCodec.decode({
+		"__kind": "companion",
+		"net_id": 0,
+		"seat_id": 2,
+		"body_id": "dog",
+	}, Game)
+	assert_eq(decoded, dog, "无 net_id 时应靠 seat_id+body_id 解析")

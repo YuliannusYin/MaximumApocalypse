@@ -5,6 +5,28 @@ extends TestBase
 
 const WikiIndex = preload("res://src/ui/wiki_index.gd")
 
+var _saved_view_game: Node = null
+
+
+func before_each() -> void:
+	super.before_each()
+	_saved_view_game = NetSession._view_game if NetSession != null else null
+
+
+func after_each() -> void:
+	if NetSession != null:
+		NetSession._view_game = _saved_view_game
+	_saved_view_game = null
+	super.after_each()
+
+
+func _attach_view_game() -> Node:
+	var view: Node = load("res://src/game/game.gd").new()
+	view.name = "ViewGame"
+	add_child_autofree(view)
+	NetSession._view_game = view
+	return view
+
 
 func _setup_game_for_player(p: Player) -> void:
 	Game.players = [p]
@@ -276,6 +298,29 @@ func test_fetch_draws_then_discards_scavenge() -> void:
 	assert_eq(scav.size(), 1, "抓 3 弃 2 后应剩 1 张拾荒")
 	assert_eq(Game.red_scavenge_pile.size(), 0)
 	assert_eq(p.action_count, 3)
+
+
+func test_fetch_usable_on_view_game_when_authority_piles_empty() -> void:
+	var p: Player = _make_veteran_seat()
+	p.in_phase = "action"
+	p.action_count = 1
+	var view: Node = _attach_view_game()
+	view.players = [p]
+	view.red_scavenge_pile = Pile.new()
+	view.green_scavenge_pile = Pile.new()
+	view.blue_scavenge_pile = Pile.new()
+	view.red_scavenge_pile.add(_make_scavenge_card("scrap", "red"))
+	Game.players = []
+	Game.red_scavenge_pile = null
+	Game.green_scavenge_pile = null
+	Game.blue_scavenge_pile = null
+	var raw: Dictionary = _deck_card_dict("fetch")
+	assert_false(raw.is_empty(), "应有取回卡数据")
+	var card: Card = Game._create_game_card_from_dict(raw)
+	assert_true(p.is_card_usable(card), "ViewGame 有拾荒牌时客机取回应可用")
+	view.red_scavenge_pile = Pile.new()
+	assert_false(p.is_card_usable(card), "显示堆空时取回应灰")
+	assert_true(p.is_body_alive("dog"), "狗仍活着，灰掉应来自拾荒堆而非身体")
 
 
 func test_image_cache_maps_veteran_bodies() -> void:

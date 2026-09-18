@@ -622,3 +622,80 @@ func test_apply_does_not_share_monster_across_seats() -> void:
 	assert_eq(host.monster_zone.size(), 0, "房主座位不应吃到客机的怪")
 	assert_eq(guest.monster_zone.size(), 1)
 	assert_eq(guest.monster_zone[0].attack_target, guest)
+
+
+func _make_veteran_for_snapshot() -> Player:
+	var survivor: SurvivorData = DataManager.get_survivor("veteran")
+	assert_not_null(survivor, "应加载 veteran 求生者数据")
+	var player: Player = _make_player("老兵与狗", 0, 0)
+	player.seat_number = 0
+	player.net_id = 11
+	player.role_card = Game._create_role_card_from_survivor(survivor)
+	Game._create_companion_bodies(player, survivor)
+	var veteran: Variant = player.get_body("veteran_human")
+	var dog: Variant = player.get_body("dog")
+	assert_not_null(veteran)
+	assert_not_null(dog)
+	veteran.net_id = 12
+	dog.net_id = 13
+	veteran.hp = 18
+	dog.hp = 9
+	dog.hunger = 3
+	if dog.role_card != null:
+		dog.role_card.is_front_side = false
+	return player
+
+
+func test_snapshot_includes_veteran_bodies() -> void:
+	var player: Player = _make_veteran_for_snapshot()
+	Game.players = [player]
+	Game.map_area = []
+	var snapshot: Dictionary = GameStateSerializerScript.snapshot(Game)
+	var bodies: Array = snapshot["players"][0]["bodies"]
+	assert_eq(bodies.size(), 2)
+	var dog_row: Dictionary = {}
+	for row in bodies:
+		if row is Dictionary and String(row.get("english_name", "")) == "dog":
+			dog_row = row
+			break
+	assert_false(dog_row.is_empty(), "快照应含狗身体")
+	assert_eq(int(dog_row.get("hp", 0)), 9)
+	assert_eq(int(dog_row.get("hunger", 0)), 3)
+	assert_false(bool(dog_row.get("is_front_side", true)))
+	assert_eq(int(dog_row.get("net_id", 0)), 13)
+
+
+func test_apply_restores_companion_body_stats() -> void:
+	var survivor: SurvivorData = DataManager.get_survivor("veteran")
+	var source: Player = _make_veteran_for_snapshot()
+	Game.players = [source]
+	Game.map_area = []
+	var snapshot: Dictionary = GameStateSerializerScript.snapshot(Game)
+	var view: Player = _make_player("老兵与狗", 0, 0)
+	view.seat_number = 0
+	view.net_id = 11
+	Game.hydrate_view_player(view, survivor)
+	Game.players = [view]
+	GameStateSerializerScript.apply(Game, snapshot, {11: view})
+	var dog: Variant = view.get_body("dog")
+	var veteran: Variant = view.get_body("veteran_human")
+	assert_not_null(dog)
+	assert_not_null(veteran)
+	assert_eq(int(dog.hp), 9)
+	assert_eq(int(dog.hunger), 3)
+	assert_eq(int(dog.net_id), 13)
+	assert_false(dog.role_card.is_front(), "狗角色卡翻面应随快照恢复")
+	assert_eq(int(veteran.hp), 18)
+	assert_eq(GameStateSerializerScript.find_by_net_id(Game, 13), dog)
+	assert_eq(GameStateSerializerScript.find_by_net_id(Game, 12), veteran)
+
+
+func test_hydrate_view_player_creates_companion_bodies() -> void:
+	var survivor: SurvivorData = DataManager.get_survivor("veteran")
+	assert_not_null(survivor)
+	var player: Player = Player.new()
+	player.seat_number = 0
+	Game.hydrate_view_player(player, survivor)
+	assert_true(player.has_companion_bodies())
+	assert_not_null(player.get_body("veteran_human"))
+	assert_not_null(player.get_body("dog"))

@@ -65,6 +65,7 @@ static func apply(game: Variant, snapshot: Dictionary, ctx: Dictionary) -> void:
 				int(block_id.get("y", 0)))
 		_apply_role_front(player, row)
 		_apply_marks(player, row.get("marks", []))
+		_apply_bodies(player, row, ctx)
 		apply_display_limited_action(
 			player, int(row.get("limited_remaining_actions", -1)))
 	if game.get("state_machine") != null:
@@ -104,6 +105,10 @@ static func find_by_net_id(game: Variant, net_id: int) -> Variant:
 			continue
 		if int(player.get("net_id")) == net_id:
 			return player
+		if "bodies" in player:
+			for body in player.bodies:
+				if body != null and int(body.get("net_id")) == net_id:
+					return body
 		for card in player.hand if "hand" in player else []:
 			if card != null and int(card.get("net_id")) == net_id:
 				return card
@@ -168,6 +173,7 @@ static func _serialize_player(player: Variant) -> Dictionary:
 		"monsters": _serialize_monster_list(player.monster_zone if "monster_zone" in player else []),
 		"is_front_side": _is_role_front(player),
 		"marks": _serialize_marks(player),
+		"bodies": _serialize_bodies(player),
 	}
 
 
@@ -418,6 +424,70 @@ static func _apply_role_front(player: Variant, row: Dictionary) -> void:
 		role = RoleCard.new()
 		player.role_card = role
 	role.is_front_side = bool(row.get("is_front_side", true))
+
+
+static func _serialize_bodies(player: Variant) -> Array:
+	var result: Array = []
+	if player == null or not player.has_method("has_companion_bodies") \
+			or not player.has_companion_bodies():
+		return result
+	for body in player.bodies:
+		if body == null or not is_instance_valid(body):
+			continue
+		result.append({
+			"net_id": _entity_net_id(body),
+			"english_name": _string_property(body, "english_name"),
+			"hp": int(body.get("hp")) if body.get("hp") != null else 0,
+			"max_hp": int(body.get("max_hp")) if body.get("max_hp") != null else 0,
+			"hunger": int(body.get("hunger")) if body.get("hunger") != null else 1,
+			"alive": bool(body.is_alive()) if body.has_method("is_alive") else true,
+			"is_front_side": _is_role_front(body),
+			"marks": _serialize_marks(body),
+		})
+	return result
+
+
+static func _apply_bodies(player: Variant, row: Dictionary, ctx: Dictionary) -> void:
+	var raw: Variant = row.get("bodies", [])
+	if not raw is Array or raw.is_empty():
+		return
+	_ensure_companion_bodies(player, row)
+	if player == null or not player.has_method("get_body"):
+		return
+	for body_row in raw:
+		if not body_row is Dictionary:
+			continue
+		var english_name := String(body_row.get("english_name", ""))
+		if english_name.is_empty():
+			continue
+		var body: Variant = player.get_body(english_name)
+		if body == null:
+			continue
+		body.hp = int(body_row.get("hp", body.hp))
+		body.max_hp = int(body_row.get("max_hp", body.max_hp))
+		body.hunger = int(body_row.get("hunger", body.hunger))
+		_stamp(body, int(body_row.get("net_id", 0)), ctx)
+		_apply_role_front(body, body_row)
+		if body_row.has("marks"):
+			_apply_marks(body, body_row.get("marks", []))
+
+
+static func _ensure_companion_bodies(player: Variant, row: Dictionary) -> void:
+	if player == null or not player.has_method("has_companion_bodies"):
+		return
+	if player.has_companion_bodies():
+		return
+	var survivor: Variant = _survivor_for_seat(int(row.get("seat_number", -1)))
+	if survivor == null:
+		var role: Variant = player.get("role_card") if player.has_method("get") else null
+		var survivor_id := ""
+		if role != null and role.has_method("get"):
+			survivor_id = String(role.get("english_name"))
+		if not survivor_id.is_empty() and DataManager != null:
+			survivor = DataManager.get_survivor(survivor_id)
+	if survivor == null or not player.has_method("setup_companion_bodies"):
+		return
+	player.setup_companion_bodies(survivor)
 
 
 static func _serialize_marks(player: Variant) -> Array:

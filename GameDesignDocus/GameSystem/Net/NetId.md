@@ -23,7 +23,7 @@
 | `next` | `next() -> int` | 实体 net_id 自增并返回（从 1 起） |
 | `reset` | `reset() -> void` | 实体计数清零（开局时调用，保证每局 net_id 从 1 起） |
 | `should_allocate` | `should_allocate() -> bool` | 决定当前是否分配实体 id（见下） |
-| `assign` | `assign(entity: Variant) -> void` | 若 `should_allocate()` 且实体有 `net_id` 属性则赋 `entity.net_id = next()` |
+| `assign` | `assign(entity: Variant) -> void` | 若 `should_allocate()` 且实体有 `net_id` 属性则赋 `entity.net_id = next()`。权威建场时座位 `Player` 与双子 `CompanionBody` 均会分配。 |
 
 ---
 

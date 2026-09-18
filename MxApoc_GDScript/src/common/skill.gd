@@ -75,17 +75,19 @@ func matches_trigger(trigger_name: String) -> bool:
 
 ## 执行 filter。无 filter 时返回 true（恒通过）。
 ## player 为触发技能的实体，event 中可能包含 target 字段。
+## 第四参跟演员所属世界：ViewGame 上的玩家/身体拿到显示 Game，权威实体仍拿 autoload Game。
 func execute_filter(player: Variant, event: Variant) -> bool:
 	if not filter.is_valid():
 		return true
 	var target: Variant = EventSystem.get_field(event, "target", null)
-	return filter.call(player, target, event, Game)
+	return filter.call(player, target, event, _world_of(player))
 
 
 ## 执行 content。
 ## player 为触发技能的实体，event 中可能包含 target 字段。
 ## content 代码可通过 EventSystem.cancel(event) 取消事件，调用方用 EventSystem.is_cancelled(event) 检查。
 ## 新内容可使用局部变量 actions 执行嵌套操作；CodeExecutor 会自动等待其完成。
+## content 只在权威协程执行，第四参与 GameActions 始终绑 autoload Game。
 func execute_content(player: Variant, event: Variant) -> void:
 	if content.is_valid():
 		var actions: GameActions = EventSystem.get_field(event, "actions", null)
@@ -106,7 +108,34 @@ func execute_content(player: Variant, event: Variant) -> void:
 func execute_confirm_prompt(player: Variant) -> String:
 	if not confirm_prompt.is_valid():
 		return ""
-	return confirm_prompt.call(player, null, {}, Game)
+	return confirm_prompt.call(player, null, {}, _world_of(player))
+
+
+## UI filter 必须读显示世界；权威结算仍读 Game。peek 避免求值时创建 ViewGame。
+func _world_of(actor: Variant) -> Node:
+	if NetSession == null:
+		return Game
+	var display: Node = NetSession.peek_view_game()
+	if display == null or not is_instance_valid(display):
+		return Game
+	if _world_contains_actor(display, actor):
+		return display
+	return Game
+
+
+func _world_contains_actor(world: Node, actor: Variant) -> bool:
+	if actor == null or not is_instance_valid(actor):
+		return false
+	var players: Array = world.players if "players" in world else []
+	for player in players:
+		if player == actor:
+			return true
+		if player == null or not ("bodies" in player):
+			continue
+		for body in player.bodies:
+			if body == actor:
+				return true
+	return false
 
 
 ## 本回合是否仍可使用（受 usable 限制）。

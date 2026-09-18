@@ -889,6 +889,28 @@ func _get_panel_for_player(player: Variant) -> PlayerPanel:
 	return null
 
 
+func _seat_of_entity(entity: Variant) -> int:
+	if entity == null or not is_instance_valid(entity):
+		return -1
+	var seat_holder: Variant = entity
+	if entity.has_method("get_seat_player"):
+		var resolved: Variant = entity.get_seat_player()
+		if resolved != null and is_instance_valid(resolved):
+			seat_holder = resolved
+	if seat_holder == null or not seat_holder.has_method("get"):
+		return -1
+	var seat_value: Variant = seat_holder.get("seat_number")
+	return int(seat_value) if seat_value != null else -1
+
+
+func _body_id_of_entity(entity: Variant) -> String:
+	if entity == null or not is_instance_valid(entity):
+		return ""
+	if entity.has_method("is_companion_body") and entity.is_companion_body():
+		return str(entity.get("english_name"))
+	return ""
+
+
 ## 刷新所有玩家面板。
 func _refresh_all_panels() -> void:
 	for panel in _player_panels:
@@ -2064,14 +2086,11 @@ func _apply_player_stat_changed_ui(player: Variant) -> void:
 func _on_damage_taken(target: Variant, source: Variant, amount: int) -> void:
 	if target == null or not is_instance_valid(target):
 		return
-	var target_seat_id: int = -1
-	var target_seat_value: Variant = target.get("seat_number") \
-			if target.has_method("get") else null
-	if target_seat_value != null:
-		target_seat_id = int(target_seat_value)
+	var body_id := _body_id_of_entity(target)
 	_broadcast_network_state()
 	_broadcast_visual_event("player_damage_feedback", {
-		"seat_id": target_seat_id,
+		"seat_id": _seat_of_entity(target),
+		"body_id": body_id,
 		"amount": amount,
 		"shake": source != null and is_instance_valid(source)
 			and source.get("monster_type") != null,
@@ -2081,7 +2100,7 @@ func _on_damage_taken(target: Variant, source: Variant, amount: int) -> void:
 	var panel: PlayerPanel = _get_panel_for_player(target)
 	if panel == null:
 		return
-	panel.play_damage_feedback(amount)
+	panel.play_damage_feedback(amount, body_id)
 	# 怪物判定与 tutorial_manager 一致：get("monster_type") 非 null 即怪物
 	if source != null and is_instance_valid(source) and source.get("monster_type") != null:
 		panel.play_shake()
@@ -2089,20 +2108,24 @@ func _on_damage_taken(target: Variant, source: Variant, amount: int) -> void:
 
 ## 玩家回血反馈：面板绿色「+N」飘字（fire-and-forget）。
 func _on_hp_recovered(player: Variant, amount: int) -> void:
+	var body_id := _body_id_of_entity(player)
 	_broadcast_network_state()
 	_broadcast_visual_event("player_heal_feedback", {
-		"seat_id": int(player.get("seat_number")), "amount": amount,
+		"seat_id": _seat_of_entity(player),
+		"body_id": body_id,
+		"amount": amount,
 	})
 	var panel: PlayerPanel = _get_panel_for_player(player)
 	if panel != null:
-		panel.play_heal_feedback(amount)
+		panel.play_heal_feedback(amount, body_id)
 
 
 ## 饥饿值变化：保留原 _on_player_stat_changed 刷新逻辑，并令面板黄闪提醒（fire-and-forget）。
 func _on_hunger_changed(player: Variant, old_value: int, new_value: int) -> void:
 	_on_player_stat_changed(player, old_value, new_value)
 	_broadcast_visual_event("player_hunger_feedback", {
-		"seat_id": int(player.get("seat_number")),
+		"seat_id": _seat_of_entity(player),
+		"body_id": _body_id_of_entity(player),
 	})
 	var panel: PlayerPanel = _get_panel_for_player(player)
 	if panel != null:
@@ -2262,14 +2285,16 @@ func _on_network_message(message: Dictionary) -> void:
 			int(event_payload.get("seat_id", -1)))
 		var damage_panel: PlayerPanel = _get_panel_for_player(damage_player)
 		if damage_panel != null:
-			damage_panel.play_damage_feedback(int(event_payload.get("amount", 0)))
+			damage_panel.play_damage_feedback(int(event_payload.get("amount", 0)),
+				String(event_payload.get("body_id", "")))
 			if bool(event_payload.get("shake", false)):
 				damage_panel.play_shake()
 	elif event_name == "player_heal_feedback":
 		var heal_panel: PlayerPanel = _get_panel_for_player(
 			_network_player_for_seat(int(event_payload.get("seat_id", -1))))
 		if heal_panel != null:
-			heal_panel.play_heal_feedback(int(event_payload.get("amount", 0)))
+			heal_panel.play_heal_feedback(int(event_payload.get("amount", 0)),
+				String(event_payload.get("body_id", "")))
 	elif event_name == "player_hunger_feedback":
 		var hunger_panel: PlayerPanel = _get_panel_for_player(
 			_network_player_for_seat(int(event_payload.get("seat_id", -1))))

@@ -714,19 +714,19 @@ func set_turn_highlight(active: bool) -> void:
 
 
 ## 受伤反馈：面板整体红闪 + HP 标签红色「-N」飘字。
-func play_damage_feedback(amount: int) -> void:
+func play_damage_feedback(amount: int, body_id: String = "") -> void:
 	if not is_inside_tree():
 		return
 	_kill_tween(_feedback_tween)
 	_feedback_tween = create_tween()
 	_feedback_tween.tween_property(self, "modulate", Color(1.0, 0.5, 0.5), 0.15)
 	_feedback_tween.tween_property(self, "modulate", Color(1.0, 1.0, 1.0), 0.15)
-	_spawn_float_label("-" + str(amount), Color(1.0, 0.35, 0.35), _hp_track)
+	_spawn_float_label("-" + str(amount), Color(1.0, 0.35, 0.35), _feedback_anchor_for_body(body_id))
 
 
 ## 回复反馈：HP 标签绿色「+N」飘字（无整体闪烁）。
-func play_heal_feedback(amount: int) -> void:
-	_spawn_float_label("+" + str(amount), Color(0.35, 0.9, 0.45), _hp_track)
+func play_heal_feedback(amount: int, body_id: String = "") -> void:
+	_spawn_float_label("+" + str(amount), Color(0.35, 0.9, 0.45), _feedback_anchor_for_body(body_id))
 
 
 ## 饥饿变化反馈：面板整体黄闪。
@@ -819,6 +819,13 @@ func get_body_target_global_position(body: Variant = null) -> Vector2:
 	if eng == "veteran_human" and _hp_track != null and is_instance_valid(_hp_track):
 		return _hp_track.global_position + _hp_track.size * 0.5
 	return base
+
+
+func _feedback_anchor_for_body(body_id: String) -> Control:
+	if body_id == "dog" and _dog_badge != null and is_instance_valid(_dog_badge) \
+			and _dog_badge.visible:
+		return _dog_badge
+	return _hp_track
 
 
 ## 在锚点控件位置生成上浮淡出飘字。
