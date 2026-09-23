@@ -105,7 +105,7 @@ Player.wait_player_action
 | 3 | 制衡、非武器装备、望远镜、侦察 |
 | 2 | 野地夹克等「加饥饿换行动」；伪装（逃生） |
 | 1 | 轮床（默认不当主动着，仅拉近确实更接近行进目标时才有正分） |
-| 0 | 被动 / 不主动用 |
+| 0 | 被动 / 不主动用；交易（AI 从不发起） |
 
 ### 3.3 effect 符号约定
 
@@ -170,7 +170,7 @@ JSON 里 `effect.target` 对 `damage` / `heal` 写**正数幅度**。评分器�
 
 其它方法：
 
-- `choose_target` / `choose_card` / `choose` / `choose_map_block` / `choose_block_inline`：对候选项打分；强制选择取最高；可取消且最高分 ≤ 0 则空 / 取消。prompt 含「弃」或「制衡」时选低 useful；「装备栏超限」有非任务候选时不丢任务物资；「维修 / 神通广大」回收时已装备同名降权。伤害类 `choose_target` 跳过其他求生者（列表只剩玩家时才从中选）；`grant_action` 选「最佳行动分」最高的玩家（含自己，类固醇按 `grant_types` 只看手牌）；装备目标若是仍缺的任务物资则 -99。多步移动 `choose_block_inline` 在已在目标格或无法更近时返回空。prompt 含「无人机」时按标记数选格，不复用走路的「躲标记 / 必须更近」规则
-- `confirm` / `wait_judge_confirm`：默认确认（潜行检定：有怪标记或仍有行动点则确认）
+- `choose_target` / `choose_card` / `choose` / `choose_map_block` / `choose_block_inline`：对候选项打分；强制选择取最高；可取消且最高分 ≤ 0 则空 / 取消。prompt 含「弃」或「制衡」时选低 useful；prompt 含「交易」时按回礼选低 useful，有替代则不交科学家 / 任务物资；「装备栏超限」有非任务候选时不丢任务物资；「维修 / 神通广大」回收时已装备同名降权。伤害类 `choose_target` 跳过其他求生者（列表只剩玩家时才从中选）；`grant_action` 选「最佳行动分」最高的玩家（含自己，类固醇按 `grant_types` 只看手牌）；装备目标若是仍缺的任务物资则 -99。多步移动 `choose_block_inline` 在已在目标格或无法更近时返回空。prompt 含「无人机」时按标记数选格，不复用走路的「躲标记 / 必须更近」规则
+- `confirm` / `wait_judge_confirm`：默认确认（含交易询问一律同意；潜行检定：有怪标记或仍有行动点则确认）
 - `wait_redraw_decision`：手里已有 `weapon` 牌则停止；否则重调。本局最多 20 次，避免牌库没有武器时卡死开局。已装备的武器不计入（枪手开局柯尔特不算「手里有武器」）
 - `play_*_animation`：有 `animation_input` 则委托 GUI

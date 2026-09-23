@@ -101,16 +101,19 @@ func choose_card(n: int, param: Variant = "hand", filter: Variant = null, prompt
 	if candidates.is_empty():
 		return []
 	var discard: bool = prompt.contains("弃") or prompt.contains("制衡")
+	var trade_reply: bool = prompt.contains("交易")
 	var retrieve: bool = prompt.contains("维修") or prompt.contains("神通广大")
 	var overflow: bool = prompt.contains("装备栏超限")
 	if overflow:
 		candidates = _prefer_overflow_discards(player, candidates)
+	if trade_reply:
+		candidates = _prefer_trade_replies(player, candidates)
 	var scored: Array = []
 	for card in candidates:
 		var value: float = scorer.useful(player, card)
 		if retrieve:
 			value = scorer.retrieve_card_score(player, card)
-		if discard:
+		if discard or trade_reply:
 			value = -value
 		scored.append({"card": card, "score": value})
 	scored.sort_custom(func(a, b): return float(a["score"]) > float(b["score"]))
@@ -231,6 +234,8 @@ func choose_block_inline(valid_blocks: Array, prompt: String, count: int) -> Arr
 
 func confirm(message: String) -> bool:
 	await _think()
+	if message.contains("交易"):
+		return true
 	if message.contains("伤害") or message.contains("否则"):
 		return true
 	if message.contains("取消"):
@@ -496,6 +501,20 @@ func _prefer_non_needed_discards(player: Variant, candidates: Array) -> Array:
 	if others.is_empty():
 		return candidates
 	return others
+
+
+func _prefer_trade_replies(player: Variant, candidates: Array) -> Array:
+	var non_scientist: Array = []
+	for card in candidates:
+		if card == null:
+			continue
+		var card_name := str(card.get("card_name"))
+		var english_name := str(card.get("english_name"))
+		if card_name == "科学家" or english_name == "scientist":
+			continue
+		non_scientist.append(card)
+	var pool: Array = non_scientist if not non_scientist.is_empty() else candidates
+	return _prefer_non_needed_discards(player, pool)
 
 
 func _prefer_overflow_discards(player: Variant, candidates: Array) -> Array:

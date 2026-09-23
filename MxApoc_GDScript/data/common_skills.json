@@ -24,5 +24,32 @@
         "target": 0
       }
     }
+  },
+  {
+    "skill_name": "交易",
+    "english_name": "trade",
+    "skill_description": "选择一张拾荒牌和同地图块内另一玩家，将该拾荒牌向该玩家展示，其可以选择一张拾荒牌与你交易",
+    "skill_type": "common",
+    "active": "action",
+    "target_type": "",
+    "select_card": 1,
+    "position": "",
+    "filter_card": "return target.source == \"scavenge\"",
+    "select_target": 1,
+    "filter_target_range": "short",
+    "filter_target": "return target != player and target.has_method(\"get_cards\") and target.is_player() and target.is_alive() and target.get_cards(\"\", \"\", 0, \"scavenge\").size() > 0",
+    "window_prompt": "\"交易\": 选择一张拾荒牌",
+    "usable": 1,
+    "filter": "return player.get_effective_phase() == \"action\" and player.get_cards(\"\", \"\", 0, \"scavenge\").size() > 0 and player.get_current_block() != null and player.get_current_block().get_players().size() > 1",
+    "content": "if not actions.trade_scavenge(player, target, event[\"cards\"][0]):\n\tEventSystem.cancel(event)",
+    "ai": {
+      "order": 0,
+      "useful": 0,
+      "tags": [],
+      "effect": {
+        "player": 0,
+        "target": 0
+      }
+    }
   }
 ]

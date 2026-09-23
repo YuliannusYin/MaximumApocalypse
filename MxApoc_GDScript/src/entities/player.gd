@@ -2648,6 +2648,120 @@ func choose_to_discard(n: int, type: String = "", runtime: Variant = null, promp
 		{"target": self, "n": n, "type": type})
 
 
+## 向同地块另一名玩家发起拾荒牌交易。对方拒绝或取消选牌时返回 false（不消耗技能次数）。
+func trade_scavenge_with(partner: Variant, offered: Variant) -> bool:
+	if partner == null or not is_instance_valid(partner) or not partner.has_method("confirm"):
+		return false
+	if partner == self or not partner.is_alive():
+		return false
+	var offered_card: Variant = _trade_source_card(offered)
+	if offered_card == null or not is_instance_valid(offered_card):
+		return false
+	if offered_card is Card:
+		show_card(offered_card, partner)
+	var card_name: String = str(offered_card.get("card_name"))
+	var ok: bool = await partner.confirm(
+		"\"交易\": 是否用一张拾荒牌交换「%s」?" % card_name)
+	if not ok:
+		return false
+	var candidates: Array = partner.get_cards("", "", 0, "scavenge")
+	if candidates.is_empty():
+		return false
+	var chosen: Array = await partner.choose_card(
+		1, candidates, null, "\"交易\": 选择一张拾荒牌交换")
+	if chosen.is_empty():
+		return false
+	var their_card: Variant = _trade_source_card(chosen[0])
+	if their_card is Card:
+		show_card(their_card, partner)
+	await swap_scavenge_cards(partner, offered, chosen[0])
+	return true
+
+
+## 双方先抽出再按原区域放入。满栏互换装备时先腾空，避免容量互卡。
+func swap_scavenge_cards(other: Variant, my_card: Variant, their_card: Variant) -> void:
+	if other == null or not is_instance_valid(other):
+		return
+	var rt: Variant = Game.event_scheduler if Game != null else null
+	if rt == null:
+		await _swap_scavenge_cards_body(other, my_card, their_card)
+		return
+	await rt.dispatch("swap_scavenge", func() -> void:
+		await _swap_scavenge_cards_body(other, my_card, their_card),
+		{"player": self, "target": other, "card": my_card, "other_card": their_card})
+
+
+func _swap_scavenge_cards_body(other: Variant, my_card: Variant, their_card: Variant) -> void:
+	var mine: Dictionary = await _extract_scavenge_for_trade(my_card)
+	var theirs: Dictionary = await other._extract_scavenge_for_trade(their_card)
+	await other._place_traded_scavenge(
+		mine.get("card"), bool(mine.get("was_equipped", false)), mine.get("entity", null))
+	await _place_traded_scavenge(
+		theirs.get("card"), bool(theirs.get("was_equipped", false)), theirs.get("entity", null))
+	if Game != null and is_instance_valid(Game):
+		var mine_name: String = str(mine.get("card").get("card_name")) if mine.get("card") != null else ""
+		var theirs_name: String = str(theirs.get("card").get("card_name")) if theirs.get("card") != null else ""
+		Game.log_message(
+			LogColors.player(player_name) + " 与 " + LogColors.player(other.player_name)
+			+ " 交易了 " + LogColors.card(mine_name) + " 和 " + LogColors.card(theirs_name))
+
+
+func _trade_source_card(offered: Variant) -> Variant:
+	if offered == null or not is_instance_valid(offered):
+		return null
+	if offered is Equipment and offered.equipment_card != null:
+		return offered.equipment_card
+	return offered
+
+
+func _extract_scavenge_for_trade(offered: Variant) -> Dictionary:
+	var empty := {"card": null, "was_equipped": false, "entity": null}
+	if offered == null or not is_instance_valid(offered):
+		return empty
+	var entity: Equipment = _resolve_equipment_entity(offered)
+	if entity != null:
+		var src: Variant = entity.equipment_card if entity.equipment_card != null else offered
+		await _unequip(entity, false)
+		return {"card": src, "was_equipped": true, "entity": entity}
+	var card: Variant = offered
+	hand.erase(card)
+	card_settlement_zone.erase(card)
+	return {"card": card, "was_equipped": false, "entity": null}
+
+
+func _trade_can_keep_equipped(card: Variant) -> bool:
+	if card == null or not is_instance_valid(card):
+		return false
+	var new_size: int = int(card.get("size")) if card.get("size") != null else 0
+	if role_card != null or has_companion_bodies():
+		if get_equipped_size() + new_size > get_equipment_capacity():
+			return false
+	if str(card.get("english_name")) == "fuel":
+		return true
+	var cname: String = str(card.get("card_name"))
+	for e in equipment_zone:
+		if e != null and is_instance_valid(e) and e.card_name == cname:
+			return false
+	return true
+
+
+func _place_traded_scavenge(card: Variant, prefer_equip: bool, entity: Variant = null) -> void:
+	if card == null or not is_instance_valid(card):
+		return
+	if prefer_equip and _trade_can_keep_equipped(card):
+		if entity is Equipment:
+			entity.in_equipment_area = true
+			entity.equipped_player = self
+			equipment_zone.append(entity)
+			for s in entity.get_all_skills():
+				if s != null and is_instance_valid(s):
+					add_skill(s)
+			if Game != null and is_instance_valid(Game):
+				Game.log_message(LogColors.player(player_name) + " 装备了 " + LogColors.card(str(card.get("card_name"))))
+			return
+	await try_add_card_to_hand(card)
+
+
 ## 使用主动技能。处理目标选择和卡牌选择，然后执行技能 content。
 func use_active_skill(skill: Skill, operation_runtime: Variant = null) -> void:
 	if skill == null or not is_instance_valid(skill):
@@ -2737,7 +2851,8 @@ func use_active_skill(skill: Skill, operation_runtime: Variant = null) -> void:
 			event["targets"] = targets
 	# 4. 卡牌选择
 	if skill.select_card > 0:
-		var cards: Array = await choose_card(skill.select_card, skill.position, skill.filter_card)
+		var cards: Array = await choose_card(
+			skill.select_card, skill.position, skill.filter_card, skill.window_prompt)
 		if cards.size() < skill.select_card:
 			return
 		event["cards"] = cards

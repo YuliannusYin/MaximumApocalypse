@@ -195,6 +195,7 @@ JSON / 技能应优先 `actions.*`，由调度器纳入当前操作链。部分�
 | `consume_action` / `add_action` | 行动点 |
 | `consume_charge` / `fill_charge` 等 | 填充物 |
 | `equip` / `unequip` / `gain` | 装备与获得 |
+| `trade_scavenge` / `swap_scavenge` | 拾荒牌交易（确认与选牌在 `Player.trade_scavenge_with`） |
 | `execute_action_immediately` | 有限行动（可带 `allowed_action_types` 白名单） |
 | `play_card_immediately` | 免费使用若干手牌 |
 | `destroy_block` | 摧毁地块 |

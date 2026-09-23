@@ -360,7 +360,7 @@
 
 ### 3.7 common_skills.json
 
-通用主动技能数据。**顶层为数组**（非对象），每个元素为一个通用技能定义。
+通用主动技能数据。**顶层为数组**（非对象），每个元素为一个通用技能定义。当前两项：`balance`（制衡）、`trade`（交易）。
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
@@ -371,7 +371,7 @@
 | `active` | String | 否 | 可用阶段 |
 | `target_type` | String | 否 | 目标类型 |
 | `select_card` | Int | 否 | 卡牌选择数量 |
-| `position` | String | 否 | 选牌位置限定（如 `hand`） |
+| `position` | String | 否 | 选牌位置限定（如 `hand`；空字符串表示手牌+装备，交易用） |
 | `filter_card` | String | 否 | 卡牌筛选代码 |
 | `usable` | Int | 否 | 每回合可用次数（`-1` 表示不限） |
 | `filter` | String | 否 | 可用条件代码 |

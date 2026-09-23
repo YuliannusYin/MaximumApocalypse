@@ -11,6 +11,7 @@ const PRESET_FULL_RECT := Control.PRESET_FULL_RECT
 const POPUP_OPEN_DURATION: float = 0.15                # 打开：遮罩淡入 / 面板缩放淡入
 const POPUP_CLOSE_DURATION: float = 0.12               # 关闭：遮罩淡出
 const POPUP_OPEN_SCALE: Vector2 = Vector2(0.92, 0.92)  # 打开动画起始缩放
+const CARD_DETAIL_HOLD_SEC: float = 1.0                # 展示牌弹窗自动关闭前的停留
 
 signal option_selected(choice: Variant)
 signal confirm_responded(result: bool)
@@ -832,6 +833,21 @@ func show_card_detail_popup(card: Card) -> void:
 	vbox.add_child(ok_btn)
 
 	_finish_popup_build(overlay)
+	_arm_card_detail_auto_close(overlay)
+
+
+## 展示满 1 秒后自动关闭。提前点关闭，或期间已换成别的弹窗时，不再关当前弹窗。
+func _arm_card_detail_auto_close(overlay: ColorRect) -> void:
+	var timer := get_tree().create_timer(CARD_DETAIL_HOLD_SEC)
+	timer.timeout.connect(_on_card_detail_hold_elapsed.bind(overlay))
+
+
+func _on_card_detail_hold_elapsed(overlay: ColorRect) -> void:
+	if overlay == null or not is_instance_valid(overlay):
+		return
+	if _popup_overlay != overlay:
+		return
+	_close_popup()
 
 
 func _on_card_detail_closed() -> void:

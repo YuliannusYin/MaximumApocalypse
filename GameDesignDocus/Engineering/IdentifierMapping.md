@@ -348,6 +348,8 @@ trigger 名在 JSON 数据中用英文 snake_case，技能 `trigger` 字段可�
 | `move_to(target)` | 移动到地块 |
 | `equip(card)` | 装备进入装备区（走 `card.instantiate`） |
 | `unequip(card)` | 装备离开装备区 |
+| `trade_scavenge_with(partner, offered)` | 发起拾荒牌交易（拒绝返回 false，不记次数） |
+| `swap_scavenge_cards(other, my_card, their_card)` | 抽出后按原区域交换拾荒牌 |
 | `consume_charge(equipment, num)` | 消耗填充物 |
 | `consume_action(n)` / `add_action(n)` | 扣除 / 增加行动次数 |
 | `use_card(card)` | 使用卡牌（含 `defer_action_cost` 机制） |

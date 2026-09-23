@@ -618,6 +618,13 @@
 | `_execute_pile_draw(pile_key)` | 执行牌堆抓牌动作（UI 牌堆点击触发）。`pile_key` 为 `"game_deck"` / `"red_scavenge"` / `"green_scavenge"` / `"blue_scavenge"` |
 | `end_phase(phase)` | 设置标记让 `wait_player_action` 循环跳出 |
 | `choose_to_discard(n, type="")` | 选择并弃置 n 张牌（可选类型过滤） |
+| `trade_scavenge_with(partner, offered) -> bool` | 向同地块玩家发起拾荒牌交易。展示 → 确认 → 对方选 1 张拾荒牌 → `swap_scavenge_cards`。拒绝或取消返回 `false` |
+| `swap_scavenge_cards(other, my_card, their_card)` | 双方先抽出再按原区域放入（调度节点 `swap_scavenge`） |
+| `_extract_scavenge_for_trade(offered) -> {card, was_equipped, entity}` | 手牌 `erase`；装备走 `_unequip`（不进弃牌堆）。内部 |
+| `_place_traded_scavenge(card, prefer_equip, entity)` | 能保持装备则迁实体并 `add_skill`，否则 `try_add_card_to_hand`。内部 |
+| `_trade_can_keep_equipped(card) -> bool` | 容量（有 RoleCard / 双子时）+ 同名（燃料除外）。内部 |
+
+`trade_scavenge_with` 流程：解析来源卡 → `show_card` → `partner.confirm` → `partner.choose_card`（手牌+装备拾荒牌）→ `swap_scavenge_cards`。content 经 `actions.trade_scavenge` 调用；返回 `false` 时 `EventSystem.cancel`，不记 `used_count`。交换不得走 `discard()`。
 
 #### `use_active_skill(skill)`
 
@@ -634,7 +641,7 @@
    - `"pile"`：`current_block.scavenge_colors` 作为 candidates，`choose(colors)` 选择
    - `"equipment"`：`equipment_zone.duplicate()` 作为 candidates，经 `_filter_targets` 过滤，`choose(candidates)` 选择
    - 其他（`target_type` 为空）：按 `select_target` 选择目标（`> 0` 选 N 个；`== -1` 选全部合法目标）
-5. `select_card > 0` 时 `choose_card(select_card_n, skill.position, skill.filter_card)` 选牌
+5. `select_card > 0` 时 `choose_card(select_card_n, skill.position, skill.filter_card, skill.window_prompt)` 选牌
 6. 输出使用日志（有 target 时输出"对 X 使用了 Y"，无 target 时输出"使用了 Y"）
 7. `await skill.execute_content(self, event)`
 8. 取消检查：content 中通过 `EventSystem.cancel(event)` 取消时不记录使用，return

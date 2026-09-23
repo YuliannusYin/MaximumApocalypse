@@ -344,6 +344,8 @@ func _score_skill_action(player: Variant, skill: Variant) -> float:
 		if _is_on_must_leave(player):
 			return 0.0
 		return _score_camouflage_discard(player)
+	if _is_trade_skill(skill):
+		return 0.0
 	if _is_balance_skill(skill):
 		if _is_on_must_leave(player):
 			return 0.0
@@ -747,6 +749,12 @@ func _is_balance_skill(skill: Variant) -> bool:
 	if skill == null:
 		return false
 	return str(skill.get("english_name")) == "balance" or str(skill.get("skill_name")) == "制衡"
+
+
+func _is_trade_skill(skill: Variant) -> bool:
+	if skill == null:
+		return false
+	return str(skill.get("english_name")) == "trade" or str(skill.get("skill_name")) == "交易"
 
 
 func _is_refuel_skill(skill: Variant) -> bool:

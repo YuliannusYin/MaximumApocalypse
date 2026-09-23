@@ -1100,6 +1100,10 @@ func _on_request_owner_changed(player: Variant) -> void:
 		_table_map_controller.refresh_map(player)
 		return
 	_acting_player = player
+	# 本机临时回合（热座，或联机下同一人操作多个座位）要让手牌跟请求玩家走。
+	# _refresh_hand_area 读的是 _last_local_focus_player，不更新会刷回上一名玩家。
+	if player != null and is_instance_valid(player):
+		_last_local_focus_player = player
 	_activate_seat_hud(player if player != null else _display_game().get_current_player())
 	if _action_selection_controller == null or not is_instance_valid(_action_selection_controller):
 		return
@@ -1353,15 +1357,19 @@ func _on_choose_card_requested(n: int, param: Variant, filter: Variant, prompt: 
 	# 构建区域标签（单一区域时不显示，混合区域时自动显示）
 	var zone_labels: Array = []
 	var zone_name: String = ""
-	if typeof(param) == TYPE_ARRAY:
-		# Array 模式：根据每张卡牌实际所在区域设置标签
+	var mixed_zones: bool = typeof(param) == TYPE_ARRAY or str(param) == ""
+	if mixed_zones:
+		# Array 模式或 position 为空（手牌+装备）：按每张牌实际所在区域设置标签
 		for card in cards:
 			if card is Equipment:
 				zone_labels.append("装备区")
 			elif current.has_method("get") and "hand" in current and current.hand.has(card):
 				zone_labels.append("手牌区")
+			elif _card_is_in_equipment_zone(current, card):
+				zone_labels.append("装备区")
 			else:
 				zone_labels.append("候选列表")
+		label = "候选列表" if typeof(param) == TYPE_ARRAY else "拾荒牌"
 	else:
 		match param:
 			"hand":
@@ -1373,6 +1381,17 @@ func _on_choose_card_requested(n: int, param: Variant, filter: Variant, prompt: 
 		for i in range(cards.size()):
 			zone_labels.append(zone_name)
 	_popup_manager.show_card_select_popup(cards, n, label, zone_labels, prompt, min_n)
+
+
+func _card_is_in_equipment_zone(player: Variant, card: Variant) -> bool:
+	if player == null or not is_instance_valid(player) or not "equipment_zone" in player:
+		return false
+	for item in player.equipment_zone:
+		if item == card:
+			return true
+		if item is Equipment and item.equipment_card == card:
+			return true
+	return false
 
 
 ## 目标弹窗确认后先播放 A→B 指向动画，再恢复等待中的 choose_target 请求。

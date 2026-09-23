@@ -162,6 +162,19 @@ func gain(target: Variant, card: Variant) -> Variant:
 	return await target.gain(card, runtime)
 
 
+func trade_scavenge(initiator: Variant, partner: Variant, offered: Variant) -> Variant:
+	if initiator == null or not initiator.has_method("trade_scavenge_with"):
+		return false
+	return await initiator.trade_scavenge_with(partner, offered)
+
+
+func swap_scavenge(player_a: Variant, card_a: Variant, player_b: Variant, card_b: Variant) -> Variant:
+	if player_a == null or not player_a.has_method("swap_scavenge_cards"):
+		return false
+	await player_a.swap_scavenge_cards(player_b, card_a, card_b)
+	return true
+
+
 func heal_all_status(target: Variant) -> Variant:
 	return await target.heal_all_status(runtime)
 

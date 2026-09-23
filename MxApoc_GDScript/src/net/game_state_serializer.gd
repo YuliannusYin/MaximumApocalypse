@@ -66,6 +66,7 @@ static func apply(game: Variant, snapshot: Dictionary, ctx: Dictionary) -> void:
 		_apply_role_front(player, row)
 		_apply_marks(player, row.get("marks", []))
 		_apply_bodies(player, row, ctx)
+		_apply_skill_uses(player, row.get("skill_uses", {}))
 		apply_display_limited_action(
 			player, int(row.get("limited_remaining_actions", -1)))
 	if game.get("state_machine") != null:
@@ -168,6 +169,7 @@ static func _serialize_player(player: Variant) -> Dictionary:
 		"current_block": _block_id(player.current_block),
 		"hand": hand,
 		"equipment": equipment,
+		"skill_uses": _serialize_skill_uses(player),
 		"discard": _serialize_pile_cards(player.game_discard_pile if "game_discard_pile" in player else null),
 		"game_deck": _pile_size(player.game_deck if "game_deck" in player else null),
 		"monsters": _serialize_monster_list(player.monster_zone if "monster_zone" in player else []),
@@ -219,6 +221,36 @@ static func _limited_remaining_actions_of(player: Variant) -> int:
 	if String(context.get("kind", "")) != "limited_action":
 		return -1
 	return maxi(int(context.get("remaining_actions", 0)), 0)
+
+
+static func _serialize_skill_uses(player: Variant) -> Dictionary:
+	var uses := {}
+	if player == null or not "skills" in player:
+		return uses
+	for skill in player.skills:
+		if skill == null or not is_instance_valid(skill):
+			continue
+		if int(skill.get("usable")) < 0:
+			continue
+		var key := str(skill.get("english_name"))
+		if key.is_empty():
+			continue
+		uses[key] = int(skill.get("used_count"))
+	return uses
+
+
+static func _apply_skill_uses(player: Variant, uses: Variant) -> void:
+	if player == null or not is_instance_valid(player) or not (uses is Dictionary):
+		return
+	if not "skills" in player:
+		return
+	for skill in player.skills:
+		if skill == null or not is_instance_valid(skill):
+			continue
+		var key := str(skill.get("english_name"))
+		if key.is_empty() or not uses.has(key):
+			continue
+		skill.used_count = int(uses[key])
 
 
 static func _serialize_stats(game: Variant) -> Dictionary:
