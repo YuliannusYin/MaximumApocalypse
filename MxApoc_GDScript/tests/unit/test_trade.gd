@@ -25,6 +25,29 @@ func _setup_trade_world(p1: Player, p2: Player, same_block: bool = true) -> MapB
 	return b1
 
 
+func _make_veteran_seat() -> Player:
+	var survivor: SurvivorData = DataManager.get_survivor("veteran")
+	var p: Player = _make_player("老兵与狗", 0, 0)
+	p.in_phase = "action"
+	p.action_count = 4
+	p.role_card = Game._create_role_card_from_survivor(survivor)
+	Game._create_companion_bodies(p, survivor)
+	return p
+
+
+func _body_target_skill() -> Skill:
+	var skill: Skill = Skill.new()
+	skill.skill_name = "点名"
+	skill.english_name = "pick_body"
+	skill.active = "action"
+	skill.target_type = ""
+	skill.select_target = 1
+	skill.filter_target_range = "short"
+	skill.filter_target = CodeExecutor.compile_filter_target(
+		"return target != player and target.is_player() and target.is_alive()")
+	return skill
+
+
 func _make_trader(player_name: String) -> Player:
 	var p: Player = _make_player(player_name)
 	p.in_phase = "action"
@@ -329,3 +352,75 @@ func test_ai_trade_reply_keeps_scientist_when_alternatives_exist() -> void:
 		1, [scientist, junk], null, "\"交易\": 选择一张拾荒牌交换")
 	assert_eq(picked.size(), 1)
 	assert_eq(picked[0], junk, "有替代时应交出非科学家")
+
+
+func test_trade_with_veteran_targets_seat_while_both_bodies_live() -> void:
+	var mechanic: Player = _make_trader("机械师")
+	var veteran: Player = _make_veteran_seat()
+	_setup_trade_world(mechanic, veteran, true)
+	mechanic.hand.append(_make_scavenge_card("医疗用品"))
+	veteran.hand.append(_make_scavenge_card("解毒剂"))
+	var skill: Skill = _get_trade_skill()
+	mechanic.add_skill(skill)
+	veteran.add_skill(skill)
+	assert_true(mechanic.can_use_active_skill(skill), "对方是老兵与狗且座位有拾荒牌时应可交易")
+	var targets: Array = mechanic.get_skill_valid_targets(skill)
+	assert_eq(targets.size(), 1, "人和狗应并成一个座位")
+	assert_eq(targets[0], veteran)
+	assert_true(veteran.can_use_active_skill(skill), "老兵座位应仍能向普通玩家发起交易")
+	var back: Array = veteran.get_skill_valid_targets(skill)
+	assert_eq(back.size(), 1)
+	assert_eq(back[0], mechanic)
+
+
+func test_trade_with_veteran_when_only_one_body_alive() -> void:
+	var mechanic: Player = _make_trader("机械师")
+	var veteran: Player = _make_veteran_seat()
+	_setup_trade_world(mechanic, veteran, true)
+	mechanic.hand.append(_make_scavenge_card("医疗用品"))
+	veteran.hand.append(_make_scavenge_card("解毒剂"))
+	var skill: Skill = _get_trade_skill()
+	mechanic.add_skill(skill)
+	await veteran.get_body("veteran_human").death(null)
+	assert_true(veteran.is_alive())
+	assert_true(veteran.is_body_alive("dog"))
+	assert_true(mechanic.can_use_active_skill(skill), "只剩狗时仍应能与该座位交易")
+	var only_dog: Array = mechanic.get_skill_valid_targets(skill)
+	assert_eq(only_dog.size(), 1)
+	assert_eq(only_dog[0], veteran)
+	await veteran.get_body("dog").death(null)
+	assert_false(veteran.is_alive())
+	assert_false(mechanic.can_use_active_skill(skill), "双方身体都死则座位不可交易")
+
+
+func test_trade_with_veteran_when_only_veteran_alive() -> void:
+	var mechanic: Player = _make_trader("机械师")
+	var veteran: Player = _make_veteran_seat()
+	_setup_trade_world(mechanic, veteran, true)
+	mechanic.hand.append(_make_scavenge_card("医疗用品"))
+	veteran.hand.append(_make_scavenge_card("解毒剂"))
+	var skill: Skill = _get_trade_skill()
+	mechanic.add_skill(skill)
+	await veteran.get_body("dog").death(null)
+	assert_true(veteran.is_body_alive("veteran_human"))
+	assert_false(veteran.is_body_alive("dog"))
+	assert_true(mechanic.can_use_active_skill(skill), "只剩老兵时仍应能与该座位交易")
+	var targets: Array = mechanic.get_skill_valid_targets(skill)
+	assert_eq(targets.size(), 1)
+	assert_eq(targets[0], veteran)
+
+
+func test_body_pick_skill_still_lists_living_bodies() -> void:
+	var mechanic: Player = _make_trader("机械师")
+	var veteran: Player = _make_veteran_seat()
+	_setup_trade_world(mechanic, veteran, true)
+	var skill: Skill = _body_target_skill()
+	var both: Array = mechanic.get_skill_valid_targets(skill)
+	assert_eq(both.size(), 2, "不看牌区的目标仍应单独列出人和狗")
+	assert_true(both.has(veteran.get_body("veteran_human")))
+	assert_true(both.has(veteran.get_body("dog")))
+	assert_false(both.has(veteran))
+	await veteran.get_body("dog").death(null)
+	var only_human: Array = mechanic.get_skill_valid_targets(skill)
+	assert_eq(only_human.size(), 1)
+	assert_eq(only_human[0], veteran.get_body("veteran_human"))

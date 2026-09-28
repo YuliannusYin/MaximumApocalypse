@@ -1367,13 +1367,14 @@ func resolve_equipment_overflow(runtime: Variant = null) -> void:
 		await discard(to_discard, "", 1, "", selected.is_empty(), rt)
 
 
-## 子角色死亡：重算容量并溢出；双方都死才走座位死亡。
+## 子角色死亡。仍有存活身体时重算容量并溢出选弃；双方都死则直接座位死亡，不弹溢出选择。
 func on_companion_body_died(_body: Variant, source: Entity, runtime: Variant = null) -> void:
 	var rt: Variant = runtime if runtime != null else Game.event_scheduler
-	await resolve_equipment_overflow(rt)
-	await resolve_hand_overflow([], rt)
 	if not is_alive():
 		await death(source, rt)
+		return
+	await resolve_equipment_overflow(rt)
+	await resolve_hand_overflow([], rt)
 
 
 ## 狗的守护：射程为「无」等只打老兵的攻击可改打狗。
@@ -2884,17 +2885,50 @@ func use_active_skill(skill: Skill, operation_runtime: Variant = null) -> void:
 
 ## 内部方法：用 skill.filter_target 过滤候选目标列表。
 ## skill 可为 Skill（Callable）或 Dictionary（代码字符串）。
+## 双子身体若收成同一座位，只保留一条。
 func _filter_targets(skill: Variant, candidates: Array, event: Variant) -> Array:
 	var filtered: Array = []
 	for candidate in candidates:
-		if candidate_passes_filter_target(skill, candidate, event):
-			filtered.append(candidate)
+		var accepted: Variant = resolve_filter_target(skill, candidate, event)
+		if accepted == null or not is_instance_valid(accepted):
+			continue
+		if filtered.has(accepted):
+			continue
+		filtered.append(accepted)
 	return filtered
 
 
 func candidate_passes_filter_target(skill: Variant, candidate: Variant, event: Variant) -> bool:
 	if skill == null:
 		return true
+	return resolve_filter_target(skill, candidate, event) != null
+
+
+## 过滤后实际采用的目标。无过滤时原样返回。
+## 候选自己通过：保留该对象。本座位身体还要让座位通过，使 target != player 排除自己的狗。
+## 候选通不过、且它是子身体、所属座位通过：收成座位。交易的手牌在座位上；
+## 老兵与狗双活，或只剩其中一人，都收成这一个座位。攻击类过滤身体自己过得了，仍单独选身体。
+func resolve_filter_target(skill: Variant, candidate: Variant, event: Variant) -> Variant:
+	if candidate == null or not is_instance_valid(candidate):
+		return null
+	if skill == null:
+		return candidate
+	var filter_callable: Callable = _filter_target_callable(skill)
+	if not filter_callable.is_valid():
+		return candidate
+	if filter_callable.call(self, candidate, event, Game):
+		if _is_own_companion_body(candidate) and not filter_callable.call(self, self, event, Game):
+			return null
+		return candidate
+	var seat: Variant = _companion_seat_of(candidate)
+	if seat == null or not is_instance_valid(seat) or seat == candidate:
+		return null
+	if not filter_callable.call(self, seat, event, Game):
+		return null
+	return seat
+
+
+func _filter_target_callable(skill: Variant) -> Callable:
 	var filter_callable: Callable = Callable()
 	if skill is Dictionary:
 		var fc_str: Variant = skill.get("filter_target", null)
@@ -2906,14 +2940,17 @@ func candidate_passes_filter_target(skill: Variant, candidate: Variant, event: V
 		var fc: Variant = skill.get("filter_target")
 		if fc is Callable:
 			filter_callable = fc
-	if not filter_callable.is_valid():
-		return true
-	if not filter_callable.call(self, candidate, event, Game):
-		return false
-	# 本座位子身体：再按「target = 座位」判定，使 target != player 排除自己的狗
-	if _is_own_companion_body(candidate):
-		return filter_callable.call(self, self, event, Game)
-	return true
+	return filter_callable
+
+
+func _companion_seat_of(candidate: Variant) -> Variant:
+	if candidate == null or not is_instance_valid(candidate):
+		return null
+	if not candidate.has_method("is_companion_body") or not candidate.is_companion_body():
+		return null
+	if not candidate.has_method("get_seat_player"):
+		return null
+	return candidate.get_seat_player()
 
 
 ## 构建装备目标候选。

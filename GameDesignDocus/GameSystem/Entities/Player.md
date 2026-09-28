@@ -534,10 +534,11 @@
 | `get_controller_body()` | 无目标「该玩家」效果的承受者：老兵活则老兵，否则狗 |
 | `get_body(english_name) / is_body_alive(english_name)` | 按 `veteran_human` / `dog` 取身体 |
 | `expand_targetable_entities(entities)` | 静态：把双子座位展开为存活身体 |
-| `candidate_passes_filter_target(skill, candidate, event)` | 对本座位子身体再按 `filter_target(self, 座位)` 判定，使 `target != player` 排除己方身体 |
+| `resolve_filter_target(skill, candidate, event)` | 过滤后实际采用的目标。身体自己通过则保留身体；本座位身体还要让座位通过。身体通不过、所属座位通过时收成座位（交易）。双活或只剩一人都收成同一个座位 |
+| `candidate_passes_filter_target(skill, candidate, event)` | `resolve_filter_target` 非空。对本座位子身体再按 `filter_target(self, 座位)` 判定，使 `target != player` 排除己方身体 |
 | `shares_seat(other)` | 是否同一座位（含自己的老兵/狗）。继承自 Entity |
 | `try_apply_dog_guard(monster, targets)` | 可选把目标列表里的老兵换成狗 |
-| `on_companion_body_died(body, source)` | 重算容量并溢出；双方都死才 `Player.death()` |
+| `on_companion_body_died(body, source)` | 仍有存活身体时重算容量并溢出选弃。无存活身体时直接 `Player.death()`，不走溢出选牌 |
 | `get_hunger() -> int` | 返回饥饿值 |
 | `add_hunger(n)` / `reduce_hunger(n)` | 增加 / 减少饥饿值（`reduce_hunger` 不低于 1，发射 `hunger_reduced` 信号） |
 | `get_sneak() -> int` | 普通：`stealth + role_card.get_sneak()`。双子：双活取较低身体潜行，只剩一人用那人的 |
@@ -649,7 +650,7 @@
 
 #### `_filter_targets(skill, candidates, event) -> Array`（内部）
 
-对候选逐项调用 `candidate_passes_filter_target`。`filter_target` 为空 Callable 时全保留；本座位 CompanionBody 再按「target = 座位」判定。
+对候选逐项调用 `resolve_filter_target`，同一对象只保留一条。`filter_target` 为空 Callable 时全保留。本座位 CompanionBody 还要让座位通过，从而排除自己的狗。对方身体通不过、座位通过时收成该座位（老兵与狗双活或只剩其一都是这一条）。
 
 #### `get_equipment_candidates(range_str) -> Array`
 

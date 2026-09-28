@@ -8,6 +8,14 @@ const WikiIndex = preload("res://src/ui/wiki_index.gd")
 var _saved_view_game: Node = null
 
 
+class _ChooseCardSpy extends CliPlayerInput:
+	var calls: Array = []
+
+	func choose_card(n: int, param: Variant = "hand", filter: Variant = null, prompt: String = "", min_n: int = -1) -> Array:
+		calls.append({"n": n, "prompt": prompt})
+		return []
+
+
 func before_each() -> void:
 	super.before_each()
 	_saved_view_game = NetSession._view_game if NetSession != null else null
@@ -214,6 +222,39 @@ func test_both_bodies_dead_kills_seat() -> void:
 	assert_true(p.is_alive())
 	await p.get_body("dog").death(null)
 	assert_false(p.is_alive())
+
+
+func test_last_body_death_skips_overflow_choice() -> void:
+	var p: Player = _make_veteran_seat()
+	_setup_game_for_player(p)
+	var spy := _ChooseCardSpy.new()
+	p.input = spy
+	var hand_cards: Array = []
+	for i in 4:
+		var card: Card = _make_card("c%d" % i)
+		p.hand.append(card)
+		hand_cards.append(card)
+	var sized: EquipmentCard = EquipmentCard.new()
+	sized.card_name = "M1加兰德步枪"
+	sized.english_name = "m1_garand"
+	sized.card_type = "equipment"
+	sized.source = "game"
+	sized.size = 1
+	assert_true(await p.equip(sized))
+	await p.get_body("dog").death(null)
+	assert_eq(spy.calls.size(), 0, "狗死且手牌、装备未超新上限时不应弹窗")
+	assert_true(p.is_alive())
+	assert_eq(p.hand.size(), 4)
+	assert_eq(p.get_equipped_size(), 1)
+	await p.get_body("veteran_human").death(null)
+	assert_eq(spy.calls.size(), 0, "最后一具身体死亡不应弹出溢出选择")
+	assert_false(p.is_alive())
+	assert_eq(p.equipment_zone.size(), 0, "座位死亡应卸下装备")
+	assert_true(Game.removed_cards.has(sized), "占格装备应随座位死亡移出游戏")
+	for card in hand_cards:
+		assert_true(Game.removed_cards.has(card), "手牌应随座位死亡移出游戏")
+		assert_false(p.game_discard_pile.get_all().has(card), "座位死亡不应把牌送进弃牌堆")
+	assert_false(p.game_discard_pile.get_all().has(sized))
 
 
 func test_none_range_hits_controller_only() -> void:

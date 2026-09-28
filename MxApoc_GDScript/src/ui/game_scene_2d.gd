@@ -1513,14 +1513,22 @@ func _on_choose_target_requested(n: int, skill: Variant, prompt: String, min_n: 
 			candidates = deduped
 			if current.has_method("expand_targetable_entities"):
 				candidates = current.expand_targetable_entities(candidates)
-	# filter_target 过滤候选
+	# filter_target 过滤候选。双子身体可能收成座位，同一座位只保留一条。
 	var filtered: Array = []
 	for target in candidates:
 		if target == null or not is_instance_valid(target):
 			continue
 		var event := {"player": current, "target": target, "card": null}
-		if _is_valid_target(skill, target, event, current):
-			filtered.append(target)
+		var accepted: Variant = null
+		if current.has_method("resolve_filter_target"):
+			accepted = current.resolve_filter_target(skill, target, event)
+		elif _is_valid_target(skill, target, event, current):
+			accepted = target
+		if accepted == null or not is_instance_valid(accepted):
+			continue
+		if filtered.has(accepted):
+			continue
+		filtered.append(accepted)
 	# 处理 select_target
 	var select_n: int = n
 	# 构建装备区 zone_labels（多名持有者时显示「某某的装备区」）

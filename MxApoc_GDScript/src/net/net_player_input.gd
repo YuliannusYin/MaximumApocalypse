@@ -304,4 +304,3 @@ func _controller_for_seat(seat_id: int) -> String:
 	if NetSession == null or seat_id < 0 or seat_id >= NetSession.registry.seats.size():
 		return ""
 	return String(NetSession.registry.seats[seat_id].get("controller_id", ""))
-

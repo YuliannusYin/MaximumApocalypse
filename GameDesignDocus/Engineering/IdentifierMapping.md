@@ -366,7 +366,7 @@ trigger 名在 JSON 数据中用英文 snake_case，技能 `trigger` 字段可�
 | `get_number(key)` | 数值标记查询 |
 | `get_current_block()` | 当前地块 |
 | `choose_card(n, param, filter)` | 选牌 |
-| `choose_target(n, skill)` | 选目标（`n=-1` 全部）；候选会把双子座位展开为身体 |
+| `choose_target(n, skill)` | 选目标（`n=-1` 全部）；候选会把双子座位展开为身体。看牌区且身体过不了过滤时收成座位 |
 | `confirm(prompt)` | 确认对话框 |
 | `has_companion_bodies()` / `get_body(id)` / `get_controller_body()` | 双子座位查询 |
 | `try_apply_dog_guard(monster, targets)` | 狗的守护：把只打老兵的攻击改打狗 |
