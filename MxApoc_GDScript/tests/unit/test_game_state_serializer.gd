@@ -25,6 +25,20 @@ func test_snapshot_includes_player_and_scavenge_discard_cards() -> void:
 	assert_eq(snapshot["piles"]["scavenge_discard_cards"][0]["english_name"], "pistol")
 
 
+func test_snapshot_round_trips_initial_setup_completed() -> void:
+	Game.state_machine.initial_setup_completed = true
+	Game.players = []
+	Game.map_area = []
+	var snapshot: Dictionary = GameStateSerializerScript.snapshot(Game)
+	assert_true(snapshot["state_machine"]["initial_setup_completed"])
+
+	Game.state_machine.initial_setup_completed = false
+	GameStateSerializerScript.apply(Game, snapshot, {})
+	assert_true(Game.state_machine.initial_setup_completed,
+		"客机快照应恢复初始数据初始化完成状态")
+	Game.state_machine.initial_setup_completed = false
+
+
 func test_rebuilt_discard_makes_has_equipment_true() -> void:
 	var player: Player = _make_player("Hunter")
 	player.seat_number = 0

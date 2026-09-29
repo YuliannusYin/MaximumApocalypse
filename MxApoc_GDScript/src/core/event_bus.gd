@@ -31,6 +31,7 @@ signal objective_mark_changed(block: Variant)
 
 # === 游戏流程信号 ===
 signal game_started()
+signal initial_setup_completed()
 signal game_over(result: int)
 signal turn_started(player: Variant)
 signal turn_ended(player: Variant)

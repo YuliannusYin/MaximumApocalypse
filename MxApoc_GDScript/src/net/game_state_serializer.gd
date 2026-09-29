@@ -78,6 +78,9 @@ static func apply(game: Variant, snapshot: Dictionary, ctx: Dictionary) -> void:
 			machine.turn_number = int(state_data.get("turn_number", machine.turn_number))
 		if state_data.has("game_result"):
 			machine.game_result = int(state_data.get("game_result", machine.game_result))
+		if state_data.has("initial_setup_completed"):
+			machine.initial_setup_completed = bool(
+				state_data.get("initial_setup_completed", false))
 		var current_seat := int(state_data.get("current_player_seat", -1))
 		machine.current_player = _player_by_seat(game, current_seat) \
 			if current_seat >= 0 else null
@@ -421,6 +424,8 @@ static func _serialize_state_machine(machine: Variant) -> Dictionary:
 			if last_player != null and "seat_number" in last_player else -1,
 		"turn_number": int(machine.turn_number) if "turn_number" in machine else 0,
 		"game_result": int(machine.game_result) if "game_result" in machine else -1,
+		"initial_setup_completed": bool(machine.initial_setup_completed)
+			if "initial_setup_completed" in machine else false,
 	}
 
 static func _serialize_mission(config: Variant) -> Dictionary:

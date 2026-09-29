@@ -89,6 +89,8 @@ func test_visual_relays_bind_and_unbind_event_bus() -> void:
 	assert_true(EventBus.block_revealed.is_connected(runtime._relay_block_revealed))
 	assert_true(EventBus.block_destroyed.is_connected(runtime._relay_block_destroyed))
 	assert_true(EventBus.game_over.is_connected(runtime._relay_game_over))
+	assert_true(EventBus.initial_setup_completed.is_connected(
+		runtime._relay_initial_setup_completed))
 	assert_true(EventBus.turn_started.is_connected(runtime._relay_turn_started))
 	assert_true(EventBus.phase_changed.is_connected(runtime._relay_phase_changed))
 	assert_true(EventBus.monster_mark_changed.is_connected(runtime._relay_block_mark_changed))
@@ -106,6 +108,8 @@ func test_visual_relays_bind_and_unbind_event_bus() -> void:
 	assert_false(EventBus.block_revealed.is_connected(runtime._relay_block_revealed))
 	assert_false(EventBus.block_destroyed.is_connected(runtime._relay_block_destroyed))
 	assert_false(EventBus.game_over.is_connected(runtime._relay_game_over))
+	assert_false(EventBus.initial_setup_completed.is_connected(
+		runtime._relay_initial_setup_completed))
 	assert_false(EventBus.turn_started.is_connected(runtime._relay_turn_started))
 	assert_false(EventBus.damage_taken.is_connected(runtime._relay_damage_taken))
 	assert_eq(EventBus.player_moved.get_connections().size(), before)

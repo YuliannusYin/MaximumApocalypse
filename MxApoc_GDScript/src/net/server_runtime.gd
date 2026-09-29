@@ -229,6 +229,7 @@ func _connect_visual_relays() -> void:
 	_bind_visual_relay(EventBus.block_revealed, _relay_block_revealed)
 	_bind_visual_relay(EventBus.block_destroyed, _relay_block_destroyed)
 	_bind_visual_relay(EventBus.game_over, _relay_game_over)
+	_bind_visual_relay(EventBus.initial_setup_completed, _relay_initial_setup_completed)
 	_bind_visual_relay(EventBus.turn_started, _relay_turn_started)
 	_bind_visual_relay(EventBus.phase_changed, _relay_phase_changed)
 	_bind_visual_relay(EventBus.monster_mark_changed, _relay_block_mark_changed)
@@ -262,6 +263,7 @@ func _disconnect_visual_relays() -> void:
 	_unbind_visual_relay(EventBus.block_revealed, _relay_block_revealed)
 	_unbind_visual_relay(EventBus.block_destroyed, _relay_block_destroyed)
 	_unbind_visual_relay(EventBus.game_over, _relay_game_over)
+	_unbind_visual_relay(EventBus.initial_setup_completed, _relay_initial_setup_completed)
 	_unbind_visual_relay(EventBus.turn_started, _relay_turn_started)
 	_unbind_visual_relay(EventBus.phase_changed, _relay_phase_changed)
 	_unbind_visual_relay(EventBus.monster_mark_changed, _relay_block_mark_changed)
@@ -345,6 +347,10 @@ func _relay_turn_started(player: Variant) -> void:
 	_broadcast_visual("turn_started", {
 		"seat_id": _seat_of(player),
 	})
+
+
+func _relay_initial_setup_completed() -> void:
+	_broadcast_visual("initial_setup_completed", {})
 
 
 func _relay_phase_changed(player: Variant, old_phase: String, new_phase: String) -> void:

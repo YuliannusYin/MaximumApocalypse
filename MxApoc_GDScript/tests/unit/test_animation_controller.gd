@@ -38,3 +38,31 @@ func test_is_busy_follows_view_playing_flags() -> void:
 	controller.free()
 	dice.free()
 	destroy.free()
+
+
+func test_network_animation_queue_preserves_fifo_order() -> void:
+	var controller := AnimationController.new()
+	add_child(controller)
+	var events: Array[String] = []
+	controller.enqueue_network_animation(func() -> void:
+		events.append("first_start")
+		await get_tree().create_timer(0.02).timeout
+		events.append("first_end"))
+	controller.enqueue_network_animation(func() -> void:
+		events.append("second_start")
+		events.append("second_end"))
+
+	assert_true(controller.is_network_animation_queue_busy())
+	assert_eq(controller.get_network_animation_queue_size(), 1)
+	await controller.network_animation_queue_drained
+
+	assert_eq(events, [
+		"first_start",
+		"first_end",
+		"second_start",
+		"second_end",
+	], "联机动画队列应按 FIFO 完整执行，不丢弃后续动画")
+	assert_false(controller.is_network_animation_queue_busy())
+	assert_false(controller.is_busy())
+	controller.queue_free()
+	await get_tree().process_frame

@@ -23,6 +23,10 @@ var _card_destroy_view: CardDestroyAnimationView
 var _turn_banner_view: TurnBannerView
 var _target_link_layer: CanvasLayer
 var _target_link_view: TargetLinkAnimationView
+var _network_animation_queue: Array[Callable] = []
+var _network_animation_queue_running: bool = false
+
+signal network_animation_queue_drained
 
 
 func _ready() -> void:
@@ -63,13 +67,42 @@ func is_dice_playing() -> bool:
 
 ## 全屏对局演出是否正在播放（不含回合横幅）。客机据此推迟整包快照，避免卡顿。
 func is_busy() -> bool:
-	return is_dice_playing() \
+	return is_network_animation_queue_busy() \
+		or is_dice_playing() \
 		or (_monster_draw_view != null and _monster_draw_view.is_playing()) \
 		or (_skill_trigger_view != null and _skill_trigger_view.is_playing()) \
 		or (_monster_skill_trigger_view != null and _monster_skill_trigger_view.is_playing()) \
 		or (_monster_attack_view != null and _monster_attack_view.is_playing()) \
 		or (_card_destroy_view != null and _card_destroy_view.is_playing()) \
 		or (_target_link_view != null and _target_link_view.is_playing())
+
+
+## 将联机专用的主要演出加入 FIFO 队列。
+## 队列只由联机网络事件入口使用，不改变单机 GUIPlayerInput 的播放路径。
+func enqueue_network_animation(job: Callable) -> void:
+	if not job.is_valid():
+		return
+	_network_animation_queue.append(job)
+	if not _network_animation_queue_running:
+		_drain_network_animation_queue()
+
+
+func is_network_animation_queue_busy() -> bool:
+	return _network_animation_queue_running or not _network_animation_queue.is_empty()
+
+
+func get_network_animation_queue_size() -> int:
+	return _network_animation_queue.size()
+
+
+func _drain_network_animation_queue() -> void:
+	_network_animation_queue_running = true
+	while not _network_animation_queue.is_empty():
+		var job: Callable = _network_animation_queue.pop_front()
+		if job.is_valid():
+			await job.call()
+	_network_animation_queue_running = false
+	network_animation_queue_drained.emit()
 
 
 ## 以下方法是统一的公共契约，均可 await；完成后才返回。

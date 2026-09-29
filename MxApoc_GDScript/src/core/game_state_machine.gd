@@ -46,6 +46,9 @@ var skip_turn_marks: Dictionary = {}
 ## 当前轮数。所有玩家各执行一次为一轮。从 0 开始，首次填充队列时 +1。
 var turn_number: int = 0
 
+## 初始手牌与初始怪物全部完成后置为 true，供联机客机判断开局演出闸门。
+var initial_setup_completed: bool = false
+
 
 # === 初始化 ===
 
@@ -57,6 +60,7 @@ func init() -> void:
 	_clear_pending_turns()
 	skip_turn_marks.clear()
 	turn_number = 0
+	initial_setup_completed = false
 
 
 # === 状态转换 ===
@@ -121,6 +125,9 @@ func start_game(runtime: Variant = null) -> void:
 				await player.draw_monster(1, scheduler)
 		if _session_aborted(session_id):
 			return
+		initial_setup_completed = true
+		if EventBus != null and is_instance_valid(EventBus):
+			EventBus.initial_setup_completed.emit()
 		# 4. 第零轮：重调阶段
 		await _round_zero(session_id)
 		if _session_aborted(session_id):

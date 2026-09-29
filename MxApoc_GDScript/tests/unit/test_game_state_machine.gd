@@ -96,6 +96,7 @@ func test_init_sets_defaults() -> void:
 	assert_eq(gsm.turn_queue.size(), 0)
 	assert_eq(gsm.skip_turn_marks.size(), 0)
 	assert_eq(gsm.turn_number, 0)
+	assert_false(gsm.initial_setup_completed)
 
 
 func test_default_state_is_waiting() -> void:

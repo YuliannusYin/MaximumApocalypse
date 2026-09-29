@@ -57,6 +57,9 @@ var _last_network_snapshot_sequence: int = 0
 var _seen_game_events: Dictionary = {}
 var _match_view_ready: bool = false
 var _network_entity_ctx: Dictionary = {}
+var _network_initial_setup_ready: bool = false
+var _pending_network_startup_monster_draws: Array[Dictionary] = []
+var _network_startup_monster_draw_order: int = 0
 var _pending_map_refresh_after_visual: bool = false
 var _pending_network_snapshot: Dictionary = {}
 var _pending_mark_pulses: Array = []
@@ -134,6 +137,8 @@ func _create_modules() -> void:
 	# 统一动画控制器：集中持有全屏演出、目标指向演出和回合横幅。
 	_animation_controller = AnimationController.new()
 	_ui_layer.add_child(_animation_controller)
+	_animation_controller.network_animation_queue_drained.connect(
+		_on_network_animation_queue_drained)
 
 	_event_log_panel = EventLogPanel.new()
 	_ui_layer.add_child(_event_log_panel)
@@ -465,6 +470,7 @@ func _realize_match_view() -> void:
 	_pile_manager.refresh_pile_counts()
 	_show_local_seat_hud()
 	_match_view_ready = true
+	_flush_pending_network_startup_monster_draws()
 	_replay_pending_network_request()
 
 
@@ -607,11 +613,20 @@ func _handle_network_visual_request(request_id: int, seat_id: int,
 		request_type: String, payload: Dictionary) -> void:
 	if request_id >= 0 and (not _uses_network_display() or _network_client_input == null):
 		return
+	if request_type == "show_card":
+		var card: Variant = payload.get("card")
+		if card is Card and is_instance_valid(card):
+			_popup_manager.show_card_detail_popup(card)
+		_finish_network_visual_request(request_id, seat_id)
+		return
+	_animation_controller.enqueue_network_animation(func() -> void:
+		await _play_network_visual_request(seat_id, request_type, payload)
+		_finish_network_visual_request(request_id, seat_id))
+
+
+func _play_network_visual_request(seat_id: int, request_type: String,
+		payload: Dictionary) -> void:
 	match request_type:
-		"show_card":
-			var card: Variant = payload.get("card")
-			if card is Card and is_instance_valid(card):
-				_popup_manager.show_card_detail_popup(card)
 		"dice_animation":
 			await _animation_controller.play_dice(
 				int(payload.get("d1", 0)),
@@ -649,15 +664,59 @@ func _handle_network_visual_request(request_id: int, seat_id: int,
 					target_positions.append(target_panel.get_role_card_global_position())
 			if attack_monster is Monster and is_instance_valid(attack_monster):
 				await _animation_controller.play_monster_attack(attack_monster, target_positions)
+
+
+func _finish_network_visual_request(request_id: int, seat_id: int) -> void:
+	if request_id < 0 or _network_client_input == null:
+		return
+	_network_client_input.respond(request_id, seat_id, null)
+	if _network_request_id == request_id:
+		_network_request_id = -1
+		_network_request_seat_id = -1
+		_network_request_type = ""
+	if _network_request_id < 0:
+		_restore_network_action_request()
+
+
+func _on_network_animation_queue_drained() -> void:
 	_flush_deferred_after_visual()
-	if request_id >= 0:
-		_network_client_input.respond(request_id, seat_id, null)
-		if _network_request_id == request_id:
-			_network_request_id = -1
-			_network_request_seat_id = -1
-			_network_request_type = ""
-		if _network_request_id < 0:
-			_restore_network_action_request()
+
+
+func _buffer_network_startup_monster_draw(
+		server_sequence: int, payload: Dictionary) -> void:
+	_pending_network_startup_monster_draws.append({
+		"server_sequence": server_sequence,
+		"order": _network_startup_monster_draw_order,
+		"payload": payload,
+	})
+	_network_startup_monster_draw_order += 1
+
+
+func _flush_pending_network_startup_monster_draws() -> void:
+	if not _network_initial_setup_ready or not _match_view_ready:
+		return
+	if _pending_network_startup_monster_draws.is_empty():
+		return
+	_pending_network_startup_monster_draws.sort_custom(
+		func(a: Dictionary, b: Dictionary) -> bool:
+			var a_sequence := int(a.get("server_sequence", 0))
+			var b_sequence := int(b.get("server_sequence", 0))
+			if a_sequence != b_sequence:
+				return a_sequence < b_sequence
+			return int(a.get("order", 0)) < int(b.get("order", 0)))
+	var pending: Array[Dictionary] = _pending_network_startup_monster_draws.duplicate()
+	_pending_network_startup_monster_draws.clear()
+	for item in pending:
+		var payload: Variant = item.get("payload", {})
+		if not payload is Dictionary:
+			continue
+		var seat_id := int(payload.get("seat_id", -1))
+		_handle_network_visual_request(-1, seat_id, "monster_draw_animation", payload)
+
+
+func _on_network_initial_setup_completed() -> void:
+	_network_initial_setup_ready = true
+	_flush_pending_network_startup_monster_draws()
 
 
 func _network_player_for_seat(seat_id: int) -> Variant:
@@ -1760,7 +1819,6 @@ func _handle_network_target_links(payload: Dictionary) -> void:
 	var source: Variant = _network_player_for_seat(int(payload.get("source_seat", -1)))
 	var source_panel: PlayerPanel = _get_panel_for_player(source)
 	if source_panel == null:
-		_flush_deferred_after_visual()
 		return
 	var player_positions: Array[Vector2] = []
 	var monsters: Array = []
@@ -1772,11 +1830,11 @@ func _handle_network_target_links(payload: Dictionary) -> void:
 		elif target is Monster and is_instance_valid(target):
 			monsters.append(target)
 	if player_positions.is_empty() and monsters.is_empty():
-		_flush_deferred_after_visual()
 		return
-	await _animation_controller.play_target_links(
-		source_panel.get_role_card_global_position(), player_positions, monsters)
-	_flush_deferred_after_visual()
+	var source_position: Vector2 = source_panel.get_role_card_global_position()
+	_animation_controller.enqueue_network_animation(func() -> void:
+		await _animation_controller.play_target_links(
+			source_position, player_positions, monsters))
 
 
 func _handle_network_turn_started(payload: Dictionary) -> void:
@@ -1798,11 +1856,24 @@ func _handle_network_block_revealed(payload: Dictionary) -> void:
 		view.play_reveal_animation()
 
 
-func _handle_network_block_mark_pulse(payload: Dictionary) -> void:
-	if _is_visual_playing():
-		_pending_map_refresh_after_visual = true
-		_pending_mark_pulses.append(payload)
+func _queue_network_block_revealed(payload: Dictionary) -> void:
+	_animation_controller.enqueue_network_animation(func() -> void:
+		await _play_network_block_revealed(payload))
+
+
+func _play_network_block_revealed(payload: Dictionary) -> void:
+	var block: Variant = payload.get("block")
+	if block == null or not is_instance_valid(block):
 		return
+	var view: Variant = _table_map_controller.get_block_view(block)
+	_table_map_controller.refresh_map(_get_local_display_player())
+	if view != null and is_instance_valid(view) \
+			and view.has_method("play_reveal_animation_and_wait"):
+		await view.play_reveal_animation_and_wait()
+
+
+func _handle_network_block_mark_pulse(payload: Dictionary) -> void:
+	# 标记脉冲属于并行反馈，不进入主要演出队列。
 	_play_network_block_mark_pulse(payload)
 
 
@@ -1836,6 +1907,24 @@ func _handle_network_block_destroyed(payload: Dictionary) -> void:
 	if view != null and is_instance_valid(view):
 		view.refresh(false)
 		view.play_destroyed_animation()
+
+
+func _queue_network_block_destroyed(payload: Dictionary) -> void:
+	_animation_controller.enqueue_network_animation(func() -> void:
+		await _play_network_block_destroyed(payload))
+
+
+func _play_network_block_destroyed(payload: Dictionary) -> void:
+	var block: Variant = _network_block_at(int(payload.get("x", 0)), int(payload.get("y", 0)))
+	if block == null:
+		return
+	var view: Variant = _table_map_controller.get_block_view(block)
+	block.block_state = "destroyed"
+	if view == null or not is_instance_valid(view):
+		return
+	view.refresh(false)
+	if view.has_method("play_destroyed_animation_and_wait"):
+		await view.play_destroyed_animation_and_wait()
 
 
 # === EventBus 信号处理 ===
@@ -2292,13 +2381,17 @@ func _on_network_message(message: Dictionary) -> void:
 		_seen_game_events[dedup_key] = true
 	var event_payload: Dictionary = NetInputCodec.decode(
 		payload.get("payload", {}), _display_game())
-	if event_name == "player_moved":
+	if event_name == "initial_setup_completed":
+		_on_network_initial_setup_completed()
+	elif event_name == "monster_draw_animation" and not _network_initial_setup_ready:
+		_buffer_network_startup_monster_draw(server_sequence, event_payload)
+	elif event_name == "player_moved":
 		var moved_player: Variant = event_payload.get("player")
 		var source_block: Variant = event_payload.get("source_block")
 		var target_block: Variant = event_payload.get("target_block")
 		if moved_player != null and source_block != null and target_block != null:
-			await _play_player_moved(moved_player, source_block, target_block)
-		_flush_deferred_after_visual()
+			_animation_controller.enqueue_network_animation(func() -> void:
+				await _play_player_moved(moved_player, source_block, target_block))
 	elif event_name == "player_state_changed":
 		_apply_player_stat_changed_ui(_network_player_for_seat(
 			int(event_payload.get("seat_id", -1))))
@@ -2339,15 +2432,15 @@ func _on_network_message(message: Dictionary) -> void:
 		_handle_network_visual_request(-1, int(event_payload.get("seat_id", -1)),
 			event_name, event_payload)
 	elif event_name == "target_links":
-		await _handle_network_target_links(event_payload)
+		_handle_network_target_links(event_payload)
 	elif event_name == "turn_started":
 		_handle_network_turn_started(event_payload)
 	elif event_name == "block_revealed":
-		_handle_network_block_revealed(event_payload)
+		_queue_network_block_revealed(event_payload)
 	elif event_name == "block_mark_pulse":
 		_handle_network_block_mark_pulse(event_payload)
 	elif event_name == "block_destroyed":
-		_handle_network_block_destroyed(event_payload)
+		_queue_network_block_destroyed(event_payload)
 	elif event_name == "monster_died_feedback":
 		var dead_panel := _get_panel_for_player(
 			_network_player_for_seat(int(event_payload.get("seat_id", -1))))
@@ -2377,6 +2470,9 @@ func _apply_network_game_snapshot(snapshot: Dictionary) -> void:
 		return
 	NetSession.apply_display_game_snapshot(snapshot, _network_entity_ctx)
 	var display_game: Node = _display_game()
+	if display_game.state_machine != null \
+			and bool(display_game.state_machine.initial_setup_completed):
+		_network_initial_setup_ready = true
 	if not _match_view_ready and not display_game.players.is_empty() \
 			and not display_game.map_area.is_empty():
 		_realize_match_view()

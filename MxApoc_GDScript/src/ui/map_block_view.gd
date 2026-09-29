@@ -279,6 +279,12 @@ func play_reveal_animation() -> void:
 	tweener.set_ease(Tween.EASE_OUT)
 
 
+## 联机队列使用的等待版本；保留 play_reveal_animation 的 fire-and-forget 契约。
+func play_reveal_animation_and_wait() -> void:
+	play_reveal_animation()
+	await get_tree().create_timer(0.35).timeout
+
+
 ## 怪物标记反馈动画。added=true：最新标记图标弹入（scale 0→1.25→1，约 0.3 秒）；
 ## added=false：剩余标记快速淡出闪烁（modulate.a 0.5 → 1，约 0.2 秒）后复位；
 ## 找不到具体标记格时降级为地块整体轻微脉冲。播放前记录当前标记数。
@@ -325,6 +331,12 @@ func play_destroyed_animation() -> void:
 	_anim_tween = create_tween().set_parallel(true)
 	_anim_tween.tween_property(self, "modulate", Color(0.45, 0.45, 0.45), 0.4)
 	_anim_tween.tween_property(self, "position:y", target_y, 0.4)
+
+
+## 联机队列使用的等待版本；保留 play_destroyed_animation 的 fire-and-forget 契约。
+func play_destroyed_animation_and_wait() -> void:
+	play_destroyed_animation()
+	await get_tree().create_timer(0.4).timeout
 
 
 ## 隐藏/恢复本地块上指定玩家的头像（头像移动动画期间使用）。
