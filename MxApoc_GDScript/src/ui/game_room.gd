@@ -16,6 +16,8 @@ const RANDOM_MISSION_IDX := 0
 @onready var _port_edit: LineEdit = $MissionSelectArea/ScrollContainer/VBoxContainer/AdvancedSection/PortEdit
 @onready var _start_server_button: Button = $MissionSelectArea/ScrollContainer/VBoxContainer/AdvancedSection/StartServerButton
 @onready var _network_hint_label: Label = $MissionSelectArea/ScrollContainer/VBoxContainer/AdvancedSection/NetworkHintLabel
+@onready var _network_address_label: Label = $MissionSelectArea/ScrollContainer/VBoxContainer/AdvancedSection/NetworkAddressLabel
+@onready var _network_address_list: VBoxContainer = $MissionSelectArea/ScrollContainer/VBoxContainer/AdvancedSection/NetworkAddressList
 @onready var _mission_name_label: Label = $MissionDetailArea/VBoxContainer/MissionNameLabel
 @onready var _difficulty_label: Label = $MissionDetailArea/VBoxContainer/DifficultyLabel
 @onready var _detail_view: MissionDetailView = $MissionDetailArea/VBoxContainer/ScrollContainer/DetailView
@@ -49,6 +51,7 @@ func _ready() -> void:
 	_style_network_edit(_port_edit)
 	HudTheme.apply_slot_button(_start_server_button, 13, HudTheme.GOLD_BORDER, HudTheme.GOLD_TEXT)
 	_network_hint_label.add_theme_color_override("font_color", Color("#e26d6d"))
+	_network_address_label.add_theme_color_override("font_color", HudTheme.GOLD_TEXT_DIM)
 	$MissionSelectArea/ScrollContainer/VBoxContainer/AdvancedSection/HostNameLabel.text = "昵称"
 	HudTheme.apply_slot_button(_add_seat_button, 14, HudTheme.SLOT_BORDER, HudTheme.TEXT_MAIN)
 	HudTheme.apply_slot_button(_remove_seat_button, 14, HudTheme.SLOT_BORDER, HudTheme.TEXT_MAIN)
@@ -62,6 +65,7 @@ func _ready() -> void:
 	_populate_missions()
 	_populate_variants()
 	_restore_state()
+	_clear_network_addresses()
 	_host_name_edit.text = RoomState.host_name
 	_port_edit.text = str(RoomState.listen_port)
 	_rebuild_seats()
@@ -92,6 +96,8 @@ func _ready() -> void:
 				return
 	else:
 		_update_server_controls()
+		if NetSession.has_listen_server() or NetSession.is_room_owner():
+			_refresh_network_addresses()
 
 
 func _exit_tree() -> void:
@@ -341,6 +347,156 @@ func _set_network_settings_visible(visible: bool) -> void:
 	_port_edit.visible = visible
 	_start_server_button.visible = visible
 	_network_hint_label.visible = visible
+	if not visible:
+		_clear_network_addresses()
+
+
+func _clear_network_addresses() -> void:
+	if _network_address_list == null:
+		return
+	for child in _network_address_list.get_children():
+		_network_address_list.remove_child(child)
+		child.queue_free()
+	_network_address_label.visible = false
+	_network_address_list.visible = false
+
+
+func _refresh_network_addresses() -> void:
+	_clear_network_addresses()
+	if NetSession == null or not NetSession.has_listen_server():
+		return
+
+	var addresses := _get_default_route_ipv4_addresses()
+
+	_network_address_label.visible = true
+	_network_address_list.visible = true
+	if addresses.is_empty():
+		_network_address_label.text = "未检测到有默认网关的 IPv4 地址"
+		return
+	_network_address_label.text = "房间地址（IPv4，点击复制）"
+	for address in addresses:
+		var share_address := _format_share_address(address, RoomState.listen_port)
+		var address_button := Button.new()
+		address_button.text = share_address
+		address_button.tooltip_text = "点击复制：%s" % share_address
+		address_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		address_button.custom_minimum_size = Vector2(0, 28)
+		HudTheme.apply_slot_button(address_button, 13, HudTheme.SLOT_BORDER, HudTheme.TEXT_MAIN)
+		address_button.pressed.connect(_on_network_address_pressed.bind(share_address))
+		_network_address_list.add_child(address_button)
+
+
+func _get_default_route_ipv4_addresses() -> Array[String]:
+	var addresses: Array[String] = []
+	match OS.get_name():
+		"Windows":
+			_collect_windows_default_route_addresses(addresses)
+		"Linux":
+			_collect_linux_default_route_addresses(addresses)
+		"macOS", "FreeBSD":
+			_collect_bsd_default_route_addresses(addresses)
+	return addresses
+
+
+func _collect_windows_default_route_addresses(addresses: Array[String]) -> void:
+	var route_text := _execute_network_command("route", PackedStringArray(["print", "-4"]))
+	for line in route_text.split("\n"):
+		var fields := _split_route_fields(String(line))
+		if fields.size() < 4 or fields[0] != "0.0.0.0" or fields[1] != "0.0.0.0":
+			continue
+		_append_ipv4_address(addresses, fields[3])
+
+
+func _collect_linux_default_route_addresses(addresses: Array[String]) -> void:
+	var route_text := _execute_network_command("ip", PackedStringArray(["-4", "route", "show", "default"]))
+	var by_interface := _get_local_ipv4_by_interface()
+	for line in route_text.split("\n"):
+		var fields := _split_route_fields(String(line))
+		if fields.is_empty() or fields[0] != "default":
+			continue
+		var source_address := ""
+		var interface_name := ""
+		for i in range(1, fields.size()):
+			if fields[i] == "src" and i + 1 < fields.size():
+				source_address = fields[i + 1]
+			elif fields[i] == "dev" and i + 1 < fields.size():
+				interface_name = fields[i + 1]
+		if not source_address.is_empty():
+			_append_ipv4_address(addresses, source_address)
+		elif by_interface.has(interface_name):
+			for address in by_interface[interface_name]:
+				_append_ipv4_address(addresses, address)
+
+
+func _collect_bsd_default_route_addresses(addresses: Array[String]) -> void:
+	var route_text := _execute_network_command("route", PackedStringArray(["-n", "get", "default"]))
+	var interface_name := ""
+	for line in route_text.split("\n"):
+		var fields := String(line).strip_edges().split(":", false, 1)
+		if fields.size() == 2 and fields[0].strip_edges() == "interface":
+			interface_name = fields[1].strip_edges()
+			break
+	var by_interface := _get_local_ipv4_by_interface()
+	if by_interface.has(interface_name):
+		for address in by_interface[interface_name]:
+			_append_ipv4_address(addresses, address)
+
+
+func _execute_network_command(command: String, arguments: PackedStringArray) -> String:
+	var output: Array = []
+	if OS.execute(command, arguments, output, true) != 0 or output.is_empty():
+		return ""
+	return String(output[0])
+
+
+func _split_route_fields(line: String) -> PackedStringArray:
+	return line.strip_edges().replace("\t", " ").split(" ", false)
+
+
+func _get_local_ipv4_by_interface() -> Dictionary:
+	var result: Dictionary = {}
+	for raw_interface in IP.get_local_interfaces():
+		if not raw_interface is Dictionary:
+			continue
+		var interface: Dictionary = raw_interface
+		var ipv4_addresses: Array[String] = []
+		var raw_addresses: Variant = interface.get("addresses", [])
+		if raw_addresses is Array or raw_addresses is PackedStringArray:
+			for raw_address in raw_addresses:
+				var address := String(raw_address).strip_edges()
+				if _is_ipv4_address(address) and not _is_loopback_address(address):
+					_append_ipv4_address(ipv4_addresses, address)
+		var interface_name := String(interface.get("name", ""))
+		if not interface_name.is_empty():
+			result[interface_name] = ipv4_addresses
+		var interface_index := int(interface.get("index", -1))
+		if interface_index >= 0:
+			result[str(interface_index)] = ipv4_addresses
+	return result
+
+
+func _append_ipv4_address(addresses: Array[String], address: String) -> void:
+	if _is_ipv4_address(address) and not _is_loopback_address(address) \
+			and not addresses.has(address):
+		addresses.append(address)
+
+
+func _is_ipv4_address(address: String) -> bool:
+	return address.is_valid_ip_address() and not address.contains(":")
+
+
+func _is_loopback_address(address: String) -> bool:
+	return address.to_lower().begins_with("127.")
+
+
+func _format_share_address(address: String, port: int) -> String:
+	return "%s:%d" % [address, port]
+
+
+func _on_network_address_pressed(share_address: String) -> void:
+	DisplayServer.clipboard_set(share_address)
+	_network_hint_label.add_theme_color_override("font_color", Color("#65d47a"))
+	_show_network_hint("已复制房间地址：%s" % share_address)
 
 func _update_server_controls() -> void:
 	if NetSession != null and NetSession.is_remote_client():
@@ -375,6 +531,7 @@ func _on_start_server_pressed() -> void:
 		_update_server_controls()
 		_update_start_button()
 		_refresh_unlock_ui()
+		_refresh_network_addresses()
 		_network_hint_label.add_theme_color_override("font_color", Color("#65d47a"))
 		_show_network_hint("服务器已启动，正在连入本机房间…")
 
@@ -591,6 +748,9 @@ func _on_network_message(message: Dictionary) -> void:
 
 
 func _on_connection_state_changed(state: String, detail: String) -> void:
+	if state == "closed":
+		_clear_network_addresses()
+		return
 	if state == "connecting":
 		_show_network_hint(detail if detail != "" else "正在连接房间")
 		_update_start_button()
@@ -598,6 +758,7 @@ func _on_connection_state_changed(state: String, detail: String) -> void:
 	if state == "joined" and NetSession.is_room_owner():
 		_network_hint_label.add_theme_color_override("font_color", Color("#65d47a"))
 		_show_network_hint("服务器已启动，已连入本机房间，端口：%d" % RoomState.listen_port)
+		_refresh_network_addresses()
 		_rebuild_seats()
 		_update_server_controls()
 		_update_start_button()

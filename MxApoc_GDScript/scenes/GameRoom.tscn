@@ -114,6 +114,14 @@ custom_minimum_size = Vector2(0, 24)
 layout_mode = 2
 autowrap_mode = 2
 
+[node name="NetworkAddressLabel" type="Label" parent="MissionSelectArea/ScrollContainer/VBoxContainer/AdvancedSection"]
+layout_mode = 2
+text = "房间地址（IPv4，点击复制）"
+
+[node name="NetworkAddressList" type="VBoxContainer" parent="MissionSelectArea/ScrollContainer/VBoxContainer/AdvancedSection"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
 [node name="MissionDetailArea" type="PanelContainer" parent="."]
 layout_mode = 1
 offset_left = 420.0
