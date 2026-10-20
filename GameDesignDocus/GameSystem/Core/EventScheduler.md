@@ -56,7 +56,7 @@ JSON 技能仍写 `EventSystem.cancel(event)` 与 `event.num` 等 Dictionary 字
 
 | 类 | 文件 | 现状 |
 |---|---|---|
-| `InputRequest` | `input_request.gd` | 继承 `GameEvent`；走独立请求栈；`enqueue_input` 同时 `add_child` 到 `get_current_event()` |
+| `InputRequest` | `input_request.gd` | 继承 `GameEvent`；走独立请求栈；带 `control_epoch`、`lifecycle`、`cancel_reason`；`enqueue_input` 同时 `add_child` 到 `get_current_event()` |
 | `TurnEvent` | `turn_event.gd` | 正式回合节点；`start_turn` / 第零轮经 `run_event` 进入运行栈。`begin_turn_context` 仅测试/手动路径：立即 `mark_running`，不入栈 |
 | `PhaseEvent` | `phase_event.gd` | 阶段跨度节点；作为 `TurnEvent` 的 child，经 `run_turn_phase` → `run_event` 贯穿该阶段 |
 
@@ -128,9 +128,9 @@ Player 的 **effective API**（`get_effective_phase` / `get_effective_action_cou
 
 | 方法 | 行为 |
 |------|------|
-| `enqueue_input(owner, emit_fn, preemptible=false)` | 创建请求。仅当当前活动请求未响应且 `preemptible` 时才将其压栈暂停，然后派发新请求 |
+| `enqueue_input(owner, emit_fn, preemptible=false, control_epoch=0)` | 创建带控制权代际的请求。仅当当前活动请求未响应且 `preemptible` 时才将其压栈暂停，然后派发新请求 |
 | `wait_request(request)` | 等到 `received`，释放活动槽，弹出栈顶外层请求重新 `emit` |
-| `respond(value, request_id, owner)` | 必须同时匹配当前活动请求的 id 与 owner；过期 id、错误 owner、无活动请求一律忽略 |
+| `respond(value, request_id, owner, control_epoch=-1)` | 必须同时匹配当前活动请求的 id、owner 与（若提供）代际；过期 id、错误 owner、旧代际、无活动请求一律忽略 |
 | `get_current_input_request()` 等 | UI 只读观察当前活动请求；不暴露整栈 |
 
 约定：
@@ -138,6 +138,8 @@ Player 的 **effective API**（`get_effective_phase` / `get_effective_action_cou
 - 只有 `wait_action` 一类请求标 `preemptible`。选牌/确认等插入结算会盖住它，结算后 LIFO 恢复。
 - `show_card` / `set_prompt` 仍是 fire-and-forget，不创建等待节点。
 - [GUIPlayerInput](../../Engineering/GodotProjectStructure.md) 保留旧 signal / `respond_*` API，内部全部委托本调度器。
+- `InputRequest.lifecycle` 只允许 `pending → responded/cancelled/stale`；终态不可逆。控制权切换或调度器重置必须取消/标记旧请求，不能用业务默认值伪装成结束回合。
+- 输入控制器的交接顺序必须是“安装新控制器 → 结束旧请求 → 旧协程观察控制流结果”；同一座位同一时刻只能有一个有效 `control_epoch`。
 - 系统级请求也必须有明确 owner，不能用 `null` 表示「任意 owner」。GUI 占位 owner 是字符串 `"__system__"`；`matches` 在 owner 类型不同时视为不匹配，不能把字符串与 Player 直接 `==`。
 - `enqueue_input` 会把 `InputRequest` `add_child` 到 `get_current_event()`（无当前事件则为根）。
 

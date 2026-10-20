@@ -78,12 +78,32 @@
 
 **校验链**：`has_message_envelope`（形状）→ `is_valid_message`（版本）→ `is_protocol_mismatch`（版本不符触发 `ERROR_PROTOCOL_MISMATCH`）。
 
+**输入消息载荷**：
+
+```text
+INPUT_REQUEST.payload = {
+  seat_id,
+  owner_id,
+  request_type,
+  control_epoch,   # 该座位当前输入控制权代际
+  payload          # NetInputCodec 编码后的业务载荷
+}
+
+INPUT_RESPONSE.payload = {
+  seat_id,
+  control_epoch,   # 必须与请求及权威当前代际一致
+  value            # NetInputCodec 编码后的业务值
+}
+```
+
+`request_id + seat_id + control_epoch` 共同构成一次输入响应的有效边界。请求一旦响应、取消、控制权切换或过期，就进入终态；权威端忽略迟到或旧代际响应，并可返回 `error_stale_request` 供协议层记录。
+
 **握手流程**：
 - 客机连上后 `_send_client_hello`：本地客机槽有凭证发 `reconnect_request`（`display_name` + `reconnect_token`），否则 `join_request`（`display_name`，可选 token）。
 - 房主 `_try_resume_player`：token 命中且非误用房主凭证 → 认回；否则**唯一非房主同名**认回并签发新 token。
 - 大厅未命中：`reconnect_request` 改走 `_handle_join` / `add_player`，回 `join_accepted`。
 - 对局未命中：`INVALID_TOKEN` 或 `ROOM_ALREADY_STARTED`。菜单等待中收到 `INVALID_TOKEN` 时客机清凭证改发 `join_request`。
-- 认回成功：带 `player_id` / `reconnect_token` 的 `state_snapshot`，并广播 `player_reconnected`。
+- 认回成功：带 `player_id` / `reconnect_token` 的身份快照与权威 `state_snapshot`，完成同步后补发仍有效的 `input_request`，并广播 `player_reconnected`。
 - 退出：`leave_request`。
 - HELLO 失败且传输仍在：1s 起指数退避到 4s，最多 8 次。
 

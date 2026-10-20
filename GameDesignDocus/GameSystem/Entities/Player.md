@@ -59,6 +59,8 @@
 | `seat_number` | int | `0` | 座位号（游戏房间中的座位次序） |
 | `player_name` | String | `""` | 玩家名（用于日志输出与 EventBus 信号载荷） |
 | `is_ai` | bool | `false` | 是否由 AI 控制。开局由座位 `type == "ai"` 写入 |
+| `input_control_epoch` | int | `0` | 输入控制权代际。每次 Network/AI 交接递增；请求和响应必须属于当前代际 |
+| `session_id` | int | `-1` | 所属对局世代；用于忽略旧对局协程的迟到结果 |
 
 ### 标记与输入
 
@@ -615,9 +617,9 @@
 | `show_card(card, target)` | 展示卡牌 |
 | `set_prompt(text)` | 设置 prompt 区文本 |
 | `wait_redraw_decision() -> bool` | 等待玩家重调决策（第零轮专用）。返回 true 表示确定重调，false 表示取消 |
-| `wait_player_action()` | 行动阶段循环：等待玩家操作（使用卡牌 / 使用主动技能 / 结束回合 / 移动 / 牌堆抓牌） |
+| `wait_player_action()` | 行动阶段循环：等待玩家操作（使用卡牌 / 使用主动技能 / 结束回合 / 移动 / 牌堆抓牌）。收到 `control_transfer` 或 `stale` 只重试等待，不结束回合；只有明确 `end_turn`、取消或真实无效才退出 |
 | `_execute_pile_draw(pile_key)` | 执行牌堆抓牌动作（UI 牌堆点击触发）。`pile_key` 为 `"game_deck"` / `"red_scavenge"` / `"green_scavenge"` / `"blue_scavenge"` |
-| `end_phase(phase)` | 设置标记让 `wait_player_action` 循环跳出 |
+| `end_phase(phase)` | 设置标记让 `wait_player_action` 循环跳出；不能用输入控制权交接替代 |
 | `choose_to_discard(n, type="")` | 选择并弃置 n 张牌（可选类型过滤） |
 | `trade_scavenge_with(partner, offered) -> bool` | 向同地块玩家发起拾荒牌交易。展示 → 确认 → 对方选 1 张拾荒牌 → `swap_scavenge_cards`。拒绝或取消返回 `false` |
 | `swap_scavenge_cards(other, my_card, their_card)` | 双方先抽出再按原区域放入（调度节点 `swap_scavenge`） |

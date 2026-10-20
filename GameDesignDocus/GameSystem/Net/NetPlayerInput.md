@@ -11,7 +11,8 @@
 `NetworkPlayerInput` 是 `IPlayerInput` 的"远程输入"变体：
 
 - 实现 `wait_action` / `choose` / `choose_card` / `choose_target` / `choose_map_block` / `choose_block_inline` / `confirm` / `show_card` 等接口。
-- 请求-响应循环：`_request()` 把候选对象存本地 `selection_map`，payload 只含 `selection_tokens`（下标令牌），发出 `INPUT_REQUEST` 后死等 `response_arrived`。
+- 请求-响应循环：`_request()` 把候选对象存本地 `selection_map`，业务 payload 只含 `selection_tokens`（下标令牌）；外层 `INPUT_REQUEST` 载荷另带 `control_epoch`，发出后等待同一代际的 `response_arrived`。
+- 控制权交接是输入生命周期的一部分：`NETWORK → AI` 时旧请求进入终态并返回 `control_transfer`，`AI → NETWORK` 时提升代际，旧连接的迟到响应全部失效。
 - 演出类请求（动画）走 `_emit_visual()` → `GAME_EVENT` 单向广播，**不等 ACK**。
 
 `RefCounted`，无 Node 生命周期；房主为每个远程真人座位创建一个实例。
@@ -26,7 +27,7 @@
 
 | 信号 | 参数 | 发出时机 |
 | --- | --- | --- |
-| `response_arrived` | `request_id: int, value: Variant` | 收到 `INPUT_RESPONSE` 或 pending 被中止（此时 `(-1, null)`） |
+| `response_arrived` | `request_id: int, value: Variant` | 收到 `INPUT_RESPONSE`、请求过期或 pending 被中止时唤醒等待协程；代际在 pending 状态中校验，不作为信号参数 |
 | `visual_requested` | `request_type: String, seat_id: int, payload: Dictionary` | `_emit_visual` 本地同步广播演出事件时 |
 
 ---
@@ -35,8 +36,9 @@
 
 | 变量 | 类型 | 用途 |
 | --- | --- | --- |
-| `_pending` | `Dictionary` | 待应答请求表，`request_id` → `{value, received, selection_map, request_type, seat_id}` |
+| `_pending` | `Dictionary` | 待应答请求表，`request_id` → `{value, received, completion, selection_map, request_type, seat_id, control_epoch}` |
 | `_request_owner` | `Variant` | 当前输入请求所属玩家 |
+| `_control_epoch` | `int` | 当前座位输入控制权代际；每次真人/AI交接递增 |
 
 ---
 
@@ -46,8 +48,10 @@
 | --- | --- | --- |
 | `_init` | `func _init() -> void` | 连接 `NetSession.message_received` → `_on_network_message` |
 | `set_request_owner` | `set_request_owner(player: Variant) -> void` | 设置请求所属玩家 |
-| `detach` | `detach() -> void` | 先 `abort_pending()`，再断开 `message_received` |
-| `abort_pending` | `abort_pending() -> void` | 解开死等：所有未应答 pending 填值并标记 received，`emit(-1, null)` 唤醒协程；随后由 AI 接管 |
+| `detach` | `detach() -> void` | 使当前请求进入取消终态并断开 `message_received`；不把取消误报成正常结束回合 |
+| `abort_pending` | `abort_pending(reason: String = "control_transfer") -> void` | 取消所有未应答 pending，写入显式生命周期结果并唤醒等待协程 |
+| `handoff_to_ai` | `handoff_to_ai() -> void` | 递增控制权代际、取消网络 pending；供 AI 原子接管前调用 |
+| `set_control_epoch` / `get_control_epoch` | `set_control_epoch(epoch: int) -> void` / `get_control_epoch() -> int` | 设置 / 读取座位当前控制权代际 |
 | `wait_action` | `wait_action(player: Variant) -> Variant` | 行动阶段：`_request(player, "action", limited_action_request_payload(player))` |
 | `limited_action_request_payload` | `static func limited_action_request_payload(player: Variant) -> Dictionary` | 迷你回合预算：仅当 `operation_context.kind=="limited_action"` 时放 `operation_kind` 与 `remaining_actions`（不改正式 action_count） |
 | `choose` | `choose(options: Array, prompt: String = "") -> Variant` | 从列表选一项 |
@@ -70,14 +74,14 @@
 
 ## 五、核心请求流程（`_request`）
 
-1. 取 `seat_id` / `controller_id`；`NetSession.next_request_id()` 分配 id。
+1. 取 `seat_id` / `controller_id` / 当前 `control_epoch`；`NetSession.next_request_id()` 分配 id。
 2. `_abort_unanswered_for_seat`：同座位旧未应答请求先中止，避免客机丢弃后权威死等。
-3. 把候选数组转为 `selection_tokens`（`str(index)` 令牌），对象本体留本地 `selection_map`；写入 `_pending[request_id]`。
-4. `NetSession.broadcast_input_request(request_id, seat_id, owner_id, request_type, payload)` 发出。
-5. `while … await response_arrived` 死等；收到后按 `selection_map` 把令牌解析回对象（`_resolve_response_value`）。
-6. `choose_target` 成功后额外 `broadcast_game_event("target_links", …)`。
+3. 把候选数组转为 `selection_tokens`（`str(index)` 令牌），对象本体留本地 `selection_map`；写入 `_pending[request_id]`，并记录 `control_epoch`。
+4. `NetSession.broadcast_input_request(request_id, seat_id, owner_id, request_type, payload, control_epoch)` 发出。
+5. `while … await response_arrived` 等待；只接受 request_id 和 control_epoch 都匹配的响应。控制权交接、取消或旧代际响应会产生显式终态，不会被解释为普通业务值。
+6. 正常响应按 `selection_map` 把令牌解析回对象（`_resolve_response_value`）；`choose_target` 成功后额外 `broadcast_game_event("target_links", …)`。
 
-**中止默认值**（`_abort_value_for`）：`choose_card/choose_target/choose_block_inline` → `[]`；`confirm/redraw_decision` → `false`；`judge_confirm` → `true`；其余 → `null`。
+**控制流终态**：`cancelled` / `control_transfer` / `stale` 与业务值分离。`_abort_value_for` 只提供兼容层默认值：`choose_card/choose_target/choose_block_inline` → `[]`；`confirm/redraw_decision` → `false`；`judge_confirm` → `true`；其余 → `null`。上层必须先检查生命周期结果，不能仅靠默认值判断结束回合。
 
 ---
 

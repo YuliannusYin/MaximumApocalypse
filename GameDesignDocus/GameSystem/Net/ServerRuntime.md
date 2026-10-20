@@ -12,7 +12,7 @@
 
 - 开局初始化（`NetId.reset`、随机播种、`Game.initialize_from_room_state`）。
 - 为每个座位装配输入：真人 → `NetworkPlayerInput`，AI → `AIPlayerInput`。
-- 处理掉线转 AI（`handoff_seats_to_ai`）与重连恢复真人输入（`restore_network_inputs`）。
+- 处理掉线转 AI（`handoff_seats_to_ai`）与重连恢复真人输入（`restore_network_inputs`）；交接使用 `input_control_epoch` 串行化。
 - 等待真人 peer 绑定齐（`MATCH_READY_TIMEOUT_MS` 超时未到转 AI）。
 - 把约 26 个 `EventBus` 信号中继为网络 `game_event` 广播。
 
@@ -47,6 +47,7 @@
 | `lifetime` | `String`（`ServerLifetime.OWNER`） | 存活策略，当前仅 `"owner"` |
 | `_active` | `bool` | 运行时激活标记 |
 | `_network_inputs` | `Array` | 真人座位的 `NetworkPlayerInput` 列表 |
+| `_pending_network_restore` | `Dictionary` | AI 当前动作尚未完成时的延迟网络控制权恢复 |
 | `_expected_player_ids` | `Array` | 开局应到齐的真人玩家 ID |
 | `_owner_player_id` | `String` | 房主玩家 ID |
 | `_waiting_for_peers` | `bool` | 是否等待所有真人 peer 绑定 |
@@ -85,8 +86,9 @@
 | 方法 | 签名 | 说明 |
 | --- | --- | --- |
 | `_attach_authority_inputs` | `_attach_authority_inputs() -> void` | 遍历 `Game.players`：AI 座位 → 挂 `AIPlayerInputScript`（`think_seconds=0.4`）；真人 → 挂 `NetworkPlayerInputScript`（`set_request_owner(player)`）并收集进 `_network_inputs` |
-| `handoff_seats_to_ai` | `handoff_seats_to_ai(player_id: String) -> void` | 掉线转 AI：`detach()` 旧输入并替换为 AI |
-| `restore_network_inputs` | `restore_network_inputs(player_id: String) -> void` | 重连恢复：先 `detach()` 旧输入，把该玩家座位从 AI 换回 `NetworkPlayerInput` |
+| `handoff_seats_to_ai` | `handoff_seats_to_ai(player_id: String) -> void` | 掉线转 AI：递增座位代际，先安装 AI，再让旧 `NetworkPlayerInput.handoff_to_ai()` 结束 pending 请求 |
+| `restore_network_inputs` | `restore_network_inputs(player_id: String) -> void` | 重连恢复：若 AI 正在执行动作，先请求在动作边界交还；否则原子换回 `NetworkPlayerInput` |
+| `resend_pending_requests` | `resend_pending_requests(player_id: String) -> void` | 快照同步后补发该玩家仍处于有效生命周期的网络请求 |
 | `_seat_ids_for_controller` | `_seat_ids_for_controller(player_id: String) -> Dictionary` | 查该 controller 的座位集合 |
 | `_seat_is_ai` | `_seat_is_ai(seat_number: int) -> bool` | 座位是否 `control_mode=="ai"` |
 | `attach_seat_inputs` | `attach_seat_inputs(_gui_for_anim: Variant = null, _visual_cb: Callable = Callable()) -> void` | 把外部视觉回调接到每个 `NetworkPlayerInput.visual_requested` |
@@ -120,7 +122,20 @@
 
 ### 6.2 输入装配与切换
 
-`_attach_authority_inputs` 为每个座位挂输入实现；掉线经 `handoff_seats_to_ai` 摘除 `NetworkPlayerInput`（`detach()` 解死等）替换为 AI；重连 `restore_network_inputs` 先 detach 旧输入再换回真人，防重复挂接。
+`_attach_authority_inputs` 为每个座位挂输入实现。控制权只通过一个原子顺序改变：
+
+```text
+NETWORK
+  └─ handoff_to_ai / control_transfer
+      ↓
+AI（完成当前 action dispatch）
+      ↓
+handoff_to_network / 新 control_epoch
+      ↓
+NETWORK
+```
+
+掉线时先安装 AI，再让旧网络输入结束 pending 请求；重连时若 AI 正在执行当前动作，等待 `action_dispatch_finished` 后再换回网络输入。每次交接都递增 `player.input_control_epoch`，旧请求响应即使迟到也只能被丢弃，不能改变回合状态。
 
 ### 6.3 视觉事件中继
 

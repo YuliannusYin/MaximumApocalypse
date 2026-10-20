@@ -14,6 +14,7 @@
 4. **显示世界与权威世界分离**：客机（含环回后的房主）用 `ViewGame` 呈现，`Game` 单例只在权威侧驱动规则；结算时客机再把 ViewGame 结算字段拷回 `Game` 单例。
 5. **全量快照 + ctx 复用**：`GameStateSerializer` 每份 `STATE_SNAPSHOT` 都是完整状态；跨快照的对象身份靠调用方持有的 `ctx`（`net_id → 实例`）维持。
 6. **隐藏信息不传输**：未揭示牌堆（怪物堆、红/绿/蓝拾荒堆、个人牌堆）只传**大小**，不传牌序；`scavenge` 弃牌堆与手牌因属公开/合作视图而完整传输。
+7. **输入控制权与请求生命周期分离**：座位的真人/AI 控制器交接必须先安装新控制器，再唤醒旧请求；输入请求带 `control_epoch`，旧连接的迟到响应不得影响新控制器。
 
 ---
 
@@ -26,7 +27,7 @@
 | [NetRegistry.md](./NetRegistry.md) | `NetRegistry`（`net_registry.gd`） | 房主权威侧的"唯一事实来源"：房间/玩家/座位/阶段/序号/token | 随会话创建 |
 | [GameStateSerializer.md](./GameStateSerializer.md) | `GameStateSerializer`（`game_state_serializer.gd`） | 权威 `Game` ↔ 可传输快照 的双向序列化 | 纯静态工具 |
 | [NetInputCodec.md](./NetInputCodec.md) | `NetInputCodec`（`net_input_codec.gd`） | 输入候选/响应的稳定 ID 编解码，对象↔JSON 快照 | 纯静态工具 |
-| [NetPlayerInput.md](./NetPlayerInput.md) | `NetworkPlayerInput`（`net_player_input.gd`） | 房主为远程真人座位创建的 `IPlayerInput` 实现 | 每座位一个 |
+| [NetPlayerInput.md](./NetPlayerInput.md) | `NetworkPlayerInput`（`net_player_input.gd`） | 房主为远程真人座位创建的 `IPlayerInput` 实现；带控制权代际和显式交接结果 | 每座位一个 |
 | [NetClientInput.md](./NetClientInput.md) | `NetClientInput`（`net_client_input.gd`） | 客机侧输入请求适配器：接收请求、UI 应答 | 客机一个 |
 | [NetProtocol.md](./NetProtocol.md) | `NetProtocol`（`net_protocol.gd`） | 协议常量、消息信封、通用校验 | 纯静态工具 |
 | [NetId.md](./NetId.md) | `NetId`（`net_id.gd`） | 字符串 id 与实体 net_id 分配 | 纯静态工具 |
@@ -101,16 +102,18 @@
 
 ```
 [房主] 规则协程调用 NetworkPlayerInput.wait_action/choose_card/...
-  └─ _request()：候选对象留本地 selection_map，payload 只含 selection_tokens（下标令牌）
-        └─ NetSession.broadcast_input_request(request_id, seat_id, owner_id, type, payload)
+  └─ _request()：候选对象留本地 selection_map，业务 payload 只含 selection_tokens（下标令牌），外层消息携带 control_epoch
+        └─ NetSession.broadcast_input_request(request_id, seat_id, owner_id, type, payload, control_epoch)
               └─ ENet input_request ─▶ [客机]
 [客机] NetClientInput._on_message → NetInputCodec.decode(payload, display_game) → requested.emit
   └─ UI（GUIPlayerInput 等）→ NetClientInput.respond()
         └─ _encode_selection_response 把选中对象映射回令牌
-        └─ NetSession.send_input_response(request_id, seat_id, value) ─▶ ENet input_response ─▶ [房主]
-[房主] NetworkPlayerInput._on_network_message 命中 _pending[request_id] → response_arrived.emit
+        └─ NetSession.send_input_response(request_id, seat_id, value, control_epoch) ─▶ ENet input_response ─▶ [房主]
+[房主] NetworkPlayerInput 校验 request_id + control_epoch，命中当前 `_pending` → response_arrived.emit
   └─ 协程恢复 → _resolve_response_value 令牌映射回本地候选对象 → 规则应用
 ```
+
+输入结果中，正常业务值与控制流结果分开：`control_transfer` / `stale` 表示控制器交接或请求过期，不能被 `Player.wait_player_action()` 当作结束回合；只有明确的结束回合结果或兼容输入返回的普通 `null` 才结束当前行动等待。
 
 旁路：**演出类请求**（show_card、骰子、怪物攻击等）走 `_emit_visual()` → `broadcast_game_event`（`game_event` 单向广播，**不等 ACK**）。
 
@@ -147,7 +150,8 @@
               └─ 命中：restore_network_inputs（AI 换回真人）+ 身份快照 + player_reconnected
               └─ 大厅未命中：改走 _handle_join 加人
               └─ 对局未命中：INVALID_TOKEN；菜单侧清凭证后改发 join_request
-        └─ 客机认回成功后 rebuild_display_world（清 ViewGame 再进对局）
+        └─ 客机认回成功后保留现有对局场景，等待带身份的 `STATE_SNAPSHOT` 应用完成；随后请求 resync 并恢复仍有效的输入请求，不因 `joined` 信号立即重建 ViewGame
+房主座位控制权交接遵循“先换控制器、后唤醒旧等待”：断线时 NetworkInput → AIInput；重连时若 AI 正在结算动作则等待 `action_dispatch_finished`，否则 AIInput → NetworkInput
 房主 peer 拆除延后按 peer_id / 记住的昵称查找，已绑到新 peer 则不误踢
 权威环回收到 match_start / state_snapshot 时 _apply_snapshot 若 is_authority 则跳过，不覆盖 token 哈希
 ```
