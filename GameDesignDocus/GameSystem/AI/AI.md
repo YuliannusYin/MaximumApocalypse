@@ -22,7 +22,7 @@ Player.wait_player_action
 
 任意座位均可设为真人或 AI（房间 `SeatItem`）。`Game.initialize_game` 只跳过 `type == "empty"`；`type == "ai"` 创建 `Player` 并设 `is_ai = true`。测试默认仍是 `CliPlayerInput`（`Player._init`）。对局场景里 `GameScene2D` 再按 `is_ai` 分配：真人共用 `_gui_input`，AI 新建 `AIPlayerInput`（`animation_input = _gui_input`，`think_seconds = 0.4`）。
 
-任务行动走技能栏 `type: "skill"`，不走已废弃的 `mission_action` 通道。结束回合：`wait_action` 返回 `null`。
+任务行动走技能栏 `type: "skill"`，不走已废弃的 `mission_action` 通道。普通 AI 无合法高分行动时，`wait_action` 返回 `null` 表示结束回合；当网络玩家重连、需要交还控制权时，返回显式 `control_transfer`，不能被当作结束回合。
 
 ---
 
@@ -166,7 +166,7 @@ JSON 里 `effect.target` 对 `damage` / `heal` 写**正数幅度**。评分器�
 {"type": "move"|"card"|"skill"|"pile_draw", "target"|"card"|"skill"|"pile_key": ...}
 ```
 
-结束回合返回 `null`（不是空 Dictionary）。最高分 ≤ 0 也返回 `null`。
+普通结束回合返回 `null`（不是空 Dictionary）；最高分 ≤ 0 也返回 `null`。若 `request_network_handoff()` 已请求交还网络控制，则返回 `IPlayerInput.make_result(IPlayerInput.RESULT_CONTROL_TRANSFER)`。该结果只结束当前 AI 等待，不结束玩家行动阶段；当前已开始的动作仍先完成到 `action_dispatch_finished`。
 
 其它方法：
 
