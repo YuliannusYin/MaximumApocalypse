@@ -11,6 +11,8 @@ signal visual_requested(request_type: String, seat_id: int, payload: Dictionary)
 
 var _pending: Dictionary = {}
 var _request_owner: Variant = null
+var _handoff_to_ai: bool = false
+var _control_epoch: int = 0
 
 func _init() -> void:
 	if NetSession != null:
@@ -20,21 +22,42 @@ func set_request_owner(player: Variant) -> void:
 	_request_owner = player
 
 
+func set_control_epoch(epoch: int) -> void:
+	_control_epoch = epoch
+
+
+func get_control_epoch() -> int:
+	return _control_epoch
+
+
 func detach() -> void:
-	abort_pending()
+	abort_pending("cancelled")
 	if NetSession != null and NetSession.message_received.is_connected(_on_network_message):
 		NetSession.message_received.disconnect(_on_network_message)
 
+## 断线导致的 abort 不是玩家结束回合，而是把当前等待交给 AI。
+func handoff_to_ai() -> void:
+	_handoff_to_ai = true
+	abort_pending("control_transfer")
+
+func was_handoff_to_ai() -> bool:
+	return _handoff_to_ai
+
 
 ## 解开死等，让规则协程继续；随后由 AI 接管后续请求。
-func abort_pending() -> void:
+func abort_pending(reason: String = "cancelled") -> void:
 	if _pending.is_empty():
 		return
 	for request_id in _pending.keys():
 		var state: Dictionary = _pending[request_id]
 		if bool(state.get("received", false)):
 			continue
-		state["value"] = _abort_value_for(String(state.get("request_type", "")))
+		var request_type := String(state.get("request_type", ""))
+		state["value"] = _abort_value_for(request_type)
+		if reason == "control_transfer" and request_type == "action":
+			state["value"] = IPlayerInput.make_result(
+				IPlayerInput.RESULT_CONTROL_TRANSFER, null, reason)
+		state["completion"] = reason
 		state["received"] = true
 		_pending[request_id] = state
 	response_arrived.emit(-1, null)
@@ -51,7 +74,12 @@ func _abort_unanswered_for_seat(seat_id: int) -> void:
 			continue
 		if int(state.get("seat_id", -1)) != seat_id:
 			continue
-		state["value"] = _abort_value_for(String(state.get("request_type", "")))
+		var request_type := String(state.get("request_type", ""))
+		state["value"] = _abort_value_for(request_type)
+		if request_type == "action":
+			state["value"] = IPlayerInput.make_result(
+				IPlayerInput.RESULT_STALE, null, "replaced_by_new_request")
+		state["completion"] = "stale"
 		state["received"] = true
 		_pending[request_id] = state
 		aborted = true
@@ -149,7 +177,7 @@ func set_prompt(text: String) -> void:
 	var owner_id := _controller_for_seat(seat_id)
 	if owner_id != "":
 		NetSession.broadcast_input_request(
-			-1, seat_id, owner_id, "set_prompt", {"text": text})
+			-1, seat_id, owner_id, "set_prompt", {"text": text}, _control_epoch)
 
 func wait_redraw_decision(player: Variant) -> bool:
 	var hand: Array = player.hand if player != null and "hand" in player else []
@@ -234,26 +262,50 @@ func _request(player: Variant, request_type: String, payload: Dictionary) -> Var
 				selection_map[token] = candidates[index]
 			request_payload["selection_tokens"] = selection_tokens
 	var state := {
+		"request_id": request_id,
 		"value": null,
 		"received": false,
+		"completion": "",
 		"selection_map": selection_map,
 		"request_type": request_type,
 		"seat_id": seat_id,
+		"control_epoch": _control_epoch,
+		"payload": request_payload.duplicate(true),
 	}
 	_pending[request_id] = state
 	NetSession.broadcast_input_request(
-		request_id, seat_id, owner_id, request_type, request_payload)
+		request_id, seat_id, owner_id, request_type, request_payload, _control_epoch)
 	while _pending.has(request_id) and not bool(_pending[request_id].received):
 		await response_arrived
 	var result = _pending.get(request_id, {}).get("value", null)
 	var completed_state: Dictionary = _pending.get(request_id, {})
 	_pending.erase(request_id)
+	if IPlayerInput.is_result(result):
+		return result
 	result = _resolve_response_value(
 		request_type, result, completed_state.get("selection_map", {}))
 	if request_type == "choose_target" and result is Array:
 		NetSession.broadcast_game_event("target_links", {
 			"source_seat": seat_id,
 			"targets": result,
+		})
+	return result
+
+
+## 返回仍等待响应的请求，供客机重连后的 resync 补发。
+## 调用方只能拿到副本，不能绕过当前输入协程修改 pending 状态。
+func pending_requests() -> Array:
+	var result: Array = []
+	for request_id in _pending:
+		var state: Dictionary = _pending[request_id]
+		if bool(state.get("received", false)):
+			continue
+		result.append({
+			"request_id": int(request_id),
+			"seat_id": int(state.get("seat_id", -1)),
+			"request_type": String(state.get("request_type", "")),
+			"control_epoch": int(state.get("control_epoch", _control_epoch)),
+			"payload": state.get("payload", {}).duplicate(true),
 		})
 	return result
 
@@ -287,8 +339,15 @@ func _on_network_message(message: Dictionary) -> void:
 	if not _pending.has(request_id):
 		return
 	var payload: Dictionary = message.get("payload", {})
-	_pending[request_id].value = payload.get("value", null)
-	_pending[request_id].received = true
+	var request_epoch := int(payload.get("control_epoch", _control_epoch))
+	var state: Dictionary = _pending[request_id]
+	if int(state.get("control_epoch", _control_epoch)) != request_epoch \
+			or request_epoch != _control_epoch:
+		return
+	state["value"] = payload.get("value", null)
+	state["completion"] = "responded"
+	state["received"] = true
+	_pending[request_id] = state
 	response_arrived.emit(request_id, payload.get("value", null))
 
 

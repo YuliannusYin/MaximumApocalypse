@@ -30,6 +30,22 @@ func test_other_seat_requests_do_not_block() -> void:
 	assert_false(input.is_action_available(1))
 
 
+func test_resynced_confirm_request_is_kept_as_current_request() -> void:
+	var input := NetClientInput.new()
+	input._on_message(_make_input_request(12, 1, "confirm"))
+	var current: Dictionary = input.get_current_request(1)
+	assert_eq(int(current.get("request_id", -1)), 12)
+	assert_eq(String(current.get("request_type", "")), "confirm")
+	assert_false(input.is_action_available(1),
+		"confirm 不是 action，但仍必须保留为当前输入请求")
+
+
+func test_animation_during_resync_does_not_create_pending_request() -> void:
+	var input := NetClientInput.new()
+	input._on_message(_make_input_request(13, 1, "monster_draw_animation"))
+	assert_eq(input.get_current_request(1), {})
+
+
 func test_choose_target_applies_payload_hp_before_decode() -> void:
 	var holder: Player = _make_player("P")
 	holder.seat_number = 0

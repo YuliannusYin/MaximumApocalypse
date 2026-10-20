@@ -25,8 +25,10 @@ var _operation_stack: Array[Dictionary] = []
 
 
 ## 创建请求并入栈。仅当当前活动请求可抢占时才将其压栈暂停，随后立即派发新请求。
-func enqueue_input(owner: Variant, emit_fn: Callable, preemptible: bool = false) -> Variant:
-	var request: Variant = InputRequestScript.new(owner, emit_fn, preemptible)
+func enqueue_input(owner: Variant, emit_fn: Callable, preemptible: bool = false,
+		control_epoch: int = 0) -> Variant:
+	var request: Variant = InputRequestScript.new(
+		owner, emit_fn, preemptible, control_epoch)
 	if _active_request != null and not _active_request.received and _active_request.preemptible:
 		_request_stack.append(_active_request)
 		_active_request = null
@@ -77,10 +79,10 @@ func get_current_input_request_owner() -> Variant:
 
 
 ## 写入当前活动请求的响应；request_id/owner 不匹配或已响应则忽略。
-func respond(value: Variant, request_id: int, owner: Variant) -> void:
+func respond(value: Variant, request_id: int, owner: Variant, control_epoch: int = -1) -> void:
 	if _active_request == null:
 		return
-	if not _active_request.matches(request_id, owner):
+	if not _active_request.matches(request_id, owner, control_epoch):
 		return
 	_active_request.respond(value)
 

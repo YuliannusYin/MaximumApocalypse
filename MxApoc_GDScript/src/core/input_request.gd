@@ -8,23 +8,30 @@ var emit_fn: Callable = Callable()
 var preemptible: bool = false
 var received: bool = false
 var response: Variant = null
+var control_epoch: int = 0
+var lifecycle: String = "pending" # pending/responded/cancelled/stale
+var cancel_reason: String = ""
 
 
 func _init(
 	request_owner: Variant = null,
 	emit: Callable = Callable(),
-	can_preempt: bool = false
+	can_preempt: bool = false,
+	epoch: int = 0
 ) -> void:
 	super._init("input_request", request_owner, null)
 	owner = request_owner
 	emit_fn = emit
 	preemptible = can_preempt
+	control_epoch = epoch
 
 
 ## 请求身份匹配：request_id 与 owner 都一致才算匹配同一次请求。
 ## owner 可能是 Player 或 GUI 的系统占位字符串；类型不同时视为不匹配，不能直接 `==`。
-func matches(request_id: int, request_owner: Variant) -> bool:
-	return id == request_id and _owners_equal(owner, request_owner)
+func matches(request_id: int, request_owner: Variant, epoch: int = -1) -> bool:
+	if id != request_id or not _owners_equal(owner, request_owner):
+		return false
+	return epoch < 0 or control_epoch == epoch
 
 
 static func _owners_equal(left: Variant, right: Variant) -> bool:
@@ -43,6 +50,7 @@ func respond(value: Variant) -> void:
 		return
 	response = value
 	received = true
+	lifecycle = "responded"
 	complete(value)
 
 
@@ -52,6 +60,8 @@ func cancel_request(reason: String = "") -> void:
 	received = true
 	response = null
 	error = reason
+	cancel_reason = reason
+	lifecycle = "cancelled"
 	mark_cancelled()
 
 

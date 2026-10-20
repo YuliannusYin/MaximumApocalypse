@@ -38,6 +38,7 @@ signal monster_attack_animation_requested(monster: Variant, targets: Array)
 # 结算后弹出栈顶恢复外层。抢占/身份匹配/等待逻辑均委托给 EventScheduler/InputRequest。
 var _scheduler: Variant = null
 var _request_owner: Variant = null  # 下一次输入请求的所属玩家
+var _control_epoch: int = 0
 
 const SYSTEM_OWNER: String = "__system__"
 
@@ -47,6 +48,14 @@ const SYSTEM_OWNER: String = "__system__"
 ## 设置下一次输入请求的所属玩家。
 func set_request_owner(player: Variant) -> void:
 	_request_owner = player
+
+
+func set_control_epoch(epoch: int) -> void:
+	_control_epoch = epoch
+
+
+func get_control_epoch() -> int:
+	return _control_epoch
 
 
 func set_event_scheduler(scheduler: Variant) -> void:
@@ -70,7 +79,8 @@ func _enqueue_request(emit_fn: Callable, preemptible: bool = false) -> Variant:
 	var wrapped_emit: Callable = func() -> void:
 		request_owner_changed.emit(owner)
 		emit_fn.call()
-	return _get_event_scheduler().enqueue_input(owner, wrapped_emit, preemptible)
+	return _get_event_scheduler().enqueue_input(
+		owner, wrapped_emit, preemptible, _control_epoch)
 
 
 ## 当前活动请求的身份。UI 回执应携带这两个值，避免旧弹窗/旧 HUD 误响应。
@@ -96,8 +106,9 @@ func _wait_for_request(req: Variant) -> Variant:
 	return await _get_event_scheduler().wait_request(req)
 
 
-func _respond_active_with_identity(value: Variant, request_id: int, owner: Variant) -> void:
-	_get_event_scheduler().respond(value, request_id, owner)
+func _respond_active_with_identity(
+		value: Variant, request_id: int, owner: Variant) -> void:
+	_get_event_scheduler().respond(value, request_id, owner, _control_epoch)
 
 
 ## Godot 的 bool() 构造只接受 bool/int/float；取消请求会留下 null，直接 bool(null) 会崩。

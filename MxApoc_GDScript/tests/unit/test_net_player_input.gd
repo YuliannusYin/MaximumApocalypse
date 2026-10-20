@@ -35,6 +35,53 @@ func test_abort_pending_unblocks_without_waiting_for_client() -> void:
 	assert_eq(input._pending[3].received, true)
 
 
+func test_handoff_to_ai_marks_network_abort_as_control_transfer() -> void:
+	var input := NetworkPlayerInput.new()
+	input._pending[3] = {
+		"value": null,
+		"received": false,
+		"selection_map": {},
+		"request_type": "action",
+	}
+	input.handoff_to_ai()
+	assert_true(input.was_handoff_to_ai())
+	assert_true(bool(input._pending[3].received))
+	input.detach()
+
+
+func test_handoff_action_uses_explicit_control_transfer_result() -> void:
+	var input := NetworkPlayerInput.new()
+	input._pending[3] = {
+		"value": null,
+		"received": false,
+		"selection_map": {},
+		"request_type": "action",
+	}
+	input.handoff_to_ai()
+	var result: Variant = input._pending[3].value
+	assert_true(IPlayerInput.is_result(result))
+	assert_eq(IPlayerInput.result_kind(result), IPlayerInput.RESULT_CONTROL_TRANSFER)
+	input.detach()
+
+
+func test_stale_control_epoch_response_is_ignored() -> void:
+	var input := NetworkPlayerInput.new()
+	input._control_epoch = 2
+	input._pending[3] = {
+		"value": null,
+		"received": false,
+		"selection_map": {},
+		"request_type": "action",
+		"control_epoch": 2,
+	}
+	input._on_network_message(NetProtocol.make_message(
+		NetProtocol.INPUT_RESPONSE,
+		{"control_epoch": 1, "value": {"type": "end_turn"}},
+		"", "", 0, 0, 3))
+	assert_false(bool(input._pending[3].received))
+	input.detach()
+
+
 func test_token_request_without_selection_map_does_not_decode_game() -> void:
 	var holder: Player = _make_player("P")
 	holder.seat_number = 0
@@ -64,6 +111,34 @@ func test_new_request_aborts_unanswered_request_for_same_seat() -> void:
 	input._abort_unanswered_for_seat(0)
 	assert_true(bool(input._pending[3].received))
 	assert_eq(input._pending[3].value, false, "被替换的 confirm 应中止为 false")
+	input.detach()
+
+
+func test_pending_requests_exposes_only_unanswered_replay_payloads() -> void:
+	var input := NetworkPlayerInput.new()
+	input._pending[3] = {
+		"request_id": 3,
+		"value": null,
+		"received": false,
+		"selection_map": {},
+		"request_type": "choose_target",
+		"seat_id": 1,
+		"payload": {"targets": ["target-token"]},
+	}
+	input._pending[4] = {
+		"request_id": 4,
+		"value": true,
+		"received": true,
+		"selection_map": {},
+		"request_type": "confirm",
+		"seat_id": 1,
+		"payload": {"message": "已完成"},
+	}
+	var pending: Array = input.pending_requests()
+	assert_eq(pending.size(), 1)
+	assert_eq(int(pending[0].get("request_id", -1)), 3)
+	assert_eq(String(pending[0].get("request_type", "")), "choose_target")
+	assert_eq(pending[0].get("payload", {}).get("targets", []), ["target-token"])
 	input.detach()
 
 

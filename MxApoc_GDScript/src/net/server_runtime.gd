@@ -18,6 +18,7 @@ var _game_prepared: bool = false
 var _wait_started_ms: int = 0
 var _visual_relays_connected: bool = false
 var _last_monster_mark_counts: Dictionary = {}
+var _pending_network_restore: Dictionary = {}
 
 
 func is_active() -> bool:
@@ -99,6 +100,7 @@ func stop() -> void:
 	_active = false
 	_waiting_for_peers = false
 	_network_inputs.clear()
+	_pending_network_restore.clear()
 	_disconnect_visual_relays()
 	if is_inside_tree():
 		queue_free()
@@ -156,10 +158,12 @@ func _attach_authority_inputs() -> void:
 		if bool(player.is_ai) or _seat_is_ai(int(player.seat_number)):
 			var ai_input = AIPlayerInputScript.new()
 			ai_input.think_seconds = 0.4
+			_set_next_input_epoch(player, ai_input)
 			player.input = ai_input
 			player.is_ai = true
 			continue
 		var network_input = NetworkPlayerInputScript.new()
+		_set_next_input_epoch(player, network_input)
 		network_input.set_request_owner(player)
 		player.input = network_input
 		_network_inputs.append(network_input)
@@ -175,13 +179,22 @@ func handoff_seats_to_ai(player_id: String) -> void:
 		if not seat_ids.has(int(player.seat_number)):
 			continue
 		var current_input: Variant = player.input
-		if current_input != null and current_input.has_method("detach"):
-			current_input.detach()
-			_network_inputs.erase(current_input)
+		if current_input is AIPlayerInputScript:
+			continue
 		var ai_input = AIPlayerInputScript.new()
 		ai_input.think_seconds = 0.4
+		_set_next_input_epoch(player, ai_input)
+		ai_input.set_request_owner(player)
+		# 先安装 AI，再唤醒旧网络等待；否则 Player 可能把 null
+		# 观察成“结束回合”，而不是控制权切换。
 		player.input = ai_input
 		player.is_ai = true
+		if current_input != null:
+			_network_inputs.erase(current_input)
+			if current_input.has_method("handoff_to_ai"):
+				current_input.handoff_to_ai()
+			elif current_input.has_method("detach"):
+				current_input.detach()
 
 
 func restore_network_inputs(player_id: String) -> void:
@@ -194,14 +207,91 @@ func restore_network_inputs(player_id: String) -> void:
 		if not seat_ids.has(int(player.seat_number)):
 			continue
 		var current_input: Variant = player.input
-		if current_input != null and current_input.has_method("detach"):
-			current_input.detach()
-			_network_inputs.erase(current_input)
-		var network_input = NetworkPlayerInputScript.new()
-		network_input.set_request_owner(player)
-		player.input = network_input
-		player.is_ai = false
-		_network_inputs.append(network_input)
+		if current_input is AIPlayerInputScript \
+				and player.has_method("is_action_in_progress") \
+				and player.is_action_in_progress():
+			current_input.request_network_handoff()
+			_queue_network_restore(player_id, player)
+			continue
+		_replace_with_network_input(player, current_input)
+
+
+func _queue_network_restore(player_id: String, player: Variant) -> void:
+	var key := str(player.get_instance_id())
+	if _pending_network_restore.has(key):
+		return
+	_pending_network_restore[key] = player_id
+	var callback := Callable(self, "_on_action_dispatch_finished").bind(player_id, player, key)
+	if player.has_signal("action_dispatch_finished"):
+		player.action_dispatch_finished.connect(callback, CONNECT_ONE_SHOT)
+
+
+func _on_action_dispatch_finished(player_id: String, player: Variant, key: String) -> void:
+	_pending_network_restore.erase(key)
+	if not _active or player == null or not is_instance_valid(player):
+		return
+	if not player.has_method("is_action_in_progress") or player.is_action_in_progress():
+		return
+	var seat_ids := _seat_ids_for_controller(player_id)
+	if not seat_ids.has(int(player.seat_number)):
+		return
+	if not (player.input is AIPlayerInputScript):
+		return
+	var current_input: Variant = player.input
+	_replace_with_network_input(player, current_input)
+
+
+func _replace_with_network_input(player: Variant, previous_input: Variant = null) -> void:
+	var network_input = NetworkPlayerInputScript.new()
+	_set_next_input_epoch(player, network_input)
+	network_input.set_request_owner(player)
+	# 先发布新的控制器，再释放旧 AI；旧 AI 的 wait_action 恢复时
+	# 能看到 NetworkInput，从而不会结束当前回合。
+	player.input = network_input
+	player.is_ai = false
+	_network_inputs.append(network_input)
+	if previous_input != null and is_instance_valid(previous_input) \
+			and previous_input != network_input \
+			and previous_input.has_method("detach"):
+		previous_input.detach()
+
+
+## 客机完成重连并发起 resync 后，补发该玩家仍 pending 的输入请求。
+## 断线前的旧请求已经由 handoff_seats_to_ai() 结束，不会出现在这里。
+func resend_pending_requests(player_id: String) -> void:
+	if not _active or player_id.is_empty() or NetSession == null:
+		return
+	var seat_ids := _seat_ids_for_controller(player_id)
+	if seat_ids.is_empty():
+		return
+	for network_input in _network_inputs:
+		if network_input == null or not is_instance_valid(network_input):
+			continue
+		if not network_input.has_method("pending_requests"):
+			continue
+		for request in network_input.pending_requests():
+			var seat_id := int(request.get("seat_id", -1))
+			if not seat_ids.has(seat_id):
+				continue
+			var request_id := int(request.get("request_id", -1))
+			if request_id < 0:
+				continue
+			NetSession.broadcast_input_request(
+				request_id,
+				seat_id,
+				player_id,
+				String(request.get("request_type", "")),
+				request.get("payload", {}),
+				int(request.get("control_epoch", -1)))
+
+
+func _set_next_input_epoch(player: Variant, input_controller: Variant) -> void:
+	if player == null or not is_instance_valid(player):
+		return
+	var next_epoch := int(player.get("input_control_epoch")) + 1
+	player.set("input_control_epoch", next_epoch)
+	if input_controller != null and input_controller.has_method("set_control_epoch"):
+		input_controller.set_control_epoch(next_epoch)
 
 
 func _seat_ids_for_controller(player_id: String) -> Dictionary:

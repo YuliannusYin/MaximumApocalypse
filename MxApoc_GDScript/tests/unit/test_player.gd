@@ -64,6 +64,22 @@ func _setup_game_for_player(p: Player) -> void:
 		Game.state_machine.init()
 
 
+func test_input_handoff_retries_action_instead_of_ending_phase() -> void:
+	var player := _make_combat_player()
+	var network_input := NetworkPlayerInput.new()
+	var ai_input := AIPlayerInput.new()
+	player.input = network_input
+	player.is_ai = false
+	player.input = ai_input
+	player.is_ai = true
+
+	assert_true(
+		player._should_retry_wait_action_after_null(network_input),
+		"断线切到 AI 后，旧 action 的 null 不能结束行动阶段")
+
+	ai_input.detach()
+
+
 ## 探针 input：记录 choose_target 调用参数（用于验证 prompt 传递）。
 class _ChooseTargetSpyInput extends CliPlayerInput:
 	var last_n: int = -1

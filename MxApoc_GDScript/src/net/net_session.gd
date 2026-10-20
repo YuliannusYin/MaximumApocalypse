@@ -586,10 +586,12 @@ func sync_room_config() -> void:
 	registry.set_room_config(mode, mission_id, room_state.variants)
 	_emit_snapshot()
 
-func send_input_response(request_id: int, seat_id: int, value: Variant) -> void:
+func send_input_response(
+		request_id: int, seat_id: int, value: Variant, control_epoch: int = -1) -> void:
 	_send_to_host(NetProtocol.INPUT_RESPONSE, {
 		"seat_id": seat_id,
 		"value": NetInputCodec.encode(value),
+		"control_epoch": control_epoch,
 	}, request_id)
 
 func request_resync() -> void:
@@ -644,7 +646,7 @@ func _flush_pending_state_snapshot() -> bool:
 	return true
 
 func broadcast_input_request(request_id: int, seat_id: int, owner_id: String,
-		request_type: String, payload: Dictionary) -> void:
+		request_type: String, payload: Dictionary, control_epoch: int = -1) -> void:
 	if not is_authority():
 		return
 	_flush_pending_state_snapshot()
@@ -661,6 +663,7 @@ func broadcast_input_request(request_id: int, seat_id: int, owner_id: String,
 		"owner_id": owner_id,
 		"request_type": request_type,
 		"payload": NetInputCodec.encode(payload),
+		"control_epoch": control_epoch,
 	}, "", registry.match_id, 0, registry.server_sequence, request_id)
 	_rpc_id_if_ready(peer_id, message)
 
@@ -820,6 +823,7 @@ func _handle_message(message: Dictionary, sender_id: int) -> void:
 			_handle_input_response(message, sender_id)
 		NetProtocol.RESYNC_REQUEST:
 			_send_snapshot_to(sender_id)
+			_resend_pending_requests_to(sender_id)
 		NetProtocol.LEAVE_REQUEST:
 			_handle_leave(message, sender_id)
 		NetProtocol.HEARTBEAT:
@@ -1215,6 +1219,15 @@ func _emit_snapshot() -> void:
 
 func _send_snapshot_to(peer_id: int) -> void:
 	_rpc_id_if_ready(peer_id, _make_state_snapshot_message())
+
+
+func _resend_pending_requests_to(peer_id: int) -> void:
+	if server_runtime == null or not is_instance_valid(server_runtime):
+		return
+	var player_id := _player_for_peer(peer_id)
+	if player_id.is_empty() or registry.phase != "playing":
+		return
+	server_runtime.resend_pending_requests(player_id)
 
 
 func playing_resync_payload() -> Dictionary:

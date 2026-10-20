@@ -5,6 +5,57 @@ extends RefCounted
 ## GDScript 无 interface 关键字，用抽象基类 + push_error 强制子类 override。
 ## 阶段 1 用 CliPlayerInput；图形对局用 GUIPlayerInput；AI 座位用 AIPlayerInput。
 
+## 输入协程的控制结果不能再用 null 兼任多个语义。
+## value 仍然保留给正常业务返回值；其余结果由 Player 的外层循环消费。
+const INPUT_RESULT_KEY := "__player_input_result"
+const RESULT_VALUE := "value"
+const RESULT_END_TURN := "end_turn"
+const RESULT_CONTROL_TRANSFER := "control_transfer"
+const RESULT_CANCELLED := "cancelled"
+const RESULT_STALE := "stale"
+
+static func make_result(kind: String, value: Variant = null, reason: String = "") -> Dictionary:
+	return {
+		INPUT_RESULT_KEY: true,
+		"kind": kind,
+		"value": value,
+		"reason": reason,
+	}
+
+
+static func is_result(value: Variant) -> bool:
+	return value is Dictionary and bool(value.get(INPUT_RESULT_KEY, false))
+
+
+static func result_kind(value: Variant) -> String:
+	if not is_result(value):
+		return RESULT_VALUE
+	return String(value.get("kind", RESULT_CANCELLED))
+
+
+static func result_value(value: Variant, fallback: Variant = null) -> Variant:
+	if not is_result(value):
+		return value
+	return value.get("value", fallback)
+
+
+## 输入对象的控制权代际。默认实现供非网络输入保持接口一致。
+func set_control_epoch(_epoch: int) -> void:
+	pass
+
+
+func get_control_epoch() -> int:
+	return 0
+
+
+## 控制器替换前由 ServerRuntime 调用；默认输入无需处理。
+func handoff_to_ai() -> void:
+	pass
+
+
+func request_network_handoff() -> void:
+	pass
+
 ## 设置下一次输入请求的所属玩家。
 ## GUI 使用该上下文在共享热座输入实例中区分实际操作玩家；
 ## CLI 不需要额外处理。

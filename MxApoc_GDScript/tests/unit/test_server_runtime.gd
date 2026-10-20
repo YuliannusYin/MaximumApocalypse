@@ -143,15 +143,65 @@ func test_handoff_replaces_network_input_with_ai() -> void:
 	player.is_ai = false
 	var network_input := NetworkPlayerInput.new()
 	player.input = network_input
+	network_input._pending[3] = {
+		"value": null,
+		"received": false,
+		"selection_map": {},
+		"request_type": "action",
+		"seat_id": 0,
+		"control_epoch": 0,
+	}
 	Game.players = [player]
 	var runtime: Node = load("res://src/net/server_runtime.gd").new()
 	runtime._network_inputs = [network_input]
 	runtime.handoff_seats_to_ai(credentials.player_id)
 	assert_true(player.is_ai)
 	assert_true(player.input is AIPlayerInput)
+	assert_true(bool(network_input._pending[3].received),
+		"必须先安装 AI 再唤醒旧网络请求")
+	assert_eq(IPlayerInput.result_kind(network_input._pending[3].value),
+		IPlayerInput.RESULT_CONTROL_TRANSFER)
+	assert_gt(int(player.input_control_epoch), 0)
 	runtime.restore_network_inputs(credentials.player_id)
 	assert_false(player.is_ai)
 	assert_true(player.input is NetworkPlayerInput)
+	if player.input.has_method("detach"):
+		player.input.detach()
+	runtime.free()
+	NetSession.registry = saved_registry
+
+
+func test_restore_waits_for_ai_action_to_finish_before_network_handoff() -> void:
+	var saved_registry: Variant = NetSession.registry
+	var registry := NetRegistry.new()
+	var survivor = DataManager.get_survivor("hunter")
+	registry.create_host("房主", 7777, [
+		{"type": "ai", "survivor": survivor},
+	])
+	var guest := registry.add_player("客机", 3)
+	registry.bind_seat(0, guest.player_id, "hunter")
+	registry.phase = "playing"
+	NetSession.registry = registry
+
+	var player: Player = _make_player("客机")
+	player.seat_number = 0
+	player.is_ai = true
+	var ai_input := AIPlayerInput.new()
+	player.input = ai_input
+	Game.players = [player]
+	var runtime: Node = load("res://src/net/server_runtime.gd").new()
+	runtime._active = true
+	runtime._network_inputs = []
+	player._dispatching_player_action = true
+
+	runtime.restore_network_inputs(guest.player_id)
+	assert_true(player.input == ai_input, "动作结算中不能立即抢走 AI 输入")
+	assert_true(ai_input._network_handoff_requested)
+
+	player._dispatching_player_action = false
+	player.action_dispatch_finished.emit()
+	assert_true(player.input is NetworkPlayerInput, "当前动作完成后应交还网络输入")
+	assert_false(player.is_ai)
 	if player.input.has_method("detach"):
 		player.input.detach()
 	runtime.free()

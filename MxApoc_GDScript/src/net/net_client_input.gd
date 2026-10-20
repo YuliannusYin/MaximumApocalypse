@@ -59,7 +59,10 @@ func respond(request_id: int, seat_id: int, value: Variant) -> void:
 	if int(request.get("seat_id", -1)) != seat_id:
 		return
 	NetSession.send_input_response(
-		request_id, seat_id, _encode_selection_response(request, value))
+		request_id,
+		seat_id,
+		_encode_selection_response(request, value),
+		int(request.get("control_epoch", -1)))
 	_active_requests.erase(request_id)
 	request_state_changed.emit()
 
@@ -104,6 +107,7 @@ func _on_message(message: Dictionary) -> void:
 	var request_id := int(message.get("request_id", -1))
 	if request_id < 0:
 		return
+	var control_epoch := int(payload.get("control_epoch", -1))
 	var display_game: Variant = NetSession.get_display_game() if NetSession != null else Game
 	var raw_payload: Variant = payload.get("payload", {})
 	if request_type == "choose_target":
@@ -114,6 +118,7 @@ func _on_message(message: Dictionary) -> void:
 	_active_requests[request_id] = {
 		"seat_id": seat_id,
 		"request_type": String(payload.get("request_type", "")),
+		"control_epoch": control_epoch,
 		"decoded_payload": decoded_payload,
 	}
 	request_state_changed.emit()

@@ -20,14 +20,30 @@ var _pending_card: Variant = null
 var _pending_action: Dictionary = {}
 var _pending_ap: int = -1
 var _aborted: bool = false
+var _network_handoff_requested: bool = false
+var _control_epoch: int = 0
 
 
 func set_request_owner(player: Variant) -> void:
 	_owner = player
 
 
+func set_control_epoch(epoch: int) -> void:
+	_control_epoch = epoch
+
+
+func get_control_epoch() -> int:
+	return _control_epoch
+
+
 func abort_pending() -> void:
 	_aborted = true
+
+
+## 请求在当前已开始的动作完成后，把下一次决策交还网络玩家。
+## 不设置 _aborted，避免中断动作内部的选牌/目标/确认结算。
+func request_network_handoff() -> void:
+	_network_handoff_requested = true
 
 
 func detach() -> void:
@@ -44,11 +60,11 @@ func get_active_request_owner() -> Variant:
 
 func wait_action(player: Variant) -> Variant:
 	_owner = player
-	if _aborted:
-		return null
+	if _aborted or _network_handoff_requested:
+		return IPlayerInput.make_result(IPlayerInput.RESULT_CONTROL_TRANSFER)
 	await _think()
-	if _aborted:
-		return null
+	if _aborted or _network_handoff_requested:
+		return IPlayerInput.make_result(IPlayerInput.RESULT_CONTROL_TRANSFER)
 	_note_fizzle_if_needed(player)
 	var skip: Dictionary = _fizzle_keys.duplicate()
 	var best: Variant = _pick_best_action(player, skip)

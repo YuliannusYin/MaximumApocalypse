@@ -52,8 +52,14 @@ var is_ai: bool = false
 
 # === 输入接口 ===
 var input: IPlayerInput = null
+## 输入控制权代际。每次 Network/AI 交接递增，拒绝旧连接的迟到响应。
+var input_control_epoch: int = 0
 ## 所属对局世代。-1 表示未绑定（测试 mock），不拦截过期协程。
 var session_id: int = -1
+## 当前 action 的领域结算是否仍在执行。网络断线/重连时用于安全交接输入控制。
+var _dispatching_player_action: bool = false
+
+signal action_dispatch_finished
 
 
 func _init() -> void:
@@ -2375,6 +2381,9 @@ func get_discard_pile() -> Pile:
 func _prepare_input_request() -> void:
 	if input != null and is_instance_valid(input) and input.has_method("set_request_owner"):
 		input.set_request_owner(self)
+	if input != null and is_instance_valid(input) \
+			and input.has_method("set_control_epoch"):
+		input.set_control_epoch(input_control_epoch)
 
 
 ## 选择器（委托 input）
@@ -2502,6 +2511,20 @@ func wait_player_action(_operation_context: Dictionary = {}) -> Dictionary:
 		if is_match_over():
 			result["reason"] = "cancelled"
 			break
+		if IPlayerInput.is_result(choice):
+			var input_result_kind := IPlayerInput.result_kind(choice)
+			if input_result_kind == IPlayerInput.RESULT_CONTROL_TRANSFER \
+					or input_result_kind == IPlayerInput.RESULT_STALE:
+				# 控制权切换不是结束回合。ServerRuntime 应已安装新输入；
+				# 即使信号恢复早于替换，也继续观察当前 input 状态。
+				continue
+			if input_result_kind == IPlayerInput.RESULT_END_TURN:
+				result["reason"] = "ended"
+				break
+			if input_result_kind == IPlayerInput.RESULT_CANCELLED:
+				result["reason"] = "cancelled"
+				break
+			choice = IPlayerInput.result_value(choice)
 		if choice == null:
 			var retry := _should_retry_wait_action_after_null(input_before)
 			if retry:
@@ -2509,7 +2532,10 @@ func wait_player_action(_operation_context: Dictionary = {}) -> Dictionary:
 			result["reason"] = "cancelled"
 			break  # 结束回合
 		if typeof(choice) == TYPE_DICTIONARY:
+			_dispatching_player_action = true
 			await dispatch_player_action(choice)
+			_dispatching_player_action = false
+			action_dispatch_finished.emit()
 			if is_match_over():
 				result["reason"] = "cancelled"
 				break
@@ -2520,13 +2546,23 @@ func wait_player_action(_operation_context: Dictionary = {}) -> Dictionary:
 	return result
 
 
-## AI 托管 abort 后若座位已交回 NetworkPlayerInput，继续等客机操作，不结束回合。
+## 输入控制权交接后的 abort 只结束旧输入等待，继续当前行动循环。
 func _should_retry_wait_action_after_null(input_before: Variant) -> bool:
-	if is_ai or input == null or not is_instance_valid(input):
+	if input == null or not is_instance_valid(input):
 		return false
 	if input == input_before:
 		return false
-	return input is NetworkPlayerInput
+	# 兼容没有显式交接结果的旧输入实现：控制器已换回网络时，
+	# is_ai 必须先清除，避免玩家入口在交接完成前暴露。
+	if is_ai and input is NetworkPlayerInput:
+		return false
+	# 输入对象切换代表控制权交接：断线后继续由 AI 决策，或重连后
+	# 回到网络输入。两种情况都不能把 null 当成结束行动阶段。
+	return input is NetworkPlayerInput or input is AIPlayerInput
+
+
+func is_action_in_progress() -> bool:
+	return _dispatching_player_action
 
 
 ## 所有 UI/CLI 玩家意图的统一领域分发入口。

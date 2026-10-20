@@ -62,6 +62,8 @@ var _pending_network_startup_monster_draws: Array[Dictionary] = []
 var _network_startup_monster_draw_order: int = 0
 var _pending_map_refresh_after_visual: bool = false
 var _pending_network_snapshot: Dictionary = {}
+## 重连成功后必须先收到并应用权威快照，不能仅凭 joined 就重建场景。
+var _awaiting_reconnect_snapshot: bool = false
 var _pending_mark_pulses: Array = []
 var _pending_confirm_after_visual: bool = false
 var _pending_confirm_message: String = ""
@@ -369,6 +371,7 @@ func _on_match_connection_state(state: String, detail: String) -> void:
 	if _leaving_match:
 		return
 	if state == "disconnected":
+		_awaiting_reconnect_snapshot = true
 		call_deferred("_begin_auto_reconnect")
 	elif state == "joined" or state == "match_started":
 		_finish_auto_reconnect(detail)
@@ -432,17 +435,24 @@ func _keep_reconnect_failure(reason: String) -> void:
 
 
 func _finish_auto_reconnect(_detail: String) -> void:
-	_reconnecting = false
-	_reconnect_attempts = 0
-	_show_reconnect_hint("")
 	if NetSession == null or not NetSession.is_remote_client():
 		return
-	if NetSession.registry.phase != "playing":
+	# 初次加入对局也会收到 joined；只有经历过 disconnected 或正在重连时，
+	# 这个信号才属于自动重连流程。
+	if not _awaiting_reconnect_snapshot and not _reconnecting:
+		return
+	# joined 只证明房主接受了身份，不能证明 ViewGame 和输入请求已经恢复。
+	# 旧实现此处立即重建场景，会让新场景与旧的 INPUT_REQUEST/快照产生竞态，
+	# 最终表现为客机一直“等待同步”，而权威端也可能正在等待旧请求。
+	_reconnecting = false
+	_reconnect_attempts = 0
+	_show_reconnect_hint("已重连，正在同步对局")
+	if NetSession.registry.phase == "playing":
 		NetSession.request_resync()
 		return
-	_leaving_match = true
-	NetSession.rebuild_display_world()
-	LoadingScreenScript.go_enter_game(get_tree())
+	_awaiting_reconnect_snapshot = false
+	_show_reconnect_hint("")
+	NetSession.request_resync()
 
 
 func _give_up_reconnect() -> void:
@@ -2365,6 +2375,15 @@ func _on_network_message(message: Dictionary) -> void:
 		var snapshot: Dictionary = message.get("payload", {}).get("game_snapshot", {})
 		if not snapshot.is_empty():
 			_apply_network_game_snapshot(snapshot)
+			# 快照已经可以驱动对局时，才算完成重连。
+			# 不依赖 connection_state_changed 的 joined 回调清除提示，
+			# joined 只代表身份恢复，不代表显示世界和输入请求恢复。
+			if _pending_network_snapshot.is_empty() \
+					and (_awaiting_reconnect_snapshot \
+					or _reconnecting \
+					or (_reconnect_hint != null and _reconnect_hint.visible)):
+				_awaiting_reconnect_snapshot = false
+				_show_reconnect_hint("")
 		_refresh_all_panels()
 		return
 	if message_type != NetProtocol.GAME_EVENT:
