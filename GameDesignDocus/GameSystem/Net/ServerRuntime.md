@@ -12,7 +12,7 @@
 
 - 开局初始化（`NetId.reset`、随机播种、`Game.initialize_from_room_state`）。
 - 为每个座位装配输入：真人 → `NetworkPlayerInput`，AI → `AIPlayerInput`。
-- 处理掉线转 AI（`handoff_seats_to_ai`）与重连恢复真人输入（`restore_network_inputs`）；交接使用 `input_control_epoch` 串行化。
+- 处理掉线/主动托管转 AI（`handoff_seats_to_ai`）与重连/取消托管恢复真人输入（`restore_network_inputs`）；交接使用 `input_control_epoch` 串行化。
 - 等待真人 peer 绑定齐（`MATCH_READY_TIMEOUT_MS` 超时未到转 AI）。
 - 把约 26 个 `EventBus` 信号中继为网络 `game_event` 广播。
 
@@ -86,8 +86,8 @@
 | 方法 | 签名 | 说明 |
 | --- | --- | --- |
 | `_attach_authority_inputs` | `_attach_authority_inputs() -> void` | 遍历 `Game.players`：AI 座位 → 挂 `AIPlayerInputScript`（`think_seconds=0.4`）；真人 → 挂 `NetworkPlayerInputScript`（`set_request_owner(player)`）并收集进 `_network_inputs` |
-| `handoff_seats_to_ai` | `handoff_seats_to_ai(player_id: String) -> void` | 掉线转 AI：递增座位代际，先安装 AI，再让旧 `NetworkPlayerInput.handoff_to_ai()` 结束 pending 请求 |
-| `restore_network_inputs` | `restore_network_inputs(player_id: String) -> void` | 重连恢复：若 AI 正在执行动作，先请求在动作边界交还；否则原子换回 `NetworkPlayerInput` |
+| `handoff_seats_to_ai` | `handoff_seats_to_ai(player_id: String) -> void` | 掉线或主动托管转 AI：递增座位代际，先安装 AI，再让旧 `NetworkPlayerInput.handoff_to_ai()` 结束 pending 请求；若存在延迟恢复则取消，并清除 AI 的待交还标记 |
+| `restore_network_inputs` | `restore_network_inputs(player_id: String) -> void` | 重连或取消托管恢复：若 AI 正在执行动作，先请求在动作边界交还；否则原子换回 `NetworkPlayerInput`；恢复回调执行时再次检查 `hosted` |
 | `resend_pending_requests` | `resend_pending_requests(player_id: String) -> void` | 快照同步后补发该玩家仍处于有效生命周期的网络请求 |
 | `_seat_ids_for_controller` | `_seat_ids_for_controller(player_id: String) -> Dictionary` | 查该 controller 的座位集合 |
 | `_seat_is_ai` | `_seat_is_ai(seat_number: int) -> bool` | 座位是否 `control_mode=="ai"` |
@@ -135,7 +135,7 @@ handoff_to_network / 新 control_epoch
 NETWORK
 ```
 
-掉线时先安装 AI，再让旧网络输入结束 pending 请求；重连时若 AI 正在执行当前动作，等待 `action_dispatch_finished` 后再换回网络输入。每次交接都递增 `player.input_control_epoch`，旧请求响应即使迟到也只能被丢弃，不能改变回合状态。
+掉线或主动托管时先安装 AI，再让旧网络输入结束 pending 请求；客机侧同时清空本机活动输入请求、弹窗和操作态，并忽略迟到的 `INPUT_REQUEST`。重连或取消托管时若 AI 正在执行当前动作，等待 `action_dispatch_finished` 后再换回网络输入。若等待期间再次进入托管，则取消延迟恢复并清除 AI 的待交接标记。每次交接都递增 `player.input_control_epoch`，旧请求响应即使迟到也只能被丢弃，不能改变回合状态。
 
 ### 6.3 视觉事件中继
 

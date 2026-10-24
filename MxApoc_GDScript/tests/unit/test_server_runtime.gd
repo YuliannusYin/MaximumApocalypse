@@ -208,6 +208,40 @@ func test_restore_waits_for_ai_action_to_finish_before_network_handoff() -> void
 	NetSession.registry = saved_registry
 
 
+func test_rehosting_during_delayed_restore_keeps_ai_control() -> void:
+	var saved_registry: Variant = NetSession.registry
+	var registry := NetRegistry.new()
+	var survivor = DataManager.get_survivor("hunter")
+	registry.create_host("房主", 7777, [
+		{"type": "ai", "survivor": survivor},
+	])
+	var guest := registry.add_player("客机", 3)
+	registry.bind_seat(0, guest.player_id, "hunter")
+	registry.phase = "playing"
+	NetSession.registry = registry
+
+	var player: Player = _make_player("客机")
+	player.seat_number = 0
+	player.is_ai = true
+	var ai_input := AIPlayerInput.new()
+	player.input = ai_input
+	Game.players = [player]
+	var runtime: Node = load("res://src/net/server_runtime.gd").new()
+	runtime._active = true
+	player._dispatching_player_action = true
+
+	runtime.restore_network_inputs(guest.player_id)
+	registry.set_player_hosted(guest.player_id, true)
+	runtime.handoff_seats_to_ai(guest.player_id)
+	player._dispatching_player_action = false
+	player.action_dispatch_finished.emit()
+
+	assert_true(player.input is AIPlayerInput, "再次托管后延迟恢复不得交回网络")
+	assert_false(ai_input._network_handoff_requested, "再次托管应取消待处理的交接标记")
+	runtime.free()
+	NetSession.registry = saved_registry
+
+
 func test_restore_network_inputs_after_guest_handoff() -> void:
 	var saved_registry: Variant = NetSession.registry
 	var registry := NetRegistry.new()

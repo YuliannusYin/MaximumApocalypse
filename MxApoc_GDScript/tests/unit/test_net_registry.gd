@@ -256,3 +256,23 @@ func test_unique_name_reconnects_when_token_hash_missing() -> void:
 	assert_ne(String(resumed.get("reconnect_token", "")), "")
 	assert_eq(String(registry.seats[1].control_mode), "human")
 	assert_eq(int(registry.players[guest.player_id].peer_id), 8)
+
+
+func test_hosted_flag_set_clear_and_reset_on_phase_change() -> void:
+	var registry := NetRegistry.new()
+	var survivor = DataManager.get_survivor("firefighter")
+	var credentials := registry.create_host("房主", 7777, [
+		{"type": "human", "survivor": survivor},
+	])
+	assert_false(registry.is_player_hosted(credentials.player_id))
+	registry.start_match(1)
+	assert_true(registry.set_player_hosted(credentials.player_id, true))
+	assert_true(registry.is_player_hosted(credentials.player_id))
+	assert_true(bool(registry.snapshot().players[0].get("hosted", false)))
+	registry.disconnect_player(credentials.player_id)
+	assert_true(registry.is_player_hosted(credentials.player_id), "断线不应清除主动托管")
+	registry.reconnect_player_by_token(credentials.reconnect_token, 9)
+	assert_true(registry.is_player_hosted(credentials.player_id), "重连不应清除主动托管")
+	registry.set_phase("lobby")
+	assert_false(registry.is_player_hosted(credentials.player_id))
+	assert_false(registry.set_player_hosted("missing", true))

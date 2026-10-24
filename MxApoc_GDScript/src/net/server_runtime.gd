@@ -180,6 +180,9 @@ func handoff_seats_to_ai(player_id: String) -> void:
 			continue
 		var current_input: Variant = player.input
 		if current_input is AIPlayerInputScript:
+			_cancel_pending_network_restore(player)
+			if current_input.has_method("cancel_network_handoff"):
+				current_input.cancel_network_handoff()
 			continue
 		var ai_input = AIPlayerInputScript.new()
 		ai_input.think_seconds = 0.4
@@ -226,7 +229,15 @@ func _queue_network_restore(player_id: String, player: Variant) -> void:
 		player.action_dispatch_finished.connect(callback, CONNECT_ONE_SHOT)
 
 
+func _cancel_pending_network_restore(player: Variant) -> void:
+	if player == null or not is_instance_valid(player):
+		return
+	_pending_network_restore.erase(str(player.get_instance_id()))
+
+
 func _on_action_dispatch_finished(player_id: String, player: Variant, key: String) -> void:
+	if not _pending_network_restore.has(key):
+		return
 	_pending_network_restore.erase(key)
 	if not _active or player == null or not is_instance_valid(player):
 		return
@@ -236,6 +247,11 @@ func _on_action_dispatch_finished(player_id: String, player: Variant, key: Strin
 	if not seat_ids.has(int(player.seat_number)):
 		return
 	if not (player.input is AIPlayerInputScript):
+		return
+	var registry: Variant = _registry()
+	if registry != null and registry.is_player_hosted(player_id):
+		if player.input.has_method("cancel_network_handoff"):
+			player.input.cancel_network_handoff()
 		return
 	var current_input: Variant = player.input
 	_replace_with_network_input(player, current_input)

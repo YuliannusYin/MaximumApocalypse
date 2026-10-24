@@ -69,6 +69,9 @@ var _pending_confirm_after_visual: bool = false
 var _pending_confirm_message: String = ""
 var _game_over_started: bool = false
 var _reconnect_hint: Label
+var _hosting_banner: HBoxContainer
+var _hosting_state_initialized: bool = false
+var _last_local_hosted: bool = false
 var _reconnect_attempts: int = 0
 var _reconnecting: bool = false
 var _leaving_match: bool = false
@@ -114,6 +117,8 @@ func _exit_tree() -> void:
 		NetSession.message_received.disconnect(_on_network_message)
 	if NetSession.player_presence_changed.is_connected(_on_player_presence_changed):
 		NetSession.player_presence_changed.disconnect(_on_player_presence_changed)
+	if NetSession.session_changed.is_connected(_on_room_session_changed):
+		NetSession.session_changed.disconnect(_on_room_session_changed)
 
 
 # === 子模块创建与信号接线 ===
@@ -167,6 +172,7 @@ func _create_modules() -> void:
 	_reconnect_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_reconnect_hint.visible = false
 	_ui_layer.add_child(_reconnect_hint)
+	_build_hosting_banner()
 
 	_build_cheat_menu()
 
@@ -331,6 +337,8 @@ func _start_game_flow() -> void:
 	if RoomState != null and RoomState.online_multiplayer and NetSession != null:
 		if not NetSession.player_presence_changed.is_connected(_on_player_presence_changed):
 			NetSession.player_presence_changed.connect(_on_player_presence_changed)
+		if not NetSession.session_changed.is_connected(_on_room_session_changed):
+			NetSession.session_changed.connect(_on_room_session_changed)
 
 	# 教程系统：任务 0 默认开启；设置勾选后任意任务也播
 	if _should_start_tutorial():
@@ -982,6 +990,7 @@ func _body_id_of_entity(entity: Variant) -> String:
 
 ## 刷新所有玩家面板。
 func _refresh_all_panels() -> void:
+	_update_hosting_banner()
 	for panel in _player_panels:
 		if panel != null and is_instance_valid(panel):
 			panel.refresh(true)
@@ -1348,6 +1357,40 @@ func _on_wiki_pressed() -> void:
 	_wiki_overlay.closed.connect(func() -> void: _wiki_overlay = null)
 
 
+## 常驻“已进入 AI 托管 [取消托管]”横幅;仅联机且本机玩家处于主动托管时显示。
+func _build_hosting_banner() -> void:
+	_hosting_banner = HBoxContainer.new()
+	_hosting_banner.position = Vector2(500, 76)
+	_hosting_banner.alignment = BoxContainer.ALIGNMENT_CENTER
+	_hosting_banner.add_theme_constant_override("separation", 12)
+	_hosting_banner.visible = false
+	var label := Label.new()
+	label.text = "已进入 AI 托管"
+	label.add_theme_font_size_override("font_size", 18)
+	label.add_theme_color_override("font_color", HudTheme.GOLD_TEXT)
+	label.add_theme_color_override("font_outline_color", Color.BLACK)
+	label.add_theme_constant_override("outline_size", 4)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hosting_banner.add_child(label)
+	var button := Button.new()
+	button.text = "取消托管"
+	button.pressed.connect(_on_cancel_hosting_pressed)
+	_hosting_banner.add_child(button)
+	_ui_layer.add_child(_hosting_banner)
+
+
+func _update_hosting_banner() -> void:
+	if _hosting_banner == null or not is_instance_valid(_hosting_banner):
+		return
+	_hosting_banner.visible = RoomState != null and RoomState.online_multiplayer \
+		and NetSession != null and NetSession.is_local_player_hosted()
+
+
+func _on_cancel_hosting_pressed() -> void:
+	if NetSession != null:
+		NetSession.request_set_hosting(false)
+
+
 ## 构建设置弹出菜单（"设置" + "返回主菜单"）。
 func _build_settings_popup() -> void:
 	_settings_popup = PopupMenu.new()
@@ -1364,7 +1407,7 @@ func _on_settings_popup_id_pressed(id: int) -> void:
 			# 打开设置对话框
 			var dialog := SETTINGS_DIALOG_SCENE.instantiate()
 			add_child(dialog)
-			dialog.popup_centered(Vector2i(360, 180))
+			dialog.popup_centered(Vector2i(360, 200))
 		1:
 			# 返回主菜单：先卸对局场景，再在加载页清理调度器与旧协程。
 			_leaving_match = true
@@ -2312,6 +2355,58 @@ func _on_log_message(message: String) -> void:
 		_event_log.pop_front()
 
 
+func _on_room_session_changed(_snapshot: Dictionary) -> void:
+	_update_hosting_banner()
+	_refresh_all_panels()
+	var hosted := NetSession != null and NetSession.is_local_player_hosted()
+	var hosting_changed := not _hosting_state_initialized or hosted != _last_local_hosted
+	_hosting_state_initialized = true
+	_last_local_hosted = hosted
+	if hosting_changed:
+		if hosted:
+			_clear_local_hosting_input_state()
+		else:
+			_refresh_local_seat_hud_after_hosting_change()
+
+
+## 进入 AI 托管后，本机旧输入请求已经被权威端交接，不能继续留在 UI。
+func _clear_local_hosting_input_state() -> void:
+	if _network_client_input != null and is_instance_valid(_network_client_input) \
+			and _network_client_input.has_method("clear_pending_requests"):
+		_network_client_input.clear_pending_requests()
+	_clear_network_request()
+	_clear_popup_request_identity()
+	_pending_target_source = null
+	_pending_confirm_after_visual = false
+	_pending_confirm_message = ""
+	if _popup_manager != null and is_instance_valid(_popup_manager) \
+			and _popup_manager.is_popup_open():
+		_popup_manager.close_popup()
+	if _action_selection_controller != null and is_instance_valid(_action_selection_controller):
+		_action_selection_controller.clear_network_input_state()
+	_sync_network_action_ui()
+
+
+## 托管切换只更新房间快照，不会重新派发普通回合请求。
+## 因此取消托管后要主动恢复本机座位 HUD，否则手牌/技能栏仍停留在旧焦点状态。
+func _refresh_local_seat_hud_after_hosting_change() -> void:
+	# ROOM_SNAPSHOT 可能早于 STATE_SNAPSHOT 到达；此时显示世界和座位 HUD
+	# 尚未创建，不能提前调用 _get_local_display_player()。
+	if not _match_view_ready:
+		return
+	if _seat_hud_manager == null or not is_instance_valid(_seat_hud_manager):
+		return
+	var player: Variant = _get_local_display_player()
+	if player == null or not is_instance_valid(player):
+		return
+	_last_local_focus_player = player
+	_activate_seat_hud(player)
+	_restore_network_action_request()
+	_refresh_hand_area()
+	_refresh_active_skill_bar(player)
+	_sync_network_action_ui()
+
+
 func _on_player_presence_changed(player_id: String, state: String, display_name: String,
 		left: bool) -> void:
 	_apply_presence_ui(player_id, state, display_name, left)
@@ -2325,6 +2420,9 @@ func _apply_presence_from_message(message_type: String, payload: Variant) -> voi
 		display_name = _presence_display_name(player_id)
 	if message_type == NetProtocol.PLAYER_DISCONNECTED:
 		_apply_presence_ui(player_id, "disconnected", display_name, bool(data.get("left", false)))
+	elif message_type == NetProtocol.PLAYER_HOSTING:
+		_apply_presence_ui(player_id, "hosted" if bool(data.get("hosted", false)) else "unhosted",
+			display_name, false)
 	else:
 		_apply_presence_ui(player_id, "connected", display_name, false)
 
@@ -2349,6 +2447,10 @@ func _apply_presence_ui(player_id: String, state: String, display_name: String, 
 			log_text = "%s 离开房间（AI 托管）" % name_text
 		else:
 			log_text = "%s 断开连接（AI 托管）" % name_text
+	elif state == "hosted":
+		log_text = "%s 进入 AI 托管" % name_text
+	elif state == "unhosted":
+		log_text = "%s 取消 AI 托管" % name_text
 	else:
 		log_text = "%s 已重连" % name_text
 	_on_log_message(log_text)
@@ -2363,8 +2465,14 @@ func _on_network_message(message: Dictionary) -> void:
 		_last_network_snapshot_sequence = 0
 		_seen_game_events.clear()
 	if message_type == NetProtocol.PLAYER_DISCONNECTED \
-			or message_type == NetProtocol.PLAYER_RECONNECTED:
-		_apply_presence_from_message(message_type, message.get("payload", {}))
+			or message_type == NetProtocol.PLAYER_RECONNECTED \
+			or message_type == NetProtocol.PLAYER_HOSTING:
+		var presence_payload: Dictionary = message.get("payload", {})
+		_apply_presence_from_message(message_type, presence_payload)
+		if message_type == NetProtocol.PLAYER_HOSTING \
+				and String(presence_payload.get("player_id", "")) == NetSession.local_player_id \
+				and bool(presence_payload.get("hosted", false)):
+			_clear_local_hosting_input_state()
 		return
 	var server_sequence := int(message.get("server_sequence", 0))
 	if message_type == NetProtocol.STATE_SNAPSHOT:

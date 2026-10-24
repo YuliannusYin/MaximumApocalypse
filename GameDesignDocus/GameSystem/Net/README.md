@@ -15,6 +15,7 @@
 5. **全量快照 + ctx 复用**：`GameStateSerializer` 每份 `STATE_SNAPSHOT` 都是完整状态；跨快照的对象身份靠调用方持有的 `ctx`（`net_id → 实例`）维持。
 6. **隐藏信息不传输**：未揭示牌堆（怪物堆、红/绿/蓝拾荒堆、个人牌堆）只传**大小**，不传牌序；`scavenge` 弃牌堆与手牌因属公开/合作视图而完整传输。
 7. **输入控制权与请求生命周期分离**：座位的真人/AI 控制器交接必须先安装新控制器，再唤醒旧请求；输入请求带 `control_epoch`，旧连接的迟到响应不得影响新控制器。
+8. **主动托管的 UI 与权威状态保持一致**：进入 AI 托管时客机立即清空活动输入请求、弹窗和操作态，并忽略迟到的 `INPUT_REQUEST`；取消托管若 AI 正在结算则等待动作边界，等待期间再次托管必须取消延迟恢复。
 
 ---
 
@@ -54,7 +55,7 @@
 | `join_accepted` | 房主→客机 | 回发 `player_id` / `reconnect_token` / `room_snapshot` |
 | `reconnect_request` | 客机→房主 | 重连（payload 含 `display_name` 与可选 `reconnect_token`） |
 | `room_snapshot` | 房主→全员 | 大厅状态广播 |
-| `room_command` | 客机→房主 | 房间命令：`start` / `bind_seat` / `set_survivor` |
+| `room_command` | 客机→房主 | 房间命令：`start` / `bind_seat` / `set_survivor` / `set_hosting` |
 | `input_request` | 房主→指定客机 | 定向输入请求（action/选牌/选目标/confirm 等） |
 | `input_response` | 客机→房主 | 输入请求应答 |
 | `command_result` | — | 命令结果（预留） |
@@ -65,6 +66,7 @@
 | `resync_request` | 客机→房主 | 主动索要全量快照 |
 | `heartbeat` | 客机→房主 | 心跳保活 |
 | `player_connected` / `player_disconnected` / `player_reconnected` | 房主→全员 | 玩家连接状态广播 |
+| `player_hosting` | 房主→全员 | 玩家主动 AI 托管/取消(`hosted`) |
 | `room_closed` | 房主→全员 | 关房（payload `{reason}`） |
 | `error` | 房主→客机 | 错误（payload `{code, detail}`） |
 
@@ -117,6 +119,20 @@
 
 旁路：**演出类请求**（show_card、骰子、怪物攻击等）走 `_emit_visual()` → `broadcast_game_event`（`game_event` 单向广播，**不等 ACK**）。
 
+主动托管旁路：
+
+```text
+客机 request_set_hosting(true)
+  → 房主校验 playing / Runtime / 真人座位
+  → NETWORK → AI，旧 pending 请求进入 control_transfer 终态
+  → 广播 player_hosting(hosted=true) + room_snapshot
+  → 客机清空 NetClientInput、弹窗和操作 HUD，并忽略迟到 INPUT_REQUEST
+
+客机 request_set_hosting(false)
+  → AI → NETWORK；若当前动作未结束则等待 action_dispatch_finished
+  → 等待期间再次 set_hosting(true)：取消延迟恢复，AI 保持控制权
+```
+
 #### 4.3.1 客机动画调度
 
 客机收到 `game_event` 后，演出分为两类：
@@ -152,6 +168,7 @@
               └─ 对局未命中：INVALID_TOKEN；菜单侧清凭证后改发 join_request
         └─ 客机认回成功后保留现有对局场景，等待带身份的 `STATE_SNAPSHOT` 应用完成；随后请求 resync 并恢复仍有效的输入请求，不因 `joined` 信号立即重建 ViewGame
 房主座位控制权交接遵循“先换控制器、后唤醒旧等待”：断线时 NetworkInput → AIInput；重连时若 AI 正在结算动作则等待 `action_dispatch_finished`，否则 AIInput → NetworkInput
+主动托管与取消托管复用同一控制权交接；托管中的玩家重连仍保持 AI，必须由玩家主动取消托管
 房主 peer 拆除延后按 peer_id / 记住的昵称查找，已绑到新 peer 则不误踢
 权威环回收到 match_start / state_snapshot 时 _apply_snapshot 若 is_authority 则跳过，不覆盖 token 哈希
 ```
@@ -182,3 +199,4 @@
 | v0.37.3 | `599d6b4` | 权威转播回合/标记/受伤反馈 | `ServerRuntime` 视觉中继扩至约 26 类事件；怪物快照补齐战斗数值 |
 | v0.37.4 | `0041daa` | 对局结算闭环 | 结算回大厅；客机结算回写 `Game`；日志同步、角色卡翻面/标记进快照 |
 | v0.37.5 | `96299ff` | 断线重连与心跳保活 | 心跳/超时踢离；对局中断线自动重连（≤3 次）；迷你回合预算与选目标战斗字段同步 |
+| v0.43.0 | `e40b9f0` | 玩家主动 AI 托管 | 联机玩家可主动进入/取消 AI 托管；同步 `hosted` 状态；清理客机旧输入与 UI；支持动作边界恢复和取消后立即再次托管 |

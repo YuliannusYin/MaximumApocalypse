@@ -74,6 +74,32 @@ func clear_network_action_mode() -> void:
 	refresh_confirm_cancel_buttons()
 
 
+## AI 托管接管时清理本机网络输入留下的所有操作态。
+func clear_network_input_state() -> void:
+	if _move_select_mode or _card_move_mode:
+		exit_move_select_mode()
+	if _skill_confirm_mode:
+		exit_skill_confirm_mode()
+	if _round_zero_mode:
+		exit_round_zero_mode()
+	if _judge_confirm_mode:
+		exit_judge_confirm_mode()
+	_confirm_mode = false
+	_exit_switchable_modes("")
+	_set_selected_pile_key("")
+	_clear_hand_selection()
+	_move_selected_blocks.clear()
+	_valid_blocks.clear()
+	_card_move_valid_blocks.clear()
+	_block_select_count = 1
+	_pending_skill = null
+	_network_action_available = false
+	if _prompt_label != null and is_instance_valid(_prompt_label):
+		_prompt_label.text = ""
+	refresh_confirm_cancel_buttons()
+	selection_cleared.emit()
+
+
 func _get_acting_player() -> Variant:
 	if _event_scheduler != null and is_instance_valid(_event_scheduler):
 		var request: Variant = _event_scheduler.get_current_input_request()

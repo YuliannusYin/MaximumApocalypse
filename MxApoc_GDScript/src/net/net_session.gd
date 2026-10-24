@@ -911,7 +911,9 @@ func _guest_cannot_use_host_token(player_id: String, sender_id: int) -> bool:
 	return loopback <= 1 or sender_id != loopback
 
 func _accept_reconnected_player(player_id: String, token: String, sender_id: int) -> void:
-	if has_active_server_runtime() and registry.phase == "playing":
+	# 主动托管的玩家重连后仍保持 AI,由玩家自行取消。
+	if has_active_server_runtime() and registry.phase == "playing" \
+			and not registry.is_player_hosted(player_id):
 		server_runtime.restore_network_inputs(player_id)
 	_send_identity_snapshot(sender_id, player_id, token)
 	if is_inside_tree():
@@ -947,6 +949,16 @@ func _handle_room_command(message: Dictionary, sender_id: int) -> void:
 				bool(args.get("is_ai", false))):
 			_reject(sender_id, NetProtocol.ERROR_INVALID_COMMAND, "座位配置无效")
 			return
+	elif command == "set_hosting":
+		if registry.phase != "playing" or not has_active_server_runtime():
+			_reject(sender_id, NetProtocol.ERROR_INVALID_COMMAND, "只有对局中才能托管")
+			return
+		if not registry.player_has_human_seat(player_id) \
+				and not registry.is_player_hosted(player_id):
+			_reject(sender_id, NetProtocol.ERROR_INVALID_COMMAND, "没有可托管的座位")
+			return
+		_apply_hosting(player_id, bool(args.get("enabled", false)))
+		return
 	elif command == "set_survivor":
 		var seat_id := int(args.get("seat_id", -1))
 		if registry.phase != "lobby":
@@ -1011,6 +1023,35 @@ func _handoff_player_inputs(player_id: String) -> void:
 	if not has_active_server_runtime() or registry.phase != "playing":
 		return
 	server_runtime.handoff_seats_to_ai(player_id)
+
+
+## 权威端:玩家主动进入/取消 AI 托管。座位保持 human,只切换输入控制器。
+func _apply_hosting(player_id: String, enabled: bool) -> void:
+	if not registry.players.has(player_id):
+		return
+	if registry.is_player_hosted(player_id) == enabled:
+		return
+	registry.set_player_hosted(player_id, enabled)
+	if has_active_server_runtime() and registry.phase == "playing":
+		if enabled:
+			server_runtime.handoff_seats_to_ai(player_id)
+		else:
+			server_runtime.restore_network_inputs(player_id)
+	var payload := _presence_payload(player_id, false)
+	payload["hosted"] = enabled
+	_emit_player_presence(player_id, "hosted" if enabled else "unhosted", false)
+	_broadcast(NetProtocol.PLAYER_HOSTING, payload)
+	_emit_snapshot()
+
+
+## 客机/房主:请求为本机玩家进入或取消主动托管。
+func request_set_hosting(enabled: bool) -> void:
+	send_room_command("set_hosting", {"enabled": enabled})
+
+
+## 本机玩家当前是否处于主动托管。
+func is_local_player_hosted() -> bool:
+	return registry != null and registry.is_player_hosted(local_player_id)
 
 
 func _drop_remote_player(player_id: String, left: bool) -> void:

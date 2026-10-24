@@ -13,6 +13,8 @@
 - 实现 `wait_action` / `choose` / `choose_card` / `choose_target` / `choose_map_block` / `choose_block_inline` / `confirm` / `show_card` 等接口。
 - 请求-响应循环：`_request()` 把候选对象存本地 `selection_map`，业务 payload 只含 `selection_tokens`（下标令牌）；外层 `INPUT_REQUEST` 载荷另带 `control_epoch`，发出后等待同一代际的 `response_arrived`。
 - 控制权交接是输入生命周期的一部分：`NETWORK → AI` 时旧请求进入终态并返回 `control_transfer`，`AI → NETWORK` 时提升代际，旧连接的迟到响应全部失效。
+- 主动托管与断线接管共用 `NETWORK → AI` 路径；取消托管若 AI 正在结算动作，会延迟到 `action_dispatch_finished` 再恢复网络输入。
+- 若恢复等待期间再次进入托管，待处理恢复会被取消，AI 保持控制权，不会因旧回调切回网络输入。
 - 演出类请求（动画）走 `_emit_visual()` → `GAME_EVENT` 单向广播，**不等 ACK**。
 
 `RefCounted`，无 Node 生命周期；房主为每个远程真人座位创建一个实例。

@@ -1469,3 +1469,25 @@ func test_playing_join_reject_detail_for_unknown_name() -> void:
 	assert_eq(session._playing_join_reject_detail("客机"), "房间已开始")
 	session.free()
 
+
+
+func test_set_hosting_rejected_outside_active_match_and_apply_toggles() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.is_host = true
+	session.session_role = "host"
+	var survivor = DataManager.get_survivor("firefighter")
+	var host: Dictionary = session.registry.create_host("房主", 7777, [
+		{"type": "human", "survivor": survivor},
+	])
+	var guest: Dictionary = session.registry.add_player("客机", 3)
+	session._handle_room_command(NetProtocol.make_message(NetProtocol.ROOM_COMMAND, {
+		"command": "set_hosting",
+		"payload": {"enabled": true},
+	}, guest.player_id), 3)
+	assert_false(session.registry.is_player_hosted(guest.player_id), "大厅阶段不能托管")
+	session.registry.start_match(1)
+	session._apply_hosting(host.player_id, true)
+	assert_true(session.registry.is_player_hosted(host.player_id))
+	session._apply_hosting(host.player_id, false)
+	assert_false(session.registry.is_player_hosted(host.player_id))
+	session.free()

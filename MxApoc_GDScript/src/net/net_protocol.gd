@@ -28,6 +28,7 @@ const HEARTBEAT := "heartbeat"
 const PLAYER_CONNECTED := "player_connected"
 const PLAYER_DISCONNECTED := "player_disconnected"
 const PLAYER_RECONNECTED := "player_reconnected"
+const PLAYER_HOSTING := "player_hosting"
 const ROOM_CLOSED := "room_closed"
 const ERROR := "error"
 

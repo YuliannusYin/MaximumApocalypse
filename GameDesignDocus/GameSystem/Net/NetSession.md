@@ -173,10 +173,12 @@
 | --- | --- | --- |
 | `_handle_join` | `_handle_join(message: Dictionary, sender_id: int) -> void` | 大厅 `add_player`；对局走 `_resume_playing_join`，认不回才 `ROOM_ALREADY_STARTED`；满员 → `ROOM_FULL` |
 | `_resume_playing_join` | `_resume_playing_join(payload, sender_id) -> bool` | 对局中 join 也走 `_try_resume_player` |
-| `_handle_room_command` | `_handle_room_command(message: Dictionary, sender_id: int) -> void` | `start`（仅房主、lobby）、`bind_seat`（仅房主）、`set_survivor`（房主或座位控制者） |
+| `_handle_room_command` | `_handle_room_command(message: Dictionary, sender_id: int) -> void` | `start`（仅房主、lobby）、`bind_seat`（仅房主）、`set_survivor`（房主或座位控制者）、`set_hosting`（仅 playing 且发送者持有真人座位） |
 | `_handle_leave` | `_handle_leave(message: Dictionary, sender_id: int) -> void` | 房主离开 → `close_authority_room("owner_left")`；普通玩家 → `_drop_remote_player` |
 | `_handle_input_response` | `_handle_input_response(message: Dictionary, sender_id: int) -> void` | 校验 `_owns_seat` 后转发 `message_received` |
 | `_drop_remote_player` | `_drop_remote_player(player_id: String, left: bool) -> void` | `disconnect_player` → `_handoff_player_inputs` → 广播 `PLAYER_DISCONNECTED` → 广播快照 |
+| `request_set_hosting` / `is_local_player_hosted` | `(enabled: bool)` / `-> bool` | 玩家主动 AI 托管：发 `room_command: set_hosting`（仅 playing 且有活动 Runtime、发送者持有真人座位）；状态在玩家行 `hosted`，随快照下发，对局结束/新对局清空 |
+| `_apply_hosting` | `_apply_hosting(player_id, enabled)` | 权威端切换 `hosted`，调用 `handoff_seats_to_ai` / `restore_network_inputs`，广播 `player_hosting`（`hosted` 字段）与快照；主动托管玩家重连不恢复网络输入。客机收到进入托管后清空本机输入请求与 UI 操作态 |
 | `_handoff_player_inputs` | `_handoff_player_inputs(player_id: String) -> void` | 对局中委托 `server_runtime.handoff_seats_to_ai` |
 | `_is_owner_player` / `_can_edit_seat_survivor` / `_owns_seat` / `_player_for_peer` | — | 权限 / 座位归属 / peer 映射 |
 
@@ -243,7 +245,7 @@
 
 ### 6.4 输入请求定向发送与掉线接管
 
-`broadcast_input_request` 只向目标 owner 的 peer 发送，并把当前座位的 `control_epoch` 放进消息。若 owner 无 peer_id（掉线），房主座位 `_handoff_player_inputs` 转 AI，客机 `_drop_remote_player`，避免规则协程死等。网络输入请求的终态只能是正常响应、取消、控制权切换或过期；迟到响应不会重新打开已结束的请求。
+`broadcast_input_request` 只向目标 owner 的 peer 发送，并把当前座位的 `control_epoch` 放进消息。若 owner 无 peer_id（掉线），房主座位 `_handoff_player_inputs` 转 AI，客机 `_drop_remote_player`，避免规则协程死等。主动托管也会终止当前网络输入请求；客机清空活动请求、关闭弹窗并忽略迟到输入。网络输入请求的终态只能是正常响应、取消、控制权切换或过期；迟到响应不会重新打开已结束的请求。
 
 ### 6.5 握手认座与 HELLO 重试
 
@@ -262,6 +264,8 @@
 ```
 
 权威侧同时执行 `AI → NetworkInput` 的控制权恢复：如果 AI 正在执行当前动作，等 `action_dispatch_finished` 到动作边界再换回网络输入；否则立即换回。交接会递增 `input_control_epoch`。因此不会把旧网络请求的取消误当作结束回合，也不会让旧 AI/旧网络协程同时拥有同一座位。
+
+主动托管的取消遵循相同的恢复边界。取消托管期间允许再次进入托管；若恢复回调尚未执行，则该回调被取消，AI 保持控制权，避免玩家界面显示托管但权威端又切回网络输入。
 
 ---
 

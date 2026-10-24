@@ -8,8 +8,17 @@ initial_position = 2
 ok_button_text = "关闭 (Esc)"
 script = ExtResource("1_sd")
 
-[node name="FullscreenCheckBox" type="CheckBox" parent="."]
+[node name="Content" type="VBoxContainer" parent="."]
 offset_right = 240.0
-offset_bottom = 40.0
+offset_bottom = 80.0
+
+[node name="FullscreenCheckBox" type="CheckBox" parent="Content"]
+layout_mode = 2
 theme_override_font_sizes/font_size = 18
 text = "全屏模式"
+
+[node name="HostingCheckBox" type="CheckBox" parent="Content"]
+visible = false
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "AI 托管（由 AI 代为操作）"

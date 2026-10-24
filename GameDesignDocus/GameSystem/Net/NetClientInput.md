@@ -13,6 +13,7 @@
 - 订阅 `NetSession.message_received`，`_on_message` 解码并发出 `requested` 交给 UI。
 - UI 处理完调用 `respond` 把选择结果编码回令牌，并携带请求中的 `control_epoch` 经 `NetSession.send_input_response` 发回权威。
 - 过滤演出型请求（`NetViewSync.VISUAL_EVENT_NAMES`）。
+- 本机进入主动 AI 托管后立即清空活动请求；托管状态下忽略迟到的 `INPUT_REQUEST`，避免旧操作重新点亮 UI。
 
 ---
 
@@ -43,6 +44,7 @@
 | --- | --- | --- |
 | `attach` | `attach() -> void` | 连接 `NetSession.message_received` → `_on_message`（幂等） |
 | `detach` | `detach() -> void` | 断开连接、清空 `_active_requests`、发 `request_state_changed` |
+| `clear_pending_requests` | `clear_pending_requests() -> void` | AI 托管接管时清空本机活动请求，但保留与 `NetSession.message_received` 的连接 |
 | `is_action_available` | `is_action_available(seat_id: int = -1) -> bool` | 当前座位活动请求是否正等待 `"action"` |
 | `get_current_request` | `get_current_request(seat_id: int = -1) -> Dictionary` | 返回活动请求摘要 `{request_id, seat_id, request_type, decoded_payload}`；代际仅在内部记录中用于应答 |
 | `get_action_request` | `get_action_request(seat_id: int = -1) -> Dictionary` | 仅当当前请求为 `"action"` 时返回该请求，否则空字典 |
@@ -55,13 +57,14 @@
 ## 五、关键业务逻辑（`_on_message`）
 
 1. 忽略 `NetViewSync.VISUAL_EVENT_NAMES` 中的演出事件。
-2. `request_type=="choose_target"` 时先 `NetInputCodec.apply_display_combat_fields` 刷新显示层战斗字段。
-3. `NetInputCodec.decode(raw_payload, NetSession.get_display_game() or Game)` 解码 payload 为活对象引用。
-4. 从 payload 读取 `control_epoch`，并在 `_active_requests` 中保留该代际。
-5. `_drop_seat_requests(seat_id)` 丢掉同座位旧请求。
-6. 写入 `_active_requests`，发 `request_state_changed` 后 `requested.emit`。
+2. 本机 `NetSession.is_local_player_hosted()` 为真时忽略决策请求。
+3. `request_type=="choose_target"` 时先 `NetInputCodec.apply_display_combat_fields` 刷新显示层战斗字段。
+4. `NetInputCodec.decode(raw_payload, NetSession.get_display_game() or Game)` 解码 payload 为活对象引用。
+5. 从 payload 读取 `control_epoch`，并在 `_active_requests` 中保留该代际。
+6. `_drop_seat_requests(seat_id)` 丢掉同座位旧请求。
+7. 写入 `_active_requests`，发 `request_state_changed` 后 `requested.emit`。
 
-客机只允许应答当前活动请求及其代际；重连或快照同步期间收到的旧请求不会恢复到 UI，也不会被再次发送。
+客机只允许应答当前活动请求及其代际；进入主动托管时活动请求、弹窗和操作态由对局 UI 一并清理。重连或快照同步期间收到的旧请求不会恢复到 UI，也不会被再次发送。
 
 ---
 

@@ -74,6 +74,30 @@ func disconnect_player(player_id: String) -> void:
 			seat["control_mode"] = "ai"
 
 
+## 玩家主动托管标记(与断线托管区分;存在玩家行上,随快照下发)。
+func set_player_hosted(player_id: String, hosted: bool) -> bool:
+	if not players.has(player_id):
+		return false
+	var player: Dictionary = players[player_id]
+	player["hosted"] = hosted
+	players[player_id] = player
+	return true
+
+
+func is_player_hosted(player_id: String) -> bool:
+	if not players.has(player_id):
+		return false
+	return bool(players[player_id].get("hosted", false))
+
+
+func clear_all_hosted() -> void:
+	for player_id in players:
+		var player: Dictionary = players[player_id]
+		if player.has("hosted"):
+			player["hosted"] = false
+			players[player_id] = player
+
+
 func touch_last_seen(player_id: String) -> void:
 	if not players.has(player_id):
 		return
@@ -294,9 +318,12 @@ func set_room_config(new_mission_mode: String, new_mission_id: int,
 
 func set_phase(next_phase: String) -> void:
 	phase = next_phase
+	if next_phase != "playing":
+		clear_all_hosted()
 
 func start_match(seed_value: int = -1) -> void:
 	phase = "playing"
+	clear_all_hosted()
 	match_id = NetId.make_id("m")
 	match_seed = seed_value if seed_value >= 0 else randi()
 	server_sequence = 0

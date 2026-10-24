@@ -30,6 +30,37 @@ func test_other_seat_requests_do_not_block() -> void:
 	assert_false(input.is_action_available(1))
 
 
+func test_clear_pending_requests_removes_all_seat_requests() -> void:
+	var input := NetClientInput.new()
+	input._on_message(_make_input_request(3, 0, "action"))
+	input._on_message(_make_input_request(4, 1, "confirm"))
+	input.clear_pending_requests()
+	assert_eq(input.get_current_request(0), {})
+	assert_eq(input.get_current_request(1), {})
+	assert_false(input.is_action_available(0))
+
+
+func test_hosted_local_player_ignores_late_input_request() -> void:
+	var saved_registry: Variant = NetSession.registry
+	var saved_local_id := String(NetSession.local_player_id)
+	var registry := NetRegistry.new()
+	var survivor = DataManager.get_survivor("firefighter")
+	var credentials := registry.create_host("房主", 7777, [
+		{"type": "human", "survivor": survivor},
+	])
+	registry.start_match()
+	registry.set_player_hosted(credentials.player_id, true)
+	NetSession.registry = registry
+	NetSession.local_player_id = credentials.player_id
+
+	var input := NetClientInput.new()
+	input._on_message(_make_input_request(5, 0, "action"))
+	assert_eq(input.get_current_request(0), {})
+
+	NetSession.registry = saved_registry
+	NetSession.local_player_id = saved_local_id
+
+
 func test_resynced_confirm_request_is_kept_as_current_request() -> void:
 	var input := NetClientInput.new()
 	input._on_message(_make_input_request(12, 1, "confirm"))

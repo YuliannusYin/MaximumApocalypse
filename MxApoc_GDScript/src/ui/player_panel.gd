@@ -446,10 +446,13 @@ func _update_role_card() -> void:
 	var offline := _controller_is_offline()
 	if offline and _player.is_alive():
 		state_str = "离线"
+	var hosted := not offline and _controller_is_hosted()
+	if hosted and _player.is_alive():
+		state_str = "托管"
 	_role_state_label.text = state_str
 	if not _player.is_alive():
 		_role_state_label.add_theme_color_override("font_color", TEXT_MONSTER)
-	elif offline:
+	elif offline or hosted:
 		_role_state_label.add_theme_color_override("font_color", TEXT_WARN)
 	elif not is_front:
 		_role_state_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.3, 1.0))
@@ -469,6 +472,19 @@ func _update_role_card() -> void:
 	elif role != null and is_instance_valid(role) and not is_front:
 		bg = CARD_BG_HUNGER
 	_role_card_panel.add_theme_stylebox_override("panel", HudTheme.make_picture_frame_style(bg))
+
+
+func _controller_is_hosted() -> bool:
+	if _player == null or NetSession == null or NetSession.registry == null:
+		return false
+	if RoomState == null or not RoomState.online_multiplayer:
+		return false
+	var registry: Variant = NetSession.registry
+	var seat := int(_player.get("seat_number"))
+	if seat < 0 or seat >= registry.seats.size():
+		return false
+	var controller_id := String(registry.seats[seat].get("controller_id", ""))
+	return not controller_id.is_empty() and registry.is_player_hosted(controller_id)
 
 
 func _controller_is_offline() -> bool:

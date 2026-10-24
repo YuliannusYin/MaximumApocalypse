@@ -30,7 +30,7 @@
 
 ### 消息类型常量（协议 opcode，均 String）
 
-`join_request` / `join_accepted` / `reconnect_request` / `room_snapshot` / `room_command` / `input_request` / `input_response` / `command_result` / `leave_request` / `match_start` / `game_event` / `state_snapshot` / `resync_request` / `heartbeat` / `player_connected` / `player_disconnected` / `player_reconnected` / `room_closed` / `error`。
+`join_request` / `join_accepted` / `reconnect_request` / `room_snapshot` / `room_command` / `input_request` / `input_response` / `command_result` / `leave_request` / `match_start` / `game_event` / `state_snapshot` / `resync_request` / `heartbeat` / `player_connected` / `player_disconnected` / `player_reconnected` / `player_hosting`(payload 含 `hosted: bool`,玩家主动托管/取消) / `room_closed` / `error`。
 
 ### 错误码常量（均 String）
 
@@ -93,6 +93,12 @@ INPUT_RESPONSE.payload = {
   seat_id,
   control_epoch,   # 必须与请求及权威当前代际一致
   value            # NetInputCodec 编码后的业务值
+}
+
+PLAYER_HOSTING.payload = {
+  player_id,
+  display_name,
+  hosted             # true=进入主动 AI 托管，false=取消
 }
 ```
 

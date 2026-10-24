@@ -21,6 +21,15 @@ func detach() -> void:
 	_active_requests.clear()
 	request_state_changed.emit()
 
+
+## 控制权交给 AI 时丢弃本机尚未完成的输入请求。
+func clear_pending_requests() -> void:
+	if _active_requests.is_empty():
+		return
+	_active_requests.clear()
+	request_state_changed.emit()
+
+
 ## 权威侧 NetworkPlayerInput 同一座位同时只等一个请求。
 ## 新请求到达时丢掉该座位的旧 id，避免已完成的 action 残留，把后续 wait_action 点死。
 func is_action_available(seat_id: int = -1) -> bool:
@@ -99,6 +108,8 @@ func _find_candidate_index(candidates: Array, selected: Variant) -> int:
 
 func _on_message(message: Dictionary) -> void:
 	if String(message.get("message_type", "")) != NetProtocol.INPUT_REQUEST:
+		return
+	if NetSession != null and NetSession.is_local_player_hosted():
 		return
 	var payload: Dictionary = message.get("payload", {})
 	var request_type := String(payload.get("request_type", ""))

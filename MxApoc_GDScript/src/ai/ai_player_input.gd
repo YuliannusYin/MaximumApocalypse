@@ -46,6 +46,11 @@ func request_network_handoff() -> void:
 	_network_handoff_requested = true
 
 
+## 取消尚未完成的网络交接；用于玩家在交接等待期间再次进入 AI 托管。
+func cancel_network_handoff() -> void:
+	_network_handoff_requested = false
+
+
 func detach() -> void:
 	abort_pending()
 
