@@ -177,6 +177,22 @@ UI 与输入层。全部 `.gd` 文件如下：
 | `monster_card_view.gd` | `MonsterCardView` | 怪物卡视图 |
 | `achievement_scene.gd` | `AchievementScene` | 成就 / 档案界面 |
 
+### 2.7.1 GameScene2D UI 层级约定
+
+`scenes/GameScene2D.tscn` 的 `CanvasLayer` 层级决定输入遮挡和系统控制入口的优先级：
+
+| 层级 | 节点 / 内容 | 输入语义 |
+| --- | --- | --- |
+| 0 | `TableLayer`：桌面和地图 | 普通桌面交互 |
+| 1 | `UILayer`：常规 HUD、手牌、技能栏 | 普通 UI |
+| 2 | `PopupLayer`：`PopupManager` 交互弹窗、详情浮层 | 全屏遮罩可拦截输入 |
+| 3 | `AnimationController` 的目标连线层 | 视觉演出，通常不拦截输入 |
+| 4 | `HostingLayer`：AI 托管横幅和取消托管按钮 | 高优先级局部 HUD；按钮必须始终可操作 |
+| 20 | 开发者作弊菜单 | 仅开发模式 |
+| 100 | 教程对话框 | 教程期间的最高应用层 |
+
+`show_card` 不使用 `PopupLayer` 的交互弹窗槽，而是在 `PopupLayer` 上创建单实例、非模态、可替换的卡牌预览面板；面板和卡牌视图均不拦截鼠标。新卡出现时替换旧卡，不创建全屏遮罩，因此不会遮挡交易确认、选牌或取消托管。进入托管时清理的是活动输入请求和交互弹窗，不应伪造选择响应。
+
 ### 2.8 src/tools/
 
 工具脚本：

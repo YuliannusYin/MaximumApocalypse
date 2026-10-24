@@ -9,9 +9,8 @@ const PRESET_FULL_RECT := Control.PRESET_FULL_RECT
 
 # === 过渡动画常量（秒） ===
 const POPUP_OPEN_DURATION: float = 0.15                # 打开：遮罩淡入 / 面板缩放淡入
-const POPUP_CLOSE_DURATION: float = 0.12               # 关闭：遮罩淡出
 const POPUP_OPEN_SCALE: Vector2 = Vector2(0.92, 0.92)  # 打开动画起始缩放
-const CARD_DETAIL_HOLD_SEC: float = 1.0                # 展示牌弹窗自动关闭前的停留
+const CARD_DETAIL_HOLD_SEC: float = 1.0                # 卡牌视觉展示自动关闭前的停留
 
 signal option_selected(choice: Variant)
 signal confirm_responded(result: bool)
@@ -24,6 +23,9 @@ signal closed()
 enum DismissKind { NONE, CLOSE, CANCEL }
 
 var _popup_overlay: ColorRect = null
+var _card_preview: Control = null
+var _card_preview_timer: Timer = null
+var _card_preview_generation: int = 0
 var _popup_selected: Array = []
 var _popup_required_n: int = 0
 var _popup_min_n: int = -1
@@ -102,6 +104,9 @@ func _input(event: InputEvent) -> void:
 # === 弹窗工具 ===
 
 func _create_modal_overlay() -> ColorRect:
+	# 交互弹窗是单槽状态。新建前立即释放旧节点，避免旧遮罩失去引用后
+	# 继续留在 PopupLayer，形成无法关闭的“幽灵遮罩”。
+	_dispose_modal_overlay()
 	_clear_popup_dismiss()
 	var overlay := ColorRect.new()
 	overlay.set_anchors_preset(PRESET_FULL_RECT)
@@ -113,6 +118,22 @@ func _create_modal_overlay() -> ColorRect:
 	var tween := overlay.create_tween()
 	tween.tween_property(overlay, "modulate:a", 1.0, POPUP_OPEN_DURATION)
 	return overlay
+
+
+## 立即释放当前交互遮罩，不发出 closed 或任何选择结果。
+## 用于新弹窗替换旧弹窗，以及场景销毁前的内部清理。
+func _dispose_modal_overlay() -> void:
+	var overlay: ColorRect = _popup_overlay
+	_popup_overlay = null
+	_popup_selected.clear()
+	_popup_required_n = 0
+	_popup_min_n = -1
+	_popup_ok_button = null
+	_popup_item_views.clear()
+	_clear_popup_dismiss()
+	if overlay != null and is_instance_valid(overlay):
+		overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		overlay.queue_free()
 
 
 ## 弹窗节点构建完成后的收尾：各 show_* 在内容构建完毕后统一调用，播放内容面板打开动画。
@@ -148,22 +169,9 @@ func close_popup() -> void:
 
 
 func _close_popup() -> void:
-	# 先取出旧遮罩并立即解除引用：is_popup_open() 自此刻起返回 false（保持既有语义）
-	var overlay: ColorRect = _popup_overlay
-	_popup_overlay = null
-	_popup_selected.clear()
-	_popup_required_n = 0
-	_popup_ok_button = null
-	_popup_item_views.clear()
-	_clear_popup_dismiss()
-	# 旧遮罩淡出后释放：fire-and-forget，不阻塞 closed 信号时序；
-	# Tween 由 overlay 自身创建（自动绑定该节点），节点被外部释放时自动失效，无悬挂访问。
-	if overlay != null and is_instance_valid(overlay):
-		# 淡出期间不再拦截输入（引用已解除，逻辑上弹窗已关闭）
-		overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var tween := overlay.create_tween()
-		tween.tween_property(overlay, "modulate:a", 0.0, POPUP_CLOSE_DURATION)
-		tween.tween_callback(overlay.queue_free)
+	# 关闭必须立即移除遮罩。否则在下一次弹窗打开前，旧遮罩的淡出期仍会
+	# 与新遮罩叠加，并可能继续拦截输入。
+	_dispose_modal_overlay()
 	closed.emit()
 
 
@@ -804,13 +812,21 @@ func _on_block_selected(block: Variant) -> void:
 	block_selected.emit(block)
 
 
-## 卡牌详情弹窗（show_card）
-func show_card_detail_popup(card: Card) -> void:
-	var overlay := _create_modal_overlay()
+## 展示卡牌视觉层。它不是交互弹窗，不创建全屏遮罩，也不占用当前输入请求。
+## 新卡会替换旧卡，适用于本地玩家、AI 和联机玩家的 show_card 事件。
+func show_card_preview(card: Card) -> void:
+	if card == null or not is_instance_valid(card) or _popup_layer == null:
+		return
+	_dispose_card_preview()
+	_card_preview_generation += 1
+	var generation := _card_preview_generation
+
 	var panel := Panel.new()
 	panel.position = Vector2(615, 250)
 	panel.size = Vector2(200, 260)
-	overlay.add_child(panel)
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_popup_layer.add_child(panel)
+	_card_preview = panel
 
 	var vbox := VBoxContainer.new()
 	vbox.set_anchors_preset(PRESET_FULL_RECT)
@@ -819,39 +835,57 @@ func show_card_detail_popup(card: Card) -> void:
 	vbox.offset_right = -10
 	vbox.offset_bottom = -8
 	vbox.add_theme_constant_override("separation", 6)
+	vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(vbox)
 
 	var view := CardView.new()
 	view.set_card(card)
 	view.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	view.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(view)
 
-	var ok_btn := Button.new()
-	ok_btn.custom_minimum_size = Vector2(80, 30)
-	ok_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	_bind_close_button(ok_btn, _on_card_detail_closed)
-	vbox.add_child(ok_btn)
+	panel.modulate.a = 0.0
+	var tween := panel.create_tween()
+	tween.set_trans(Tween.TRANS_SINE)
+	tween.set_ease(Tween.EASE_OUT)
+	tween.tween_property(panel, "modulate:a", 1.0, POPUP_OPEN_DURATION)
 
-	_finish_popup_build(overlay)
-	_arm_card_detail_auto_close(overlay)
+	var timer := Timer.new()
+	timer.one_shot = true
+	timer.wait_time = CARD_DETAIL_HOLD_SEC
+	timer.timeout.connect(_on_card_preview_hold_elapsed.bind(panel, generation))
+	panel.add_child(timer)
+	_card_preview_timer = timer
+	timer.start()
 
 
-## 展示满 1 秒后自动关闭。提前点关闭，或期间已换成别的弹窗时，不再关当前弹窗。
-func _arm_card_detail_auto_close(overlay: ColorRect) -> void:
-	var timer := get_tree().create_timer(CARD_DETAIL_HOLD_SEC)
-	timer.timeout.connect(_on_card_detail_hold_elapsed.bind(overlay))
+## 兼容旧调用方；show_card 现在统一走非模态展示。
+func show_card_detail_popup(card: Card) -> void:
+	show_card_preview(card)
 
 
-func _on_card_detail_hold_elapsed(overlay: ColorRect) -> void:
-	if overlay == null or not is_instance_valid(overlay):
+func _dispose_card_preview() -> void:
+	_card_preview_generation += 1
+	var timer := _card_preview_timer
+	_card_preview_timer = null
+	if timer != null and is_instance_valid(timer):
+		timer.stop()
+		timer.queue_free()
+	var preview := _card_preview
+	_card_preview = null
+	if preview != null and is_instance_valid(preview):
+		preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		preview.queue_free()
+
+
+func _on_card_preview_hold_elapsed(preview: Control, generation: int) -> void:
+	if generation != _card_preview_generation:
 		return
-	if _popup_overlay != overlay:
+	if preview == null or not is_instance_valid(preview):
 		return
-	_close_popup()
-
-
-func _on_card_detail_closed() -> void:
-	_close_popup()
+	if _card_preview != preview:
+		return
+	_dispose_card_preview()
 
 
 ## 地块详情弹窗：点击地块时显示地块信息（已展示/未探索/已摧毁 三种分支）。

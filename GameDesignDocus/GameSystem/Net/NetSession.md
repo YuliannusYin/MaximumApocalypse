@@ -245,7 +245,7 @@
 
 ### 6.4 输入请求定向发送与掉线接管
 
-`broadcast_input_request` 只向目标 owner 的 peer 发送，并把当前座位的 `control_epoch` 放进消息。若 owner 无 peer_id（掉线），房主座位 `_handoff_player_inputs` 转 AI，客机 `_drop_remote_player`，避免规则协程死等。主动托管也会终止当前网络输入请求；客机清空活动请求、关闭弹窗并忽略迟到输入。网络输入请求的终态只能是正常响应、取消、控制权切换或过期；迟到响应不会重新打开已结束的请求。
+`broadcast_input_request` 只向目标 owner 的 peer 发送，并把当前座位的 `control_epoch` 放进消息。若 owner 无 peer_id（掉线），房主座位 `_handoff_player_inputs` 转 AI，客机 `_drop_remote_player`，避免规则协程死等。主动托管也会终止当前网络输入请求；客机清空活动请求、关闭交互弹窗和操作态，并忽略迟到输入。`show_card` 不属于网络输入请求，而是单向 `GAME_EVENT` 视觉事件；客机用非模态、单实例、可替换的卡牌预览呈现，不阻塞后续确认/选牌或取消托管。网络输入请求的终态只能是正常响应、取消、控制权切换或过期；迟到响应不会重新打开已结束的请求。
 
 ### 6.5 握手认座与 HELLO 重试
 

@@ -627,7 +627,7 @@
 | `_place_traded_scavenge(card, prefer_equip, entity)` | 能保持装备则迁实体并 `add_skill`，否则 `try_add_card_to_hand`。内部 |
 | `_trade_can_keep_equipped(card) -> bool` | 容量（有 RoleCard / 双子时）+ 同名（燃料除外）。内部 |
 
-`trade_scavenge_with` 流程：解析来源卡 → `show_card` → `partner.confirm` → `partner.choose_card`（手牌+装备拾荒牌）→ `swap_scavenge_cards`。content 经 `actions.trade_scavenge` 调用；返回 `false` 时 `EventSystem.cancel`，不记 `used_count`。交换不得走 `discard()`。
+`trade_scavenge_with` 流程：解析来源卡 → 非阻塞 `show_card` → `partner.confirm` → `partner.choose_card`（手牌+装备拾荒牌）→ `swap_scavenge_cards`。`show_card` 只做单向视觉提示，不占用交互弹窗；content 经 `actions.trade_scavenge` 调用；返回 `false` 时 `EventSystem.cancel`，不记 `used_count`。交换不得走 `discard()`。
 
 #### `use_active_skill(skill)`
 

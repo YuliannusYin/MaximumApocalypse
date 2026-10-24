@@ -12,8 +12,8 @@
 
 - 订阅 `NetSession.message_received`，`_on_message` 解码并发出 `requested` 交给 UI。
 - UI 处理完调用 `respond` 把选择结果编码回令牌，并携带请求中的 `control_epoch` 经 `NetSession.send_input_response` 发回权威。
-- 过滤演出型请求（`NetViewSync.VISUAL_EVENT_NAMES`）。
-- 本机进入主动 AI 托管后立即清空活动请求；托管状态下忽略迟到的 `INPUT_REQUEST`，避免旧操作重新点亮 UI。
+- 过滤演出型请求（`NetViewSync.VISUAL_EVENT_NAMES`）；其中 `show_card` 由 `GAME_EVENT` 视觉链路处理，不创建输入请求。
+- 本机进入主动 AI 托管后立即清空活动请求；托管状态下忽略迟到的 `INPUT_REQUEST`，避免旧操作重新点亮 UI。卡牌预览不属于活动请求，因此不参与 `respond` 或请求生命周期。
 
 ---
 
@@ -64,7 +64,7 @@
 6. `_drop_seat_requests(seat_id)` 丢掉同座位旧请求。
 7. 写入 `_active_requests`，发 `request_state_changed` 后 `requested.emit`。
 
-客机只允许应答当前活动请求及其代际；进入主动托管时活动请求、弹窗和操作态由对局 UI 一并清理。重连或快照同步期间收到的旧请求不会恢复到 UI，也不会被再次发送。
+客机只允许应答当前活动请求及其代际；进入主动托管时活动请求、交互弹窗和操作态由对局 UI 一并清理。托管横幅位于普通弹窗层之上的独立 HUD 层，取消托管按钮不依赖当前交互弹窗是否关闭。重连或快照同步期间收到的旧请求不会恢复到 UI，也不会被再次发送。
 
 ---
 

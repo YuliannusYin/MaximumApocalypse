@@ -21,6 +21,7 @@ const NetClientInputScript = preload("res://src/net/net_client_input.gd")
 @onready var _table_layer: CanvasLayer = $TableLayer
 @onready var _ui_layer: CanvasLayer = $UILayer
 @onready var _popup_layer: CanvasLayer = $PopupLayer
+@onready var _hosting_layer: CanvasLayer = $HostingLayer
 
 # === UI 元素（来自 .tscn）===
 @onready var _log_button: Button = $UILayer/LogButton
@@ -634,7 +635,7 @@ func _handle_network_visual_request(request_id: int, seat_id: int,
 	if request_type == "show_card":
 		var card: Variant = payload.get("card")
 		if card is Card and is_instance_valid(card):
-			_popup_manager.show_card_detail_popup(card)
+			_popup_manager.show_card_preview(card)
 		_finish_network_visual_request(request_id, seat_id)
 		return
 	_animation_controller.enqueue_network_animation(func() -> void:
@@ -1376,7 +1377,7 @@ func _build_hosting_banner() -> void:
 	button.text = "取消托管"
 	button.pressed.connect(_on_cancel_hosting_pressed)
 	_hosting_banner.add_child(button)
-	_ui_layer.add_child(_hosting_banner)
+	_hosting_layer.add_child(_hosting_banner)
 
 
 func _update_hosting_banner() -> void:
@@ -1757,7 +1758,7 @@ func _on_show_card_requested(card: Card, _target: Variant) -> void:
 	if card == null or not is_instance_valid(card):
 		return
 	_broadcast_visual_event("show_card", {"card": card})
-	_popup_manager.show_card_detail_popup(card)
+	_popup_manager.show_card_preview(card)
 
 
 func _on_set_prompt_requested(text: String) -> void:

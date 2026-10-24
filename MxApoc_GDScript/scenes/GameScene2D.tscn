@@ -20,6 +20,9 @@ layer = 1
 [node name="PopupLayer" type="CanvasLayer" parent="."]
 layer = 2
 
+[node name="HostingLayer" type="CanvasLayer" parent="."]
+layer = 4
+
 [node name="LogButton" type="Button" parent="UILayer"]
 layout_mode = 1
 offset_left = 1290.0

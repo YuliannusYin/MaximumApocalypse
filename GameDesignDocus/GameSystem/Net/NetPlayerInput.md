@@ -15,7 +15,7 @@
 - 控制权交接是输入生命周期的一部分：`NETWORK → AI` 时旧请求进入终态并返回 `control_transfer`，`AI → NETWORK` 时提升代际，旧连接的迟到响应全部失效。
 - 主动托管与断线接管共用 `NETWORK → AI` 路径；取消托管若 AI 正在结算动作，会延迟到 `action_dispatch_finished` 再恢复网络输入。
 - 若恢复等待期间再次进入托管，待处理恢复会被取消，AI 保持控制权，不会因旧回调切回网络输入。
-- 演出类请求（动画）走 `_emit_visual()` → `GAME_EVENT` 单向广播，**不等 ACK**。
+- 演出类请求（动画和 `show_card`）走 `_emit_visual()` → `GAME_EVENT` 单向广播，**不等 ACK**。其中 `show_card` 是非模态视觉提示：客户端只保留一个可替换的卡牌预览，不创建交互弹窗或全屏遮罩。
 
 `RefCounted`，无 Node 生命周期；房主为每个远程真人座位创建一个实例。
 
@@ -62,7 +62,7 @@
 | `choose_map_block` | `choose_map_block(blocks: Array, prompt: String = "") -> Variant` | 选一个地块 |
 | `choose_block_inline` | `choose_block_inline(valid_blocks: Array, prompt: String, count: int) -> Array` | 地图内联选块 |
 | `confirm` | `confirm(message: String) -> bool` | 确认框 |
-| `show_card` | `show_card(card: Card, target: Variant) -> void` | 演出：显示一张卡（`_emit_visual`） |
+| `show_card` | `show_card(card: Card, target: Variant) -> void` | 演出：显示一张卡（`_emit_visual`）；客户端以非模态、单实例、可替换预览显示，不阻塞后续输入 |
 | `set_prompt` | `set_prompt(text: String) -> void` | 演出：广播 `set_prompt` |
 | `wait_redraw_decision` | `wait_redraw_decision(player: Variant) -> bool` | 换牌决策（payload 带 `player.hand`） |
 | `wait_judge_confirm` | `wait_judge_confirm(player: Variant, prompt: String, allow_cancel: bool) -> bool` | 判定确认 |

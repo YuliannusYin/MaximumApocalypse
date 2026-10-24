@@ -136,7 +136,7 @@ Player 的 **effective API**（`get_effective_phase` / `get_effective_action_cou
 约定：
 
 - 只有 `wait_action` 一类请求标 `preemptible`。选牌/确认等插入结算会盖住它，结算后 LIFO 恢复。
-- `show_card` / `set_prompt` 仍是 fire-and-forget，不创建等待节点。
+- `show_card` / `set_prompt` 仍是 fire-and-forget，不创建等待节点。`show_card` 只发出视觉事件；`GameScene2D` 用单实例、非模态、可替换的卡牌预览显示它，不占用 `PopupManager` 的交互弹窗槽，也不阻塞后续确认/选牌。
 - [GUIPlayerInput](../../Engineering/GodotProjectStructure.md) 保留旧 signal / `respond_*` API，内部全部委托本调度器。
 - `InputRequest.lifecycle` 只允许 `pending → responded/cancelled/stale`；终态不可逆。控制权切换或调度器重置必须取消/标记旧请求，不能用业务默认值伪装成结束回合。
 - 输入控制器的交接顺序必须是“安装新控制器 → 结束旧请求 → 旧协程观察控制流结果”；同一座位同一时刻只能有一个有效 `control_epoch`。

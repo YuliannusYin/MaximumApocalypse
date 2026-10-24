@@ -10,7 +10,7 @@
 
 | 常量 | 值 | 用途 |
 | --- | --- | --- |
-| `VISUAL_EVENT_NAMES` | `Array` | 视觉类请求名单：`show_card` / `dice_animation` / `monster_draw_animation` / `scavenge_draw_animation` / `card_destroy_animation` / `monster_skill_animation` / `monster_attack_animation`；客机收到这些 `INPUT_REQUEST` 不送规则层 |
+| `VISUAL_EVENT_NAMES` | `Array` | 视觉类请求名单：`show_card` / `dice_animation` / `monster_draw_animation` / `scavenge_draw_animation` / `card_destroy_animation` / `monster_skill_animation` / `monster_attack_animation`；客机收到这些 `INPUT_REQUEST` 不送规则层。`show_card` 在 UI 中是非模态、单实例、可替换的卡牌预览 |
 
 ---
 
