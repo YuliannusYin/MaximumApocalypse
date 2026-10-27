@@ -60,6 +60,43 @@ func test_get_adjacent_alive_blocks() -> void:
 
 # === 2. 玩家管理 ===
 
+func test_resolve_random_seats_excludes_explicit_survivors_and_is_unique() -> void:
+	var firefighter: SurvivorData = DataManager.get_survivor("firefighter")
+	var seats: Array = [
+		{"type": "human", "survivor": firefighter},
+		{"type": "ai", "survivor": null, "random_survivor": true},
+		{"type": "ai", "survivor": null, "random_survivor": true},
+	]
+	seed(12345)
+	assert_true(Game.resolve_random_seats(seats))
+	assert_eq(seats[0].survivor.english_name, "firefighter")
+	assert_false(bool(seats[1].get("random_survivor", false)))
+	assert_false(bool(seats[2].get("random_survivor", false)))
+	assert_ne(seats[1].survivor.english_name, "firefighter")
+	assert_ne(seats[2].survivor.english_name, "firefighter")
+	assert_ne(seats[1].survivor.english_name, seats[2].survivor.english_name)
+
+func test_resolve_random_seats_rejects_insufficient_candidates() -> void:
+	var survivors: Array = DataManager.get_available_survivors()
+	var seats: Array = []
+	for survivor in survivors:
+		seats.append({"type": "ai", "survivor": survivor})
+	seats.append({"type": "ai", "survivor": null, "random_survivor": true})
+	assert_false(Game.resolve_random_seats(seats))
+
+func test_resolve_random_seats_is_seed_reproducible() -> void:
+	var first: Array = [
+		{"type": "ai", "survivor": null, "random_survivor": true},
+		{"type": "ai", "survivor": null, "random_survivor": true},
+	]
+	var second: Array = first.duplicate(true)
+	seed(777)
+	assert_true(Game.resolve_random_seats(first))
+	seed(777)
+	assert_true(Game.resolve_random_seats(second))
+	assert_eq(first[0].survivor.english_name, second[0].survivor.english_name)
+	assert_eq(first[1].survivor.english_name, second[1].survivor.english_name)
+
 func test_get_alive_players_excludes_dead() -> void:
 	var p1: Player = _make_player("P1", 10)
 	var p2: Player = _make_player("P2", 0)

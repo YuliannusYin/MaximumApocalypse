@@ -209,8 +209,20 @@ func test_is_ready_to_start_requires_occupant() -> void:
 	assert_false(RoomState.is_ready_to_start())
 	RoomState.seats = [{"type": "ai", "survivor": null}]
 	assert_false(RoomState.is_ready_to_start())
+	RoomState.seats = [{"type": "ai", "survivor": null, "random_survivor": true}]
+	assert_true(RoomState.is_ready_to_start())
 	RoomState.seats = [{"type": "ai", "survivor": _survivor("hunter")}]
 	assert_true(RoomState.is_ready_to_start())
+
+func test_random_survivor_roundtrip() -> void:
+	RoomState.seats = [
+		{"type": "human", "survivor": null, "random_survivor": true},
+	]
+	RoomState.save_to(PLAYER_PATH)
+	RoomState.clear()
+	RoomState.load_from(PLAYER_PATH)
+	assert_null(RoomState.seats[0].survivor)
+	assert_true(bool(RoomState.seats[0].get("random_survivor", false)))
 
 
 func test_online_multiplayer_roundtrip() -> void:

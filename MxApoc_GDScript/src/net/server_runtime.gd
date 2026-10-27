@@ -4,6 +4,7 @@ extends Node
 const ServerLifetime = preload("res://src/net/server_lifetime.gd")
 const AIPlayerInputScript = preload("res://src/ai/ai_player_input.gd")
 const NetworkPlayerInputScript = preload("res://src/net/net_player_input.gd")
+const NetProtocol = preload("res://src/net/net_protocol.gd")
 
 signal match_prepared
 signal match_aborted(reason: String)
@@ -58,6 +59,11 @@ func prepare_from_room() -> void:
 		return
 	NetId.reset()
 	_seed_match()
+	if not Game.resolve_random_seats(RoomState.seats):
+		_waiting_for_peers = false
+		match_aborted.emit("random_survivor_candidates_exhausted")
+		return
+	_sync_resolved_survivors_to_registry()
 	Game.initialize_from_room_state()
 	_attach_authority_inputs()
 	_connect_visual_relays()
@@ -65,6 +71,20 @@ func prepare_from_room() -> void:
 	if NetSession != null and is_instance_valid(NetSession):
 		NetSession.request_state_snapshot()
 	match_prepared.emit()
+
+
+func _sync_resolved_survivors_to_registry() -> void:
+	var registry: Variant = _registry()
+	if registry == null:
+		return
+	for i in range(RoomState.seats.size()):
+		var seat: Dictionary = RoomState.seats[i]
+		var survivor = seat.get("survivor", null)
+		if survivor is SurvivorData:
+			registry.resolve_seat_survivor(i, survivor.english_name, survivor.character_name)
+	if NetSession != null and is_instance_valid(NetSession):
+		NetSession.session_changed.emit(registry.snapshot())
+		NetSession._broadcast(NetProtocol.ROOM_SNAPSHOT, registry.snapshot())
 
 
 func attach_seat_inputs(_gui_for_anim: Variant = null, _visual_cb: Callable = Callable()) -> void:

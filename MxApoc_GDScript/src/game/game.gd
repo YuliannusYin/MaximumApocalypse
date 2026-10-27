@@ -630,6 +630,37 @@ func get_card(card_english_name: String, pile: Variant) -> Card:
 
 # === 游戏初始化 ===
 
+## 将房间中标记为随机的座位替换为未被明确选择的求生者。
+## 调用方须在对局随机种子已设定后调用，保证联机房主可复现结果。
+func resolve_random_seats(seats: Array) -> bool:
+	var used_ids: Dictionary = {}
+	var random_seats: Array = []
+	for i in range(seats.size()):
+		var seat: Dictionary = seats[i]
+		if String(seat.get("type", "")) == "empty":
+			continue
+		if bool(seat.get("random_survivor", false)):
+			random_seats.append(i)
+			continue
+		var survivor = seat.get("survivor", null)
+		if survivor is SurvivorData:
+			used_ids[survivor.english_name] = true
+
+	var candidates: Array = []
+	for survivor in DataManager.get_available_survivors():
+		if not used_ids.has(survivor.english_name):
+			candidates.append(survivor)
+	if candidates.size() < random_seats.size():
+		return false
+
+	for seat_index in random_seats:
+		var candidate_index := randi() % candidates.size()
+		var seat: Dictionary = seats[seat_index]
+		seat["survivor"] = candidates.pop_at(candidate_index)
+		seat["random_survivor"] = false
+		seats[seat_index] = seat
+	return true
+
 ## 按房间当前选座/任务初始化一局。加载页开局与对局场景兜底共用。
 func initialize_from_room_state() -> void:
 	var mission: MissionData = RoomState.selected_mission
@@ -644,6 +675,9 @@ func initialize_game(mission: MissionData, variants: Dictionary, seats: Array) -
 	abort_session()
 	if NetId.should_allocate():
 		NetId.reset()
+	if not resolve_random_seats(seats):
+		push_error("Game.initialize_game: 随机求生者候选不足")
+		return
 	# 1. 确定任务
 	if mission == null:
 		var all_missions: Array = DataManager.get_all_missions()

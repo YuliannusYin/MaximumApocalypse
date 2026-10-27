@@ -9,6 +9,8 @@ const CONFIG_PATH_PLAYER := "user://room.json"
 const CONFIG_PATH_DEBUG := "user://room_debug.json"
 const MIN_SEATS := 1
 const MAX_SEATS := 6
+## 房间阶段中用于表示“开局时再随机分配求生者”的保留 id。
+const RANDOM_SURVIVOR_ID := "__random__"
 const DEFAULT_VARIANTS := {"crisis": false, "famine": false, "shared_fate": false}
 
 ## 当前选中的任务；为 null 表示未选择或随机任务。
@@ -17,7 +19,7 @@ var selected_mission: MissionData = null
 var selected_mission_is_random: bool = true
 ## 变体启用状态，键为变体 id，值为是否启用。
 var variants: Dictionary = DEFAULT_VARIANTS.duplicate()
-## 座位列表；每项为 {type: String, survivor: SurvivorData} 字典。
+## 座位列表；每项为 {type: String, survivor: SurvivorData, random_survivor: bool} 字典。
 var seats: Array = []
 ## 是否作为在线多人房间（本轮仅配置，不启动网络）。
 var online_multiplayer: bool = false
@@ -61,7 +63,7 @@ func is_ready_to_start() -> bool:
 	for seat in seats:
 		if seat.type == "empty":
 			continue
-		if seat.survivor == null:
+		if seat.survivor == null and not bool(seat.get("random_survivor", false)):
 			return false
 		has_occupant = true
 	return has_occupant
@@ -144,6 +146,8 @@ func snapshot() -> String:
 		var survivor_text = "未选择"
 		if seat.survivor != null:
 			survivor_text = seat.survivor.character_name
+		elif bool(seat.get("random_survivor", false)):
+			survivor_text = "随机"
 		lines.append("  座位%d [%s] - %s" % [i + 1, seat.type, survivor_text])
 
 	return "\n".join(lines)
@@ -161,6 +165,8 @@ func _to_serialized() -> Dictionary:
 		var sid := ""
 		if seat.survivor != null:
 			sid = String(seat.survivor.english_name)
+		elif bool(seat.get("random_survivor", false)):
+			sid = RANDOM_SURVIVOR_ID
 		seat_rows.append({
 			"type": String(seat.get("type", "human")),
 			"survivor": sid,
@@ -229,8 +235,15 @@ func _sanitize_seat(raw: Dictionary, available_ids: Dictionary) -> Dictionary:
 	if type_text != "human" and type_text != "ai" and type_text != "empty":
 		type_text = "ai"
 	var survivor = null
+	var random_survivor := false
 	if type_text != "empty":
 		var sid := String(raw.get("survivor", ""))
-		if available_ids.has(sid):
+		if sid == RANDOM_SURVIVOR_ID:
+			random_survivor = true
+		elif available_ids.has(sid):
 			survivor = available_ids[sid]
-	return {"type": type_text, "survivor": survivor}
+	return {
+		"type": type_text,
+		"survivor": survivor,
+		"random_survivor": random_survivor,
+	}

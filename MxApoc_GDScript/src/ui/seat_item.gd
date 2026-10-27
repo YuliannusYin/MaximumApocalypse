@@ -41,11 +41,13 @@ func _populate_survivors() -> void:
 	_survivor_option.clear()
 	_survivor_option.add_item("未选择", 0)
 	_survivor_option.set_item_metadata(0, null)
+	_survivor_option.add_item("随机", 1)
+	_survivor_option.set_item_metadata(1, RoomState.RANDOM_SURVIVOR_ID)
 	var survivors := DataManager.get_available_survivors()
 	for i in range(survivors.size()):
 		var survivor = survivors[i]
-		_survivor_option.add_item(survivor.character_name, i + 1)
-		_survivor_option.set_item_metadata(i + 1, survivor)
+		_survivor_option.add_item(survivor.character_name, i + 2)
+		_survivor_option.set_item_metadata(i + 2, survivor)
 	_survivor_option.select(0)
 
 ## 联机房间由房主提供当前玩家列表；客户端只读控制者下拉框。
@@ -102,6 +104,9 @@ func refresh_survivor_disabled(taken_ids: Array) -> void:
 			_survivor_option.set_item_disabled(i, false)
 			continue
 		var meta = _survivor_option.get_item_metadata(i)
+		if _is_random_survivor_metadata(meta):
+			_survivor_option.set_item_disabled(i, false)
+			continue
 		if meta == null:
 			_survivor_option.set_item_disabled(i, false)
 			continue
@@ -115,6 +120,11 @@ func _get_current_survivor_id() -> String:
 	if meta == null or not (meta is SurvivorData):
 		return ""
 	return meta.english_name
+
+func _is_random_survivor_metadata(metadata: Variant) -> bool:
+	if not metadata is String:
+		return false
+	return String(metadata) == RoomState.RANDOM_SURVIVOR_ID
 
 ## 用 RoomState.seats 项的 {type, survivor} 数据初始化座位 UI。
 func setup(data: Dictionary) -> void:
@@ -133,8 +143,12 @@ func setup(data: Dictionary) -> void:
 			if meta != null and meta is SurvivorData and meta.english_name == target.english_name:
 				_survivor_option.select(i)
 				break
+	elif bool(data.get("random_survivor", false)):
+		_survivor_option.select(1)
 	elif _online_mode:
 		var survivor_id := String(data.get("survivor_id", ""))
+		if survivor_id == RoomState.RANDOM_SURVIVOR_ID:
+			_survivor_option.select(1)
 		for i in range(_survivor_option.item_count):
 			var meta = _survivor_option.get_item_metadata(i)
 			if meta != null and meta is SurvivorData and meta.english_name == survivor_id:
@@ -153,11 +167,15 @@ func collect() -> Dictionary:
 		var controller_id := String(_type_option.get_item_metadata(_type_option.selected))
 		var survivor = null
 		if _survivor_option.selected > 0:
-			survivor = _survivor_option.get_item_metadata(_survivor_option.selected)
+			var metadata = _survivor_option.get_item_metadata(_survivor_option.selected)
+			if metadata is SurvivorData:
+				survivor = metadata
 		return {
 			"type": "ai" if controller_id == "__ai__" else "human",
 			"controller_id": "" if controller_id == "__ai__" else controller_id,
 			"survivor": survivor,
+			"random_survivor": _is_random_survivor_metadata(
+				_survivor_option.get_item_metadata(_survivor_option.selected)),
 		}
 	var type_text := "human"
 	match _type_option.selected:
@@ -165,8 +183,16 @@ func collect() -> Dictionary:
 		TYPE_AI: type_text = "ai"
 		TYPE_EMPTY: type_text = "empty"
 	var survivor = null
+	var random_survivor := false
 	if _type_option.selected != TYPE_EMPTY:
 		var idx := _survivor_option.selected
 		if idx > 0:
-			survivor = _survivor_option.get_item_metadata(idx)
-	return {"type": type_text, "survivor": survivor}
+			var metadata = _survivor_option.get_item_metadata(idx)
+			if metadata is SurvivorData:
+				survivor = metadata
+			random_survivor = _is_random_survivor_metadata(metadata)
+	return {
+		"type": type_text,
+		"survivor": survivor,
+		"random_survivor": random_survivor,
+	}

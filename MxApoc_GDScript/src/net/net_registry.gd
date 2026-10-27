@@ -13,6 +13,8 @@ var port: int = NetProtocol.DEFAULT_PORT
 var settings_revision: int = 0
 var match_id: String = ""
 var match_seed: int = 0
+
+const RANDOM_SURVIVOR_ID := "__random__"
 var server_sequence: int = 0
 var mission_mode: String = "random"
 var mission_id: int = -1
@@ -278,12 +280,14 @@ func bind_seat(seat_id: int, controller_id: String, survivor_id: String, is_ai: 
 	if not is_ai and not players.has(controller_id):
 		return false
 	for i in range(seats.size()):
-		if i != seat_id and String(seats[i].get("survivor_id", "")) == survivor_id and survivor_id != "":
+		if i != seat_id and String(seats[i].get("survivor_id", "")) == survivor_id \
+				and survivor_id != "" and survivor_id != RANDOM_SURVIVOR_ID:
 			return false
 	var seat: Dictionary = seats[seat_id]
 	seat["controller_id"] = "" if is_ai else controller_id
 	seat["control_mode"] = "ai" if is_ai else "human"
 	seat["survivor_id"] = survivor_id
+	seat["survivor_name"] = "" if survivor_id == RANDOM_SURVIVOR_ID else seat.get("survivor_name", "")
 	seats[seat_id] = seat
 	_rebuild_player_seat_ids()
 	settings_revision += 1
@@ -296,11 +300,25 @@ func set_seat_survivor(seat_id: int, survivor_id: String) -> bool:
 		return false
 	for i in range(seats.size()):
 		if i != seat_id and String(seats[i].get("survivor_id", "")) == survivor_id \
-				and survivor_id != "":
+				and survivor_id != "" and survivor_id != RANDOM_SURVIVOR_ID:
 			return false
 	var seat: Dictionary = seats[seat_id]
 	seat["survivor_id"] = survivor_id
+	seat["survivor_name"] = "" if survivor_id == RANDOM_SURVIVOR_ID else seat.get("survivor_name", "")
 	seat["is_ready"] = not survivor_id.is_empty()
+	seats[seat_id] = seat
+	settings_revision += 1
+	return true
+
+## 开局解析随机座位后，由房主写回实际角色供对局快照使用。
+func resolve_seat_survivor(seat_id: int, survivor_id: String, survivor_name: String) -> bool:
+	if seat_id < 0 or seat_id >= seats.size() or survivor_id.is_empty() \
+			or survivor_id == RANDOM_SURVIVOR_ID:
+		return false
+	var seat: Dictionary = seats[seat_id]
+	seat["survivor_id"] = survivor_id
+	seat["survivor_name"] = survivor_name
+	seat["is_ready"] = true
 	seats[seat_id] = seat
 	settings_revision += 1
 	return true
@@ -367,7 +385,8 @@ func _set_seats(configured: Array, host_id: String) -> void:
 		var source: Dictionary = configured[i] if configured[i] is Dictionary else {}
 		var type := String(source.get("type", "ai"))
 		var survivor = source.get("survivor", null)
-		var survivor_id := String(survivor.english_name) if survivor != null else ""
+		var survivor_id := RANDOM_SURVIVOR_ID if bool(source.get("random_survivor", false)) \
+			else (String(survivor.english_name) if survivor != null else "")
 		var is_human := type == "human"
 		var configured_controller := String(source.get("controller_id", ""))
 		var controller_id := configured_controller if is_human and not configured_controller.is_empty() else (
@@ -378,7 +397,7 @@ func _set_seats(configured: Array, host_id: String) -> void:
 			"control_mode": "human" if is_human else "ai",
 			"survivor_id": survivor_id,
 			"survivor_name": String(survivor.character_name) if survivor != null else "",
-			"is_ready": survivor != null,
+			"is_ready": survivor != null or survivor_id == RANDOM_SURVIVOR_ID,
 		})
 	_rebuild_player_seat_ids()
 

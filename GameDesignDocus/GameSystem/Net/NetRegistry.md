@@ -71,8 +71,9 @@
 | `player_id_for_token` | `player_id_for_token(token: String) -> String` | 遍历 players 比对 token 哈希 |
 | `can_reconnect` | `can_reconnect(player_id: String) -> bool` | 该玩家是否仍有 token 哈希（昵称认回不依赖此项） |
 | `reconnect_error_for_token` | `reconnect_error_for_token(token: String) -> String` | 返回 `ERROR_INVALID_TOKEN` / `ERROR_TOKEN_EXPIRED` / 空串 |
-| `bind_seat` | `bind_seat(seat_id: int, controller_id: String, survivor_id: String, is_ai: bool = false) -> bool` | 大厅绑座：校验阶段/下标/玩家存在/幸存者唯一；写座位并 `settings_revision += 1` |
-| `set_seat_survivor` | `set_seat_survivor(seat_id: int, survivor_id: String) -> bool` | 选角色：查重，空 survivor 则 `is_ready=false` |
+| `bind_seat` | `bind_seat(seat_id: int, controller_id: String, survivor_id: String, is_ai: bool = false) -> bool` | 大厅绑座：校验阶段/下标/玩家存在/幸存者唯一；保留 id `"__random__"` 表示开局随机，不参与查重；写座位并 `settings_revision += 1` |
+| `set_seat_survivor` | `set_seat_survivor(seat_id: int, survivor_id: String) -> bool` | 选角色：查重；`"__random__"` 为已就绪的随机选择且不参与查重，空 survivor 则 `is_ready=false` |
+| `resolve_seat_survivor` | `resolve_seat_survivor(seat_id: int, survivor_id: String, survivor_name: String) -> bool` | 房主开局解析随机角色后写回实际角色，供对局快照同步 |
 | `replace_seats` | `replace_seats(configured_seats: Array, default_controller_id: String = "") -> void` | 整体重建座位 |
 | `set_room_config` | `set_room_config(new_mission_mode: String, new_mission_id: int, new_variants: Dictionary) -> void` | 改任务配置 |
 | `set_phase` | `set_phase(next_phase: String) -> void` | 切阶段 |

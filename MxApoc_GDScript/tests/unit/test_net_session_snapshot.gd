@@ -111,6 +111,59 @@ func test_guest_cannot_start_or_bind_seat() -> void:
 	session.free()
 
 
+func test_guest_can_set_random_survivor() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.is_host = true
+	session.session_role = "host"
+	var survivor_a = DataManager.get_survivor("firefighter")
+	var survivor_b = DataManager.get_survivor("hunter")
+	session.registry.create_host("房主", 7777, [
+		{"type": "human", "survivor": survivor_a},
+		{"type": "ai", "survivor": survivor_b},
+	])
+	var guest: Dictionary = session.registry.add_player("客机", 3)
+	assert_true(session.registry.bind_seat(1, guest.player_id, "hunter"))
+
+	session._handle_room_command(NetProtocol.make_message(NetProtocol.ROOM_COMMAND, {
+		"command": "set_survivor",
+		"payload": {
+			"seat_id": 1,
+			"survivor_id": NetRegistry.RANDOM_SURVIVOR_ID,
+		},
+	}, guest.player_id), 3)
+
+	assert_eq(String(session.registry.seats[1].survivor_id),
+		NetRegistry.RANDOM_SURVIVOR_ID)
+	assert_eq(String(session.registry.seats[1].survivor_name), "")
+	assert_true(bool(session.registry.seats[1].is_ready))
+	session.free()
+
+
+func test_invalid_guest_survivor_id_does_not_change_seat() -> void:
+	var session: Node = load("res://src/net/net_session.gd").new()
+	session.is_host = true
+	session.session_role = "host"
+	var survivor_a = DataManager.get_survivor("firefighter")
+	var survivor_b = DataManager.get_survivor("hunter")
+	session.registry.create_host("房主", 7777, [
+		{"type": "human", "survivor": survivor_a},
+		{"type": "ai", "survivor": survivor_b},
+	])
+	var guest: Dictionary = session.registry.add_player("客机", 3)
+	assert_true(session.registry.bind_seat(1, guest.player_id, "hunter"))
+
+	session._handle_room_command(NetProtocol.make_message(NetProtocol.ROOM_COMMAND, {
+		"command": "set_survivor",
+		"payload": {
+			"seat_id": 1,
+			"survivor_id": "not_a_survivor",
+		},
+	}, guest.player_id), 3)
+
+	assert_eq(String(session.registry.seats[1].survivor_id), "hunter")
+	session.free()
+
+
 func test_owner_loopback_peer_is_still_owner() -> void:
 	var session: Node = load("res://src/net/net_session.gd").new()
 	var survivor = DataManager.get_survivor("firefighter")

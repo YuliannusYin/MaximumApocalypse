@@ -943,9 +943,13 @@ func _handle_room_command(message: Dictionary, sender_id: int) -> void:
 		if not _is_owner_player(player_id):
 			_reject(sender_id, NetProtocol.ERROR_INVALID_COMMAND, "只有房主可分配座位")
 			return
+		var survivor_id := String(args.get("survivor_id", ""))
+		if not _is_valid_lobby_survivor_id(survivor_id):
+			_reject(sender_id, NetProtocol.ERROR_INVALID_COMMAND, "角色不存在")
+			return
 		if not registry.bind_seat(int(args.get("seat_id", -1)),
 				String(args.get("controller_id", "")),
-				String(args.get("survivor_id", "")),
+				survivor_id,
 				bool(args.get("is_ai", false))):
 			_reject(sender_id, NetProtocol.ERROR_INVALID_COMMAND, "座位配置无效")
 			return
@@ -968,8 +972,7 @@ func _handle_room_command(message: Dictionary, sender_id: int) -> void:
 			_reject(sender_id, NetProtocol.ERROR_INVALID_COMMAND, "没有该座位的控制权")
 			return
 		var survivor_id := String(args.get("survivor_id", ""))
-		var data_manager := get_node_or_null("/root/DataManager")
-		if survivor_id != "" and (data_manager == null or not data_manager.has_survivor(survivor_id)):
+		if not _is_valid_lobby_survivor_id(survivor_id):
 			_reject(sender_id, NetProtocol.ERROR_INVALID_COMMAND, "角色不存在")
 			return
 		if not registry.set_seat_survivor(seat_id, survivor_id):
@@ -1017,6 +1020,15 @@ func _can_edit_seat_survivor(player_id: String, seat_id: int) -> bool:
 	if _is_owner_player(player_id):
 		return true
 	return String(registry.seats[seat_id].get("controller_id", "")) == player_id
+
+
+func _is_valid_lobby_survivor_id(survivor_id: String) -> bool:
+	if survivor_id.is_empty() or survivor_id == NetRegistry.RANDOM_SURVIVOR_ID:
+		return true
+	if not is_inside_tree():
+		return false
+	var data_manager := get_node_or_null("/root/DataManager")
+	return data_manager != null and data_manager.has_survivor(survivor_id)
 
 
 func _handoff_player_inputs(player_id: String) -> void:
@@ -1410,11 +1422,14 @@ func _apply_snapshot(snapshot: Dictionary) -> void:
 		for seat in registry.seats:
 			var survivor_id := String(seat.get("survivor_id", ""))
 			var survivor = data_manager.get_survivor(survivor_id) \
-				if survivor_id != "" and data_manager != null else null
+				if survivor_id != "" \
+				and survivor_id != RoomState.RANDOM_SURVIVOR_ID \
+				and data_manager != null else null
 			var control_mode := String(seat.get("control_mode", "ai"))
 			mirrored_seats.append({
 				"type": "human" if control_mode == "human" else "ai",
 				"survivor": survivor,
+				"random_survivor": survivor_id == RoomState.RANDOM_SURVIVOR_ID,
 			})
 		if not mirrored_seats.is_empty():
 			room_state.seats = mirrored_seats

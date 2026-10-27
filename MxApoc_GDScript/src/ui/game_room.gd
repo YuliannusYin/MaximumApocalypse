@@ -600,9 +600,12 @@ func _on_seat_changed(idx: int) -> void:
 		var data: Dictionary = _seat_list.get_child(idx).collect()
 		if String(data.get("controller_id", "")) == NetSession.local_player_id:
 			var survivor = data.get("survivor", null)
+			var survivor_id := RoomState.RANDOM_SURVIVOR_ID \
+				if bool(data.get("random_survivor", false)) \
+				else (String(survivor.english_name) if survivor != null else "")
 			NetSession.send_room_command("set_survivor", {
 				"seat_id": idx,
-				"survivor_id": String(survivor.english_name) if survivor != null else "",
+				"survivor_id": survivor_id,
 			})
 	else:
 		_sync_network_seats()
@@ -619,7 +622,9 @@ func _sync_network_seats() -> void:
 		var data: Dictionary = _seat_list.get_child(i).collect()
 		var controller_id := String(data.get("controller_id", NetSession.local_player_id))
 		var survivor = data.get("survivor", null)
-		var survivor_id := String(survivor.english_name) if survivor != null else ""
+		var survivor_id := RoomState.RANDOM_SURVIVOR_ID \
+			if bool(data.get("random_survivor", false)) \
+			else (String(survivor.english_name) if survivor != null else "")
 		if NetSession.uses_network_view():
 			NetSession.send_room_command("bind_seat", {
 				"seat_id": i,

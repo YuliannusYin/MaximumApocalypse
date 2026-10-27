@@ -644,7 +644,9 @@ static func _survivor_for_seat(seat_number: int) -> Variant:
 	if NetSession == null or seat_number >= NetSession.registry.seats.size():
 		return null
 	var survivor_id := String(NetSession.registry.seats[seat_number].get("survivor_id", ""))
-	if survivor_id.is_empty() or DataManager == null:
+	if survivor_id.is_empty() \
+			or survivor_id == RoomState.RANDOM_SURVIVOR_ID \
+			or DataManager == null:
 		return null
 	return DataManager.get_survivor(survivor_id)
 

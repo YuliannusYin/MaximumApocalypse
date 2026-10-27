@@ -24,6 +24,16 @@ func test_same_survivor_cannot_be_bound_twice() -> void:
 	])
 	assert_false(registry.bind_seat(1, "", "firefighter", true))
 
+func test_random_survivor_can_be_used_by_multiple_lobby_seats() -> void:
+	var registry := NetRegistry.new()
+	registry.create_host("房主", 7777, [
+		{"type": "human", "survivor": null, "random_survivor": true},
+		{"type": "ai", "survivor": null},
+	])
+	assert_eq(String(registry.seats[0].survivor_id), NetRegistry.RANDOM_SURVIVOR_ID)
+	assert_true(registry.bind_seat(1, "", NetRegistry.RANDOM_SURVIVOR_ID, true))
+	assert_eq(String(registry.seats[1].survivor_id), NetRegistry.RANDOM_SURVIVOR_ID)
+
 func test_disconnect_switches_all_owned_seats_to_ai() -> void:
 	var registry := NetRegistry.new()
 	var survivor_a = DataManager.get_survivor("firefighter")
