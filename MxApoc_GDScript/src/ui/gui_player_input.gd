@@ -97,6 +97,15 @@ func get_active_request() -> Variant:
 	return _get_event_scheduler().get_current_input_request()
 
 
+func is_action_request_active(owner: Variant = null) -> bool:
+	var request: Variant = get_active_request()
+	if request == null or request.received or not request.preemptible:
+		return false
+	if owner == null:
+		return true
+	return InputRequest._owners_equal(request.owner, owner)
+
+
 func get_scheduler() -> Variant:
 	return _get_event_scheduler()
 

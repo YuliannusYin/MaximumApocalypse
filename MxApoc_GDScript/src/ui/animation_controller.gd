@@ -13,6 +13,7 @@ const MONSTER_ATTACK_VIEW_SCRIPT := preload("res://src/ui/monster_attack_animati
 const TARGET_LINK_VIEW_SCRIPT := preload("res://src/ui/target_link_animation_view.gd")
 const CARD_DESTROY_VIEW_SCRIPT := preload("res://src/ui/card_destroy_animation_view.gd")
 const TURN_BANNER_VIEW_SCRIPT := preload("res://src/ui/turn_banner_view.gd")
+const CARD_MOTION_VIEW_SCRIPT := preload("res://src/ui/card_motion_animation_view.gd")
 
 var _dice_view: DiceAnimationView
 var _monster_draw_view: MonsterDrawAnimationView
@@ -21,6 +22,7 @@ var _monster_skill_trigger_view: MonsterSkillTriggerAnimationView
 var _monster_attack_view: MonsterAttackAnimationView
 var _card_destroy_view: CardDestroyAnimationView
 var _turn_banner_view: TurnBannerView
+var _card_motion_view: CardMotionAnimationView
 var _target_link_layer: CanvasLayer
 var _target_link_view: TargetLinkAnimationView
 var _network_animation_queue: Array[Callable] = []
@@ -51,6 +53,8 @@ func _build_animation_views() -> void:
 	add_child(_card_destroy_view)
 	_turn_banner_view = TURN_BANNER_VIEW_SCRIPT.new()
 	add_child(_turn_banner_view)
+	_card_motion_view = CARD_MOTION_VIEW_SCRIPT.new()
+	add_child(_card_motion_view)
 
 	# 目标指向演出必须位于最高 UI 层，避免被弹窗和其他全屏演出遮挡。
 	_target_link_layer = CanvasLayer.new()
@@ -114,8 +118,8 @@ func play_monster_draw(card: MonsterCard, target_position: Vector2) -> void:
 	await _monster_draw_view.play(card, target_position)
 
 
-func play_scavenge_draw(card: Card) -> void:
-	await _skill_trigger_view.play(card)
+func play_scavenge_draw(card: Card, target_position: Vector2 = Vector2.ZERO) -> void:
+	await _skill_trigger_view.play(card, target_position)
 
 
 func play_card_destroy(card: Card) -> void:
@@ -132,6 +136,15 @@ func play_monster_attack(monster: Variant, target_positions: Array) -> void:
 
 func play_target_links(source_position: Vector2, player_target_positions: Array[Vector2], monsters: Array) -> void:
 	await _target_link_view.play(source_position, player_target_positions, monsters)
+
+
+func play_card_motion(card: Variant, from_rect: Rect2, to_rect: Rect2,
+		duration: float = 0.24, fade_out: bool = false, delay: float = 0.0) -> void:
+	await _card_motion_view.play(card, from_rect, to_rect, duration, fade_out, delay)
+
+
+func get_active_card_motion_count() -> int:
+	return _card_motion_view.get_active_count() if _card_motion_view != null else 0
 
 
 ## 横幅属于非阻塞演出，保持 fire-and-forget 语义。

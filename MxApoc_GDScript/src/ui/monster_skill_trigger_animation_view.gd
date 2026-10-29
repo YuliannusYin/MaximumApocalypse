@@ -68,24 +68,32 @@ func play(monster: Variant) -> void:
 	_playing = true
 	# --- 准备：填充怪物数据、复位卡牌、立即以原尺寸显示 ---
 	_card_view.set_monster(monster)
+	_card_view.position = (size - _card_view.size) * 0.5
 	_reset_card()
+	var impact_duration := Settings.get_animation_duration(IMPACT_DURATION)
+	var fade_out_duration := Settings.get_animation_duration(FADE_OUT_DURATION)
+	if impact_duration <= 0.0:
+		_finish_play()
+		return
 	visible = true
 	# --- 打击：突然放大（TRANS_BACK + EASE_OUT 制造冲击感） ---
 	_kill_tween(_impact_tween)
 	_impact_tween = create_tween()
-	_impact_tween.tween_property(_card_view, "scale", Vector2.ONE * IMPACT_END_SCALE, IMPACT_DURATION).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_impact_tween.tween_property(_card_view, "scale",
+		Vector2.ONE * IMPACT_END_SCALE, impact_duration) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	await _impact_tween.finished
 	# --- 消散：并行缩小 + 淡出 ---
 	_kill_tween(_fade_out_tween)
 	_fade_out_tween = create_tween()
 	_fade_out_tween.set_parallel(true)
-	_fade_out_tween.tween_property(_card_view, "scale", Vector2.ONE * FADE_OUT_END_SCALE, FADE_OUT_DURATION)
-	_fade_out_tween.tween_property(_card_view, "modulate:a", 0.0, FADE_OUT_DURATION)
+	_fade_out_tween.tween_property(_card_view, "scale",
+		Vector2.ONE * FADE_OUT_END_SCALE, fade_out_duration)
+	_fade_out_tween.tween_property(
+		_card_view, "modulate:a", 0.0, fade_out_duration)
 	await _fade_out_tween.finished
 	# --- 收尾：隐藏自身并复位卡牌（保留复用，不销毁） ---
-	visible = false
-	_reset_card()
-	_playing = false
+	_finish_play()
 
 
 func _await_current_play() -> void:
@@ -102,6 +110,12 @@ func _await_current_play() -> void:
 func _reset_card() -> void:
 	_card_view.scale = Vector2.ONE
 	_card_view.modulate.a = 1.0
+
+
+func _finish_play() -> void:
+	visible = false
+	_reset_card()
+	_playing = false
 
 
 ## 终止旧 Tween（防泄漏）。

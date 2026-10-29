@@ -50,6 +50,9 @@ func setup(ui_layer: Node) -> void:
 
 func set_hand_area(hand_area: Variant) -> void:
 	_hand_area = hand_area
+	if _hand_area != null and is_instance_valid(_hand_area) \
+			and _hand_area.has_method("set_availability_provider"):
+		_hand_area.set_availability_provider(Callable(self, "get_card_use_status"))
 
 
 ## 设置当前实际操作玩家；为空时回退到真实回合玩家。
@@ -147,6 +150,15 @@ func _has_action_budget(current: Variant) -> bool:
 	if current == null or not is_instance_valid(current):
 		return false
 	return _local_action_count(current) > 0
+
+
+func _has_active_action_request() -> bool:
+	if _network_action_available != null:
+		return bool(_network_action_available)
+	if _event_scheduler == null or not is_instance_valid(_event_scheduler):
+		return true
+	var request: Variant = _event_scheduler.get_current_input_request()
+	return request != null and not request.received and request.preemptible
 
 
 ## 面板/快照上的正式行动点。客机没有迷你回合上下文，结束回合只看这个。
@@ -319,18 +331,69 @@ func _update_prompt(card: Variant) -> void:
 		_prompt_label.text = ""
 		return
 	var skills: Array = card.get("skills")
+	var status := get_card_use_status(card)
+	var reason := String(status.get("reason", ""))
+	var suffix := "" if bool(status.get("usable", true)) or reason.is_empty() \
+		else "\n当前不可用：" + reason
 	if skills.is_empty():
-		_prompt_label.text = card.get("card_name")
+		_prompt_label.text = str(card.get("card_name")) + suffix
 		return
 	var first: Variant = skills[0]
 	if first == null or not is_instance_valid(first):
-		_prompt_label.text = card.get("card_name")
+		_prompt_label.text = str(card.get("card_name")) + suffix
 		return
 	var desc: String = first.get("skill_description")
 	if desc.is_empty():
-		_prompt_label.text = card.get("card_name")
+		_prompt_label.text = str(card.get("card_name")) + suffix
 	else:
-		_prompt_label.text = desc
+		_prompt_label.text = desc + suffix
+
+
+## 卡面、确认按钮和双击共用的只读合法性结果。
+func get_card_use_status(card: Variant) -> Dictionary:
+	if card == null or not is_instance_valid(card):
+		return {"usable": false, "reason": "卡牌已失效"}
+	if _is_domain_locked():
+		return {"usable": false, "reason": "正在处理其他操作"}
+	var current: Variant = _get_acting_player()
+	if current == null or not is_instance_valid(current):
+		return {"usable": false, "reason": "当前没有可操作角色"}
+	if not _has_active_action_request():
+		return {"usable": false, "reason": "正在结算其他操作"}
+	if not _is_action_available(current):
+		return {"usable": false, "reason": "当前不是行动阶段"}
+	if not _has_action_budget(current):
+		return {"usable": false, "reason": "行动点不足"}
+	if not current.has_method("is_card_usable") or not current.is_card_usable(card):
+		return {"usable": false, "reason": "当前条件不满足"}
+	return {"usable": true, "reason": ""}
+
+
+## 尝试打出指定卡牌。按钮、快捷键与双击必须全部经过此入口。
+func try_play_card(card: Variant) -> bool:
+	if card == null or not is_instance_valid(card):
+		return false
+	_selected_card = card
+	var status := get_card_use_status(card)
+	if not bool(status.get("usable", false)):
+		if _hand_area != null and is_instance_valid(_hand_area) \
+				and _hand_area.has_method("play_card_rejection"):
+			_hand_area.play_card_rejection(card)
+		_update_prompt(card)
+		refresh_confirm_cancel_buttons()
+		return false
+	_submit_selected_card()
+	return true
+
+
+func _submit_selected_card() -> void:
+	var card: Variant = _selected_card
+	if card == null or not is_instance_valid(card):
+		return
+	_clear_hand_selection()
+	_update_prompt(null)
+	refresh_confirm_cancel_buttons()
+	action_requested.emit({"type": "card", "card": card})
 
 
 # === 确认/取消处理 ===
@@ -378,14 +441,7 @@ func _on_confirm_pressed() -> void:
 		return
 	if _selected_card == null or not is_instance_valid(_selected_card):
 		return
-	var current: Variant = _get_acting_player()
-	if current != null and is_instance_valid(current) and not _has_action_budget(current):
-		return
-	var card = _selected_card
-	_clear_hand_selection()
-	_update_prompt(null)
-	refresh_confirm_cancel_buttons()
-	action_requested.emit({"type": "card", "card": card})
+	try_play_card(_selected_card)
 
 
 func _on_cancel_end_pressed() -> void:
@@ -432,6 +488,11 @@ func _on_cancel_end_pressed() -> void:
 
 ## 双用途按钮 + 确定按钮状态刷新。
 func refresh_confirm_cancel_buttons() -> void:
+	if _hand_area != null and is_instance_valid(_hand_area) \
+			and _hand_area.has_method("refresh_availability"):
+		_hand_area.refresh_availability()
+	if _selected_card != null and is_instance_valid(_selected_card):
+		_update_prompt(_selected_card)
 	if _round_zero_mode:
 		if _confirm_button != null and is_instance_valid(_confirm_button):
 			_confirm_button.text = "确定 (S)"

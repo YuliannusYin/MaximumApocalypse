@@ -306,6 +306,24 @@ func test_fire_and_forget_owner_does_not_leak_to_next_request() -> void:
 	await get_tree().create_timer(0.02).timeout
 
 
+func test_action_request_guard_rejects_nested_non_action_request() -> void:
+	var input := GUIPlayerInput.new()
+	var player := Player.new()
+	_run_wait_action_for_player(input, {}, player)
+	await get_tree().process_frame
+	assert_true(input.is_action_request_active(player))
+
+	_run_confirm(input, {}, "结算确认")
+	await get_tree().process_frame
+	assert_false(input.is_action_request_active(player),
+		"嵌套确认期间不能把双击卡牌写入确认请求")
+	_respond(input, "respond_confirm", false)
+	await get_tree().process_frame
+	assert_true(input.is_action_request_active(player))
+	_respond(input, "respond_action", null)
+	await get_tree().process_frame
+
+
 # === 协程辅助方法 ===
 
 func _run_wait_action(input: GUIPlayerInput, holder: Dictionary) -> void:

@@ -6,9 +6,9 @@ extends Control
 
 const LINE_COLOR := Color(1.0, 0.84, 0.0, 1.0)
 const LINE_WIDTH := 1.0
-const LINE_HOLD_DURATION := 0.12
-const ARROW_DURATION := 0.42
-const FADE_DURATION := 0.18
+const LINE_HOLD_DURATION := 0.08
+const ARROW_DURATION := 0.36
+const FADE_DURATION := 0.14
 const ARROW_HEAD_LENGTH := 34.0
 const ARROW_HEAD_HALF_WIDTH := 18.0
 const ARROW_SHAFT_LENGTH := 56.0
@@ -23,7 +23,7 @@ var _arrow_progress := 0.0:
 	set(value):
 		_arrow_progress = value
 		queue_redraw()
-var _playing := false
+var _playing: bool = false
 var _effect_tween: Tween = null
 var _monster_cards: Array[Control] = []
 
@@ -47,6 +47,9 @@ func play(source_position: Vector2, player_target_positions: Array[Vector2], mon
 	if source_position == Vector2.ZERO or not source_position.is_finite():
 		return
 	_playing = true
+	if Settings.get_animation_duration(ARROW_DURATION) <= 0.0:
+		_finish_play()
+		return
 	visible = true
 	modulate = Color.WHITE
 	_source_local = _to_local(source_position)
@@ -56,9 +59,7 @@ func play(source_position: Vector2, player_target_positions: Array[Vector2], mon
 	if not monsters.is_empty():
 		var monster_targets := _build_monster_cards(monsters)
 		await _play_links(monster_targets)
-	_clear_monster_cards()
-	visible = false
-	_playing = false
+	_finish_play()
 
 
 func _await_current_play() -> void:
@@ -78,15 +79,22 @@ func _play_links(target_positions: Array[Vector2]) -> void:
 			_target_locals.append(target_position.clamp(Vector2.ZERO, size))
 	if _target_locals.is_empty():
 		return
+	var line_hold_duration := Settings.get_animation_duration(LINE_HOLD_DURATION)
+	var arrow_duration := Settings.get_animation_duration(ARROW_DURATION)
+	var fade_duration := Settings.get_animation_duration(FADE_DURATION)
+	if arrow_duration <= 0.0:
+		_arrow_progress = 0.0
+		queue_redraw()
+		return
 	_arrow_progress = 0.0
 	queue_redraw()
-	await get_tree().create_timer(LINE_HOLD_DURATION).timeout
+	await get_tree().create_timer(line_hold_duration).timeout
 	_kill_effect_tween()
 	_effect_tween = create_tween()
-	_effect_tween.tween_property(self, "_arrow_progress", 1.0, ARROW_DURATION).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+	_effect_tween.tween_property(self, "_arrow_progress", 1.0, arrow_duration).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	await _effect_tween.finished
 	_effect_tween = create_tween()
-	_effect_tween.tween_property(self, "modulate:a", 0.0, FADE_DURATION)
+	_effect_tween.tween_property(self, "modulate:a", 0.0, fade_duration).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	await _effect_tween.finished
 	modulate.a = 1.0
 	_arrow_progress = 0.0
@@ -132,8 +140,8 @@ func _build_monster_cards(monsters: Array) -> Array[Vector2]:
 	var centers: Array[Vector2] = []
 	var count := monsters.size()
 	var layout := calculate_monster_row_layout(count, size.x)
-	var total_width: float = layout["total_width"]
 	var step: float = layout["step"]
+	# Control 使用全屏锚点，size 始终是当前运行时视口的本地尺寸。
 	var row_origin := Vector2(layout["origin_x"], (size.y - MONSTER_CARD_SIZE.y) * 0.5)
 	for index in range(count):
 		var monster: Variant = monsters[index]
@@ -171,6 +179,17 @@ func _clear_monster_cards() -> void:
 		if is_instance_valid(card):
 			card.queue_free()
 	_monster_cards.clear()
+
+## 隐藏并清理到最终状态；关闭动画时立即走此路径。
+func _finish_play() -> void:
+	_kill_effect_tween()
+	_clear_monster_cards()
+	_target_locals.clear()
+	_arrow_progress = 0.0
+	modulate = Color.WHITE
+	visible = false
+	_playing = false
+	queue_redraw()
 
 
 func _to_local(global_position: Vector2) -> Vector2:

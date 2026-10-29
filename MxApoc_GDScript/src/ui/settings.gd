@@ -10,6 +10,14 @@ signal skip_target_selection_changed(value: bool)
 signal tutorial_mode_changed(value: bool)
 ## 开发者模式变更时发射。
 signal dev_mode_changed(value: bool)
+## 动画速度变更时发射。
+signal animation_speed_changed(value: int)
+
+enum AnimationSpeed {
+	STANDARD,
+	FAST,
+	OFF,
+}
 
 const CONFIG_PATH_PLAYER := "user://settings.cfg"
 const CONFIG_PATH_DEBUG := "user://settings_debug.cfg"
@@ -20,8 +28,11 @@ const KEY_VOLUME := "volume"
 const SECTION_GAMEPLAY := "gameplay"
 const KEY_SKIP_TARGET := "skip_target_selection"
 const KEY_TUTORIAL_MODE := "tutorial_mode"
+const KEY_ANIMATION_SPEED := "animation_speed"
 const SECTION_GENERAL := "general"
 const KEY_DEV_MODE := "dev_mode"
+
+const FAST_ANIMATION_MULTIPLIER: float = 0.55
 
 ## 是否全屏。
 var fullscreen: bool = false
@@ -33,6 +44,8 @@ var skip_target_selection: bool = false
 var tutorial_mode: bool = false
 ## 是否开发者模式。
 var dev_mode: bool = false
+## 动画速度：标准、快速或关闭。
+var animation_speed: int = AnimationSpeed.STANDARD
 
 func _ready() -> void:
 	_load()
@@ -74,6 +87,27 @@ func set_tutorial_mode(value: bool) -> void:
 	_save()
 	tutorial_mode_changed.emit(tutorial_mode)
 
+## 设置动画速度，持久化并发射 animation_speed_changed。
+func set_animation_speed(value: int) -> void:
+	var normalized_value := _normalize_animation_speed(value)
+	animation_speed = normalized_value
+	_save()
+	animation_speed_changed.emit(animation_speed)
+
+## 根据当前速度返回动画片段的实际时长；关闭动画时返回 0。
+func get_animation_duration(base_duration: float) -> float:
+	return maxf(base_duration, 0.0) * get_animation_speed_multiplier()
+
+## 返回当前动画速度倍率。
+func get_animation_speed_multiplier() -> float:
+	match animation_speed:
+		AnimationSpeed.FAST:
+			return FAST_ANIMATION_MULTIPLIER
+		AnimationSpeed.OFF:
+			return 0.0
+		_:
+			return 1.0
+
 ## 切换开发者模式。先保存当前配置到旧文件，切换后保存到新文件，发射信号。
 func toggle_dev_mode() -> void:
 	_save()
@@ -107,6 +141,9 @@ func _load() -> void:
 		volume = float(cfg.get_value(SECTION_AUDIO, KEY_VOLUME, 1.0))
 		skip_target_selection = bool(cfg.get_value(SECTION_GAMEPLAY, KEY_SKIP_TARGET, false))
 		tutorial_mode = bool(cfg.get_value(SECTION_GAMEPLAY, KEY_TUTORIAL_MODE, false))
+		animation_speed = _normalize_animation_speed(
+			int(cfg.get_value(SECTION_GAMEPLAY, KEY_ANIMATION_SPEED, AnimationSpeed.STANDARD))
+		)
 		# dev_mode 也从实际配置文件读取（可能与 player 配置中的一致）
 		dev_mode = bool(cfg.get_value(SECTION_GENERAL, KEY_DEV_MODE, dev_mode))
 	else:
@@ -114,6 +151,7 @@ func _load() -> void:
 		volume = 1.0
 		skip_target_selection = false
 		tutorial_mode = true
+		animation_speed = AnimationSpeed.STANDARD
 
 func _save() -> void:
 	var config := ConfigFile.new()
@@ -122,4 +160,10 @@ func _save() -> void:
 	config.set_value(SECTION_AUDIO, KEY_VOLUME, volume)
 	config.set_value(SECTION_GAMEPLAY, KEY_SKIP_TARGET, skip_target_selection)
 	config.set_value(SECTION_GAMEPLAY, KEY_TUTORIAL_MODE, tutorial_mode)
+	config.set_value(SECTION_GAMEPLAY, KEY_ANIMATION_SPEED, animation_speed)
 	config.save(get_config_path())
+
+func _normalize_animation_speed(value: int) -> int:
+	if value == AnimationSpeed.FAST or value == AnimationSpeed.OFF:
+		return value
+	return AnimationSpeed.STANDARD

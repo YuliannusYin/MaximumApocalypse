@@ -815,6 +815,12 @@ func get_monster_zone_button_global_position() -> Vector2:
 	return _monster_button.global_position + _monster_button.size * 0.5
 
 
+func get_equipment_zone_button_global_rect() -> Rect2:
+	if _equipment_button == null or not is_instance_valid(_equipment_button):
+		return Rect2()
+	return _equipment_button.get_global_rect()
+
+
 ## 返回角色牌的全局中心位置（供目标指向动画计算端点）。
 func get_role_card_global_position() -> Vector2:
 	if _role_card_panel == null or not is_instance_valid(_role_card_panel):

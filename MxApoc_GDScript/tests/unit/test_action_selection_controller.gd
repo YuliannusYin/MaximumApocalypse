@@ -5,9 +5,13 @@ extends TestBase
 
 class FakeHandArea extends Node:
 	var clear_calls: int = 0
+	var rejection_calls: int = 0
 
 	func clear_selection() -> void:
 		clear_calls += 1
+
+	func play_card_rejection(_card: Variant) -> void:
+		rejection_calls += 1
 
 
 func _make_controller() -> ActionSelectionController:
@@ -200,3 +204,69 @@ func test_set_confirm_mode_clears_card_move_conflict() -> void:
 	assert_false(controller.is_card_move_mode(), "确认模式应清掉卡牌移动锁定")
 	assert_true(controller.is_in_confirm_mode())
 	assert_true(controller._prompt_label.text.contains("燃料"))
+
+
+func test_try_play_card_uses_same_validity_guard_and_emits_action() -> void:
+	var controller := _make_controller()
+	var player := _make_acting_player()
+	var card := _make_equipment("快速出牌")
+	player.hand.append(card)
+	controller.set_acting_player(player)
+	controller.on_card_selected(card)
+	var actions: Array = []
+	controller.action_requested.connect(func(action: Dictionary) -> void: actions.append(action))
+	watch_signals(controller)
+
+	assert_true(controller.try_play_card(card))
+	assert_signal_emitted(controller, "action_requested")
+	assert_eq(actions[0].get("card"), card)
+
+
+func test_try_play_unusable_card_rejects_and_shows_reason() -> void:
+	var controller := _make_controller()
+	var player := _make_acting_player()
+	player.action_count = 0
+	var card := _make_card("不可用牌")
+	player.hand.append(card)
+	var fake := FakeHandArea.new()
+	add_child_autofree(fake)
+	controller.set_hand_area(fake)
+	controller.set_acting_player(player)
+	controller.on_card_selected(card)
+	watch_signals(controller)
+
+	assert_false(controller.try_play_card(card))
+	assert_eq(fake.rejection_calls, 1)
+	assert_true(controller._prompt_label.text.contains("行动点不足"))
+	assert_signal_not_emitted(controller, "action_requested")
+
+
+func test_card_is_unusable_during_non_action_input_request() -> void:
+	var controller := _make_controller()
+	var player := _make_acting_player()
+	var card := _make_equipment("结算中不可双击")
+	player.hand.append(card)
+	var scheduler := EventScheduler.new()
+	scheduler.enqueue_input(player, func() -> void: pass, false)
+	controller.set_event_scheduler(scheduler)
+
+	var status := controller.get_card_use_status(card)
+	assert_false(bool(status.get("usable")))
+	assert_eq(status.get("reason"), "正在结算其他操作")
+
+
+func test_confirm_and_shortcut_use_try_play_card() -> void:
+	var controller := _make_controller()
+	var player := _make_acting_player()
+	var card := _make_equipment("快捷键出牌")
+	player.hand.append(card)
+	controller.set_acting_player(player)
+	controller.on_card_selected(card)
+	var actions: Array = []
+	controller.action_requested.connect(func(action: Dictionary) -> void: actions.append(action))
+	watch_signals(controller)
+
+	assert_false(controller._confirm_button.disabled)
+	controller.handle_shortcut(KEY_S)
+	assert_signal_emitted(controller, "action_requested")
+	assert_eq(actions[0].get("card"), card)

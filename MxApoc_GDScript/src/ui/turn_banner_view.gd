@@ -59,13 +59,24 @@ func _build_ui() -> void:
 func play(text: String) -> void:
 	_kill_banner_tween()
 	_label.text = text
+	var viewport_center := get_viewport_rect().size * 0.5
+	_label.position = Vector2(
+		viewport_center.x - BANNER_SIZE.x * 0.5,
+		viewport_center.y - 70.0 - BANNER_SIZE.y * 0.5)
+	var fade_in_duration := Settings.get_animation_duration(FADE_IN_DURATION)
+	var hold_duration := Settings.get_animation_duration(HOLD_DURATION)
+	var fade_out_duration := Settings.get_animation_duration(FADE_OUT_DURATION)
+	if fade_in_duration <= 0.0:
+		visible = false
+		modulate.a = 1.0
+		return
 	visible = true
 	modulate.a = 0.0
 	# 单 Tween 链串联完整时间轴；Tween 由自身创建（自动绑定本节点），节点释放时自动失效
 	_banner_tween = create_tween()
-	_banner_tween.tween_property(self, "modulate:a", 1.0, FADE_IN_DURATION)
-	_banner_tween.tween_interval(HOLD_DURATION)
-	_banner_tween.tween_property(self, "modulate:a", 0.0, FADE_OUT_DURATION)
+	_banner_tween.tween_property(self, "modulate:a", 1.0, fade_in_duration)
+	_banner_tween.tween_interval(hold_duration)
+	_banner_tween.tween_property(self, "modulate:a", 0.0, fade_out_duration)
 	_banner_tween.tween_callback(hide)
 
 

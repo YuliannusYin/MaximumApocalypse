@@ -163,6 +163,7 @@ func _build_ui() -> void:
 	_result_label.add_theme_color_override("font_outline_color", Color.BLACK)
 	_result_label.add_theme_constant_override("outline_size", 4)
 	add_child(_result_label)
+	_update_layout()
 
 
 # === 动画播放 ===
@@ -182,21 +183,31 @@ func play(d1: int, d2: int, label: String, outcome: String) -> void:
 			await (Engine.get_main_loop() as SceneTree).process_frame
 		return
 	_playing = true
+	_update_layout()
 	# --- 准备：设置文案、随机初始面、复位变换、淡入 ---
 	_name_label.text = label
 	_result_label.visible = false
 	_reset_dice(_dice1, randi_range(1, 6))
 	_reset_dice(_dice2, randi_range(1, 6))
+	var fade_in_duration := Settings.get_animation_duration(FADE_IN_DURATION)
+	var roll_duration := Settings.get_animation_duration(ROLL_DURATION)
+	var roll_step := Settings.get_animation_duration(ROLL_STEP)
+	var settle_duration := Settings.get_animation_duration(SETTLE_DURATION)
+	var hold_duration := Settings.get_animation_duration(HOLD_DURATION)
+	var fade_out_duration := Settings.get_animation_duration(FADE_OUT_DURATION)
+	if fade_in_duration <= 0.0:
+		_finish_play()
+		return
 	visible = true
 	modulate.a = 0.0
 	_kill_tween(_fade_tween)
 	_fade_tween = create_tween()
-	_fade_tween.tween_property(self, "modulate:a", 1.0, FADE_IN_DURATION)
-	await get_tree().create_timer(FADE_IN_DURATION).timeout
+	_fade_tween.tween_property(self, "modulate:a", 1.0, fade_in_duration)
+	await _fade_tween.finished
 	# --- 翻滚：每步随机变面 + 随机晃动 ---
-	var steps: int = int(ROLL_DURATION / ROLL_STEP)
+	var steps: int = maxi(int(roll_duration / maxf(roll_step, 0.001)), 1)
 	for i in steps:
-		await get_tree().create_timer(ROLL_STEP).timeout
+		await get_tree().create_timer(roll_step).timeout
 		_dice1.set_face(randi_range(1, 6))
 		_dice2.set_face(randi_range(1, 6))
 		_dice1.jiggle()
@@ -207,21 +218,20 @@ func play(d1: int, d2: int, label: String, outcome: String) -> void:
 	_kill_tween(_settle_tween)
 	_settle_tween = create_tween()
 	_settle_tween.set_parallel(true)
-	_settle_tween.tween_property(_dice1, "rotation", 0.0, SETTLE_DURATION)
-	_settle_tween.tween_property(_dice1, "position", _dice1.get_home_position(), SETTLE_DURATION)
-	_settle_tween.tween_property(_dice2, "rotation", 0.0, SETTLE_DURATION)
-	_settle_tween.tween_property(_dice2, "position", _dice2.get_home_position(), SETTLE_DURATION)
+	_settle_tween.tween_property(_dice1, "rotation", 0.0, settle_duration)
+	_settle_tween.tween_property(_dice1, "position", _dice1.get_home_position(), settle_duration)
+	_settle_tween.tween_property(_dice2, "rotation", 0.0, settle_duration)
+	_settle_tween.tween_property(_dice2, "position", _dice2.get_home_position(), settle_duration)
 	_show_result(d1, d2, outcome)
-	await get_tree().create_timer(SETTLE_DURATION).timeout
+	await _settle_tween.finished
 	# --- 定格停留 ---
-	await get_tree().create_timer(HOLD_DURATION).timeout
+	await get_tree().create_timer(hold_duration).timeout
 	# --- 整体淡出并复位 ---
 	_kill_tween(_fade_tween)
 	_fade_tween = create_tween()
-	_fade_tween.tween_property(self, "modulate:a", 0.0, FADE_OUT_DURATION)
-	await get_tree().create_timer(FADE_OUT_DURATION).timeout
-	visible = false
-	_playing = false
+	_fade_tween.tween_property(self, "modulate:a", 0.0, fade_out_duration)
+	await _fade_tween.finished
+	_finish_play()
 
 
 # === 内部辅助 ===
@@ -246,6 +256,25 @@ func _show_result(d1: int, d2: int, outcome: String) -> void:
 	else:
 		_result_label.add_theme_color_override("font_color", COLOR_NAME)
 	_result_label.visible = true
+
+
+func _update_layout() -> void:
+	var center := get_viewport_rect().size * 0.5
+	var content_center_y := center.y - 70.0
+	_name_label.position = Vector2(center.x - 200.0, content_center_y - 105.0)
+	var total_width: float = DiceFace.FACE_SIZE.x * 2.0 + DICE_GAP
+	_dice1.set_home_position(Vector2(
+		center.x - total_width * 0.5, content_center_y - 50.0))
+	_dice2.set_home_position(Vector2(
+		center.x + total_width * 0.5 - DiceFace.FACE_SIZE.x, content_center_y - 50.0))
+	_result_label.position = Vector2(center.x - 300.0, content_center_y + 75.0)
+
+
+func _finish_play() -> void:
+	visible = false
+	modulate.a = 1.0
+	_result_label.visible = false
+	_playing = false
 
 
 ## 终止旧 Tween（防泄漏）。

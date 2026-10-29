@@ -6,35 +6,36 @@ extends Control
 ## 选中状态由外部（game_scene_2d.gd 的确认按钮）驱动卡牌使用流程。
 
 const AREA_X := 315
-const AREA_Y := 620
+const AREA_Y := 600
 const AREA_W := 800
-const AREA_H := 150
+const AREA_H := 170
 const CARD_W := 110
 const CARD_H := 150
 const CARD_GAP := 8
-const CARD_Y := 0.0  # 卡牌在手牌区内的 y 偏移（垂直居中）
+const CARD_Y := 20.0  # 顶部预留悬停/选中空间，卡面仍从屏幕 y=620 开始
 # 差量刷新动画参数
 const REPOSITION_DURATION := 0.2  # 保留卡平滑重排时长（秒）
 const SLIDE_IN_DURATION := 0.25  # 新卡滑入时长（秒）
 const SLIDE_OUT_DURATION := 0.25  # 消失卡滑出时长（秒）
-const SLIDE_IN_OFFSET := Vector2(120, -30)  # 新卡滑入起点偏移（牌堆方向：右上外侧）
-const SLIDE_OUT_OFFSET := Vector2(80, 40)  # 消失卡滑出偏移（弃牌堆方向：右下外侧）
-const DIFF_MATCH_RATIO := 0.5  # 差量刷新最低匹配率，低于则降级全量重建
+const SLIDE_IN_OFFSET := Vector2(120, -100)  # 新卡滑入起点偏移（牌堆方向：右上）
+const SLIDE_OUT_OFFSET := Vector2(80, -120)  # 无明确轨迹提示时的默认离手方向
 
 signal card_selected(card: Variant)
 signal card_deselected()
+signal card_double_clicked(card: Variant)
 
 var _player: Variant = null
 var _card_views: Array = []
 var _selected_view: CardView = null
 var _is_stacked: bool = false
 var _last_player_id: int = -1  # 上次刷新对应玩家的实例 id，玩家变化时降级全量重建
+var _availability_provider: Callable = Callable()
 
 
 func _ready() -> void:
 	position = Vector2(AREA_X, AREA_Y)
 	size = Vector2(AREA_W, AREA_H)
-	mouse_filter = Control.MOUSE_FILTER_PASS
+	mouse_filter = Control.MOUSE_FILTER_STOP
 	mouse_exited.connect(_on_mouse_exited)
 
 
@@ -46,6 +47,11 @@ func _init() -> void:
 func set_player(player: Variant) -> void:
 	_player = player
 	refresh()
+
+
+func set_availability_provider(provider: Callable) -> void:
+	_availability_provider = provider
+	refresh_availability()
 
 
 ## 刷新手牌区（差量实现：匹配保留 / 新建滑入 / 移除滑出 / 位置平滑重排）。
@@ -61,11 +67,8 @@ func refresh() -> void:
 		_last_player_id = player_id
 		_full_rebuild(hand)
 		return
-	# 既有卡匹配率过低时降级为全量重建，避免产生错误动画
+	# 同一玩家始终按实例 id 差量刷新；即使整手牌替换也让旧牌滑出、新牌滑入。
 	var existing := _build_existing_map()
-	if not _can_diff_refresh(hand, existing):
-		_full_rebuild(hand)
-		return
 	_diff_refresh(hand, existing)
 
 
@@ -106,21 +109,6 @@ func _build_existing_map() -> Dictionary:
 	return existing
 
 
-## 判断是否可走差量刷新：既有卡在新手牌中的匹配率需达标。
-func _can_diff_refresh(hand: Array, existing: Dictionary) -> bool:
-	if existing.is_empty():
-		return true  # 无既有卡（如清空后重新抽牌），全部按新卡滑入
-	var new_ids := {}
-	for card in hand:
-		if card != null and is_instance_valid(card):
-			new_ids[card.get_instance_id()] = true
-	var matched: int = 0
-	for card_id in existing:
-		if new_ids.has(card_id):
-			matched += 1
-	return float(matched) / float(existing.size()) >= DIFF_MATCH_RATIO
-
-
 ## 全量重建（降级路径：直接重建所有视图，无动画）。
 func _full_rebuild(hand: Array) -> void:
 	_clear_cards()
@@ -134,6 +122,7 @@ func _full_rebuild(hand: Array) -> void:
 		view.set_card(card)
 		view.set_hover_lift_enabled(true)
 		view.set_base_position(positions[i])
+		_apply_view_availability(view, card)
 		_card_views.append(view)
 
 
@@ -154,6 +143,7 @@ func _diff_refresh(hand: Array, existing: Dictionary) -> void:
 			kept_ids[view.get_instance_id()] = true
 			existing.erase(card_id)
 			view.set_card(card)
+			_apply_view_availability(view, card)
 			if view.get_base_position() != target:
 				var tween_target: Vector2 = target
 				if view.is_selected():
@@ -167,11 +157,16 @@ func _diff_refresh(hand: Array, existing: Dictionary) -> void:
 			view.set_card(card)
 			view.set_hover_lift_enabled(true)
 			view.update_base_position(target)
+			_apply_view_availability(view, card)
 			view.position = target + SLIDE_IN_OFFSET
 			view.modulate.a = 0.0
 			view.move_to(target, SLIDE_IN_DURATION)
-			var tw := view.create_tween()
-			tw.tween_property(view, "modulate:a", 1.0, SLIDE_IN_DURATION)
+			var fade_duration := _scaled_duration(SLIDE_IN_DURATION)
+			if fade_duration <= 0.0:
+				view.modulate.a = 1.0
+			else:
+				var tw := view.create_tween()
+				tw.tween_property(view, "modulate:a", 1.0, fade_duration)
 		new_views.append(view)
 	# 消失的卡：滑向弃牌堆方向（右下外侧）淡出后释放
 	for view in _card_views:
@@ -196,10 +191,14 @@ func _diff_refresh(hand: Array, existing: Dictionary) -> void:
 func _animate_card_out(view: CardView) -> void:
 	# 禁用悬停上浮以终止其内部动画，避免与滑出 Tween 冲突
 	view.set_hover_lift_enabled(false)
+	var duration := _scaled_duration(SLIDE_OUT_DURATION)
+	if duration <= 0.0:
+		view.queue_free()
+		return
 	var tw := view.create_tween()
 	tw.set_parallel(true)
-	tw.tween_property(view, "position", view.position + SLIDE_OUT_OFFSET, SLIDE_OUT_DURATION)
-	tw.tween_property(view, "modulate:a", 0.0, SLIDE_OUT_DURATION)
+	tw.tween_property(view, "position", view.position + SLIDE_OUT_OFFSET, duration)
+	tw.tween_property(view, "modulate:a", 0.0, duration)
 	var free_cb := func() -> void:
 		if view != null and is_instance_valid(view):
 			view.queue_free()
@@ -218,9 +217,14 @@ func clear_selection() -> void:
 
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		_handle_click(event.position)
+		if event.double_click:
+			_handle_double_click(event.position)
+		else:
+			_handle_click(event.position)
+		accept_event()
 	elif event is InputEventMouseMotion:
 		_update_hover(event.position)
+		accept_event()
 
 
 ## 鼠标移出手牌区：清除所有卡牌的悬停状态（修复移出后保持放大的问题）。
@@ -262,22 +266,114 @@ func _handle_click(local_pos: Vector2) -> void:
 	card_selected.emit(view.get_card())
 
 
+func _handle_double_click(local_pos: Vector2) -> void:
+	var view := _find_card_at(local_pos)
+	if view == null:
+		return
+	if _selected_view != view:
+		if _selected_view != null and is_instance_valid(_selected_view):
+			_selected_view.set_selected(false)
+		_selected_view = view
+		view.set_selected(true)
+		card_selected.emit(view.get_card())
+	card_double_clicked.emit(view.get_card())
+
+
 # === 工具方法 ===
 
 func _find_card_at(local_pos: Vector2) -> CardView:
+	var raised_view: CardView = null
+	var raised_z: int = 0
+	for view in _card_views:
+		if view == null or not is_instance_valid(view) or not view.visible \
+				or view.z_index <= raised_z:
+			continue
+		if view.get_visual_rect().has_point(local_pos):
+			raised_view = view
+			raised_z = view.z_index
+	if raised_view != null:
+		return raised_view
 	for i in range(_card_views.size() - 1, -1, -1):
 		var view: CardView = _card_views[i]
-		if view == null or not is_instance_valid(view):
+		if view == null or not is_instance_valid(view) or not view.visible:
 			continue
-		var rect := Rect2(view.position, Vector2(CARD_W, CARD_H))
+		var rect := view.get_visual_rect()
 		if rect.has_point(local_pos):
 			return view
 	return null
 
 
 func _clear_cards() -> void:
+	var had_selection := _selected_view != null and is_instance_valid(_selected_view)
 	for view in _card_views:
 		if view != null and is_instance_valid(view):
 			view.queue_free()
 	_card_views.clear()
 	_selected_view = null
+	if had_selection:
+		card_deselected.emit()
+
+
+func refresh_availability() -> void:
+	for view in _card_views:
+		if view == null or not is_instance_valid(view):
+			continue
+		_apply_view_availability(view, view.get_card())
+
+
+func _apply_view_availability(view: CardView, card: Variant) -> void:
+	if not _availability_provider.is_valid():
+		view.set_usable(true)
+		return
+	var status: Variant = _availability_provider.call(card)
+	if status is Dictionary:
+		view.set_usable(bool(status.get("usable", true)), String(status.get("reason", "")))
+	else:
+		view.set_usable(bool(status))
+
+
+func get_card_view(card: Variant) -> CardView:
+	if card == null:
+		return null
+	for view in _card_views:
+		if view != null and is_instance_valid(view) and view.get_card() == card:
+			return view
+	return null
+
+
+func get_card_global_rect(card: Variant) -> Rect2:
+	var view := get_card_view(card)
+	if view == null:
+		return Rect2()
+	var local_rect := view.get_visual_rect()
+	return Rect2(get_global_rect().position + local_rect.position, local_rect.size)
+
+
+func get_card_target_global_rect(card: Variant) -> Rect2:
+	var view := get_card_view(card)
+	if view == null:
+		return Rect2()
+	return Rect2(get_global_rect().position + view.get_base_position(),
+		Vector2(CARD_W, CARD_H))
+
+
+func get_hand_global_rect() -> Rect2:
+	return get_global_rect()
+
+
+func set_card_visual_hidden(card: Variant, hidden: bool) -> void:
+	var view := get_card_view(card)
+	if view != null:
+		view.visible = not hidden
+
+
+func play_card_rejection(card: Variant) -> void:
+	var view := get_card_view(card)
+	if view != null:
+		view.play_rejection_feedback()
+
+
+func _scaled_duration(base_duration: float) -> float:
+	if Settings != null and Settings.has_method("get_animation_duration"):
+		return float(Settings.get_animation_duration(base_duration))
+	return base_duration

@@ -9,13 +9,29 @@ ok_button_text = "关闭 (Esc)"
 script = ExtResource("1_sd")
 
 [node name="Content" type="VBoxContainer" parent="."]
-offset_right = 240.0
-offset_bottom = 80.0
+offset_right = 300.0
+offset_bottom = 120.0
 
 [node name="FullscreenCheckBox" type="CheckBox" parent="Content"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
 text = "全屏模式"
+
+[node name="AnimationSpeedRow" type="HBoxContainer" parent="Content"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="AnimationSpeedLabel" type="Label" parent="Content/AnimationSpeedRow"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "动画速度"
+vertical_alignment = 1
+
+[node name="AnimationSpeedOption" type="OptionButton" parent="Content/AnimationSpeedRow"]
+custom_minimum_size = Vector2(140, 36)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 18
 
 [node name="HostingCheckBox" type="CheckBox" parent="Content"]
 visible = false

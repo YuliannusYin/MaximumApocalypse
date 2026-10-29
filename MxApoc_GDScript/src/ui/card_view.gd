@@ -61,11 +61,15 @@ var _charge_label: Label
 var _hover_lift_enabled: bool = false
 var _hover_tween: Tween = null
 var _move_tween: Tween = null
+var _feedback_tween: Tween = null
+var _is_usable: bool = true
+var _unusable_reason: String = ""
 
 
 func _ready() -> void:
 	custom_minimum_size = Vector2(PANEL_W, PANEL_H)
 	size = Vector2(PANEL_W, PANEL_H)
+	pivot_offset = size * 0.5
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_build_content()
 	for child in get_children():
@@ -80,6 +84,7 @@ func _ready() -> void:
 func _init() -> void:
 	custom_minimum_size = Vector2(PANEL_W, PANEL_H)
 	size = Vector2(PANEL_W, PANEL_H)
+	pivot_offset = size * 0.5
 
 
 ## 设置卡牌数据并刷新显示。
@@ -131,6 +136,7 @@ func set_selected(selected: bool) -> void:
 	if _hover_lift_enabled:
 		# 终止悬停上浮动画，z_index 与位置由选中态接管
 		_kill_hover_tween()
+		_animate_scale(Vector2.ONE, HOVER_DURATION)
 	if selected:
 		z_index = 1
 		# 选中平滑上浮；未启用上浮的实例（弹窗等）保持原行为：仅金边与 z_index，无位移
@@ -153,6 +159,7 @@ func set_hover_lift_enabled(enabled: bool) -> void:
 	if not enabled:
 		_kill_hover_tween()
 		_kill_move_tween()
+		scale = Vector2.ONE
 
 
 ## 悬停状态：启用上浮的实例在非选中时平滑上浮放大，移开平滑复位；选中态优先。
@@ -166,19 +173,38 @@ func set_hovered(hovered: bool) -> void:
 	# 选中态优先：选中中的卡不上浮，复位时也仅复位缩放（位置/z_index 由选中逻辑管理）
 	if hovered and _is_selected:
 		return
+	var duration := _scaled_duration(HOVER_DURATION)
+	if duration <= 0.0:
+		scale = HOVER_SCALE if hovered else Vector2.ONE
+		z_index = HOVER_Z_INDEX if hovered else (1 if _is_selected else 0)
+		position = _base_position + Vector2(0, -HOVER_LIFT) if hovered \
+			else (_base_position + Vector2(0, -SELECTED_OFFSET) if _is_selected else _base_position)
+		return
 	_hover_tween = create_tween()
 	_hover_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	_hover_tween.set_parallel(true)
 	if hovered:
 		# 位置动画走统一通道 move_to，与 _hover_tween 的 scale/z_index 并行但不冲突
+		z_index = HOVER_Z_INDEX
 		move_to(_base_position + Vector2(0, -HOVER_LIFT), HOVER_DURATION)
-		_hover_tween.tween_property(self, "scale", HOVER_SCALE, HOVER_DURATION)
-		_hover_tween.tween_property(self, "z_index", HOVER_Z_INDEX, HOVER_DURATION)
+		_hover_tween.tween_property(self, "scale", HOVER_SCALE, duration)
 	else:
-		_hover_tween.tween_property(self, "scale", Vector2.ONE, HOVER_DURATION)
+		_hover_tween.tween_property(self, "scale", Vector2.ONE, duration)
 		if not _is_selected:
+			z_index = 0
 			move_to(_base_position, HOVER_DURATION)
-			_hover_tween.tween_property(self, "z_index", 0, HOVER_DURATION)
+	_hover_tween.finished.connect(func() -> void: _hover_tween = null)
+
+
+func _animate_scale(target: Vector2, duration: float) -> void:
+	_kill_hover_tween()
+	duration = _scaled_duration(duration)
+	if duration <= 0.0:
+		scale = target
+		return
+	_hover_tween = create_tween()
+	_hover_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_hover_tween.tween_property(self, "scale", target, duration)
+	_hover_tween.finished.connect(func() -> void: _hover_tween = null)
 
 
 ## 终止悬停动画（若在运行）。
@@ -193,6 +219,10 @@ func _kill_hover_tween() -> void:
 ## 确保同一时刻至多一个位置动画，杜绝并行 Tween 互相覆盖。
 func move_to(target: Vector2, duration: float = 0.2) -> void:
 	_kill_move_tween()
+	duration = _scaled_duration(duration)
+	if duration <= 0.0:
+		position = target
+		return
 	_move_tween = create_tween()
 	_move_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	_move_tween.tween_property(self, "position", target, duration)
@@ -204,6 +234,55 @@ func _kill_move_tween() -> void:
 	if _move_tween != null and _move_tween.is_valid():
 		_move_tween.kill()
 	_move_tween = null
+
+
+## 返回包含当前中心缩放的父容器局部命中矩形。
+func get_visual_rect() -> Rect2:
+	var visual_size := size * scale
+	var visual_position := position + pivot_offset - pivot_offset * scale
+	return Rect2(visual_position, visual_size)
+
+
+## 设置当前卡牌是否可使用。不可用牌仍保留点击与查看能力。
+func set_usable(usable: bool, reason: String = "") -> void:
+	_is_usable = usable
+	_unusable_reason = "" if usable else reason
+	var alpha := modulate.a
+	modulate = Color(1.0, 1.0, 1.0, alpha) if usable \
+		else Color(0.58, 0.58, 0.62, alpha)
+
+
+func is_usable() -> bool:
+	return _is_usable
+
+
+func get_unusable_reason() -> String:
+	return _unusable_reason
+
+
+## 不可用牌双击时的短促拒绝反馈。
+func play_rejection_feedback() -> void:
+	if _content_panel == null or not is_instance_valid(_content_panel):
+		return
+	if _feedback_tween != null and _feedback_tween.is_valid():
+		_feedback_tween.kill()
+	var home_x := float(BORDER)
+	_content_panel.position.x = home_x
+	var segment := _scaled_duration(0.035)
+	if segment <= 0.0:
+		return
+	_feedback_tween = create_tween()
+	_feedback_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	_feedback_tween.tween_property(_content_panel, "position:x", home_x - 5.0, segment)
+	_feedback_tween.tween_property(_content_panel, "position:x", home_x + 5.0, segment * 2.0)
+	_feedback_tween.tween_property(_content_panel, "position:x", home_x, segment)
+	_feedback_tween.finished.connect(func() -> void: _feedback_tween = null)
+
+
+func _scaled_duration(base_duration: float) -> float:
+	if Settings != null and Settings.has_method("get_animation_duration"):
+		return float(Settings.get_animation_duration(base_duration))
+	return base_duration
 
 
 ## 设置区域标签文本（如"装备区"、"手牌区"）。空文本时隐藏。

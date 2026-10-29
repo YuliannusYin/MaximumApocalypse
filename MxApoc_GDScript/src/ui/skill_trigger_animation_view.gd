@@ -8,16 +8,13 @@ extends Control
 ## 用法：实例化后加入 CanvasLayer，await play(card) 播放完整动画。
 ## 所有节点 mouse_filter 均为 IGNORE，播放期间不遮挡其他 UI 点击。
 
-# === 时间轴常量（秒），总时长约 1.85s ===
-const FADE_IN_DURATION: float = 0.15    # 淡入 + 牌背居中
-const FLIP_DURATION: float = 0.4        # 翻面总时长（牌背收窄与正面展开各占一半）
-const HOLD_DURATION: float = 0.8        # 正面定格停留
-const ZOOM_DURATION: float = 0.5        # 原地放大 + 淡出
+# === 标准速度时间轴常量（秒），总时长约 1.57s ===
+const FADE_IN_DURATION: float = 0.14    # 淡入 + 牌背居中
+const FLIP_DURATION: float = 0.36       # 翻面总时长（牌背收窄与正面展开各占一半）
+const HOLD_DURATION: float = 0.65       # 正面定格停留
+const ZOOM_DURATION: float = 0.42       # 收尾飞行 / 原地放大淡出
 const ZOOM_END_SCALE: float = 1.5       # 放大淡出结束时的缩放
-
-# === 布局常量（视口约 1430x800，卡中心以 (715, 300) 附近居中） ===
-const CENTER_X: float = 715.0
-const CARD_CENTER_Y: float = 300.0
+const HAND_END_SCALE: float = 0.67      # 165×225 收束到约 110×150
 
 # === 成员变量 ===
 var _background: ColorRect
@@ -147,59 +144,75 @@ func _build_ui() -> void:
 	_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_background.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(_background)
-	# 拾荒卡：整体以 (CENTER_X, CARD_CENTER_Y) 为中心
+	# 拾荒卡：每次播放前按运行时视口重新居中
 	_card = SkillCardFace.new()
-	_card.set_home_position(Vector2(CENTER_X, CARD_CENTER_Y) - SkillCardFace.CARD_SIZE * 0.5)
 	add_child(_card)
+	_update_card_home_position()
 
 
 # === 动画播放 ===
 
 ## 播放一次完整的"抓取时"技能触发动画（协程，可 await，播完整轮后才返回）。
 ## card：要展示的拾荒卡。
-## 时间轴：淡入 0.15s → 翻面 0.4s → 定格停留 0.8s → 原地放大淡出 0.5s，总时长约 1.85s。
+## 标准时间轴：淡入 0.14s → 翻面 0.36s → 定格 0.65s → 放大淡出 0.42s。
 ## GAME_EVENT 与 INPUT_REQUEST 可能同时触发：已在播时只等待当前轮结束，不重播。
 func is_playing() -> bool:
 	return _playing
 
 
-func play(card: Card) -> void:
+func play(card: Card, target_position: Vector2 = Vector2.ZERO) -> void:
 	if _playing:
 		await _await_current_play()
+		return
+	if card == null or not is_instance_valid(card):
 		return
 	_playing = true
 	# --- 准备：填充卡面数据、显示牌背、复位变换 ---
 	_card.set_card_data(card)
+	_update_card_home_position()
 	_reset_card()
+	var fade_in_duration := Settings.get_animation_duration(FADE_IN_DURATION)
+	var flip_half_duration := Settings.get_animation_duration(FLIP_DURATION * 0.5)
+	var hold_duration := Settings.get_animation_duration(HOLD_DURATION)
+	var zoom_duration := Settings.get_animation_duration(ZOOM_DURATION)
+	if fade_in_duration <= 0.0:
+		_finish_play()
+		return
 	visible = true
 	modulate.a = 0.0
 	# --- 淡入：整体淡入，牌背居中 ---
 	_kill_tween(_fade_tween)
 	_fade_tween = create_tween()
-	_fade_tween.tween_property(self, "modulate:a", 1.0, FADE_IN_DURATION)
+	_fade_tween.tween_property(self, "modulate:a", 1.0, fade_in_duration).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	await _fade_tween.finished
 	# --- 翻面：牌背 scale:x 1→0，切换正面后 0→1 ---
 	_kill_tween(_flip_tween)
 	_flip_tween = create_tween()
-	_flip_tween.tween_property(_card, "scale:x", 0.0, FLIP_DURATION * 0.5)
+	_flip_tween.tween_property(_card, "scale:x", 0.0, flip_half_duration).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
 	await _flip_tween.finished
 	_card.show_front()
 	_flip_tween = create_tween()
-	_flip_tween.tween_property(_card, "scale:x", 1.0, FLIP_DURATION * 0.5)
+	_flip_tween.tween_property(_card, "scale:x", 1.0, flip_half_duration).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	await _flip_tween.finished
 	# --- 定格停留 ---
-	await get_tree().create_timer(HOLD_DURATION).timeout
-	# --- 结束：原地逐渐放大并同时淡出（不飞向任何区域） ---
+	await get_tree().create_timer(hold_duration).timeout
+	# --- 结束：有手牌目标时连续飞入手牌；否则保持原地放大淡出 ---
 	_kill_tween(_zoom_tween)
 	_zoom_tween = create_tween()
 	_zoom_tween.set_parallel(true)
-	_zoom_tween.tween_property(_card, "scale", Vector2.ONE * ZOOM_END_SCALE, ZOOM_DURATION)
-	_zoom_tween.tween_property(_card, "modulate:a", 0.0, ZOOM_DURATION)
+	_zoom_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	if target_position != Vector2.ZERO and target_position.is_finite():
+		_zoom_tween.tween_property(
+			_card, "position", _fly_end_position(target_position), zoom_duration)
+		_zoom_tween.tween_property(
+			_card, "scale", Vector2.ONE * HAND_END_SCALE, zoom_duration)
+		_zoom_tween.tween_property(_background, "modulate:a", 0.0, zoom_duration)
+	else:
+		_zoom_tween.tween_property(
+			_card, "scale", Vector2.ONE * ZOOM_END_SCALE, zoom_duration)
+		_zoom_tween.tween_property(_card, "modulate:a", 0.0, zoom_duration)
 	await _zoom_tween.finished
-	# --- 收尾：隐藏自身并复位卡牌 ---
-	visible = false
-	_reset_card()
-	_playing = false
+	_finish_play()
 
 
 func _await_current_play() -> void:
@@ -212,12 +225,31 @@ func _await_current_play() -> void:
 
 # === 内部辅助 ===
 
+## 使用运行时视口中心更新卡牌基准位置，适配窗口与拉伸尺寸变化。
+func _update_card_home_position() -> void:
+	var viewport_center := get_viewport_rect().size * 0.5
+	var local_center := get_global_transform().affine_inverse() * viewport_center
+	_card.set_home_position(local_center - SkillCardFace.CARD_SIZE * 0.5)
+
 ## 复位卡牌状态（牌面 / 缩放 / 透明度 / 位置），供下次播放。
 func _reset_card() -> void:
 	_card.show_back()
 	_card.scale = Vector2.ONE
 	_card.modulate.a = 1.0
 	_card.position = _card.get_home_position()
+	_background.modulate.a = 1.0
+
+
+func _fly_end_position(target_position: Vector2) -> Vector2:
+	var local := get_global_transform().affine_inverse() * target_position
+	return local - SkillCardFace.CARD_SIZE * 0.5
+
+## 隐藏并复位到最终状态；关闭动画时也走同一收尾路径。
+func _finish_play() -> void:
+	visible = false
+	modulate.a = 1.0
+	_reset_card()
+	_playing = false
 
 
 ## 终止旧 Tween（防泄漏）。

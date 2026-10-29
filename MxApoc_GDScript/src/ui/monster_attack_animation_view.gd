@@ -51,13 +51,14 @@ func play(monster: Variant, target_positions: Array) -> void:
 	if _target_locals.is_empty():
 		return
 	_playing = true
+	if Settings.get_animation_duration(ARROW_DURATION) <= 0.0:
+		_finish_play()
+		return
 	visible = true
 	modulate = Color.WHITE
 	_source_local = _build_monster_card(monster)
 	await _play_links()
-	_clear_monster_card()
-	visible = false
-	_playing = false
+	_finish_play()
 
 
 func _await_current_play() -> void:
@@ -70,15 +71,19 @@ func _await_current_play() -> void:
 
 ## 所有箭头共享同一条时间轴与同一个进度值，确保多目标同时出现、移动与淡出。
 func _play_links() -> void:
+	var line_hold_duration := Settings.get_animation_duration(LINE_HOLD_DURATION)
+	var arrow_duration := Settings.get_animation_duration(ARROW_DURATION)
+	var fade_duration := Settings.get_animation_duration(FADE_DURATION)
 	_arrow_progress = 0.0
 	queue_redraw()
-	await get_tree().create_timer(LINE_HOLD_DURATION).timeout
+	await get_tree().create_timer(line_hold_duration).timeout
 	_kill_effect_tween()
 	_effect_tween = create_tween()
-	_effect_tween.tween_property(self, "_arrow_progress", 1.0, ARROW_DURATION).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+	_effect_tween.tween_property(self, "_arrow_progress", 1.0, arrow_duration) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
 	await _effect_tween.finished
 	_effect_tween = create_tween()
-	_effect_tween.tween_property(self, "modulate:a", 0.0, FADE_DURATION)
+	_effect_tween.tween_property(self, "modulate:a", 0.0, fade_duration)
 	await _effect_tween.finished
 	modulate.a = 1.0
 	_arrow_progress = 0.0
@@ -136,6 +141,17 @@ func _clear_monster_card() -> void:
 	if _monster_card != null and is_instance_valid(_monster_card):
 		_monster_card.queue_free()
 	_monster_card = null
+
+
+func _finish_play() -> void:
+	_kill_effect_tween()
+	_clear_monster_card()
+	_target_locals.clear()
+	_arrow_progress = 0.0
+	modulate = Color.WHITE
+	visible = false
+	_playing = false
+	queue_redraw()
 
 
 func _to_local(global_position: Vector2) -> Vector2:

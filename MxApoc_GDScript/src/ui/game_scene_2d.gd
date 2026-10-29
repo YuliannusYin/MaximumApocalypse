@@ -68,6 +68,9 @@ var _awaiting_reconnect_snapshot: bool = false
 var _pending_mark_pulses: Array = []
 var _pending_confirm_after_visual: bool = false
 var _pending_confirm_message: String = ""
+var _pending_scavenge_hand_motion: Dictionary = {}
+var _settlement_motion_deadlines: Dictionary = {}
+var _pending_draw_motion_count: int = 0
 var _game_over_started: bool = false
 var _reconnect_hint: Label
 var _hosting_banner: HBoxContainer
@@ -322,15 +325,15 @@ func _start_game_flow() -> void:
 			EventBus.hp_recovered.connect(_on_hp_recovered)
 			EventBus.player_hunger_changed.connect(_on_hunger_changed)
 			EventBus.player_died.connect(_on_player_stat_changed)
-			EventBus.equipment_equipped.connect(_on_player_stat_changed)
-			EventBus.equipment_unequipped.connect(_on_player_stat_changed)
+			EventBus.equipment_equipped.connect(_on_equipment_equipped)
+			EventBus.equipment_unequipped.connect(_on_equipment_unequipped)
 			EventBus.action_consumed.connect(_on_action_consumed)
-			EventBus.card_drawn.connect(_on_player_stat_changed)
-			EventBus.card_discarded.connect(_on_player_stat_changed)
+			EventBus.card_drawn.connect(_on_card_drawn)
+			EventBus.card_discarded.connect(_on_card_discarded)
 			EventBus.card_used.connect(_on_player_stat_changed)
-			EventBus.card_settlement_started.connect(_on_player_stat_changed)
-			EventBus.card_settlement_finished.connect(_on_player_stat_changed)
-			EventBus.scavenge_drawn.connect(_on_pile_drawn)
+			EventBus.card_settlement_started.connect(_on_card_settlement_started)
+			EventBus.card_settlement_finished.connect(_on_card_settlement_finished)
+			EventBus.scavenge_drawn.connect(_on_scavenge_drawn)
 			EventBus.monster_card_drawn.connect(_on_pile_drawn)
 	if online_client_ui:
 		if not NetSession.message_received.is_connected(_on_network_message):
@@ -639,8 +642,9 @@ func _handle_network_visual_request(request_id: int, seat_id: int,
 		_finish_network_visual_request(request_id, seat_id)
 		return
 	_animation_controller.enqueue_network_animation(func() -> void:
-		await _play_network_visual_request(seat_id, request_type, payload)
-		_finish_network_visual_request(request_id, seat_id))
+		await _play_network_visual_request(seat_id, request_type, payload))
+	# 联机演出仅为表现层：先恢复权威输入，再由 FIFO 叠层继续播放。
+	_finish_network_visual_request(request_id, seat_id)
 
 
 func _play_network_visual_request(seat_id: int, request_type: String,
@@ -1294,6 +1298,8 @@ func _on_skill_pressed(player: Variant, skill: Variant) -> void:
 func _on_action_from_controller(player: Variant, action: Dictionary) -> void:
 	if _try_respond_network_action(player, action):
 		return
+	if not _gui_input.is_action_request_active(player):
+		return
 	if player != null and is_instance_valid(player):
 		_activate_seat_hud(player)
 	if action.is_empty():
@@ -1817,7 +1823,19 @@ func _on_scavenge_draw_animation_requested(_player: Variant, card: Variant) -> v
 		"seat_id": int(animation_owner.get("seat_number"))
 			if animation_owner != null else -1,
 	})
-	await _animation_controller.play_scavenge_draw(card)
+	var card_id: int = card.get_instance_id() \
+		if card != null and is_instance_valid(card) else -1
+	var has_hand_target: bool = _pending_scavenge_hand_motion.has(card_id)
+	var motion_hand_area: Variant = _pending_scavenge_hand_motion.get(card_id)
+	var target_rect: Rect2 = motion_hand_area.get_card_target_global_rect(card) \
+		if has_hand_target and motion_hand_area != null \
+			and is_instance_valid(motion_hand_area) \
+		else Rect2()
+	await _animation_controller.play_scavenge_draw(
+		card, target_rect.get_center() if target_rect.size != Vector2.ZERO else Vector2.ZERO)
+	_pending_scavenge_hand_motion.erase(card_id)
+	if has_hand_target and motion_hand_area != null and is_instance_valid(motion_hand_area):
+		motion_hand_area.set_card_visual_hidden(card, false)
 	_gui_input.respond_scavenge_draw_animation(request_id, owner)
 
 
@@ -1825,6 +1843,16 @@ func _on_scavenge_draw_animation_requested(_player: Variant, card: Variant) -> v
 func _on_card_destroy_animation_requested(card: Card) -> void:
 	var request_id: int = _gui_input.get_active_request_id()
 	var owner: Variant = _gui_input.get_active_request_owner()
+	if _hand_area != null and is_instance_valid(_hand_area):
+		_hand_area.set_card_visual_hidden(card, true)
+	var card_id: int = card.get_instance_id() if card != null else -1
+	if _settlement_motion_deadlines.has(card_id):
+		var remaining_delay: float = maxf(
+			(float(_settlement_motion_deadlines[card_id]) - Time.get_ticks_msec()) / 1000.0,
+			0.0)
+		_settlement_motion_deadlines.erase(card_id)
+		if remaining_delay > 0.0:
+			await get_tree().create_timer(remaining_delay).timeout
 	_broadcast_visual_event("card_destroy_animation", {"card": card})
 	await _animation_controller.play_card_destroy(card)
 	_gui_input.respond_card_destroy_animation(request_id, owner)
@@ -1964,15 +1992,25 @@ func _handle_network_block_destroyed(payload: Dictionary) -> void:
 
 
 func _queue_network_block_destroyed(payload: Dictionary) -> void:
+	var queued_payload := payload.duplicate()
+	var block: Variant = _network_block_at(
+		int(payload.get("x", 0)), int(payload.get("y", 0)))
+	if block != null and is_instance_valid(block):
+		queued_payload["_stable_block"] = block
+		queued_payload["_stable_view"] = _table_map_controller.get_block_view(block)
 	_animation_controller.enqueue_network_animation(func() -> void:
-		await _play_network_block_destroyed(payload))
+		await _play_network_block_destroyed(queued_payload))
 
 
 func _play_network_block_destroyed(payload: Dictionary) -> void:
-	var block: Variant = _network_block_at(int(payload.get("x", 0)), int(payload.get("y", 0)))
-	if block == null:
+	var block: Variant = payload.get("_stable_block")
+	if block == null or not is_instance_valid(block):
+		block = _network_block_at(int(payload.get("x", 0)), int(payload.get("y", 0)))
+	if block == null or not is_instance_valid(block):
 		return
-	var view: Variant = _table_map_controller.get_block_view(block)
+	var view: Variant = payload.get("_stable_view")
+	if view == null or not is_instance_valid(view):
+		view = _table_map_controller.get_block_view(block)
 	block.block_state = "destroyed"
 	if view == null or not is_instance_valid(view):
 		return
@@ -2087,7 +2125,13 @@ func _on_block_destroyed(block: Variant, _source: Variant) -> void:
 
 
 func _is_visual_playing() -> bool:
-	return _animation_controller != null and _animation_controller.is_busy()
+	var busy := _animation_controller != null and _animation_controller.is_busy()
+	return should_defer_state_for_visual(_uses_network_display(), busy)
+
+
+static func should_defer_state_for_visual(
+		uses_network_display: bool, animation_busy: bool) -> bool:
+	return animation_busy and not uses_network_display
 
 
 func _process(_delta: float) -> void:
@@ -2227,6 +2271,199 @@ func _on_monster_engaged_target_changed(_monster: Variant, old_target: Variant, 
 	_refresh_panel_for_player(old_target)
 	if new_target != old_target:
 		_refresh_panel_for_player(new_target)
+
+
+func _on_equipment_equipped(player: Variant, card: Variant) -> void:
+	var visual_card: Variant = card.get("equipment_card") \
+		if card != null and is_instance_valid(card) and card.get("equipment_card") != null \
+		else card
+	var source_rect := _local_hand_card_rect(player, visual_card)
+	if source_rect.size != Vector2.ZERO:
+		_hand_area.set_card_visual_hidden(visual_card, true)
+	_on_player_stat_changed(player, card)
+	if source_rect.size == Vector2.ZERO:
+		return
+	var panel := _get_panel_for_player(player)
+	var target_rect: Rect2 = panel.get_equipment_zone_button_global_rect() \
+		if panel != null else Rect2()
+	_animation_controller.play_card_motion(visual_card, source_rect, target_rect, 0.24, true)
+
+
+func _on_equipment_unequipped(player: Variant, card: Variant) -> void:
+	var panel := _get_panel_for_player(player)
+	var source_rect: Rect2 = panel.get_equipment_zone_button_global_rect() \
+		if panel != null else Rect2()
+	var motion_hand_area: HandDisplayArea = _hand_area
+	_on_player_stat_changed(player, card)
+	if not _is_local_controlled_player(player):
+		return
+	_animate_unequipped_card_after_state(
+		player, card, source_rect, motion_hand_area)
+
+
+func _animate_unequipped_card_after_state(player: Variant, card: Variant,
+		source_rect: Rect2, motion_hand_area: HandDisplayArea) -> void:
+	await get_tree().process_frame
+	if player == null or not is_instance_valid(player) or not player.hand.has(card) \
+			or motion_hand_area == null or not is_instance_valid(motion_hand_area):
+		return
+	motion_hand_area.refresh()
+	var target_rect := motion_hand_area.get_card_target_global_rect(card)
+	if target_rect.size == Vector2.ZERO:
+		return
+	motion_hand_area.set_card_visual_hidden(card, true)
+	_animate_card_to_hand(card, source_rect, target_rect, 0.0, motion_hand_area)
+
+
+func _on_card_drawn(player: Variant, card: Variant) -> void:
+	_on_player_stat_changed(player, card)
+	_start_card_draw_motion(player, card, "game_deck")
+
+
+func _on_scavenge_drawn(player: Variant, card: Variant) -> void:
+	_on_pile_drawn(player, card)
+	if not _can_animate_local_hand_card(player, card):
+		return
+	if _has_scavenge_draw_animation(card):
+		_hand_area.set_card_visual_hidden(card, true)
+		_pending_scavenge_hand_motion[card.get_instance_id()] = _hand_area
+		return
+	_start_card_draw_motion(player, card, _scavenge_pile_key(card))
+
+
+func _on_card_discarded(player: Variant, card: Variant) -> void:
+	var source_rect := _local_hand_card_rect(player, card)
+	if source_rect.size != Vector2.ZERO:
+		_hand_area.set_card_visual_hidden(card, true)
+	_on_player_stat_changed(player, card)
+	if source_rect.size == Vector2.ZERO:
+		return
+	var target_rect := _pile_manager.get_pile_rect(_discard_pile_key(card))
+	_animation_controller.play_card_motion(card, source_rect, target_rect, 0.24, true)
+
+
+func _on_card_settlement_started(player: Variant, card: Variant) -> void:
+	var source_rect := _local_hand_card_rect(player, card)
+	if source_rect.size != Vector2.ZERO:
+		_hand_area.set_card_visual_hidden(card, true)
+	_on_player_stat_changed(player, card)
+	if source_rect.size == Vector2.ZERO:
+		return
+	var card_id: int = card.get_instance_id()
+	_settlement_motion_deadlines[card_id] = Time.get_ticks_msec() \
+		+ int(Settings.get_animation_duration(0.22) * 1000.0)
+	_animation_controller.play_card_motion(card, source_rect, _center_card_rect(), 0.22, false)
+
+
+func _on_card_settlement_finished(player: Variant, card: Variant) -> void:
+	_on_player_stat_changed(player, card)
+	if not _is_local_controlled_player(player) or card == null or not is_instance_valid(card):
+		return
+	var card_id: int = card.get_instance_id()
+	var remaining_delay: float = 0.0
+	if _settlement_motion_deadlines.has(card_id):
+		remaining_delay = maxf(
+			(float(_settlement_motion_deadlines[card_id]) - Time.get_ticks_msec()) / 1000.0,
+			0.0)
+		_settlement_motion_deadlines.erase(card_id)
+	if player.hand.has(card):
+		var motion_hand_area: HandDisplayArea = _hand_area
+		var target_rect := motion_hand_area.get_card_target_global_rect(card)
+		if target_rect.size == Vector2.ZERO:
+			return
+		motion_hand_area.set_card_visual_hidden(card, true)
+		_animate_card_to_hand(
+			card, _center_card_rect(), target_rect, remaining_delay, motion_hand_area)
+	else:
+		var discard_rect := _pile_manager.get_pile_rect(_discard_pile_key(card))
+		_animation_controller.play_card_motion(
+			card, _center_card_rect(), discard_rect, 0.22, true, remaining_delay)
+
+
+func _start_card_draw_motion(player: Variant, card: Variant, pile_key: String) -> void:
+	if not _can_animate_local_hand_card(player, card):
+		return
+	var motion_hand_area: HandDisplayArea = _hand_area
+	motion_hand_area.set_card_visual_hidden(card, true)
+	var sequence_index := _pending_draw_motion_count
+	_pending_draw_motion_count += 1
+	_animate_card_draw_after_layout(card, pile_key, motion_hand_area, sequence_index)
+
+
+func _animate_card_draw_after_layout(card: Variant, pile_key: String,
+		motion_hand_area: HandDisplayArea, sequence_index: int) -> void:
+	await get_tree().process_frame
+	if motion_hand_area == null or not is_instance_valid(motion_hand_area):
+		_pending_draw_motion_count = maxi(_pending_draw_motion_count - 1, 0)
+		return
+	var delay: float = Settings.get_animation_duration(
+		minf(float(sequence_index) * 0.045, 0.18))
+	if delay > 0.0:
+		await get_tree().create_timer(delay).timeout
+	var target_rect := motion_hand_area.get_card_target_global_rect(card)
+	if target_rect.size == Vector2.ZERO:
+		motion_hand_area.set_card_visual_hidden(card, false)
+		_pending_draw_motion_count = maxi(_pending_draw_motion_count - 1, 0)
+		return
+	var source_rect := _pile_manager.get_pile_rect(pile_key)
+	await _animate_card_to_hand(
+		card, source_rect, target_rect, 0.0, motion_hand_area)
+	_pending_draw_motion_count = maxi(_pending_draw_motion_count - 1, 0)
+
+
+func _animate_card_to_hand(card: Variant, source_rect: Rect2,
+		target_rect: Rect2, delay: float = 0.0,
+		motion_hand_area: HandDisplayArea = null) -> void:
+	await _animation_controller.play_card_motion(
+		card, source_rect, target_rect, 0.26, false, delay)
+	var destination := motion_hand_area if motion_hand_area != null else _hand_area
+	if destination != null and is_instance_valid(destination):
+		destination.set_card_visual_hidden(card, false)
+
+
+func _can_animate_local_hand_card(player: Variant, card: Variant) -> bool:
+	return _hand_area != null and is_instance_valid(_hand_area) \
+		and _animation_controller != null and is_instance_valid(_animation_controller) \
+		and player != null and is_instance_valid(player) \
+		and card != null and is_instance_valid(card) \
+		and _is_local_controlled_player(player)
+
+
+func _local_hand_card_rect(player: Variant, card: Variant) -> Rect2:
+	if not _can_animate_local_hand_card(player, card):
+		return Rect2()
+	return _hand_area.get_card_global_rect(card)
+
+
+func _center_card_rect() -> Rect2:
+	var viewport_size := get_viewport_rect().size
+	var card_size := Vector2(CardView.PANEL_W, CardView.PANEL_H) * 1.35
+	return Rect2(viewport_size * 0.5 - card_size * 0.5, card_size)
+
+
+func _scavenge_pile_key(card: Variant) -> String:
+	var color_value: Variant = card.get("color") if card != null else null
+	var color_name := String(color_value) if color_value is String else ""
+	if color_name in ["red", "green", "blue"]:
+		return color_name + "_scavenge"
+	return "blue_scavenge"
+
+
+func _discard_pile_key(card: Variant) -> String:
+	var color_value: Variant = card.get("color") if card != null else null
+	if color_value is String and not String(color_value).is_empty():
+		return "scavenge_discard"
+	return "game_discard"
+
+
+func _has_scavenge_draw_animation(card: Variant) -> bool:
+	if card == null or not is_instance_valid(card) or not card.has_method("get_all_skills"):
+		return false
+	for skill in card.get_all_skills():
+		if skill != null and is_instance_valid(skill) and skill.forced \
+				and skill.matches_trigger("on_draw_scavenge_card"):
+			return true
+	return false
 
 
 func _on_player_stat_changed(player: Variant, _arg1: Variant = null, _arg2: Variant = null) -> void:
