@@ -1,0 +1,7 @@
+{
+  "$schema": "variant",
+  "id": "random_boss_spawn",
+  "english_name": "random_boss_spawn",
+  "display_name": "随机Boss刷新",
+  "desc": "开局时，随机选择一个当前任务怪物包之外的怪物包，将其中全部首领级怪物洗入整个怪物牌堆。"
+}

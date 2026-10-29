@@ -748,7 +748,7 @@ func initialize_game(mission: MissionData, variants: Dictionary, seats: Array) -
 			player.current_block = spawn_block
 
 	# 6. 初始化全局牌堆
-	_init_global_piles(mission)
+	_init_global_piles(mission, variants)
 
 	# 7. 初始化任务组件（玩家/地图/牌堆全部就绪后；setup_equip_card 等组件依赖运行时数据）
 	mission_config.setup_components(self)
@@ -828,7 +828,7 @@ func _find_spawn_block(mission: MissionData) -> MapBlock:
 
 
 ## 内部方法：初始化全局牌堆（怪物牌堆 + 拾荒牌堆 + 弃牌堆）。
-func _init_global_piles(mission: MissionData) -> void:
+func _init_global_piles(mission: MissionData, enabled_variants: Dictionary = {}) -> void:
 	# 怪物牌堆
 	monster_pile = Pile.new()
 	monster_discard_pile = Pile.new()
@@ -866,6 +866,8 @@ func _init_global_piles(mission: MissionData) -> void:
 
 	# 首领卡分布到怪物牌堆下半部分（设计约定：所有任务首领卡延迟出现）
 	_distribute_boss_cards_to_bottom_half()
+	if bool(enabled_variants.get("random_boss_spawn", false)):
+		_add_random_extra_pack_bosses(mission.monster_pack_type)
 
 
 ## 内部方法：首领卡分布到怪物牌堆下半部分（设计约定：所有任务首领卡延迟出现）。
@@ -885,6 +887,26 @@ func _distribute_boss_cards_to_bottom_half() -> void:
 	for boss in boss_cards:
 		var pos: int = half + randi() % max(1, monster_pile.cards.size() - half + 1)
 		monster_pile.cards.insert(pos, boss)
+
+
+## 随机选择一个非任务怪物包，将其中全部首领卡随机插入整个怪物牌堆。
+## 候选包或首领卡为空时安全跳过；每种卡仍遵循数据中的 count。
+func _add_random_extra_pack_bosses(mission_pack_type: String) -> void:
+	if monster_pile == null:
+		return
+	var candidates: Array = DataManager.get_monster_pack_types()
+	candidates.erase(mission_pack_type)
+	if candidates.is_empty():
+		return
+	var extra_pack_type: String = String(candidates[randi() % candidates.size()])
+	var extra_pack: Array = DataManager.get_monster_pack(extra_pack_type)
+	for card_data in extra_pack:
+		if card_data.monster_level != "boss":
+			continue
+		for i in card_data.count:
+			var boss: MonsterCard = _create_monster_card_from_data(card_data, extra_pack_type)
+			var pos: int = randi() % (monster_pile.cards.size() + 1)
+			monster_pile.cards.insert(pos, boss)
 
 
 ## 内部方法：按名称在所有颜色的拾荒卡数据中查找匹配项。

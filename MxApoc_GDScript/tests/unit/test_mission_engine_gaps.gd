@@ -206,6 +206,59 @@ func test_initialize_game_distributes_boss_cards_in_monster_pile() -> void:
 		assert_true(idx >= half, "首领卡应位于怪物牌堆下半区（>= " + str(half) + "），实际 " + str(idx))
 
 
+func test_random_boss_spawn_adds_all_bosses_from_one_other_pack() -> void:
+	var mission: MissionData = MissionData.new({"monster_pack_type": "zombie"})
+	var seats: Array = [{"type": "human", "survivor": DataManager.get_survivor("firefighter")}]
+	seed(12345)
+	Game.initialize_game(mission, {"random_boss_spawn": true}, seats)
+	assert_eq(Game.monster_pile.size(), 29, "27 张任务包卡牌应加入另一个包的 2 张首领卡")
+
+	var task_bosses: Array = []
+	var extra_bosses: Array = []
+	var extra_pack_types: Dictionary = {}
+	var non_boss_count: int = 0
+	for card in Game.monster_pile.cards:
+		if card.monster_level != "boss":
+			non_boss_count += 1
+		elif card.monster_type == "zombie":
+			task_bosses.append(card)
+		else:
+			extra_bosses.append(card)
+			extra_pack_types[card.monster_type] = true
+	assert_eq(task_bosses.size(), 2, "任务包原有首领卡数量不应改变")
+	assert_eq(extra_bosses.size(), 2, "应加入随机额外包中的全部首领卡")
+	assert_eq(extra_pack_types.size(), 1, "额外首领卡必须来自同一个非任务怪物包")
+	assert_false(extra_pack_types.has("zombie"), "额外包必须排除当前任务怪物包")
+	var half: int = non_boss_count / 2
+	for boss in task_bosses:
+		assert_true(
+			Game.monster_pile.cards.find(boss) >= half,
+			"任务包首领卡仍应位于牌堆下半区"
+		)
+
+
+func test_random_extra_pack_bosses_can_be_inserted_across_full_deck() -> void:
+	var saw_upper_half := false
+	var saw_lower_half := false
+	for random_seed in range(32):
+		seed(random_seed)
+		Game.monster_pile = Pile.new()
+		for i in 20:
+			Game.monster_pile.add(_make_monster_card("normal_" + str(i), "normal"))
+		Game._add_random_extra_pack_bosses("zombie")
+		assert_eq(Game.monster_pile.size(), 22, "额外怪物包应加入 2 张首领卡")
+		for i in Game.monster_pile.cards.size():
+			var card: MonsterCard = Game.monster_pile.cards[i]
+			if card.monster_type == "zombie":
+				continue
+			if i < 10:
+				saw_upper_half = true
+			else:
+				saw_lower_half = true
+	assert_true(saw_upper_half, "额外首领卡应能随机插入牌堆上半区")
+	assert_true(saw_lower_half, "额外首领卡应能随机插入牌堆下半区")
+
+
 # === 4. setup_components 时序（玩家/地图/牌堆就绪后调用） ===
 
 func test_initialize_game_setup_equip_card_equips_first_player() -> void:

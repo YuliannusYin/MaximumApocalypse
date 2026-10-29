@@ -353,7 +353,7 @@
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
 | `$schema` | String | 是 | 固定 `"variant"` |
-| `id` | String | 是 | 变体 id（`crisis`/`famine`/`shared_fate`，缓存键） |
+| `id` | String | 是 | 变体 id（`crisis`/`famine`/`shared_fate`/`random_boss_spawn`，缓存键） |
 | `english_name` | String | 是 | 英文名（缺省时取 `id`） |
 | `display_name` | String | 是 | 中文显示名 |
 | `desc` | String | 是 | 变体说明 |

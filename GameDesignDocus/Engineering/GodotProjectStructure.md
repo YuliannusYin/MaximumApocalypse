@@ -225,9 +225,9 @@ UI 与输入层。全部 `.gd` 文件如下：
 
 地图块定义：`map_blocks.json`。
 
-### 3.6 data/variants/（3 文件）
+### 3.6 data/variants/（4 文件）
 
-变体数据：`crisis.json`、`famine.json`、`shared_fate.json`。
+变体数据：`crisis.json`、`famine.json`、`shared_fate.json`、`random_boss_spawn.json`。
 
 ### 3.7 data/ 根文件
 

@@ -11,7 +11,12 @@ const MIN_SEATS := 1
 const MAX_SEATS := 6
 ## 房间阶段中用于表示“开局时再随机分配求生者”的保留 id。
 const RANDOM_SURVIVOR_ID := "__random__"
-const DEFAULT_VARIANTS := {"crisis": false, "famine": false, "shared_fate": false}
+const DEFAULT_VARIANTS := {
+	"crisis": false,
+	"famine": false,
+	"shared_fate": false,
+	"random_boss_spawn": false,
+}
 
 ## 当前选中的任务；为 null 表示未选择或随机任务。
 var selected_mission: MissionData = null

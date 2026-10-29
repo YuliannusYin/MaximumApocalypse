@@ -44,13 +44,20 @@ func test_missing_file_loads_defaults() -> void:
 	assert_eq(RoomState.seats.size(), 1)
 	assert_eq(RoomState.seats[0].type, "human")
 	assert_null(RoomState.seats[0].survivor)
+	assert_true(RoomState.variants.has("random_boss_spawn"))
+	assert_false(RoomState.variants["random_boss_spawn"])
 	assert_false(RoomState.online_multiplayer)
 
 
 func test_save_load_roundtrip_mission_variants_seats() -> void:
 	RoomState.selected_mission_is_random = false
 	RoomState.selected_mission = DataManager.get_mission(0)
-	RoomState.variants = {"crisis": true, "famine": false, "shared_fate": true}
+	RoomState.variants = {
+		"crisis": true,
+		"famine": false,
+		"shared_fate": true,
+		"random_boss_spawn": true,
+	}
 	RoomState.seats = [
 		{"type": "human", "survivor": _survivor("firefighter")},
 		{"type": "ai", "survivor": _survivor("hunter")},
@@ -67,10 +74,12 @@ func test_save_load_roundtrip_mission_variants_seats() -> void:
 		assert_true(RoomState.variants["crisis"])
 		assert_false(RoomState.variants["famine"])
 		assert_true(RoomState.variants["shared_fate"])
+		assert_true(RoomState.variants["random_boss_spawn"])
 	else:
 		assert_false(RoomState.variants["crisis"])
 		assert_false(RoomState.variants["famine"])
 		assert_false(RoomState.variants["shared_fate"])
+		assert_false(RoomState.variants["random_boss_spawn"])
 	assert_eq(RoomState.seats.size(), 3)
 	assert_eq(RoomState.seats[0].type, "human")
 	assert_eq(RoomState.seats[0].survivor.english_name, "firefighter")
